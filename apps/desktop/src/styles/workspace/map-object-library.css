@@ -1,0 +1,289 @@
+@layer components {
+  /* =====================================================================
+   * Map editor bottom object panel: a resizable docked strip under the
+   * canvas hosting the object library (category chips + fixed-scale
+   * thumbnails + favorites) and the whole-sheet tab.
+   * ===================================================================== */
+
+  /* ===== Bottom panel shell + top-edge resizer ===== */
+  .map-object-panel {
+    @apply flex flex-none flex-col overflow-hidden;
+    position: relative;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  /* 顶边 6px 热区：上拉增高，悬停/拖拽时显示 accent 线（与 leftcol 分隔条同模式）。 */
+  .map-object-panel-resizer {
+    position: absolute;
+    top: -0.1875rem;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    height: 0.375rem;
+    cursor: row-resize;
+    touch-action: none;
+  }
+
+  .map-object-panel-resizer::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0.125rem;
+    height: 0.125rem;
+    background: transparent;
+  }
+
+  .map-object-panel-resizer:hover::after,
+  .map-object-panel-resizer:active::after {
+    background: var(--accent);
+  }
+
+  /* ===== Panel root ===== */
+  .map-object-library {
+    @apply flex flex-col;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  /* ===== Header: [对象 | 整图] sub-tabs + search ===== */
+  .map-object-library-header {
+    @apply flex flex-none items-center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.375rem 0.625rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .map-object-library-tabs {
+    @apply flex flex-none items-center;
+    gap: 0.25rem;
+  }
+
+  .map-object-library-tab {
+    @apply text-text-secondary inline-flex items-center;
+    min-height: 1.625rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--bg-panel);
+    padding: 0 0.625rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .map-object-library-tab:hover {
+    @apply text-text-primary;
+    background: var(--bg-hover);
+  }
+
+  .map-object-library-tab.is-active {
+    @apply text-text-primary;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+  }
+
+  /* Tab body hosts the docked MapTilesetPalette (整图 tab) and fills leftover height. */
+  .map-object-library-tab-body {
+    @apply min-h-0 min-w-0;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .map-object-library-search {
+    @apply flex min-w-0 flex-1 items-center gap-1.5;
+    max-width: 22rem;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-app);
+  }
+
+  .map-object-library-search:focus-within {
+    border-color: var(--accent);
+  }
+
+  .map-object-library-search-icon {
+    @apply text-text-tertiary flex-none;
+  }
+
+  .map-object-library-search input {
+    @apply text-text-primary min-w-0 flex-1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.75rem;
+    padding: 0;
+  }
+
+  .map-object-library-search input::placeholder {
+    @apply text-text-tertiary;
+  }
+
+  /* ===== Category chips tab strip ===== */
+  .map-object-library-categories {
+    @apply flex flex-none items-center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding: 0.375rem 0.625rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    scrollbar-width: thin;
+  }
+
+  .map-object-library-chip {
+    @apply text-text-secondary inline-flex flex-none items-center;
+    gap: 0.25rem;
+    min-height: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: transparent;
+    padding: 0 0.5625rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .map-object-library-chip:hover {
+    @apply text-text-primary;
+    background: var(--bg-hover);
+  }
+
+  .map-object-library-chip.is-active {
+    @apply text-text-primary;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+  }
+
+  /* ===== Virtualized object grid ===== */
+  .map-object-library-grid {
+    @apply min-h-0 min-w-0 flex-1 overflow-auto;
+    padding: 0.5rem 0.625rem;
+  }
+
+  .map-object-library-virtual {
+    @apply relative min-w-0;
+  }
+
+  .map-object-library-row {
+    @apply absolute flex items-start;
+    top: 0;
+    left: 0;
+    width: 100%;
+    gap: 0.375rem;
+  }
+
+  /* One object cell: pick button + floating star. */
+  .map-object-library-object {
+    @apply relative flex flex-none;
+  }
+
+  .map-object-library-object-pick {
+    @apply flex min-w-0 flex-1 flex-col items-center;
+    gap: 0.125rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.125rem 0.125rem;
+    cursor: pointer;
+  }
+
+  .map-object-library-object-pick:hover:not(:disabled) {
+    background: var(--bg-hover);
+  }
+
+  .map-object-library-object-pick.is-disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  /* Thumbnail box: checkerboard backdrop + centered sprite crop; size set inline per object. */
+  .map-object-library-object-thumb {
+    @apply grid place-items-center;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-panel-muted);
+    background-image: conic-gradient(var(--border-color) 25%, transparent 0 50%, var(--border-color) 0 75%, transparent 0);
+    background-size: 0.5rem 0.5rem;
+  }
+
+  .map-object-library-object-sprite {
+    @apply block;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+  }
+
+  .map-object-library-object-name {
+    @apply text-text-secondary w-full overflow-hidden text-center;
+    font-size: 0.6875rem;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Favorite star: floats top-right of the cell, visible on hover or when set. */
+  .map-object-library-object-fav {
+    @apply text-text-tertiary grid place-items-center;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 0.15s ease,
+      color 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .map-object-library-object:hover .map-object-library-object-fav,
+  .map-object-library-object-fav:focus-visible,
+  .map-object-library-object-fav.is-favorite {
+    opacity: 1;
+  }
+
+  .map-object-library-object-fav:hover {
+    @apply text-text-primary;
+    background: var(--bg-hover);
+  }
+
+  .map-object-library-object-fav.is-favorite {
+    color: var(--accent);
+  }
+
+  /* ===== Empty / loading / unavailable states ===== */
+  .map-object-library-state {
+    @apply text-text-secondary text-meta grid place-items-center gap-2 text-center;
+    flex: 1 1 auto;
+    min-height: 4rem;
+    padding: 1rem;
+  }
+
+  /* ===== Patch-tiles session sheet-tab hint ===== */
+  .map-tiles-session-tileset-hint {
+    @apply text-text-tertiary m-0 flex-none;
+    border-top: 1px solid var(--border-color);
+    padding: 0.375rem 0.625rem;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+}

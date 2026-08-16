@@ -93,6 +93,7 @@ function MapCatalogPreview({ entry, resources }: { entry: MapCatalogEntry; resou
       locale: resources.locale,
       width: 240,
       height: 176,
+      gameRootPath: resources.gameRootPath,
     }).then(
       (url) => {
         if (!cancelled) setThumbnailUrl(url)
@@ -104,7 +105,7 @@ function MapCatalogPreview({ entry, resources }: { entry: MapCatalogEntry; resou
     return () => {
       cancelled = true
     }
-  }, [document, entry.asset, entry.id, resources.locale])
+  }, [document, entry.asset, entry.id, resources.gameRootPath, resources.locale])
 
   return (
     <div ref={hostRef} className="map-catalog-preview" aria-hidden="true">

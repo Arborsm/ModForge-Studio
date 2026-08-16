@@ -17,19 +17,22 @@ type MapLayerThumbnailProps = {
   layer: MapLayer
   /** Locale used for localized tileset image resolution. */
   locale: LocaleCode
+  /** Game root used to resolve dynamically referenced vanilla sheets; null leaves them out of the preview. */
+  gameRootPath?: string | null
 }
 
 type RenderInput = {
   layer: MapLayer
   tilesets: MapDocument['tilesets']
   locale: LocaleCode
+  gameRootPath: string | null
 }
 
-async function renderLayerThumbnail(document: MapDocument, layer: MapLayer, locale: LocaleCode) {
+async function renderLayerThumbnail(document: MapDocument, layer: MapLayer, locale: LocaleCode, gameRootPath: string | null) {
   const sortedTilesets = [...document.tilesets].sort((left, right) => left.firstGid - right.firstGid)
   const results = await Promise.allSettled(
     sortedTilesets.map(async (tileset) => {
-      const path = resolveTilesetImagePath(document, tileset)
+      const path = resolveTilesetImagePath(document, tileset, gameRootPath)
       if (!path) return null
       const image = await loadImage(path, locale, (failedPath) => `Failed to load tileset image: ${failedPath}`)
       return [tileset.firstGid, { image, tileset }] as const
@@ -86,7 +89,7 @@ async function renderLayerThumbnail(document: MapDocument, layer: MapLayer, loca
  * without the settled check the second run would skip re-rendering and the
  * thumbnail would stay on the placeholder forever.
  */
-export function MapLayerThumbnail({ document, layer, locale }: MapLayerThumbnailProps) {
+export function MapLayerThumbnail({ document, layer, locale, gameRootPath = null }: MapLayerThumbnailProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   const lastInputRef = useRef<RenderInput | null>(null)
   /** Whether the render for the recorded input committed (success or failure); a discarded in-flight render leaves this false and is retried. */
@@ -99,11 +102,12 @@ export function MapLayerThumbnail({ document, layer, locale }: MapLayerThumbnail
       lastInput &&
       lastInput.layer === layer &&
       lastInput.tilesets === document.tilesets &&
-      lastInput.locale === locale
+      lastInput.locale === locale &&
+      lastInput.gameRootPath === gameRootPath
     ) {
       return
     }
-    lastInputRef.current = { layer, tilesets: document.tilesets, locale }
+    lastInputRef.current = { layer, tilesets: document.tilesets, locale, gameRootPath }
     if (layer.nonEmptyTiles === 0) {
       settledRef.current = true
       setDataUrl(null)
@@ -111,7 +115,7 @@ export function MapLayerThumbnail({ document, layer, locale }: MapLayerThumbnail
     }
     settledRef.current = false
     let cancelled = false
-    void renderLayerThumbnail(document, layer, locale)
+    void renderLayerThumbnail(document, layer, locale, gameRootPath)
       .then((nextDataUrl) => {
         if (!cancelled) {
           settledRef.current = true
@@ -127,7 +131,7 @@ export function MapLayerThumbnail({ document, layer, locale }: MapLayerThumbnail
     return () => {
       cancelled = true
     }
-  }, [document, layer, locale])
+  }, [document, layer, locale, gameRootPath])
 
   if (dataUrl) {
     return <img className="map-asset-layer-thumbnail" src={dataUrl} alt="" draggable={false} />

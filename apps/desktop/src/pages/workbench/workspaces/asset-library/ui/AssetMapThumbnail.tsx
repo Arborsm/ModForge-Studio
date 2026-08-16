@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { loadMapThumbnail } from '@entities/map'
 import { useLocale } from '@locales/provider'
-import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
+import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import { parseProjectMapDocument } from '../model/projectMapPreview'
 
 /**
@@ -50,6 +50,7 @@ export function AssetMapThumbnail({
 }) {
   const project = useWorkbenchProject()
   const locale = useLocale()
+  const gameRootPath = useWorkbenchEnvironment().directoryInfo?.rootPath ?? null
   const hostRef = useRef<HTMLSpanElement>(null)
   const [visible, setVisible] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
@@ -87,7 +88,7 @@ export function AssetMapThumbnail({
           return undefined
         }
         const cacheKey = `project:${assetPath}:${sha256}:${document.sourcePath}:${document.width}x${document.height}`
-        return loadMapThumbnail(document, { cacheKey, locale, width, height })
+        return loadMapThumbnail(document, { cacheKey, locale, width, height, gameRootPath })
       })
       .then((url) => {
         if (!cancelled && typeof url === 'string') setThumbnailUrl(url)
@@ -98,7 +99,7 @@ export function AssetMapThumbnail({
     return () => {
       cancelled = true
     }
-  }, [assetPath, draftStorageKey, height, locale, loadProjectMapAsset, sha256, visible, width])
+  }, [assetPath, draftStorageKey, gameRootPath, height, locale, loadProjectMapAsset, sha256, visible, width])
 
   return (
     <span ref={hostRef} className="asset-map-thumbnail" aria-hidden="true">

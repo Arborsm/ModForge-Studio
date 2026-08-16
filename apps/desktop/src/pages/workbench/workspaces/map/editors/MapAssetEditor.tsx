@@ -2,8 +2,13 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowLeft, BadgeCheck, Eraser, FileOutput, MousePointer2, Paintbrush, Plus, Save } from 'lucide-react'
 import {
+  GAME_FURNITURE_SOURCE,
   MapTilesetPalette,
   MapViewport,
+  PROJECT_MAP_OBJECTS_SOURCE,
+  parseMapObjectsJson,
+  registerMapObjects,
+  unregisterMapObjects,
   type MapDocument,
   type MapInspectorHighlight,
   type MapTileRect,
@@ -22,17 +27,15 @@ import {
 } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import { planCellAnimationHoist } from '@entities/map'
-import { loadImageDataUrl, type GameImageAssetSummary } from '@entities/game/api'
+import { registerCustomTilesheets, unregisterCustomTilesheets } from '@entities/map'
 import { type AssetDraftPort, type DraftPatch, type EditorComponent, type EditorResources } from '@features/cp-maker'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { type ResourceBrowserOption } from '@features/resource-browser'
-import { useMapAuthoringCopy } from '@locales/provider'
+import { useMapAuthoringCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { measureImageDimensions } from '@shared/lib/assets'
+import { OBJECT_PANEL_MAX_HEIGHT, OBJECT_PANEL_MIN_HEIGHT, usePreferencesStore } from '@shared/lib/app-state'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
-import { availableAssetPath } from '../../asset-library/model/importGameMap'
-import { dataUrlToProjectAsset } from '../../asset-library/model/importGameAsset'
 import {
   applyMapAssetStroke,
   collectMapAssetLayerNameIssues,
@@ -46,9 +49,14 @@ import { collectPatchesReferencingAsset, tmxConversionPath } from '../model/mapA
 import { rectangleTilePoints } from '../model/mapPatchReducer'
 import { isValidTsxSource } from '../model/mapTilesetSource'
 import { loadGameMapDocument } from '../model/gameMapLoad'
+import {
+  PROJECT_TILESHEET_CATALOG_PATH,
+  PROJECT_TILESHEET_CATALOG_SOURCE,
+  loadProjectTilesheetCatalog,
+  saveGameSheetImageSources,
+} from '../model/gameSheetTilesets'
 import { mapCatalogCategory } from '../state/mapAuthoringCatalog'
 import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
-import { GameTilesheetPickerDialog } from './core/GameTilesheetPickerDialog'
 import { MapAssetEditorHistoryPanel } from './core/MapAssetEditorHistoryPanel'
 import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
@@ -57,7 +65,9 @@ import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
 import { MapAssetTopBarChips } from './core/MapAssetTopBarChips'
 import { MapCanvasZoomChip } from './core/MapCanvasZoomChip'
 import { useMapDocumentEditor, type AssetTool } from './core/useMapDocumentEditor'
+import { MapObjectLibraryPanel } from './core/MapObjectLibraryPanel'
 import type { WarpDialogMapOption } from './core/WarpDialog'
+import { loadGameFurnitureObjects } from '../model/furnitureObjects'
 import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 import { useObjectLightItemIndex } from '../state/useObjectLightItemIndex'
 
@@ -79,6 +89,19 @@ function hostMapDocument(document: MapDocument) {
 function initialAssetPath(document: MapDocument, fromFile: string | undefined) {
   const source = fromFile?.trim() || document.relativePath.trim() || `assets/maps/${document.name}.tmx`
   return /\.(?:tmx|tbin|xnb)$/iu.test(source) ? source : source.replace(/\.[^./\\]+$/u, '') + '.tmx'
+}
+
+/** 项目可选的对象目录文件；缺失时对象库只保留 bundled + 游戏家具条目。 */
+const PROJECT_MAP_OBJECTS_PATH = 'assets/map-objects.json'
+
+/** 把项目资产的 base64 字节按 UTF-8 解码为文本（对象目录 JSON 是文本文件）。 */
+function base64ToText(base64: string) {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return new TextDecoder().decode(bytes)
 }
 
 /** Standalone TMX/TBin authoring page backed by a project-library map asset. */
@@ -120,6 +143,7 @@ function MapAssetEditorContent({
 }) {
   const authoringCopy = useMapAuthoringCopy()
   const copy = authoringCopy.assetEditor
+  const patchEditorCopy = useEditorCopy().studioDesk.mapPatchEditor
   const assetPath = initialAssetPath(document, patch.fromFile)
   const imageAssets = project.projectAssets.filter((asset) => asset.mediaType.startsWith('image/'))
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
@@ -142,6 +166,10 @@ function MapAssetEditorContent({
   const [isSplitDragging, setIsSplitDragging] = useState(false)
   /** Canvas highlight driven by inspector entry hover; null clears it. */
   const [inspectorHighlight, setInspectorHighlight] = useState<MapInspectorHighlight | null>(null)
+  /** Bottom object panel height follows the responsive preference; the resizer writes it back. */
+  const objectPanelHeight = usePreferencesStore((state) => state.mapEditorPalette.objectPanelHeight)
+  const setMapEditorPalette = usePreferencesStore((state) => state.setMapEditorPalette)
+  const objectPanelResizeRef = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null)
 
   useEffect(
     () => () => {
@@ -224,8 +252,6 @@ function MapAssetEditorContent({
   const activeLayer = editor.activeLayer
   const selectedTileset = editor.selectedTileset
   const paletteSelection = editor.paletteSelection
-  const [gameTilesetPickerOpen, setGameTilesetPickerOpen] = useState(false)
-  const [addingGameTileset, setAddingGameTileset] = useState<string | null>(null)
   const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
   const [lightingSeason, setLightingSeason] = useState<GameSeason>('spring')
   const objectLightIndex = useObjectLightItemIndex(resources.directoryInfo, resources.locale)
@@ -320,31 +346,101 @@ function MapAssetEditorContent({
   }, [editor.activeLayerId, editor.overlayActive, editor.overlayPaintPreview, editor.overlayRule, editor.renderDocument])
 
   /**
-   * Copies a vanilla game tilesheet into the project under
-   * `assets/maps/tilesheets/` (deduplicating names), then attaches it to the
-   * map through the standard addTileset path. Dimensions are validated before
-   * the copy so a rejected tilesheet never leaves an orphan project asset.
+   * Loads the project's custom tilesheet descriptor (`assets/tilesheets.json`)
+   * and registers its entries into the shared catalog registry, so users can
+   * dynamically reference game-directory sheets beyond the bundled vanilla
+   * catalog. A missing file simply unregisters; a schema error surfaces in the
+   * save status line without blocking editing.
    */
-  async function addGameTilesheet(asset: GameImageAssetSummary) {
-    setAddingGameTileset(asset.relativePath)
-    try {
-      const dataUrl = await loadImageDataUrl(asset.absolutePath, resources.locale)
-      const dimensions = await measureImageDimensions(dataUrl)
-      if (dimensions.width % mapDocument.tileWidth !== 0 || dimensions.height % mapDocument.tileHeight !== 0) {
-        throw new Error(copy.invalidTilesetDimensions(dimensions.width, dimensions.height, mapDocument.tileWidth, mapDocument.tileHeight))
-      }
-      const safeName = (asset.name.split('/').at(-1) ?? 'tilesheet').replace(/[^A-Za-z0-9._-]+/gu, '_') || 'tilesheet'
-      const usedPaths = new Set(project.projectAssets.map((entry) => entry.relativePath.replaceAll('\\', '/').toLowerCase()))
-      const imagePath = availableAssetPath(`assets/maps/tilesheets/${safeName}.png`, usedPaths)
-      await project.writeProjectAssets([dataUrlToProjectAsset(dataUrl, imagePath, copy.loadingTileset)], 'generated')
-      await editor.addTileset(imagePath)
-      setGameTilesetPickerOpen(false)
-    } catch (error) {
-      editor.setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
-    } finally {
-      setAddingGameTileset(null)
+  useEffect(() => {
+    const catalogAsset = project.projectAssets.find(
+      (asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase() === PROJECT_TILESHEET_CATALOG_PATH,
+    )
+    if (!catalogAsset) {
+      unregisterCustomTilesheets(PROJECT_TILESHEET_CATALOG_SOURCE)
+      return
     }
-  }
+    let active = true
+    void loadProjectTilesheetCatalog(project.readProjectAsset, catalogAsset.relativePath).then((result) => {
+      if (!active) return
+      if (result.status === 'ok') {
+        registerCustomTilesheets(PROJECT_TILESHEET_CATALOG_SOURCE, result.sheets)
+        return
+      }
+      unregisterCustomTilesheets(PROJECT_TILESHEET_CATALOG_SOURCE)
+      if (result.status === 'error') {
+        editor.setSaveState({ status: 'error', message: copy.sheetCatalogInvalid(result.message) })
+      }
+    })
+    return () => {
+      active = false
+      unregisterCustomTilesheets(PROJECT_TILESHEET_CATALOG_SOURCE)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.projectAssets, project.readProjectAsset])
+
+  /**
+   * Registers the game furniture catalog into the object-library registry:
+   * derived from the connected game directory each time the root changes.
+   * A derivation failure only warns (the bundled catalog keeps working) and
+   * the source unregisters on cleanup or when the root goes away.
+   */
+  useEffect(() => {
+    if (!resources.gameRootPath) {
+      unregisterMapObjects(GAME_FURNITURE_SOURCE)
+      return
+    }
+    let active = true
+    void loadGameFurnitureObjects(resources.gameRootPath, resources.locale)
+      .then((objects) => {
+        if (active) registerMapObjects(GAME_FURNITURE_SOURCE, objects)
+      })
+      .catch((error) => {
+        if (active) console.warn('Failed to load game furniture objects:', error)
+      })
+    return () => {
+      active = false
+      unregisterMapObjects(GAME_FURNITURE_SOURCE)
+    }
+  }, [resources.gameRootPath, resources.locale])
+
+  /**
+   * Registers the project's optional `assets/map-objects.json` catalog. A
+   * missing file simply unregisters; a schema error surfaces in the save
+   * status line without blocking editing.
+   */
+  useEffect(() => {
+    const catalogAsset = project.projectAssets.find(
+      (asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase() === PROJECT_MAP_OBJECTS_PATH,
+    )
+    if (!catalogAsset) {
+      unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
+      return
+    }
+    let active = true
+    void project
+      .readProjectAsset(catalogAsset.relativePath)
+      .then(({ bytesBase64 }) => {
+        if (!active) return
+        const result = parseMapObjectsJson(base64ToText(bytesBase64), PROJECT_MAP_OBJECTS_SOURCE)
+        if (result.ok) {
+          registerMapObjects(PROJECT_MAP_OBJECTS_SOURCE, result.objects)
+          return
+        }
+        unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
+        editor.setSaveState({ status: 'error', message: copy.sheetCatalogInvalid(result.error) })
+      })
+      .catch(() => {
+        // 可选文件读取失败按缺失处理：只卸载，不报错。
+        if (!active) return
+        unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
+      })
+    return () => {
+      active = false
+      unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.projectAssets, project.readProjectAsset])
 
   /**
    * Save message suffix counting per-cell animations the TMX write will hoist
@@ -367,7 +463,10 @@ function MapAssetEditorContent({
         relativePath: assetPath,
         format: assetPath.toLowerCase().endsWith('.tbin') ? ('tbin' as const) : ('tmx' as const),
       }
-      const result = await buildCpMakerMapAsset({ relativePath: assetPath, mapDocument: hostMapDocument(normalizedDocument) })
+      const result = await buildCpMakerMapAsset({
+        relativePath: assetPath,
+        mapDocument: hostMapDocument(saveGameSheetImageSources(normalizedDocument, normalizedDocument.format)),
+      })
       const asset = result.asset
       await project.writeProjectAssets([...result.companionAssets, asset], 'edited')
       draftPort.updatePatch(
@@ -402,7 +501,10 @@ function MapAssetEditorContent({
         relativePath: newPath,
         format: 'tmx' as const,
       }
-      const result = await buildCpMakerMapAsset({ relativePath: newPath, mapDocument: hostMapDocument(normalizedDocument) })
+      const result = await buildCpMakerMapAsset({
+        relativePath: newPath,
+        mapDocument: hostMapDocument(saveGameSheetImageSources(normalizedDocument, 'tmx')),
+      })
       const asset = result.asset
       await project.writeProjectAssets([...result.companionAssets, asset], 'edited')
       for (const patchId of collectPatchesReferencingAsset(draftPort.draft.patches, assetPath)) {
@@ -783,20 +885,63 @@ function MapAssetEditorContent({
                 )
               }}
             />
-            {editor.paletteOpen ? (
-              <MapTilesetPalette
-                document={editor.renderDocument}
-                locale={resources.locale}
-                selection={editor.paletteSelection}
-                onSelectionChange={(selection) => {
-                  editor.setPaletteSelection(selection)
-                  editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-                }}
-                onClose={() => editor.setPaletteOpen(false)}
-                resizeLabel={copy.paletteResize}
-              />
-            ) : null}
           </div>
+          {editor.paletteOpen ? (
+            <div className="map-object-panel" style={{ height: `${objectPanelHeight}px` }}>
+              <div
+                className="map-object-panel-resizer"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label={patchEditorCopy.objectLibraryResize}
+                title={patchEditorCopy.objectLibraryResize}
+                onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+                  if (event.button !== 0) return
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  objectPanelResizeRef.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: objectPanelHeight }
+                }}
+                onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
+                  const session = objectPanelResizeRef.current
+                  if (!session || session.pointerId !== event.pointerId) return
+                  const next = Math.min(
+                    OBJECT_PANEL_MAX_HEIGHT,
+                    Math.max(OBJECT_PANEL_MIN_HEIGHT, Math.round(session.startHeight + session.startY - event.clientY)),
+                  )
+                  setMapEditorPalette({ objectPanelHeight: next })
+                }}
+                onPointerUp={(event: PointerEvent<HTMLDivElement>) => {
+                  objectPanelResizeRef.current = null
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId)
+                  }
+                }}
+                onPointerCancel={() => {
+                  objectPanelResizeRef.current = null
+                }}
+              />
+              <MapObjectLibraryPanel
+                gameRootPath={resources.gameRootPath}
+                locale={resources.locale}
+                canAttach={editor.capabilities.tilesetManagement}
+                attachedTilesets={document.tilesets}
+                onPickObject={editor.pickCatalogObject}
+                sheetTab={
+                  <MapTilesetPalette
+                    document={editor.renderDocument}
+                    locale={resources.locale}
+                    selection={editor.paletteSelection}
+                    onSelectionChange={(selection) => {
+                      editor.setPaletteSelection(selection)
+                      editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+                    }}
+                    gameRootPath={resources.gameRootPath}
+                    onAttachGameSheet={editor.attachGameSheet}
+                    projectImageOptions={tilesetOptions.map((option) => ({ value: option.value, label: option.label }))}
+                    onAddProjectImage={(relativePath) => void editor.addTileset(relativePath)}
+                  />
+                }
+              />
+            </div>
+          ) : null}
         </main>
 
         <MapAssetEditorInspector
@@ -833,10 +978,9 @@ function MapAssetEditorContent({
             viewportRef.current?.centerOnWorldPoint(object.x + object.width / 2, object.y + object.height / 2)
           }}
           onAddTileset={editor.addTileset}
-          onAddGameTileset={() => setGameTilesetPickerOpen(true)}
+          onAttachGameSheet={editor.attachGameSheet}
+          gameRootPath={resources.gameRootPath}
           objectLightIndex={objectLightIndex}
-          gameTilesetAvailable={Boolean(resources.gameRootPath)}
-          gameTilesetUnavailableTitle={copy.gameTilesetNoGameRoot}
           mapOptions={warpMapOptions}
           loadTargetDocument={loadWarpTargetDocument}
           onLocateLayer={(layerId) => editor.setActiveLayerId(layerId)}
@@ -891,15 +1035,6 @@ function MapAssetEditorContent({
           </DialogAction>
         </DialogFooter>
       </Dialog>
-
-      <GameTilesheetPickerDialog
-        open={gameTilesetPickerOpen}
-        gameRootPath={resources.gameRootPath}
-        locale={resources.locale}
-        busyAssetPath={addingGameTileset}
-        onClose={() => setGameTilesetPickerOpen(false)}
-        onPick={(asset) => void addGameTilesheet(asset)}
-      />
     </div>
   )
 }

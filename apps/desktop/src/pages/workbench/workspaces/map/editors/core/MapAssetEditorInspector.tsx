@@ -1,10 +1,11 @@
-import { Crosshair, FileOutput, Gamepad2, Plus, Trash2 } from 'lucide-react'
+import { Crosshair, FileOutput, Plus, Trash2 } from 'lucide-react'
 import {
   asMapPropertyString,
   findTilesetForGid,
   hasMixedFrameDurations,
   isLightMarkerObject,
   listPlacedLightItemOptions,
+  MapTilesheetPicker,
   resolveMapObjectItemReference,
   resolveMapObjectLightIsOn,
   resolvePlacedItemQualifiedId,
@@ -18,6 +19,7 @@ import {
   type MapTileset,
   type MapTilesetPaletteSelection,
   type ObjectLightItemIndex,
+  type VanillaTilesheetEntry,
 } from '@entities/map'
 import { type ResourceBrowserOption, ResourcePicker } from '@features/resource-browser'
 import type { LocaleCode, ThemeMode } from '@locales/api'
@@ -65,14 +67,12 @@ export type MapAssetEditorInspectorProps = {
   /** Selects an object and centers the canvas viewport on it. */
   onLocateObject: (object: MapObject) => void
   onAddTileset: (relativePath: string, replaceName?: string) => Promise<void>
-  /** Opens the vanilla game tilesheet picker; omitted in session modes. */
-  onAddGameTileset?: (() => void) | null
+  /** Attaches a vanilla game sheet as a dynamic reference; omitted in session modes. */
+  onAttachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
+  /** Game root used to resolve dynamically referenced vanilla sheets; null disables game-sheet entries. */
+  gameRootPath?: string | null
   /** Light-item index for the marker item picker; null until game data loads. */
   objectLightIndex?: ObjectLightItemIndex | null
-  /** Whether the game tilesheet entry is usable (a game directory is connected). */
-  gameTilesetAvailable?: boolean
-  /** Disabled-state title for the game tilesheet entry. */
-  gameTilesetUnavailableTitle?: string | null
   /** Target-map choices for the warp dialog (localized names from the map catalog). */
   mapOptions?: readonly WarpDialogMapOption[]
   /** Loads a target map document for the warp destination preview. */
@@ -126,10 +126,9 @@ export function MapAssetEditorInspector({
   onAddTileDataObject,
   onLocateObject,
   onAddTileset,
-  onAddGameTileset,
+  onAttachGameSheet,
+  gameRootPath = null,
   objectLightIndex = null,
-  gameTilesetAvailable = false,
-  gameTilesetUnavailableTitle,
   mapOptions,
   loadTargetDocument,
   onLocateLayer,
@@ -209,6 +208,7 @@ export function MapAssetEditorInspector({
             mapOptions={mapOptions}
             loadTargetDocument={loadTargetDocument}
             onHighlightInspector={onHighlightInspector}
+            gameRootPath={gameRootPath}
             locale={locale}
             theme={theme}
             accentColor={accentColor}
@@ -351,33 +351,21 @@ export function MapAssetEditorInspector({
             <header>
               <strong>{copy.tilesetsTitle}</strong>
             </header>
-            <ResourcePicker
-              value=""
-              label={copy.addTileset}
-              placeholder={copy.chooseImage}
-              options={tilesetOptions}
-              selectionMode="confirm"
-              triggerClassName="control-button"
-              triggerContent={
+            <MapTilesheetPicker
+              attachedTilesets={document.tilesets}
+              projectImageOptions={tilesetOptions.map((option) => ({ value: option.value, label: option.label }))}
+              gameSheetsEnabled={gameRootPath !== null}
+              onPickGameSheet={onAttachGameSheet ?? undefined}
+              onPickProjectImage={(relativePath) => void onAddTileset(relativePath)}
+              triggerLabel={
                 <>
                   <Plus className="h-3.5 w-3.5" />
                   {copy.addTileset}
                 </>
               }
-              onSelect={(value) => void onAddTileset(value)}
+              triggerTitle={copy.addTileset}
+              triggerClassName="control-button"
             />
-            {onAddGameTileset ? (
-              <button
-                type="button"
-                className="control-button"
-                disabled={!gameTilesetAvailable}
-                title={gameTilesetAvailable ? undefined : (gameTilesetUnavailableTitle ?? undefined)}
-                onClick={onAddGameTileset}
-              >
-                <Gamepad2 className="h-3.5 w-3.5" />
-                {copy.addGameTileset}
-              </button>
-            ) : null}
             {selectedTileset ? (
               <section className="map-asset-tileset-details">
                 <strong>{selectedTileset.name}</strong>

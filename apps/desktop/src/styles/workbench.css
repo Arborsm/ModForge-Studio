@@ -35,8 +35,9 @@
 @import './workspace/asset-library-load-bindings.css';
 @import './workspace/item-data-editor.css';
 @import './workspace/map-authoring.css';
-@import './workspace/map-game-tilesheets.css';
 @import './workspace/map-tileset-palette.css';
+@import './workspace/map-object-library.css';
+@import './workspace/map-tilesheet-picker.css';
 @import './features/map-patch-workspace.css';
 @import './workspace/ai-localization.css';
 @import './workspace/ai-localization-overview.css';

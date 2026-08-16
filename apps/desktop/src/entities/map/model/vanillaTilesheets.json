@@ -1,0 +1,791 @@
+{
+  "version": 1,
+  "sheets": [
+    {
+      "key": "Maps/CarolineGreenhouseTiles",
+      "name": "CarolineGreenhouseTiles",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/CarolineGreenhouseTiles_rainy",
+      "name": "CarolineGreenhouseTiles_rainy",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/DesertTiles",
+      "name": "DesertTiles",
+      "imageWidth": 256,
+      "imageHeight": 368
+    },
+    {
+      "key": "Maps/DesertTiles_Extended",
+      "name": "DesertTiles_Extended",
+      "imageWidth": 48,
+      "imageHeight": 176
+    },
+    {
+      "key": "Maps/ElliottHouseTiles",
+      "name": "ElliottHouseTiles",
+      "imageWidth": 64,
+      "imageHeight": 224
+    },
+    {
+      "key": "Maps/ElliottSeaTiles",
+      "name": "ElliottSeaTiles",
+      "imageWidth": 96,
+      "imageHeight": 80
+    },
+    {
+      "key": "Maps/EmilyDreamscapeTiles",
+      "name": "EmilyDreamscapeTiles",
+      "imageWidth": 128,
+      "imageHeight": 192
+    },
+    {
+      "key": "Maps/Farm Obelisk",
+      "name": "Farm Obelisk",
+      "imageWidth": 48,
+      "imageHeight": 144
+    },
+    {
+      "key": "Maps/Festivals",
+      "name": "Festivals",
+      "imageWidth": 512,
+      "imageHeight": 512
+    },
+    {
+      "key": "Maps/FishingDerbyTiles",
+      "name": "FishingDerbyTiles",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/FishingDerbyTiles_international",
+      "name": "FishingDerbyTiles_international",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/HarveyBalloonTiles",
+      "name": "HarveyBalloonTiles",
+      "imageWidth": 751,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/Island_FieldOffice_Tilesheet",
+      "name": "Island_FieldOffice_Tilesheet",
+      "imageWidth": 160,
+      "imageHeight": 192
+    },
+    {
+      "key": "Maps/Island_Hut_tilesheet",
+      "name": "Island_Hut_tilesheet",
+      "imageWidth": 256,
+      "imageHeight": 288
+    },
+    {
+      "key": "Maps/JojaRuins_TileSheet",
+      "name": "JojaRuins_TileSheet",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/LeoTreeHouse_Tilesheet",
+      "name": "LeoTreeHouse_Tilesheet",
+      "imageWidth": 112,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/MenuTiles",
+      "name": "MenuTiles",
+      "imageWidth": 256,
+      "imageHeight": 1152
+    },
+    {
+      "key": "Maps/MenuTilesUncolored",
+      "name": "MenuTilesUncolored",
+      "imageWidth": 256,
+      "imageHeight": 1024
+    },
+    {
+      "key": "Maps/MovieTheaterJoja_TileSheet",
+      "name": "MovieTheaterJoja_TileSheet",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/MovieTheaterJoja_TileSheet_international",
+      "name": "MovieTheaterJoja_TileSheet_international",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/MovieTheaterScreen_TileSheet",
+      "name": "MovieTheaterScreen_TileSheet",
+      "imageWidth": 320,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/MovieTheater_TileSheet",
+      "name": "MovieTheater_TileSheet",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/SewerTiles",
+      "name": "SewerTiles",
+      "imageWidth": 128,
+      "imageHeight": 176
+    },
+    {
+      "key": "Maps/WitchHutTiles",
+      "name": "WitchHutTiles",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/bathhouse_tiles",
+      "name": "bathhouse_tiles",
+      "imageWidth": 240,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/boatTunnelTiles",
+      "name": "boatTunnelTiles",
+      "imageWidth": 160,
+      "imageHeight": 208
+    },
+    {
+      "key": "Maps/bugLandTiles",
+      "name": "bugLandTiles",
+      "imageWidth": 128,
+      "imageHeight": 224
+    },
+    {
+      "key": "Maps/busPeople",
+      "name": "busPeople",
+      "imageWidth": 1408,
+      "imageHeight": 1344
+    },
+    {
+      "key": "Maps/cave",
+      "name": "cave",
+      "imageWidth": 96,
+      "imageHeight": 192
+    },
+    {
+      "key": "Maps/characterSheet",
+      "name": "characterSheet",
+      "imageWidth": 128,
+      "imageHeight": 288
+    },
+    {
+      "key": "Maps/coopTiles",
+      "name": "coopTiles",
+      "imageWidth": 64,
+      "imageHeight": 336
+    },
+    {
+      "key": "Maps/darkroom_tiles",
+      "name": "darkroom_tiles",
+      "imageWidth": 112,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/desert_festival_tilesheet",
+      "name": "desert_festival_tilesheet",
+      "imageWidth": 512,
+      "imageHeight": 544
+    },
+    {
+      "key": "Maps/desert_festival_tilesheet_text",
+      "name": "desert_festival_tilesheet_text",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/desert_festival_tilesheet_text_international",
+      "name": "desert_festival_tilesheet_text_international",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/fall_Shadows",
+      "name": "fall_Shadows",
+      "imageWidth": 304,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/fall_Waterfalls",
+      "name": "fall_Waterfalls",
+      "imageWidth": 576,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/fall_beach",
+      "name": "fall_beach",
+      "imageWidth": 272,
+      "imageHeight": 496
+    },
+    {
+      "key": "Maps/fall_island_tilesheet_1",
+      "name": "fall_island_tilesheet_1",
+      "imageWidth": 512,
+      "imageHeight": 640
+    },
+    {
+      "key": "Maps/fall_monsterGraveTiles",
+      "name": "fall_monsterGraveTiles",
+      "imageWidth": 48,
+      "imageHeight": 80
+    },
+    {
+      "key": "Maps/fall_outdoorTileSheet_extra",
+      "name": "fall_outdoorTileSheet_extra",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/fall_outdoorsTileSheet",
+      "name": "fall_outdoorsTileSheet",
+      "imageWidth": 400,
+      "imageHeight": 1264
+    },
+    {
+      "key": "Maps/fall_outdoorsTileSheet2",
+      "name": "fall_outdoorsTileSheet2",
+      "imageWidth": 256,
+      "imageHeight": 1120
+    },
+    {
+      "key": "Maps/fall_town",
+      "name": "fall_town",
+      "imageWidth": 512,
+      "imageHeight": 1152
+    },
+    {
+      "key": "Maps/farmhouse_tiles",
+      "name": "farmhouse_tiles",
+      "imageWidth": 192,
+      "imageHeight": 352
+    },
+    {
+      "key": "Maps/floors_2",
+      "name": "floors_2",
+      "imageWidth": 256,
+      "imageHeight": 64
+    },
+    {
+      "key": "Maps/island_tilesheet_1",
+      "name": "island_tilesheet_1",
+      "imageWidth": 512,
+      "imageHeight": 1040
+    },
+    {
+      "key": "Maps/island_tilesheet_2",
+      "name": "island_tilesheet_2",
+      "imageWidth": 512,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/masteryCaveTilesheet",
+      "name": "masteryCaveTilesheet",
+      "imageWidth": 240,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/mermaid_house_tiles",
+      "name": "mermaid_house_tiles",
+      "imageWidth": 144,
+      "imageHeight": 208
+    },
+    {
+      "key": "Maps/nightSceneMaru",
+      "name": "nightSceneMaru",
+      "imageWidth": 480,
+      "imageHeight": 528
+    },
+    {
+      "key": "Maps/nightSceneMaruTrees",
+      "name": "nightSceneMaruTrees",
+      "imageWidth": 480,
+      "imageHeight": 224
+    },
+    {
+      "key": "Maps/night_market_tilesheet_objects",
+      "name": "night_market_tilesheet_objects",
+      "imageWidth": 1152,
+      "imageHeight": 312
+    },
+    {
+      "key": "Maps/paths",
+      "name": "paths",
+      "imageWidth": 64,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/pirates_tilesheet",
+      "name": "pirates_tilesheet",
+      "imageWidth": 304,
+      "imageHeight": 160
+    },
+    {
+      "key": "Maps/qiNutRoom_tilesheet",
+      "name": "qiNutRoom_tilesheet",
+      "imageWidth": 224,
+      "imageHeight": 176
+    },
+    {
+      "key": "Maps/samshowtiles",
+      "name": "samshowtiles",
+      "imageWidth": 160,
+      "imageHeight": 224
+    },
+    {
+      "key": "Maps/sebastianMountainTiles",
+      "name": "sebastianMountainTiles",
+      "imageWidth": 640,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/sebastianRideTiles",
+      "name": "sebastianRideTiles",
+      "imageWidth": 480,
+      "imageHeight": 256
+    },
+    {
+      "key": "Maps/spring_Shadows",
+      "name": "spring_Shadows",
+      "imageWidth": 304,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/spring_Waterfalls",
+      "name": "spring_Waterfalls",
+      "imageWidth": 576,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/spring_beach",
+      "name": "spring_beach",
+      "imageWidth": 272,
+      "imageHeight": 496
+    },
+    {
+      "key": "Maps/spring_island_tilesheet_1",
+      "name": "spring_island_tilesheet_1",
+      "imageWidth": 512,
+      "imageHeight": 640
+    },
+    {
+      "key": "Maps/spring_monsterGraveTiles",
+      "name": "spring_monsterGraveTiles",
+      "imageWidth": 48,
+      "imageHeight": 80
+    },
+    {
+      "key": "Maps/spring_outdoorTileSheet_extra",
+      "name": "spring_outdoorTileSheet_extra",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/spring_outdoorsTileSheet",
+      "name": "spring_outdoorsTileSheet",
+      "imageWidth": 400,
+      "imageHeight": 1264
+    },
+    {
+      "key": "Maps/spring_outdoorsTileSheet2",
+      "name": "spring_outdoorsTileSheet2",
+      "imageWidth": 256,
+      "imageHeight": 1120
+    },
+    {
+      "key": "Maps/spring_town",
+      "name": "spring_town",
+      "imageWidth": 512,
+      "imageHeight": 1152
+    },
+    {
+      "key": "Maps/springobjects",
+      "name": "springobjects",
+      "imageWidth": 384,
+      "imageHeight": 624
+    },
+    {
+      "key": "Maps/stadium_tiles",
+      "name": "stadium_tiles",
+      "imageWidth": 64,
+      "imageHeight": 304
+    },
+    {
+      "key": "Maps/submarine_tilesheet",
+      "name": "submarine_tilesheet",
+      "imageWidth": 384,
+      "imageHeight": 352
+    },
+    {
+      "key": "Maps/summer_Shadows",
+      "name": "summer_Shadows",
+      "imageWidth": 304,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/summer_Waterfalls",
+      "name": "summer_Waterfalls",
+      "imageWidth": 576,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/summer_beach",
+      "name": "summer_beach",
+      "imageWidth": 272,
+      "imageHeight": 496
+    },
+    {
+      "key": "Maps/summer_island_tilesheet_1",
+      "name": "summer_island_tilesheet_1",
+      "imageWidth": 512,
+      "imageHeight": 640
+    },
+    {
+      "key": "Maps/summer_monsterGraveTiles",
+      "name": "summer_monsterGraveTiles",
+      "imageWidth": 48,
+      "imageHeight": 80
+    },
+    {
+      "key": "Maps/summer_outdoorTileSheet_extra",
+      "name": "summer_outdoorTileSheet_extra",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/summer_outdoorsTileSheet",
+      "name": "summer_outdoorsTileSheet",
+      "imageWidth": 400,
+      "imageHeight": 1264
+    },
+    {
+      "key": "Maps/summer_outdoorsTileSheet2",
+      "name": "summer_outdoorsTileSheet2",
+      "imageWidth": 256,
+      "imageHeight": 1120
+    },
+    {
+      "key": "Maps/summer_town",
+      "name": "summer_town",
+      "imageWidth": 512,
+      "imageHeight": 1152
+    },
+    {
+      "key": "Maps/townInterior",
+      "name": "townInterior",
+      "imageWidth": 512,
+      "imageHeight": 1088
+    },
+    {
+      "key": "Maps/townInterior_2",
+      "name": "townInterior_2",
+      "imageWidth": 512,
+      "imageHeight": 656
+    },
+    {
+      "key": "Maps/wallpapers_2",
+      "name": "wallpapers_2",
+      "imageWidth": 256,
+      "imageHeight": 96
+    },
+    {
+      "key": "Maps/walls_and_floors",
+      "name": "walls_and_floors",
+      "imageWidth": 256,
+      "imageHeight": 688
+    },
+    {
+      "key": "Maps/winter_Shadows",
+      "name": "winter_Shadows",
+      "imageWidth": 304,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/winter_Waterfalls",
+      "name": "winter_Waterfalls",
+      "imageWidth": 576,
+      "imageHeight": 400
+    },
+    {
+      "key": "Maps/winter_beach",
+      "name": "winter_beach",
+      "imageWidth": 272,
+      "imageHeight": 496
+    },
+    {
+      "key": "Maps/winter_island_tilesheet_1",
+      "name": "winter_island_tilesheet_1",
+      "imageWidth": 512,
+      "imageHeight": 640
+    },
+    {
+      "key": "Maps/winter_monsterGraveTiles",
+      "name": "winter_monsterGraveTiles",
+      "imageWidth": 48,
+      "imageHeight": 80
+    },
+    {
+      "key": "Maps/winter_outdoorTileSheet_extra",
+      "name": "winter_outdoorTileSheet_extra",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "Maps/winter_outdoorsTileSheet",
+      "name": "winter_outdoorsTileSheet",
+      "imageWidth": 400,
+      "imageHeight": 1264
+    },
+    {
+      "key": "Maps/winter_outdoorsTileSheet2",
+      "name": "winter_outdoorsTileSheet2",
+      "imageWidth": 256,
+      "imageHeight": 1120
+    },
+    {
+      "key": "Maps/winter_town",
+      "name": "winter_town",
+      "imageWidth": 512,
+      "imageHeight": 1152
+    },
+    {
+      "key": "Maps/witchSwampTiles",
+      "name": "witchSwampTiles",
+      "imageWidth": 128,
+      "imageHeight": 256
+    },
+    {
+      "key": "TileSheets/BuffsIcons",
+      "name": "BuffsIcons",
+      "imageWidth": 192,
+      "imageHeight": 64
+    },
+    {
+      "key": "TileSheets/ChairTiles",
+      "name": "ChairTiles",
+      "imageWidth": 240,
+      "imageHeight": 256
+    },
+    {
+      "key": "TileSheets/Craftables",
+      "name": "Craftables",
+      "imageWidth": 128,
+      "imageHeight": 1472
+    },
+    {
+      "key": "TileSheets/Fireball",
+      "name": "Fireball",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "TileSheets/Floors",
+      "name": "Floors",
+      "imageWidth": 64,
+      "imageHeight": 336
+    },
+    {
+      "key": "TileSheets/FreeCactuses",
+      "name": "FreeCactuses",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "TileSheets/Mannequins",
+      "name": "Mannequins",
+      "imageWidth": 128,
+      "imageHeight": 128
+    },
+    {
+      "key": "TileSheets/Objects_2",
+      "name": "Objects_2",
+      "imageWidth": 128,
+      "imageHeight": 320
+    },
+    {
+      "key": "TileSheets/Projectiles",
+      "name": "Projectiles",
+      "imageWidth": 128,
+      "imageHeight": 64
+    },
+    {
+      "key": "TileSheets/SecretNotesImages",
+      "name": "SecretNotesImages",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "TileSheets/animations",
+      "name": "animations",
+      "imageWidth": 640,
+      "imageHeight": 3328
+    },
+    {
+      "key": "TileSheets/bobbers",
+      "name": "bobbers",
+      "imageWidth": 128,
+      "imageHeight": 160
+    },
+    {
+      "key": "TileSheets/bushes",
+      "name": "bushes",
+      "imageWidth": 128,
+      "imageHeight": 352
+    },
+    {
+      "key": "TileSheets/companions",
+      "name": "companions",
+      "imageWidth": 256,
+      "imageHeight": 256
+    },
+    {
+      "key": "TileSheets/critters",
+      "name": "critters",
+      "imageWidth": 320,
+      "imageHeight": 640
+    },
+    {
+      "key": "TileSheets/crops",
+      "name": "crops",
+      "imageWidth": 256,
+      "imageHeight": 1024
+    },
+    {
+      "key": "TileSheets/debris",
+      "name": "debris",
+      "imageWidth": 32,
+      "imageHeight": 320
+    },
+    {
+      "key": "TileSheets/emotes",
+      "name": "emotes",
+      "imageWidth": 64,
+      "imageHeight": 256
+    },
+    {
+      "key": "TileSheets/fruitTrees",
+      "name": "fruitTrees",
+      "imageWidth": 432,
+      "imageHeight": 720
+    },
+    {
+      "key": "TileSheets/furniture",
+      "name": "furniture",
+      "imageWidth": 512,
+      "imageHeight": 1488
+    },
+    {
+      "key": "TileSheets/furnitureFront",
+      "name": "furnitureFront",
+      "imageWidth": 512,
+      "imageHeight": 1488
+    },
+    {
+      "key": "TileSheets/furniture_2",
+      "name": "furniture_2",
+      "imageWidth": 256,
+      "imageHeight": 512
+    },
+    {
+      "key": "TileSheets/furniture_2Front",
+      "name": "furniture_2Front",
+      "imageWidth": 256,
+      "imageHeight": 512
+    },
+    {
+      "key": "TileSheets/furniture_3",
+      "name": "furniture_3",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/furniture_3Front",
+      "name": "furniture_3Front",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/joja_furniture",
+      "name": "joja_furniture",
+      "imageWidth": 208,
+      "imageHeight": 336
+    },
+    {
+      "key": "TileSheets/joja_furnitureFront",
+      "name": "joja_furnitureFront",
+      "imageWidth": 208,
+      "imageHeight": 320
+    },
+    {
+      "key": "TileSheets/junimo_furniture",
+      "name": "junimo_furniture",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/junimo_furnitureFront",
+      "name": "junimo_furnitureFront",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/mannequin_furniture",
+      "name": "mannequin_furniture",
+      "imageWidth": 48,
+      "imageHeight": 32
+    },
+    {
+      "key": "TileSheets/rain",
+      "name": "rain",
+      "imageWidth": 64,
+      "imageHeight": 32
+    },
+    {
+      "key": "TileSheets/retro_furniture",
+      "name": "retro_furniture",
+      "imageWidth": 208,
+      "imageHeight": 265
+    },
+    {
+      "key": "TileSheets/retro_furnitureFront",
+      "name": "retro_furnitureFront",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/tools",
+      "name": "tools",
+      "imageWidth": 336,
+      "imageHeight": 384
+    },
+    {
+      "key": "TileSheets/weapons",
+      "name": "weapons",
+      "imageWidth": 128,
+      "imageHeight": 144
+    },
+    {
+      "key": "TileSheets/wizard_furniture",
+      "name": "wizard_furniture",
+      "imageWidth": 208,
+      "imageHeight": 432
+    },
+    {
+      "key": "TileSheets/wizard_furnitureFront",
+      "name": "wizard_furnitureFront",
+      "imageWidth": 208,
+      "imageHeight": 320
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+@layer components {
+  /* Unified tilesheet picker: trigger opens a dropdown listing attached
+     sheets, the predefined vanilla catalog, and project images. Used by the
+     floating palette (switch + attach) and the inspector (attach). */
+  .map-tilesheet-picker {
+    position: relative;
+    min-width: 0;
+  }
+
+  .map-tilesheet-picker-trigger {
+    @apply text-text-primary inline-flex w-full min-w-0 cursor-pointer items-center gap-1.5;
+    height: 1.875rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+    font-size: 0.75rem;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .map-tilesheet-picker-trigger:hover,
+  .map-tilesheet-picker-trigger.is-open {
+    border-color: var(--accent);
+  }
+
+  /* The inspector passes `control-button` for its add trigger; keep its own
+     sizing there and only normalize layout. */
+  .map-tilesheet-picker-trigger.control-button {
+    height: auto;
+    background: var(--bg-panel);
+  }
+
+  .map-tilesheet-picker-trigger-label {
+    @apply min-w-0 flex-1 overflow-hidden text-left text-ellipsis whitespace-nowrap;
+  }
+
+  .map-tilesheet-picker-trigger > svg {
+    @apply text-text-tertiary flex-none;
+  }
+
+  .map-tilesheet-picker-pop {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    z-index: var(--z-popover);
+    display: flex;
+    flex-direction: column;
+    width: max(100%, 15rem);
+    max-width: min(22rem, 90vw);
+    max-height: min(22rem, 70vh);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-field);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-panel);
+    overflow: hidden;
+  }
+
+  .map-tilesheet-picker-search {
+    @apply text-text-tertiary flex flex-none items-center gap-1.5;
+    margin: 0.5rem;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+    cursor: text;
+  }
+
+  .map-tilesheet-picker-search:focus-within {
+    border-color: var(--accent);
+  }
+
+  .map-tilesheet-picker-search input {
+    @apply text-text-primary min-w-0 flex-1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.75rem;
+    padding: 0;
+  }
+
+  .map-tilesheet-picker-search input::placeholder {
+    @apply text-text-tertiary;
+  }
+
+  .map-tilesheet-picker-scroll {
+    @apply min-h-0 flex-1 overflow-y-auto;
+    scrollbar-width: thin;
+    padding: 0 0.25rem 0.375rem;
+  }
+
+  .map-tilesheet-picker-empty {
+    @apply text-text-tertiary text-meta;
+    margin: 0;
+    padding: 0.75rem 0.625rem;
+  }
+
+  .map-tilesheet-picker-group {
+    @apply grid gap-0.5;
+    padding: 0.25rem 0;
+  }
+
+  .map-tilesheet-picker-group + .map-tilesheet-picker-group {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  }
+
+  .map-tilesheet-picker-group > strong {
+    @apply text-text-tertiary text-meta;
+    padding: 0.125rem 0.375rem;
+    font-weight: 600;
+  }
+
+  .map-tilesheet-picker-row {
+    @apply text-text-primary grid w-full cursor-pointer items-center;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 0.375rem;
+    min-height: 1.625rem;
+    padding: 0.125rem 0.375rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-size: 0.75rem;
+    text-align: left;
+  }
+
+  .map-tilesheet-picker-row:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+  }
+
+  .map-tilesheet-picker-row.is-active {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .map-tilesheet-picker-row.is-active > svg {
+    color: var(--accent);
+  }
+
+  .map-tilesheet-picker-row.is-disabled {
+    @apply text-text-tertiary;
+    cursor: default;
+  }
+
+  .map-tilesheet-picker-row-name {
+    @apply overflow-hidden text-ellipsis whitespace-nowrap;
+    grid-column: 2;
+  }
+
+  .map-tilesheet-picker-row > svg {
+    grid-column: 1;
+  }
+
+  .map-tilesheet-picker-row:not(:has(> svg)) > .map-tilesheet-picker-row-name {
+    grid-column: 1 / 3;
+  }
+
+  .map-tilesheet-picker-row-badge {
+    @apply text-meta flex-none;
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent);
+  }
+
+  .map-tilesheet-picker-row-badge.is-attached {
+    background: color-mix(in srgb, var(--bg-active) 88%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .map-tilesheet-picker-row > small {
+    @apply text-text-tertiary text-meta flex-none;
+  }
+}

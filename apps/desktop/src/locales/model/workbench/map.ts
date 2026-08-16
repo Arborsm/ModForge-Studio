@@ -390,24 +390,8 @@ export type MapAssetEditorCopy = {
   addTileset: string
   replaceTileset: string
   chooseImage: string
-  /** Adds a vanilla game tilesheet into the project and attaches it to this map. */
-  addGameTileset: string
-  /** Disabled-state title for the game tilesheet entry when no game directory is configured. */
-  gameTilesetNoGameRoot: string
-  /** Dialog title for the vanilla tilesheet picker. */
-  gameTilesetPickerTitle: string
-  /** Scan status while the game tilesheet list loads. */
-  gameTilesetPickerLoading: string
-  /** Empty state for the game tilesheet picker. */
-  gameTilesetPickerEmpty: string
-  /** Scan failure state for the game tilesheet picker. */
-  gameTilesetPickerScanFailed: string
-  /** Search placeholder inside the game tilesheet picker. */
-  gameTilesetPickerSearch: string
-  /** Thumbnail alt text for a game tilesheet. */
-  gameTilesetThumbnailAlt: (name: string) => string
-  /** Disabled-state label while a selected tilesheet is being copied into the project. */
-  gameTilesetAdding: string
+  /** Error when the project's custom tilesheet descriptor JSON fails validation. */
+  sheetCatalogInvalid: (message: string) => string
   projectImages: string
   selectTileset: string
   tilesetProperties: string

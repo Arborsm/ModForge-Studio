@@ -11,6 +11,8 @@ type MapThumbnailOptions = {
   locale: LocaleCode
   width: number
   height: number
+  /** Game root used to resolve dynamically referenced vanilla sheets; null leaves them out. */
+  gameRootPath?: string | null
 }
 
 const thumbnailCache = createResourceCache<string>({
@@ -47,11 +49,17 @@ function canvasToBlob(canvas: HTMLCanvasElement) {
   })
 }
 
-async function renderMapThumbnail(mapDocument: MapDocument, locale: LocaleCode, width: number, height: number) {
+async function renderMapThumbnail(
+  mapDocument: MapDocument,
+  locale: LocaleCode,
+  width: number,
+  height: number,
+  gameRootPath: string | null,
+) {
   const sortedTilesets = [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid)
   const results = await Promise.allSettled(
     sortedTilesets.map(async (tileset) => {
-      const path = resolveTilesetImagePath(mapDocument, tileset)
+      const path = resolveTilesetImagePath(mapDocument, tileset, gameRootPath)
       if (!path) return null
       const image = await loadImage(path, locale, (failedPath) => `Failed to load tileset image: ${failedPath}`)
       return [tileset.firstGid, { image, tileset }] as const
@@ -91,9 +99,12 @@ async function renderMapThumbnail(mapDocument: MapDocument, locale: LocaleCode, 
 
 /** Renders a centered, bounded map preview through the viewport tile renderer and caches its Blob URL. */
 export function loadMapThumbnail(mapDocument: MapDocument, options: MapThumbnailOptions) {
-  const key = `${options.cacheKey}::${options.locale}::${options.width}x${options.height}`
+  const gameRootPath = options.gameRootPath ?? null
+  const key = `${options.cacheKey}::${options.locale}::${gameRootPath ?? ''}::${options.width}x${options.height}`
   return thumbnailCache.load(key, async () => {
-    const { blob, byteSize } = await scheduleThumbnail(() => renderMapThumbnail(mapDocument, options.locale, options.width, options.height))
+    const { blob, byteSize } = await scheduleThumbnail(() =>
+      renderMapThumbnail(mapDocument, options.locale, options.width, options.height, gameRootPath),
+    )
     const url = URL.createObjectURL(blob)
     return {
       value: url,

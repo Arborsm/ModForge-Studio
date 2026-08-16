@@ -176,11 +176,14 @@ function createDraftPatch(index: number, workspace: WorkspaceId = workspaceFor(i
   }
 }
 
+/** Dev-only override: `?mfGameRoot=<path>` points editor scenarios at a real game directory (used with the dev asset bridge). */
+const scenarioGameRootPath = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('mfGameRoot')
+
 const scenarioEditorResources: EditorResources = {
   locale: 'en-US',
   theme: 'dark',
   accentColor,
-  gameRootPath: null,
+  gameRootPath: scenarioGameRootPath,
   directoryInfo: null,
   playerAppearanceProfile: null,
   onOpenPlayerAppearanceWindow: noop,
@@ -1056,7 +1059,14 @@ const performanceCpMakerPort: CpMakerPort = {
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
 }
 
-configureImageDataUrlLoader((path, locale) => performanceCpMakerPort.loadImageDataUrl(path, locale))
+// 真实游戏目录场景（?mfGameRoot=…，通常配合 dev asset bridge）改用真实图像
+// 加载链路；默认性能场景保持 1px 固定像素桩，避免图片解码干扰性能测量。
+if (scenarioGameRootPath) {
+  const { loadImageDataUrl: loadRealImageDataUrl } = await import('@entities/game/api')
+  configureImageDataUrlLoader((path, locale) => loadRealImageDataUrl(path, locale))
+} else {
+  configureImageDataUrlLoader((path, locale) => performanceCpMakerPort.loadImageDataUrl(path, locale))
+}
 
 function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNode }) {
   return (

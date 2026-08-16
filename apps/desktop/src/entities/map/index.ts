@@ -1,6 +1,13 @@
 export * from './model'
 export * from './model/lighting'
 export { resolveTilesetImagePath } from './lib/assets'
+export {
+  GAME_SHEET_PROPERTY,
+  gameSheetImagePath,
+  gameSheetImageSourceTbin,
+  gameSheetImageSourceTmx,
+  gameSheetKeyOfTileset,
+} from './lib/gameSheets'
 export { getMapContentBounds, getMapPreviewBounds, hasVisibleMapContent } from './lib/mapContentBounds'
 export type { MapContentBounds, MapContentBoundsOptions, MapPreviewBoundsOptions } from './lib/mapContentBounds'
 export { normalizeMapName } from './lib/mapNames'
@@ -75,13 +82,11 @@ export {
 } from './lib/tileFlags'
 export { findTilesetForGid } from './lib/tilesets'
 export {
-  cellFromGridPointer,
   cellFromSheetPointer,
   normalizeSelectionRect,
   pushRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
-  tileIndexInSelection,
   tilesetSelectionFromRect,
   type NormalizedSelectionRect,
   type TilesetSelectionRect,
@@ -110,9 +115,42 @@ export { buildAtlasWorldOverlaySprites, buildBuildingDataIndex, buildStageWorldO
 export type { StageBuildingDataEntry, StageWorldOverlaySprite } from './model/worldStatePreview'
 export { createMapTileRect } from './model/tileSelection'
 export type { MapInspectorHighlight, MapTileRect } from './model/tileSelection'
+export {
+  VANILLA_TILESHEET_TILE_SIZE,
+  VANILLA_TILESHEETS,
+  findTilesheetByKey,
+  getTilesheetCatalog,
+  parseTilesheetCatalogJson,
+  registerCustomTilesheets,
+  subscribeTilesheetCatalog,
+  unregisterCustomTilesheets,
+  vanillaTilesheetHasEvenSplit,
+  vanillaTilesheetSplit,
+  type TilesheetCatalogParseResult,
+  type VanillaTilesheetEntry,
+  type VanillaTilesheetGroup,
+} from './model/vanillaTilesheets'
+export {
+  BUNDLED_MAP_OBJECTS_SOURCE,
+  GAME_FURNITURE_SOURCE,
+  MAP_OBJECT_CATEGORIES,
+  PROJECT_MAP_OBJECTS_SOURCE,
+  getMapObjects,
+  mapObjectDisplayName,
+  parseMapObjectsJson,
+  registerMapObjects,
+  subscribeMapObjects,
+  unregisterMapObjects,
+  type MapCatalogObject,
+  type MapCatalogObjectRect,
+  type MapObjectCategory,
+  type MapObjectsParseResult,
+} from './model/mapObjects'
 export { MapViewport } from './ui/MapViewport'
 export { MapTilesetPalette } from './ui/MapTilesetPalette'
 export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
+export { MapTilesheetPicker } from './ui/MapTilesheetPicker'
+export type { MapTilesheetPickerProjectOption, MapTilesheetPickerProps } from './ui/MapTilesheetPicker'
 export { MapLayerThumbnail } from './ui/MapLayerThumbnail'
 export { loadMapThumbnail } from './ui/mapThumbnail'
 export { default as MapWorldStatePreviewOverlay } from './ui/MapWorldStatePreviewOverlay'

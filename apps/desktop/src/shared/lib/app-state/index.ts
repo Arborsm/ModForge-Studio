@@ -4,6 +4,10 @@ export { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnap
 export { useAssetLibraryFocusStore, type AssetLibraryFocus } from './assetLibraryFocusStore'
 export {
   DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES,
+  FAVORITE_OBJECTS_LIMIT,
+  OBJECT_PANEL_DEFAULT_HEIGHT,
+  OBJECT_PANEL_MAX_HEIGHT,
+  OBJECT_PANEL_MIN_HEIGHT,
   PALETTE_RECENT_LIMIT,
   normalizeMapEditorPalettePreferences,
   type MapEditorPalettePreferences,

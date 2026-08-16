@@ -421,7 +421,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       try {
         const results = await Promise.allSettled(
           tilesetLoadDocument.tilesets.map(async (tileset) => {
-            const imagePath = resolveTilesetImagePath(tilesetLoadDocument, tileset)
+            const imagePath = resolveTilesetImagePath(tilesetLoadDocument, tileset, gameRootPath)
             if (!imagePath) {
               return null
             }
@@ -468,7 +468,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => {
       disposed = true
     }
-  }, [labels.failedToLoadTilesetImage, locale, tilesetLoadDocument])
+  }, [gameRootPath, labels.failedToLoadTilesetImage, locale, tilesetLoadDocument])
 
   const tilesetImages = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.items : {}),

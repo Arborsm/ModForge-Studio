@@ -559,16 +559,6 @@
     opacity: 0.55;
   }
 
-  /* Tileset palette as a floating panel anchored to the viewport's right
-     edge, below the lighting pill (top 3.5rem) and above the zoom chip.
-     Panel chrome (width, border, shadow, background) lives in the palette's
-     own stylesheet; this only overrides the viewport-relative placement. */
-  .map-asset-viewport > .map-tileset-palette {
-    top: 3.5rem;
-    right: 0.75rem;
-    max-height: calc(100% - 4.25rem);
-  }
-
   /* ===== Inspector: single scrolling panel (no tabs) ===== */
   .map-asset-inspector {
     border-left: 1px solid var(--border-color);

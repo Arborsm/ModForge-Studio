@@ -86,6 +86,32 @@ pub mod map_validation {
     ) -> anyhow::Result<MapDocument> {
         crate::infrastructure::game_formats::parse_map_asset(bytes, source_path, relative_path)
     }
+
+    /// Decodes an XNB texture's pixel dimensions without rasterizing it.
+    pub fn read_texture_size(path: &Path) -> anyhow::Result<(u32, u32)> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let texture = xnb
+            .content
+            .as_texture()
+            .context("XNB file did not contain a Texture2D asset")?;
+        Ok((texture.width, texture.height))
+    }
+
+    /// Reads a data/dictionary XNB asset (game data and strings) as JSON.
+    pub fn read_data_asset_json(path: &Path) -> anyhow::Result<Value> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        Ok(xnb.content.to_json())
+    }
+
+    /// Decodes an XNB texture into raw RGBA pixels for report-time PNG dumps.
+    pub fn read_texture_rgba(path: &Path) -> anyhow::Result<(u32, u32, Vec<u8>)> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let texture = xnb
+            .content
+            .as_texture()
+            .context("XNB file did not contain a Texture2D asset")?;
+        Ok((texture.width, texture.height, texture.rgba.clone()))
+    }
 }
 
 use support::logging::{DebugLoggingState, init_host_logging};

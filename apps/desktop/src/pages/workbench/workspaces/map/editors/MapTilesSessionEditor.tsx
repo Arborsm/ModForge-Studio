@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { Check, Redo2, Undo2 } from 'lucide-react'
 import { MapTilesetPalette, MapViewport, type MapDocument, type MapTileRect } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import type { EditorResources } from '@features/cp-maker'
-import { useMapAuthoringCopy } from '@locales/provider'
+import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { OBJECT_PANEL_MAX_HEIGHT, OBJECT_PANEL_MIN_HEIGHT, usePreferencesStore } from '@shared/lib/app-state'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import { applyMapAssetStroke } from '../model/mapAssetReducer'
 import { rectangleTilePoints, type MapTileEditDraft } from '../model/mapPatchReducer'
@@ -13,6 +14,7 @@ import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
 import { MapAssetCellOverlayRules } from './core/MapAssetCellOverlayRules'
 import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
+import { MapObjectLibraryPanel } from './core/MapObjectLibraryPanel'
 import { useMapDocumentEditor, type AssetTool } from './core/useMapDocumentEditor'
 
 /**
@@ -55,6 +57,10 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
   const copy = useMapAuthoringCopy()
   const sessionCopy = copy.tilesSession
   const assetEditorCopy = copy.assetEditor
+  const patchEditorCopy = useEditorCopy().studioDesk.mapPatchEditor
+  const objectPanelHeight = usePreferencesStore((state) => state.mapEditorPalette.objectPanelHeight)
+  const setMapEditorPalette = usePreferencesStore((state) => state.setMapEditorPalette)
+  const objectPanelResizeRef = useRef<{ pointerId: number; startY: number; startHeight: number } | null>(null)
   const [document, setDocument] = useState<MapDocument>(() => applyMapTilesToDocument(baseDocument, initialEdits).document)
   const imageAssets = project.projectAssets.filter((asset) => asset.mediaType.startsWith('image/'))
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
@@ -275,20 +281,62 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
             {editor.overlayActive ? (
               <MapAssetCellOverlayRules activeRule={editor.overlayRule} onRuleChange={editor.setOverlayRule} />
             ) : null}
-            {editor.paletteOpen ? (
-              <MapTilesetPalette
-                document={editor.renderDocument}
-                locale={resources.locale}
-                selection={editor.paletteSelection}
-                onSelectionChange={(selection) => {
-                  editor.setPaletteSelection(selection)
-                  editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-                }}
-                onClose={() => editor.setPaletteOpen(false)}
-              />
-            ) : null}
-            {editor.paletteOpen ? <p className="map-tiles-session-tileset-hint">{sessionCopy.tilesetSourceHint}</p> : null}
           </div>
+          {editor.paletteOpen ? (
+            <div className="map-object-panel" style={{ height: `${objectPanelHeight}px` }}>
+              <div
+                className="map-object-panel-resizer"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label={patchEditorCopy.objectLibraryResize}
+                title={patchEditorCopy.objectLibraryResize}
+                onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+                  if (event.button !== 0) return
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  objectPanelResizeRef.current = { pointerId: event.pointerId, startY: event.clientY, startHeight: objectPanelHeight }
+                }}
+                onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
+                  const session = objectPanelResizeRef.current
+                  if (!session || session.pointerId !== event.pointerId) return
+                  const next = Math.min(
+                    OBJECT_PANEL_MAX_HEIGHT,
+                    Math.max(OBJECT_PANEL_MIN_HEIGHT, Math.round(session.startHeight + session.startY - event.clientY)),
+                  )
+                  setMapEditorPalette({ objectPanelHeight: next })
+                }}
+                onPointerUp={(event: PointerEvent<HTMLDivElement>) => {
+                  objectPanelResizeRef.current = null
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId)
+                  }
+                }}
+                onPointerCancel={() => {
+                  objectPanelResizeRef.current = null
+                }}
+              />
+              <MapObjectLibraryPanel
+                gameRootPath={resources.gameRootPath}
+                locale={resources.locale}
+                canAttach={false}
+                attachedTilesets={document.tilesets}
+                onPickObject={editor.pickCatalogObject}
+                sheetTab={
+                  <>
+                    <MapTilesetPalette
+                      document={editor.renderDocument}
+                      locale={resources.locale}
+                      selection={editor.paletteSelection}
+                      onSelectionChange={(selection) => {
+                        editor.setPaletteSelection(selection)
+                        editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+                      }}
+                    />
+                    <p className="map-tiles-session-tileset-hint">{sessionCopy.tilesetSourceHint}</p>
+                  </>
+                }
+              />
+            </div>
+          ) : null}
         </main>
 
         <MapAssetEditorInspector

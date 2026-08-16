@@ -318,6 +318,8 @@ type TileIndexPreviewProps = {
   label: string
   /** When set, crops from the named tileset directly instead of resolving the owner from the layer cell. */
   tilesetName?: string
+  /** Game root used to resolve dynamically referenced vanilla sheets; null leaves their previews blank. */
+  gameRootPath?: string | null
 }
 
 /**
@@ -329,7 +331,7 @@ type TileIndexPreviewProps = {
  * document/prop change, so tile edits and property edits reflect
  * immediately; loading and failure render a placeholder square.
  */
-function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, tilesetName }: TileIndexPreviewProps) {
+function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, tilesetName, gameRootPath = null }: TileIndexPreviewProps) {
   const locale = useLocale()
   const viewportCopy = useEditorCopy().viewportLabels
   const tileset = tilesetName
@@ -341,7 +343,7 @@ function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, t
     if (!tileset) return undefined
     let cancelled = false
     setImageUrl(null)
-    const imagePath = resolveTilesetImagePath(renderDocument, tileset)
+    const imagePath = resolveTilesetImagePath(renderDocument, tileset, gameRootPath)
     if (!imagePath) return undefined
     void loadImage(imagePath, locale, (failedPath) => viewportCopy.failedToLoadTilesetImage(failedPath))
       .then((image) => {
@@ -354,7 +356,7 @@ function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, t
     return () => {
       cancelled = true
     }
-  }, [locale, renderDocument, tileIndex, tileset, viewportCopy])
+  }, [gameRootPath, locale, renderDocument, tileIndex, tileset, viewportCopy])
 
   if (!tileset || !imageUrl) {
     return <span className="map-asset-tile-ref-ph" aria-hidden="true" />
@@ -564,6 +566,7 @@ function DoorsCard({
   selectedTile,
   mapOptions,
   onHighlightInspector,
+  gameRootPath = null,
 }: CardProps & {
   document: MapDocument
   onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
@@ -572,6 +575,7 @@ function DoorsCard({
   selectedTile: { x: number; y: number } | null
   mapOptions: readonly WarpDialogMapOption[]
   onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -657,6 +661,7 @@ function DoorsCard({
                     y={door.y}
                     tileIndex={door.tileIndex}
                     label={copy.doorTileIndex}
+                    gameRootPath={gameRootPath}
                   />
                 </div>
               </div>
@@ -694,6 +699,7 @@ function DoorsCard({
                 y={selectedTile.y}
                 tileIndex={doorTileIndex}
                 label={copy.doorTileAuto}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
@@ -765,6 +771,7 @@ function DayNightCard({
   selectedTile,
   paletteSelection,
   onHighlightInspector,
+  gameRootPath = null,
 }: CardProps & {
   document: MapDocument
   renderDocument: MapDocument
@@ -772,6 +779,7 @@ function DayNightCard({
   selectedTile: { x: number; y: number } | null
   paletteSelection: MapTilesetPaletteSelection | null
   onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -868,6 +876,7 @@ function DayNightCard({
                   y={rect.y}
                   tileIndex={rect.dayTile}
                   label={copy.dayNightDayTile}
+                  gameRootPath={gameRootPath}
                 />
               </div>
             ) : null}
@@ -881,6 +890,7 @@ function DayNightCard({
                   y={rect.y}
                   tileIndex={rect.nightTile}
                   label={copy.dayNightNightTile}
+                  gameRootPath={gameRootPath}
                 />
               </div>
             ) : null}
@@ -944,6 +954,7 @@ function DayNightCard({
                 y={selectedTile.y}
                 tileIndex={dayTile}
                 label={copy.dayTileAuto}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
@@ -960,6 +971,7 @@ function DayNightCard({
                 y={selectedTile.y}
                 tileIndex={paletteSelection.startIndex}
                 label={copy.dayNightNightTile}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.nightTileNone}</span>
@@ -1000,6 +1012,8 @@ export type MapAssetMapCardsProps = {
   loadTargetDocument: (target: string) => Promise<MapDocument>
   /** Reports the hovered entry's canvas highlight (cells/objects); null clears it. */
   onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  /** Game root used to resolve dynamically referenced vanilla sheets in tile previews. */
+  gameRootPath?: string | null
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
@@ -1023,6 +1037,7 @@ export function MapAssetMapCards({
   mapOptions,
   loadTargetDocument,
   onHighlightInspector,
+  gameRootPath = null,
   locale,
   theme,
   accentColor,
@@ -1059,6 +1074,7 @@ export function MapAssetMapCards({
         selectedTile={selectedTile}
         mapOptions={mapOptions}
         onHighlightInspector={onHighlightInspector}
+        gameRootPath={gameRootPath}
       />
       <DayNightCard
         properties={document.properties}
@@ -1069,6 +1085,7 @@ export function MapAssetMapCards({
         selectedTile={selectedTile}
         paletteSelection={paletteSelection}
         onHighlightInspector={onHighlightInspector}
+        gameRootPath={gameRootPath}
       />
     </>
   )

@@ -1,150 +1,34 @@
 @layer components {
-  /* ===== Floating card root ===== */
+  /* ===== Docked panel root =====
+     停靠面板：由父容器（左列 tab 内容 / 会话左列）决定宽高，自身只负责
+     flex 纵向布局，不再有绝对定位、浮动阴影或圆角外壳。 */
   .map-tileset-palette {
-    @apply border-border-subtle bg-surface-panel shadow-float flex flex-col overflow-hidden;
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 26rem;
-    max-width: calc(100% - 1.5rem);
-    max-height: calc(100% - 1.5rem);
+    @apply flex flex-col;
+    height: 100%;
+    min-height: 0;
     min-width: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    z-index: var(--z-popover);
+    overflow: hidden;
   }
 
-  /* ===== Draggable header: grip + search + view toggle + close ===== */
+  /* ===== Head: sheet picker row ===== */
   .map-tileset-palette-head {
     @apply flex flex-none items-center;
     gap: 0.375rem;
     min-height: 2.375rem;
     padding: 0.375rem 0.5rem;
     border-bottom: 1px solid var(--border-color);
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
   }
 
-  .map-tileset-palette-head.is-dragging {
-    cursor: grabbing;
-  }
-
-  .map-tileset-palette-head-grip {
-    @apply text-text-tertiary flex-none;
-  }
-
-  .map-tileset-palette-head-spacer {
-    flex: 1 1 auto;
-  }
-
-  .map-tileset-palette-search {
-    @apply flex min-w-0 flex-auto items-center gap-1.5;
-    height: 1.875rem;
-    padding: 0 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-viewport);
-    cursor: text;
-  }
-
-  .map-tileset-palette-search:focus-within {
-    border-color: var(--accent);
-  }
-
-  .map-tileset-palette-search-icon {
-    @apply text-text-tertiary flex-none;
-  }
-
-  .map-tileset-palette-search input {
-    @apply text-text-primary min-w-0 flex-1;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 0.75rem;
-    padding: 0;
-  }
-
-  .map-tileset-palette-search input::placeholder {
-    @apply text-text-tertiary;
-  }
-
-  .map-tileset-palette-view {
-    @apply flex flex-none items-center;
-    gap: 0.125rem;
-  }
-
-  .map-tileset-palette-close {
-    @apply text-text-tertiary flex-none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    cursor: pointer;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .map-tileset-palette-close:hover {
-    @apply text-text-primary;
-    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
-  }
-
-  /* ===== Tileset switcher strip (pill chips, horizontally scrollable) ===== */
+  /* ===== Sheet picker row: the unified switcher/attach dropdown ===== */
   .map-tileset-palette-sheets {
-    @apply flex flex-none items-center gap-1 overflow-x-auto p-0.5;
+    @apply flex flex-none items-stretch p-0.5;
     padding-left: 0.625rem;
     padding-right: 0.625rem;
-    scrollbar-width: thin;
   }
 
-  .map-tileset-palette-chip {
-    @apply text-text-secondary inline-flex flex-none cursor-pointer items-center;
-    gap: 0.375rem;
-    height: 1.5rem;
-    padding: 0 0.5625rem;
-    border: 1px solid var(--border-color);
-    border-radius: 999px;
-    background: var(--bg-panel);
-    font-size: 0.6875rem;
-    white-space: nowrap;
-  }
-
-  .map-tileset-palette-chip:hover {
-    @apply bg-surface-hover;
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
-  }
-
-  .map-tileset-palette-chip.is-active {
-    @apply text-text-primary;
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    border-color: var(--accent);
-  }
-
-  /* Blue dot: this tileset has a remembered selection that restores on switch-back. */
-  .map-tileset-palette-chip-mem {
-    width: 0.3125rem;
-    height: 0.3125rem;
-    flex: none;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  .map-tileset-palette-sheets.is-compact .map-tileset-palette-chip {
-    height: 1.375rem;
-    padding: 0 0.5rem;
-    font-size: 0.625rem;
-  }
-
-  .map-tileset-palette-sheets.is-compact .map-tileset-palette-chip-name {
-    max-width: 5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .map-tileset-palette-sheets .map-tilesheet-picker {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* ===== Recent-use strip (max 8 mini-grid thumbnails) ===== */
@@ -201,68 +85,10 @@
   }
 
   .map-tileset-palette-empty {
-    @apply border-border-subtle bg-surface-panel shadow-float text-text-secondary text-meta flex items-center justify-center gap-2;
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 26rem;
+    @apply text-text-secondary text-meta flex items-center justify-center gap-2;
+    flex: 1 1 auto;
     min-height: 5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
     padding: 1rem;
-    z-index: var(--z-popover);
-  }
-
-  /* ===== Grid view (virtualized per-tile cells, one tileset row per grid row) ===== */
-  .map-tileset-palette-virtual {
-    @apply relative min-w-0;
-  }
-
-  .map-tileset-palette-virtual-row {
-    @apply absolute grid;
-    top: 0;
-    left: 0;
-    gap: 0.25rem;
-    width: max-content;
-  }
-
-  .map-tileset-palette-cell {
-    @apply text-text-tertiary grid cursor-pointer justify-items-center gap-0.5 border border-transparent bg-transparent p-0.5;
-    border-radius: var(--radius-sm);
-    position: relative;
-  }
-
-  .map-tileset-palette-cell:hover {
-    @apply bg-surface-hover;
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
-  }
-
-  .map-tileset-palette-cell > span {
-    @apply block;
-    background-image: var(--map-tileset-image);
-    background-size: var(--map-tileset-image-size);
-    image-rendering: pixelated;
-  }
-
-  .map-tileset-palette-cell > small {
-    @apply text-caption leading-none;
-  }
-
-  /* Multi-cell selection highlight (prototype `.pal-cell.is-sel`) */
-  .map-tileset-palette-cell.is-sel > span {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-    position: relative;
-    z-index: 2;
-  }
-
-  .map-tileset-palette-cell.is-sel::after {
-    content: '';
-    position: absolute;
-    inset: 0.125rem;
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    border-radius: calc(var(--radius-sm) - 0.125rem);
-    pointer-events: none;
   }
 
   /* ===== Sheet view (whole tileset image with grid overlay) ===== */
@@ -329,115 +155,5 @@
 
   .map-tileset-palette-zoom-value:hover {
     @apply text-text-primary bg-surface-hover;
-  }
-
-  /* ===== Hover preview tooltip (replaces the bare tile title) ===== */
-  .map-tileset-palette-tip {
-    position: fixed;
-    z-index: calc(var(--z-popover) + 40);
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-card);
-    background: var(--bg-elevated);
-    box-shadow: var(--shadow-float);
-  }
-
-  .map-tileset-palette-tip-image {
-    @apply block;
-    border-radius: 0.25rem;
-    background-repeat: no-repeat;
-    image-rendering: pixelated;
-    box-shadow: inset 0 0 0 1px var(--border-color);
-  }
-
-  .map-tileset-palette-tip-label {
-    @apply text-text-secondary text-caption whitespace-nowrap;
-  }
-
-  /* ===== Resize handles (optional; rendered only when resizeLabel is provided) ===== */
-  .map-tileset-palette.is-resizing {
-    user-select: none;
-  }
-
-  .map-tileset-palette-resize-left,
-  .map-tileset-palette-resize-bottom,
-  .map-tileset-palette-resize-corner {
-    position: absolute;
-    z-index: 1;
-    touch-action: none;
-  }
-
-  .map-tileset-palette-resize-left {
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 0.375rem;
-    cursor: ew-resize;
-  }
-
-  .map-tileset-palette-resize-left::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0.125rem;
-    width: 0.125rem;
-    background: transparent;
-  }
-
-  .map-tileset-palette-resize-left:hover::after,
-  .map-tileset-palette-resize-left.is-active::after {
-    background: var(--accent);
-  }
-
-  .map-tileset-palette-resize-bottom {
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 0.375rem;
-    cursor: ns-resize;
-  }
-
-  .map-tileset-palette-resize-bottom::after {
-    content: '';
-    position: absolute;
-    top: 0.125rem;
-    right: 0;
-    left: 0;
-    height: 0.125rem;
-    background: transparent;
-  }
-
-  .map-tileset-palette-resize-bottom:hover::after,
-  .map-tileset-palette-resize-bottom.is-active::after {
-    background: var(--accent);
-  }
-
-  .map-tileset-palette-resize-corner {
-    bottom: 0;
-    left: 0;
-    width: 0.75rem;
-    height: 0.75rem;
-    cursor: nwse-resize;
-  }
-
-  .map-tileset-palette-resize-corner::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(var(--accent), var(--accent)) left 0.125rem top 0.125rem / 0.125rem calc(100% - 0.25rem) no-repeat,
-      linear-gradient(var(--accent), var(--accent)) left 0.125rem bottom 0.125rem / calc(100% - 0.25rem) 0.125rem no-repeat;
-    opacity: 0;
-  }
-
-  .map-tileset-palette-resize-corner:hover::after,
-  .map-tileset-palette-resize-corner.is-active::after {
-    opacity: 1;
   }
 }

@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
 
 import {
-  cellFromGridPointer,
   cellFromSheetPointer,
   normalizeSelectionRect,
   pushRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
-  tileIndexInSelection,
   tilesetSelectionFromRect,
 } from '@entities/map/lib/paletteSelection'
 import { PALETTE_RECENT_LIMIT, type PaletteRecentSelection } from '@shared/lib/app-state'
@@ -60,40 +58,9 @@ describe('palette selection geometry', () => {
       height: 3,
     })
   })
-
-  it('reports tile membership inside a normalized selection rectangle', () => {
-    const rect = normalizeSelectionRect(selectionRectForSelection({ startIndex: 18, width: 2, height: 2 }, 8))
-    expect(tileIndexInSelection(18, rect, 8)).toBe(true)
-    expect(tileIndexInSelection(19, rect, 8)).toBe(true)
-    expect(tileIndexInSelection(26, rect, 8)).toBe(true)
-    expect(tileIndexInSelection(20, rect, 8)).toBe(false)
-    expect(tileIndexInSelection(17, rect, 8)).toBe(false)
-    expect(tileIndexInSelection(9, rect, 8)).toBe(false)
-  })
 })
 
 describe('palette pointer mapping', () => {
-  const gridOptions = {
-    originX: 100,
-    originY: 50,
-    cellWidth: 32,
-    cellHeight: 40,
-    gap: 4,
-    columns: 12,
-    rows: 5,
-  }
-
-  it('maps a grid pointer to the cell under the cursor', () => {
-    expect(cellFromGridPointer({ x: 100, y: 50, ...gridOptions })).toEqual({ column: 0, row: 0 })
-    expect(cellFromGridPointer({ x: 100 + 32 + 4 + 10, y: 50, ...gridOptions })).toEqual({ column: 1, row: 0 })
-    expect(cellFromGridPointer({ x: 100, y: 50 + 40 + 4 + 10, ...gridOptions })).toEqual({ column: 0, row: 1 })
-  })
-
-  it('clamps grid pointers outside the tileset', () => {
-    expect(cellFromGridPointer({ x: -40, y: -30, ...gridOptions })).toEqual({ column: 0, row: 0 })
-    expect(cellFromGridPointer({ x: 9999, y: 9999, ...gridOptions })).toEqual({ column: 11, row: 4 })
-  })
-
   it('maps a sheet pointer proportionally to the tileset cell grid', () => {
     expect(
       cellFromSheetPointer({

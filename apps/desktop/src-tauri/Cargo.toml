@@ -61,6 +61,16 @@ path = "tests/report/map_pack_audit_report.rs"
 required-features = ["installed-game-validation"]
 
 [[example]]
+name = "tilesheet_catalog_report"
+path = "tests/report/tilesheet_catalog_report.rs"
+required-features = ["installed-game-validation"]
+
+[[example]]
+name = "furniture_objects_report"
+path = "tests/report/furniture_objects_report.rs"
+required-features = ["installed-game-validation"]
+
+[[example]]
 name = "event_asset_bridge"
 path = "examples/event_asset_bridge.rs"
 required-features = ["dev-asset-bridge"]

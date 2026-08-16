@@ -56,35 +56,6 @@ export function tilesetSelectionFromRect(rect: TilesetSelectionRect, columns: nu
   }
 }
 
-/** Reports whether a tile index falls inside a normalized selection rectangle. */
-export function tileIndexInSelection(tileIndex: number, rect: NormalizedSelectionRect, columns: number) {
-  const column = tileIndex % columns
-  const row = Math.floor(tileIndex / columns)
-  return column >= rect.left && column <= rect.right && row >= rect.top && row <= rect.bottom
-}
-
-/** Maps a pointer position to a tileset cell for fixed-size grid layouts (grid view). */
-export function cellFromGridPointer(options: {
-  x: number
-  y: number
-  originX: number
-  originY: number
-  cellWidth: number
-  cellHeight: number
-  gap: number
-  columns: number
-  rows: number
-}) {
-  const relativeX = options.x - options.originX
-  const relativeY = options.y - options.originY
-  const column = Math.floor(relativeX / (options.cellWidth + options.gap))
-  const row = Math.floor(relativeY / (options.cellHeight + options.gap))
-  return {
-    column: clamp(column, 0, Math.max(0, options.columns - 1)),
-    row: clamp(row, 0, Math.max(0, options.rows - 1)),
-  }
-}
-
 /** Maps a pointer position to a tileset cell for the proportional sheet image layout. */
 export function cellFromSheetPointer(options: {
   x: number

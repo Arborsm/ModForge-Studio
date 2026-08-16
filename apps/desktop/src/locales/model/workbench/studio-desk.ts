@@ -293,6 +293,30 @@ export type StudioDeskCopy = {
     tileId: (id: number) => string
     searchTilesets: string
     recentTilesets: string
+    /** Sheet picker: group listing the sheets already attached to the map. */
+    sheetPickerAttachedGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/Maps` sheets. */
+    sheetPickerGameMapsGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/TileSheets` sheets. */
+    sheetPickerGameTilesheetsGroup: string
+    /** Sheet picker: group listing project image assets. */
+    sheetPickerProjectGroup: string
+    /** Sheet picker: empty state when the search filter matches nothing. */
+    sheetPickerEmpty: string
+    /** Sheet picker: badge marking a catalog sheet the map already references. */
+    sheetPickerAttachedBadge: string
+    /** Sheet picker: badge marking an attached sheet that references a vanilla game sheet. */
+    sheetPickerGameBadge: string
+    /** Sheet picker: attached-row metadata with the sheet's tile count. */
+    sheetPickerTileCount: (tileCount: number) => string
+    /** Sheet picker: catalog-row metadata combining pixel size and tile split. */
+    sheetPickerSheetMeta: (imageWidth: number, imageHeight: number, columns: number, rows: number) => string
+    /** Sheet picker: tooltip for catalog sheets that do not divide evenly into 16px tiles. */
+    sheetPickerUnevenSplit: string
+    /** Sheet picker: tooltip for catalog rows while no game directory is connected. */
+    sheetPickerNoGameRoot: string
+    /** Sheet picker: trigger tooltip in the palette (switch between or attach sheets). */
+    sheetPickerSwitch: string
     noTileSelection: string
     tileTooltip: (index: number, tileset: string) => string
     quickProperty: string
@@ -411,6 +435,49 @@ export type StudioDeskCopy = {
     manageInAssetLibrary: string
     toAreaPickHint: string
     fromAreaPickHint: string
+    /** Object library sub-tab: objects. */
+    objectLibraryObjectsTab: string
+    /** Object library sub-tab: whole-sheet preview. */
+    objectLibrarySheetTab: string
+    /** Object library search box placeholder. */
+    objectLibrarySearch: string
+    /** Object library category filter "all" option. */
+    objectLibraryAllCategories: string
+    /** Object library: favorites category chip. */
+    objectLibraryFavorites: string
+    /** Object library: empty state of the favorites category. */
+    objectLibraryFavoritesEmpty: string
+    /** Object library: star toggle tooltip for one object. */
+    objectLibraryFavoriteToggle: (name: string) => string
+    /** Object library empty state. */
+    objectLibraryEmpty: string
+    /** Object library loading state for game objects. */
+    objectLibraryLoading: string
+    /** Object library hint shown while no game directory is connected. */
+    objectLibraryUnavailable: string
+    /** Object library: failed to attach an object's tilesheet. */
+    objectLibraryAttachFailed: (name: string) => string
+    /** Bottom object panel: top-edge resize handle. */
+    objectLibraryResize: string
+    /** Object library category labels. */
+    objectLibraryCategory: Record<
+      | 'seating'
+      | 'tables'
+      | 'beds'
+      | 'rugs'
+      | 'lighting'
+      | 'electronics'
+      | 'plants'
+      | 'decor'
+      | 'storage'
+      | 'windows'
+      | 'structure'
+      | 'walls-floors'
+      | 'outdoor'
+      | 'festival'
+      | 'other',
+      string
+    >
   }
   referencePreview: {
     workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail', string>

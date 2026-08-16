@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
+  findTilesheetByKey,
+  mapObjectDisplayName,
   syncLightMapProperty,
+  type MapCatalogObject,
   type MapDocument,
   type MapLayer,
   type MapObject,
@@ -8,9 +11,10 @@ import {
   type MapTilesetPaletteSelection,
   type TileHoverInfo,
   type CellOverlayRule,
+  type VanillaTilesheetEntry,
 } from '@entities/map'
 import { useLocalUndoShortcutOwner, type AssetDraftPort, type ProjectAssetRef } from '@features/cp-maker'
-import { useMapAuthoringCopy } from '@locales/provider'
+import { useEditorCopy, useLocale, useMapAuthoringCopy } from '@locales/provider'
 import { measureImageDimensions } from '@shared/lib/assets'
 import { usePreferencesStore } from '@shared/lib/app-state'
 import {
@@ -21,6 +25,8 @@ import {
   relativeMapAssetReference,
   setMapAssetCellOverlay,
 } from '../../model/mapAssetReducer'
+import { buildGameSheetTileset } from '../../model/gameSheetTilesets'
+import { catalogObjectSelection } from '../../model/mapObjectPick'
 import {
   buildMapHistoryTimeline,
   changedFieldKeys,
@@ -159,6 +165,17 @@ export type MapDocumentEditor = {
   commitStroke: (points: readonly { tileX: number; tileY: number }[]) => void
   clickTile: (x: number, y: number) => void
   addTileset: (relativePath: string, replaceName?: string) => Promise<void>
+  /**
+   * Attaches a vanilla game sheet as a dynamic reference (no project copy)
+   * using its predefined catalog split, then selects it in the palette.
+   */
+  attachGameSheet: (sheet: VanillaTilesheetEntry) => void
+  /**
+   * 点选对象目录条目：自动附加其 sheet（如尚未附着）并生成对应的
+   * brush（1×1）或 stamp 调色板选区；无法附加或矩形越界时把错误写进
+   * saveState，不改动文档。
+   */
+  pickCatalogObject: (object: MapCatalogObject) => void
   deleteSelectedObject: () => void
   updateSelectedObject: (updates: Partial<MapObject>) => void
   updateActiveLayer: (updates: Partial<MapLayer>) => void
@@ -205,6 +222,8 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   } = options
   const capabilities = { ...DEFAULT_MAP_EDITOR_CAPABILITIES, ...capabilitiesOverride }
   const copy = useMapAuthoringCopy().assetEditor
+  const editorCopy = useEditorCopy()
+  const locale = useLocale()
   const [activeLayerId, setActiveLayerId] = useState(document.layers[0]?.id ?? 0)
   const [lockedLayerIds, setLockedLayerIds] = useState<Set<number>>(() => new Set())
   const [tool, setTool] = useState<AssetTool>('inspect')
@@ -234,13 +253,14 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [overlayRule, setOverlayRule] = useState<CellOverlayRule>('walkable')
   const [overlayPaintPreview, setOverlayPaintPreview] = useState<readonly { tileX: number; tileY: number }[] | null>(null)
   const [projectImageUrls, setProjectImageUrls] = useState<Record<string, string>>({})
-  // Palette open state is a responsive user preference: persisted in the shared
-  // preferences store, so the palette survives editor reopen and mode switches.
-  const paletteOpen = usePreferencesStore((state) => state.mapEditorPalette.paletteOpen)
+  // 底部对象面板的展开状态是响应式用户偏好：持久化在共享偏好 store，编辑器
+  // 重开与模式切换后保持。paletteOpen 的布尔语义沿用旧版"面板打开"，现在
+  // 对应底部对象面板的显隐。
+  const paletteOpen = usePreferencesStore((state) => state.mapEditorPalette.objectPanelOpen)
   const setPaletteOpen: Dispatch<SetStateAction<boolean>> = (next) => {
-    usePreferencesStore.getState().setMapEditorPalette({
-      paletteOpen: typeof next === 'function' ? next(usePreferencesStore.getState().mapEditorPalette.paletteOpen) : next,
-    })
+    const current = usePreferencesStore.getState().mapEditorPalette.objectPanelOpen
+    const value = typeof next === 'function' ? next(current) : next
+    usePreferencesStore.getState().setMapEditorPalette({ objectPanelOpen: value })
   }
   const [undoStack, setUndoStack] = useState<MapHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<MapHistoryEntry[]>([])
@@ -555,6 +575,60 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     }
   }
 
+  /**
+   * Attaches a vanilla game sheet as a dynamic reference: the predefined
+   * catalog supplies the split, no image is copied into the project, and the
+   * tileset resolves from the connected game directory at render time.
+   */
+  function attachGameSheet(sheet: VanillaTilesheetEntry) {
+    if (!capabilities.tilesetManagement) return
+    const tileset = buildGameSheetTileset(mapDocument, sheet)
+    if (!tileset) {
+      setSaveState({
+        status: 'error',
+        message: copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+      })
+      return
+    }
+    updateDocument({ ...mapDocument, tilesets: [...mapDocument.tilesets, tileset] }, undefined, copy.addTileset)
+    setPaletteSelection({ tilesetName: tileset.name, startIndex: 0, width: 1, height: 1 })
+    setSaveState({ status: 'idle', message: '' })
+  }
+
+  /**
+   * 点选对象目录条目：sheet 已附着时直接选中对象矩形并按尺寸切到
+   * brush（1×1）或 stamp；未附着且具备 tileset 管理能力时先附加动态
+   * game sheet 引用再选择；目录里没有对应 sheet、附加失败或矩形越界时
+   * 把 attachFailed 文案写进 saveState，不改动文档。选区与工具切换是
+   * 编辑器本地状态，不产生历史记录。
+   */
+  function pickCatalogObject(object: MapCatalogObject) {
+    const selection = catalogObjectSelection(mapDocument, object)
+    if (selection) {
+      setPaletteSelection(selection)
+      setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+      setSaveState({ status: 'idle', message: '' })
+      return
+    }
+    const attachFailedMessage = editorCopy.studioDesk.mapPatchEditor.objectLibraryAttachFailed(mapObjectDisplayName(object, locale))
+    if (!capabilities.tilesetManagement) {
+      setSaveState({ status: 'error', message: attachFailedMessage })
+      return
+    }
+    const entry = findTilesheetByKey(object.sheet)
+    const tileset = entry ? buildGameSheetTileset(mapDocument, entry) : null
+    const rows = tileset ? Math.ceil(tileset.tileCount / tileset.columns) : 0
+    const { x, y, width, height } = object.rect
+    if (!tileset || x < 0 || y < 0 || x + width > tileset.columns || y + height > rows) {
+      setSaveState({ status: 'error', message: attachFailedMessage })
+      return
+    }
+    updateDocument({ ...mapDocument, tilesets: [...mapDocument.tilesets, tileset] }, undefined, copy.addTileset)
+    setPaletteSelection({ tilesetName: tileset.name, startIndex: y * tileset.columns + x, width, height })
+    setTool(width === 1 && height === 1 ? 'brush' : 'stamp')
+    setSaveState({ status: 'idle', message: '' })
+  }
+
   function updateSelectedObject(updates: Partial<MapObject>) {
     if (!capabilities.objectGroups || !selectedObject) return
     updateDocument(
@@ -790,6 +864,8 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     commitStroke,
     clickTile,
     addTileset,
+    attachGameSheet,
+    pickCatalogObject,
     deleteSelectedObject,
     updateSelectedObject,
     updateActiveLayer,
