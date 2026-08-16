@@ -1,6 +1,6 @@
 use super::types::{BuildCpMakerMapAssetRequest, BuildCpMakerMapAssetResult};
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use crate::infrastructure::game_formats::map::MapDocument;
 use crate::infrastructure::game_formats::tbin::serialize_tbin_map;
 use crate::infrastructure::game_formats::tmx::{serialize_tmx_map, serialize_tsx_tileset};
@@ -73,7 +73,7 @@ fn build_external_tsx_assets(
                 normalize_path(map_relative_path)
             );
         }
-        let normalized = normalize_path(&relative_path).replace('\\', "/");
+        let normalized = normalize_separators(&normalize_path(&relative_path));
         let bytes = serialize_tsx_tileset(tileset).with_context(|| {
             format!(
                 "Failed to serialize external TSX dependency [path={normalized}] [sourceMap={}]",
@@ -101,7 +101,7 @@ fn build_external_tsx_assets(
         .collect())
 }
 
-fn resolve_dependency_asset_path(
+pub(super) fn resolve_dependency_asset_path(
     map_relative_path: &Path,
     source: &str,
 ) -> anyhow::Result<PathBuf> {

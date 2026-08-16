@@ -5,6 +5,7 @@ use super::shared::{
 use crate::domain::assets::validate_game_directory;
 use crate::domain::launcher::updates::read_windows_file_version;
 use crate::domain::localization::{jobs, types::*};
+use crate::infrastructure::fs::pathing::normalize_separators;
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;
 use anyhow::{Context, bail};
 use rusqlite::{OptionalExtension, params};
@@ -46,12 +47,15 @@ fn localized_asset_path(path: &Path) -> (String, String) {
             let mut logical = path.to_path_buf();
             logical.set_file_name(format!("{base}.xnb"));
             return (
-                logical.to_string_lossy().replace('\\', "/"),
+                normalize_separators(&logical.to_string_lossy()),
                 (*locale).into(),
             );
         }
     }
-    (path.to_string_lossy().replace('\\', "/"), "en-US".into())
+    (
+        normalize_separators(&path.to_string_lossy()),
+        "en-US".into(),
+    )
 }
 
 fn scan_files(root: &Path, job_id: Option<&str>) -> anyhow::Result<(Vec<SourceFile>, String)> {

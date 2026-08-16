@@ -1,5 +1,5 @@
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, logical_path_key, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
@@ -111,19 +111,8 @@ fn default_launcher_updates_result_is_complete() -> bool {
 }
 
 pub(crate) fn normalize_launcher_updates_cache_key(mods_path: &str) -> Option<String> {
-    let trimmed = mods_path.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let normalized = normalize_path(&clean_input_path(trimmed))
-        .replace('/', "\\")
-        .to_ascii_lowercase();
-    if normalized.trim().is_empty() {
-        None
-    } else {
-        Some(normalized)
-    }
+    let key = logical_path_key(mods_path);
+    if key.is_empty() { None } else { Some(key) }
 }
 
 fn load_launcher_updates_cache_state(

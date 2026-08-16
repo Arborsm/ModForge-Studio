@@ -2,7 +2,7 @@ use super::storage::validate_draft_storage_key;
 use super::types::{
     ProjectAssetDependency, ProjectAssetPayload, ProjectAssetRef, ProjectAssetSource,
 };
-use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::fs::pathing::{normalize_path, validated_game_relative_path};
 use anyhow::{Context, bail};
 use base64::Engine;
 use sha2::{Digest, Sha256};
@@ -48,7 +48,7 @@ pub(super) fn read_verified_project_asset_at_dir(
     Ok((asset, path, bytes))
 }
 
-fn resolve_project_asset_path_at_dir(
+pub(super) fn resolve_project_asset_path_at_dir(
     projects_dir: &Path,
     draft_storage_key: &str,
     relative_path: &str,
@@ -62,7 +62,8 @@ fn resolve_project_asset_path_at_dir(
         .find(|asset| asset.relative_path.eq_ignore_ascii_case(&normalized))
         .with_context(|| format!("Project asset ref was not found. [draftStorageKey={draft_storage_key}] [path={normalized}]"))?
         .clone();
-    let path = project_assets_dir(projects_dir, draft_storage_key).join(relative);
+    let root = project_assets_dir(projects_dir, draft_storage_key);
+    let path = root.join(&relative);
     Ok((asset, path))
 }
 
@@ -260,13 +261,15 @@ pub(super) fn commit_project_asset_batch(batch: StagedProjectAssetBatch) -> anyh
 }
 
 fn validated_asset_relative_path(raw: &str) -> anyhow::Result<PathBuf> {
-    let normalized = raw.trim().replace('/', "\\");
-    let path = PathBuf::from(normalized);
-    validate_relative_path(&path)?;
-    if path.as_os_str().is_empty() {
+    if raw.trim().is_empty() {
         bail!("Project asset path must not be empty.");
     }
-    Ok(path)
+    validated_game_relative_path(raw).with_context(|| {
+        format!(
+            "Project asset path must stay relative to the project. [path={}]",
+            raw.trim()
+        )
+    })
 }
 
 fn verify_asset_bytes(asset: &ProjectAssetRef, bytes: &[u8], path: &Path) -> anyhow::Result<()> {

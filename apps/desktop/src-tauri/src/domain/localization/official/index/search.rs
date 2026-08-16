@@ -4,6 +4,7 @@ use super::shared::{
     LOCALES, canonical_locale, hex, is_default_locale, semantic_fingerprint, semantic_identity,
 };
 use crate::domain::localization::types::*;
+use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::{Context, bail};
 use rusqlite::{params, params_from_iter, types::Value as SqlValue};
 use sha2::{Digest, Sha256};
@@ -419,7 +420,7 @@ pub(crate) struct SemanticOfficialEntity {
 }
 
 pub(crate) fn character_entity_id(asset_path: &str) -> Option<String> {
-    let normalized = asset_path.replace('\\', "/");
+    let normalized = normalize_separators(asset_path);
     let lower = normalized.to_ascii_lowercase();
     let prefix = "characters/dialogue/";
     let start = lower.find(prefix)? + prefix.len();
@@ -464,7 +465,7 @@ pub(crate) fn semantic_entity_snapshot() -> anyhow::Result<Vec<SemanticOfficialE
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })? {
         let (asset_path, text) = row?;
-        let normalized = asset_path.replace('\\', "/");
+        let normalized = normalize_separators(&asset_path);
         let name = normalized
             .rsplit('/')
             .next()

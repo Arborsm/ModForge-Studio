@@ -3,6 +3,7 @@ use crate::AppHandle;
 use crate::domain::app_paths::localization_semantic_models_dir;
 use crate::domain::localization::operational_log::{SEMANTIC, event};
 use crate::domain::localization::{jobs, types::*};
+use crate::infrastructure::fs::pathing::normalize_separators;
 use crate::infrastructure::http::resumable_download::{
     PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
 };
@@ -430,11 +431,8 @@ fn verified_files(root: &Path, paths: Vec<PathBuf>) -> anyhow::Result<Vec<AiSema
     paths
         .into_iter()
         .map(|path| {
-            let relative_path = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .replace('\\', "/");
+            let relative_path =
+                normalize_separators(&path.strip_prefix(root).unwrap_or(&path).to_string_lossy());
             Ok(AiSemanticVerifiedFile {
                 relative_path,
                 size_bytes: path.metadata()?.len(),

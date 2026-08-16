@@ -18,6 +18,7 @@ fn imports_project_assets_as_files_and_lightweight_refs() {
     let projects = root.join("projects");
     write_file(&source.join("manifest.json"), "{}");
     write_file(&source.join("content.json"), "{}");
+
     write_file(&source.join("i18n/default.json"), "{}");
     write_file(
         &source.join("assets/maps/town.tmx"),
@@ -399,5 +400,65 @@ fn rejects_rename_collisions_without_moving_the_source() {
             .is_file()
     );
 
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(not(windows))]
+#[test]
+fn writes_backslash_project_assets_as_nested_directories() {
+    let root = create_temp_dir("cp-maker-project-assets-backslash-write");
+    let projects = root.join("projects");
+    let assets_root = project_assets_dir(&projects, "draft");
+
+    let (_asset, destination, backup) = write_project_asset_at_dir(
+        &projects,
+        "draft",
+        r"assets\maps\foo.png",
+        "image/png",
+        b"png bytes",
+        ProjectAssetSource::Edited,
+        &[],
+    )
+    .expect("write backslash project asset");
+    commit_project_asset_write(backup).expect("commit backslash asset");
+
+    assert_eq!(fs::read(&destination).unwrap(), b"png bytes");
+    assert!(assets_root.join("assets/maps/foo.png").is_file());
+    // On Linux/macOS a backslash is an ordinary file-name character, so the
+    // asset must land in nested directories rather than a single legacy file.
+    assert!(!assets_root.join(r"assets\maps\foo.png").exists());
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn rejects_batch_write_duplicate_paths_across_separator_styles() {
+    let root = create_temp_dir("cp-maker-project-assets-batch-duplicate");
+    let projects = root.join("projects");
+
+    let error = write_project_assets_at_dir(
+        &projects,
+        "draft",
+        vec![
+            ProjectAssetBatchWriteInput {
+                relative_path: "assets/maps/foo.png".to_string(),
+                media_type: "image/png".to_string(),
+                bytes: b"first".to_vec(),
+                source_type: ProjectAssetSource::Edited,
+            },
+            ProjectAssetBatchWriteInput {
+                relative_path: r"assets\maps\foo.png".to_string(),
+                media_type: "image/png".to_string(),
+                bytes: b"second".to_vec(),
+                source_type: ProjectAssetSource::Edited,
+            },
+        ],
+        &[],
+    )
+    .expect_err("reject duplicate batch paths after separator normalization");
+
+    let message = error.to_string();
+    assert!(message.contains("duplicate"), "{message}");
+    assert!(message.contains("assets/maps/foo.png"), "{message}");
     fs::remove_dir_all(root).unwrap();
 }

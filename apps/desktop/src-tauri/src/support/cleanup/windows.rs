@@ -4,32 +4,15 @@ use std::fs;
 const SHMEM_DIR_NAME: &str = "shared_memory-rs";
 const SHMEM_FILE_PREFIX: &str = "shmem_";
 
-/// Cleans up stale shared-memory mapping files left behind by Tauri/WebView2 on
-/// Windows. These files live in the system temp directory under
-/// `shared_memory-rs` and are named `shmem_<hex>`. Each leak can be several
-/// gigabytes, so removing stale mappings before the app starts keeps disk usage
-/// under control.
-///
-/// This function is a no-op on non-Windows platforms because the leak is
-/// Windows-specific.
-pub fn cleanup_tauri_shared_memory_leaks() {
-    #[cfg(windows)]
-    {
-        if let Err(error) = cleanup_tauri_shared_memory_leaks_inner() {
-            LogEvent::new("cleanup.sharedMemory.failed")
-                .error(error)
-                .emit_warn(targets::CLEANUP);
-        }
-    }
-
-    #[cfg(not(windows))]
-    {
-        // The shared_memory-rs leak is Windows-specific.
+pub(super) fn cleanup_tauri_shared_memory_leaks() {
+    if let Err(error) = cleanup_inner() {
+        LogEvent::new("cleanup.sharedMemory.failed")
+            .error(error)
+            .emit_warn(targets::CLEANUP);
     }
 }
 
-#[cfg(windows)]
-fn cleanup_tauri_shared_memory_leaks_inner() -> Result<(), std::io::Error> {
+fn cleanup_inner() -> Result<(), std::io::Error> {
     let shmem_dir = std::env::temp_dir().join(SHMEM_DIR_NAME);
 
     let entries = match fs::read_dir(&shmem_dir) {

@@ -21,6 +21,7 @@ use base64::Engine;
 
 use crate::domain::app_paths::cp_maker_projects_dir;
 use crate::domain::app_paths::{cp_maker_drafts_dir, cp_maker_session_path};
+use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::Context;
 use std::fs;
 use std::path::Path;
@@ -115,8 +116,37 @@ fn load_cp_maker_project_map_asset_at_dir(
         relative_path,
         assets,
     )?;
-    let document =
+    let mut document =
         crate::infrastructure::game_formats::parse_map_asset(&bytes, &path, &asset.relative_path)?;
+    for tileset in &mut document.tilesets {
+        let Some(image_source) = tileset.image_source.clone() else {
+            continue;
+        };
+        let base_relative = match tileset.source.as_deref() {
+            Some(tsx_source) => match map_asset::resolve_dependency_asset_path(
+                Path::new(&asset.relative_path),
+                tsx_source,
+            ) {
+                Ok(relative) => relative,
+                Err(_) => continue,
+            },
+            None => Path::new(&asset.relative_path).to_path_buf(),
+        };
+        let Ok(image_relative) =
+            map_asset::resolve_dependency_asset_path(&base_relative, &image_source)
+        else {
+            continue;
+        };
+        let normalized_relative = normalize_separators(&image_relative.to_string_lossy());
+        if let Ok((_, image_path)) = project_assets::resolve_project_asset_path_at_dir(
+            projects_dir,
+            draft_storage_key,
+            &normalized_relative,
+            assets,
+        ) {
+            tileset.image_path = Some(image_path.to_string_lossy().into_owned());
+        }
+    }
     let format = path
         .extension()
         .and_then(|value| value.to_str())
@@ -259,7 +289,7 @@ pub fn rename_cp_maker_project_asset(
     let drafts_dir = cp_maker_drafts_dir()?;
     let projects_dir = cp_maker_projects_dir()?;
     let mut draft = load_cp_maker_draft_at_dir(&drafts_dir, &request.draft_storage_key)?;
-    let old_path = request.relative_path.replace('\\', "/");
+    let old_path = normalize_separators(&request.relative_path);
     let (renamed, source, destination) = project_assets::rename_project_asset_at_dir(
         &projects_dir,
         &request.draft_storage_key,
@@ -297,7 +327,7 @@ pub fn delete_cp_maker_project_asset(
     let drafts_dir = cp_maker_drafts_dir()?;
     let projects_dir = cp_maker_projects_dir()?;
     let mut draft = load_cp_maker_draft_at_dir(&drafts_dir, &request.draft_storage_key)?;
-    let deleted_path = request.relative_path.replace('\\', "/");
+    let deleted_path = normalize_separators(&request.relative_path);
     let (source, staged) = project_assets::stage_project_asset_delete_at_dir(
         &projects_dir,
         &request.draft_storage_key,
@@ -347,7 +377,7 @@ fn replace_asset_references(
             let matches = object
                 .get("fromFile")
                 .and_then(serde_json::Value::as_str)
-                .is_some_and(|value| value.replace('\\', "/").eq_ignore_ascii_case(old_path));
+                .is_some_and(|value| normalize_separators(value).eq_ignore_ascii_case(old_path));
             if matches {
                 if let Some(replacement) = new_path {
                     object.insert(
@@ -364,7 +394,7 @@ fn replace_asset_references(
         if location
             .from_map_file
             .as_deref()
-            .is_some_and(|value| value.replace('\\', "/").eq_ignore_ascii_case(old_path))
+            .is_some_and(|value| normalize_separators(value).eq_ignore_ascii_case(old_path))
         {
             location.from_map_file = new_path.map(str::to_string);
         }

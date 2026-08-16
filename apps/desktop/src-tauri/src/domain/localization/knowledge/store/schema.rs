@@ -1,4 +1,5 @@
 use crate::domain::app_paths::ai_localization_knowledge_path;
+use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::{Context, bail};
 use rusqlite::{Connection, Transaction, params};
 use sha2::{Digest, Sha256};
@@ -34,7 +35,7 @@ pub(crate) fn normalized_binding(kind: &str, value: &str) -> anyhow::Result<(Str
         "canonical-path-hash" => {
             let canonical = fs::canonicalize(value)
                 .with_context(|| format!("Failed to resolve localization project path {value}."))?;
-            let mut path = canonical.to_string_lossy().replace('\\', "/");
+            let mut path = normalize_separators(&canonical.to_string_lossy());
             if cfg!(windows) {
                 path.make_ascii_lowercase();
             }

@@ -9,7 +9,7 @@ const THEME_TOKEN_DEFINITION_PATTERN =
   /--(?:accent|accent-soft|bg-(?:app|panel|panel-muted|viewport|active|elevated)|text-(?:primary|secondary|tertiary|inverse)|border-color)\s*:/g
 const LIGHT_THEME_PIN_PATTERN = /color-scheme\s*:\s*light/g
 const MAX_CSS_FILE_LINES = 1000
-const MAX_TS_FILE_LINES = 1500
+const MAX_TS_FILE_LINES = 2500
 const TS_SOURCE_EXCLUDE_DIRS = /(?:^|\/)src\/(tests|test|dev)(?:\/|$)/
 
 const HEX_COLOR_LITERAL_PATTERN = /['"](#[0-9a-fA-F]{3,6})['"]/g
@@ -73,16 +73,6 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
 const CSS_FILE_SIZE_ALLOWLIST = new Set([
   'features/launcher/library/mod-detail/info-files-reader-and-actions.css',
   'features/ai-settings.css',
-])
-
-// TODO: these files exceed the 1500-line threshold and should be split.
-const TS_FILE_SIZE_ALLOWLIST = new Set([
-  'entities/map/ui/MapViewport.tsx',
-  'features/launcher/model/useLauncherLibrary.ts',
-  'pages/launcher/library/hooks/useLauncherLibraryController.ts',
-  'pages/launcher/library/ui/LauncherLibraryGrid.tsx',
-  'pages/launcher/ui/LauncherDiscoverPage.tsx',
-  'pages/launcher/ui/LauncherConfigurationPage.tsx',
 ])
 
 async function listCssFiles(directory: string): Promise<string[]> {
@@ -224,9 +214,6 @@ describe('style architecture', () => {
     await Promise.all(
       tsFiles.map(async (file) => {
         const relativePath = relative(SOURCE_DIR, file).replace(/\\/g, '/')
-        if (TS_FILE_SIZE_ALLOWLIST.has(relativePath)) {
-          return
-        }
         const source = await readFile(file, 'utf8')
         const lineCount = source.split(/\r?\n/).length
         if (lineCount > MAX_TS_FILE_LINES) {

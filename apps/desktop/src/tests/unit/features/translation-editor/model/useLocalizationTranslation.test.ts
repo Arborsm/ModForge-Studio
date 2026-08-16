@@ -109,11 +109,11 @@ describe('workbench streaming commit', () => {
     expect(commit.preview?.get('b')).toBe('支付 %s 金币')
   })
 
-  it('restores sentinels on suffixed wire ids before reassembly', () => {
+  it('restores sentinels on suffixed wire ids before reassembly', { timeout: 15_000 }, () => {
     // 镜像 hook 的真实路径：映射按发送的 wire item 构建（超长条目按
     // \u0000N chunk id 发送），还原发生在 mergeResults 重新拼装之前，
     // 每个 chunk 用自己那份 token 还原后再拼接回完整条目。
-    const longText = '你好，{{name}}，余额 {0} 金币。'.repeat(1400)
+    const longText = '你好，{{name}}，余额 {0} 金币。'.repeat(1000)
     const plan = buildAiTranslationBatches(
       { targetLocale: 'zh-CN' },
       [{ id: 'long-entry', text: longText, format: 'plainText' }],

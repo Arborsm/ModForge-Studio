@@ -4,7 +4,7 @@ use crate::domain::app_paths::current_timestamp_ms;
 use crate::domain::manifest::{
     content_pack_for_unique_id, normalize_unique_id, project_name_from_manifest, string_field,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
@@ -1265,7 +1265,7 @@ fn is_i18n_path(relative_path: &Path) -> bool {
 }
 
 pub(crate) fn normalize_relative_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    normalize_separators(&path.to_string_lossy())
 }
 
 fn component_to_string(component: Component<'_>) -> Option<String> {

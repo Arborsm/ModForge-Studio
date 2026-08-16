@@ -1,6 +1,6 @@
 use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
-    map_source_path, normalize_path, stardew_game_validation_candidates,
+    map_source_path, normalize_path, normalize_separators, stardew_game_validation_candidates,
 };
 use anyhow::{Context, bail};
 use std::collections::BTreeMap;
@@ -93,7 +93,7 @@ fn build_map_summary(
         .to_string();
 
     Ok(MapAssetSummary {
-        id: normalize_path(&logical_file_path).replace('\\', "/"),
+        id: normalize_separators(&normalize_path(&logical_file_path)),
         name,
         file_name,
         format: "xnb".to_string(),
@@ -237,7 +237,7 @@ pub(crate) fn scan_events(path: String) -> anyhow::Result<Vec<EventAssetSummary>
             .to_string();
 
         events.push(EventAssetSummary {
-            id: normalize_path(relative_path).replace('\\', "/"),
+            id: normalize_separators(&normalize_path(relative_path)),
             name,
             file_name,
             absolute_path: normalize_path(&absolute_path),
@@ -401,7 +401,7 @@ fn collect_image_assets(
         let path = entry.path();
         if path.is_dir() {
             let relative = path.strip_prefix(base_root).unwrap_or(&path);
-            let normalized = normalize_path(relative).replace('\\', "/");
+            let normalized = normalize_separators(&normalize_path(relative));
             if normalized.eq_ignore_ascii_case("Content/Maps")
                 || normalized.eq_ignore_ascii_case("Content/Data")
             {
@@ -415,11 +415,12 @@ fn collect_image_assets(
             continue;
         }
 
-        let relative_path = path
-            .strip_prefix(base_root)
-            .map(normalize_path)
-            .unwrap_or_else(|_| normalize_path(&path))
-            .replace('\\', "/");
+        let relative_path = normalize_separators(
+            &path
+                .strip_prefix(base_root)
+                .map(normalize_path)
+                .unwrap_or_else(|_| normalize_path(&path)),
+        );
         if relative_path.starts_with("Content/Maps/") || relative_path.starts_with("Content/Data/")
         {
             continue;
@@ -486,11 +487,12 @@ fn collect_data_assets(
             continue;
         }
 
-        let relative_path = path
-            .strip_prefix(base_root)
-            .map(normalize_path)
-            .unwrap_or_else(|_| normalize_path(&path))
-            .replace('\\', "/");
+        let relative_path = normalize_separators(
+            &path
+                .strip_prefix(base_root)
+                .map(normalize_path)
+                .unwrap_or_else(|_| normalize_path(&path)),
+        );
         let name = cp_asset_key(&relative_path);
         if name.is_empty() {
             continue;

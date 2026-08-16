@@ -1,3 +1,4 @@
+use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::Context;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -850,7 +851,7 @@ pub(crate) fn parse(
     asset_path: &str,
     value: &Value,
 ) -> anyhow::Result<Option<StructuredTranslationDocument>> {
-    let normalized = asset_path.replace('\\', "/").to_ascii_lowercase();
+    let normalized = normalize_separators(asset_path).to_ascii_lowercase();
     if !matches!(
         normalized.as_str(),
         "data/monsters.xnb"

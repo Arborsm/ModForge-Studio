@@ -26,6 +26,7 @@ describe('registry setup', () => {
       'character-browser',
       'building-browser',
       'item-browser',
+      'audio-browser',
       'mod-browser',
       'mod-translation',
       'i18n-generator',

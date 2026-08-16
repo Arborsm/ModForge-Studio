@@ -15,7 +15,7 @@ use super::scan::{
     TilesetExtensions, scan_layer_order, scan_map_tileset_extensions,
     scan_tileset_extension_fragment, strip_preserved_top_level_layers, xml_line_column,
 };
-use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::fs::pathing::{game_path_to_pathbuf, normalize_path};
 use crate::infrastructure::game_formats::map::{
     MapDocument, MapFormat, MapLayer, MapLayerDataEncoding, MapObject, MapObjectGroup,
     MapPropertyValue, MapTileset, MapTilesetAnimationFrame,
@@ -553,7 +553,7 @@ fn resolve_dependency_path(owner: &Path, source: &str) -> anyhow::Result<PathBuf
     let candidate = owner
         .parent()
         .unwrap_or(owner)
-        .join(source.replace('/', "\\"));
+        .join(game_path_to_pathbuf(source));
     let canonical_parent = owner
         .parent()
         .unwrap_or(owner)
@@ -596,7 +596,7 @@ fn convert_tileset(
             &owner_path
                 .parent()
                 .unwrap_or(owner_path)
-                .join(value.replace('/', "\\")),
+                .join(game_path_to_pathbuf(value)),
         )
     });
     let offset = raw.tileoffset;

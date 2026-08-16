@@ -13,7 +13,7 @@ use crate::domain::launcher::types::{
     LauncherLibraryScanResult,
 };
 use crate::domain::manifest::{normalize_unique_id, string_field};
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use anyhow::{Context, bail};
 use similar::TextDiff;
 use std::collections::{BTreeMap, BTreeSet};
@@ -543,7 +543,9 @@ fn build_archive_tree(
 }
 
 fn to_archive_relative_path(path: &Path, archive_root: &Path) -> String {
-    normalize_path(path.strip_prefix(archive_root).unwrap_or(path)).replace('\\', "/")
+    normalize_separators(&normalize_path(
+        path.strip_prefix(archive_root).unwrap_or(path),
+    ))
 }
 
 fn manifest_root_for_entry(relative_path: &str) -> String {

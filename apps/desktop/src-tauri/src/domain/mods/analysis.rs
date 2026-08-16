@@ -22,7 +22,7 @@ use crate::domain::content_patcher::attached::load_attached_api_registry;
 use crate::domain::manifest::{
     content_pack_for_unique_id, project_name_from_manifest, string_array_field, string_field,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -273,7 +273,7 @@ fn build_project_summary(
         .to_string();
 
     ModProjectSummary {
-        id: normalize_path(project_path).replace('\\', "/"),
+        id: normalize_separators(&normalize_path(project_path)),
         name: project_name_from_manifest(manifest, project_path),
         author: string_field(manifest, "Author"),
         version: string_field(manifest, "Version"),

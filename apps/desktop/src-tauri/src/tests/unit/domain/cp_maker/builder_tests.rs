@@ -221,6 +221,41 @@ fn resolves_include_files() {
 }
 
 #[test]
+fn resolves_include_files_with_backslash_separators() {
+    let root = create_temp_dir("import-include-backslash");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{"Name":"T","Author":"A","Version":"1.0.0","UniqueID":"A.T","ContentPackFor":{"UniqueID":"Pathoschild.ContentPatcher"}}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "Include", "FromFile": "changes\\mods.json" }
+  ]
+}"#,
+    );
+    fs::create_dir_all(root.join("changes")).unwrap();
+    write_file(
+        &root.join("changes/mods.json"),
+        r#"{
+  "Changes": [
+    { "Action": "EditData", "Target": "Data/mail", "Entries": { "Hello": "World" } }
+  ]
+}"#,
+    );
+
+    let draft = import_cp_maker_pack(root.to_str().unwrap()).unwrap();
+    let registry: ChangeRegistry =
+        serde_json::from_value(draft.serialized_change_registry).unwrap();
+    assert_eq!(registry.patches.len(), 1);
+    assert_eq!(registry.patches[0].target, "Data/mail");
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn imports_dynamic_tokens_and_custom_locations() {
     let root = create_temp_dir("import-tokens");
     write_file(

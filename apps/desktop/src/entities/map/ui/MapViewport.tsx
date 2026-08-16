@@ -92,6 +92,8 @@ type MapViewportProps = {
   viewportOverlay?: ReactNode
   /** Static world lightmap (time-of-day base + light glows); baked to a multiply overlay over the map. */
   worldLighting?: WorldLightingState | null
+  /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+  gameRootPath?: string | null
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
   /** Adds editor-specific commands using the tile under the context-menu pointer. */
@@ -287,6 +289,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     mapOverlayLayer = 'between',
     viewportOverlay,
     worldLighting = null,
+    gameRootPath = null,
     focusWorldPoint,
     contextMenuEnabled = true,
     contextMenuExtraItems,
@@ -738,13 +741,13 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   // stretches over the map display rect, so the spaces stay aligned.
   // Glow textures decode asynchronously; the version bump re-bakes once ready.
   const [lightingTexturesVersion, setLightingTexturesVersion] = useState(0)
-  useEffect(() => preloadWorldLightingTextures(() => setLightingTexturesVersion((version) => version + 1)), [])
+  useEffect(() => preloadWorldLightingTextures(gameRootPath, () => setLightingTexturesVersion((version) => version + 1)), [gameRootPath])
   const bakedWorldLighting = useMemo(
     () =>
       mapDocument && worldLighting
-        ? bakeWorldLightingCanvas(mapDocument.width * GAME_TILE_SIZE, mapDocument.height * GAME_TILE_SIZE, worldLighting)
+        ? bakeWorldLightingCanvas(mapDocument.width * GAME_TILE_SIZE, mapDocument.height * GAME_TILE_SIZE, worldLighting, gameRootPath)
         : null,
-    [mapDocument, worldLighting, lightingTexturesVersion],
+    [mapDocument, worldLighting, gameRootPath, lightingTexturesVersion],
   )
   const tileInteractionEnabled = Boolean(onTileClick || onTileRectSelect || onTileStroke)
   const viewportCursorClass = tileInteractionEnabled ? 'cursor-crosshair' : 'cursor-default'
@@ -2013,7 +2016,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   const viewportContent = (
     <div
-      className="panel-canvas relative isolate h-full shadow-(--shadow-panel)"
+      className="panel-canvas shadow-panel relative isolate h-full"
       style={viewportBackdropStyle}
       aria-busy={tilesetLoading ? 'true' : undefined}
     >

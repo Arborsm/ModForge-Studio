@@ -97,6 +97,7 @@ describe('modResultAssets', () => {
       originalWidth: 8,
       originalHeight: 16,
       target: 'Characters/Abigail',
+      image: expect.any(Object),
     })
   })
 
@@ -216,6 +217,7 @@ describe('modResultAssets', () => {
       originalWidth: null,
       originalHeight: null,
       target: 'Portraits/Haley_Spring_Indoor',
+      image: expect.any(Object),
     })
   })
 })

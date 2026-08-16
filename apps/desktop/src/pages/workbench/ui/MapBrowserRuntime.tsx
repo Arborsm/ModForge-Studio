@@ -79,6 +79,7 @@ export function MapBrowserRuntime({
       onOpenAtlasTarget: mapWorkspace.handleOpenAtlasTarget,
       theme,
       accentColor,
+      gameRootPath: directoryInfo?.rootPath ?? null,
       visibleLayerIds: mapWorkspace.visibleLayerIds,
       onToggleLayer: mapWorkspace.toggleLayer,
       onShowAllLayers: () => mapWorkspace.setAllLayers(true),

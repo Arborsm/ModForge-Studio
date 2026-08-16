@@ -70,6 +70,17 @@ host ──────► domain ──────► infrastructure
 - god file 拆分惯例：单文件超过约 1000 行或混合三个以上职责时拆；按职责拆成子模块，用 `pub(crate) use` 重导出保持调用方不动，一次迁移一个文件。已完成三批：`domain/mods/mod.rs`、`domain/launcher/mod_config.rs`、`domain/ai/providers.rs`、`infrastructure/game_formats/tmx.rs`、`domain/launcher/archive.rs`、`domain/launcher/smapi_update.rs`、`domain/localization/official/index.rs`、`domain/localization/knowledge/store.rs`、`src/host/host_runtime.rs`（调度核心留在 `mod.rs` 以配合 sidecar AST 架构测试，遥测/响应渲染移入子模块）、`domain/assets.rs`（与 `assets/` 目录混用形态一并统一为「目录 + mod.rs」）。所有超过约 1000 行的存量 god file 均已处理完毕。
 - 测试：单元测试在 `src/tests/unit/`，跨模块集成测试在 `src/tests/integration/`，回归测试在 `src-tauri/tests/`；`#[path]` 接线是既定机制（允许测试访问私有项），不新建内联测试模块。
 
+## 路径分隔符
+
+游戏格式（TMX/TBin/TSX source、`content.json` asset key 等）与宿主平台使用不同的路径分隔符约定；在 Linux/macOS 上 `\` 不是路径分隔符，只是普通文件名字符。分隔符转换只允许发生在游戏格式序列化/解析边界与逻辑键场景，且必须统一经过 `infrastructure/fs/pathing.rs` 的语义 helper：
+
+- `game_path_to_pathbuf(raw)` — 解析游戏格式路径字符串：`\` 与 `/` 都视为分隔符，trim、跳过空段与 `.` 段，`..` 保留为组件，结果恒为相对路径；
+- `validated_game_relative_path(raw)` — 校验版：拒绝空输入、以分隔符开头的绝对路径、非 Normal 组件（`..` / 根 / 前缀）与盘符段（`C:\x`）；
+- `normalize_separators(raw)` — 仅做 `\` → `/` 替换，用于展示/日志归一化，禁止用于文件系统访问；
+- `logical_path_key(raw)` — trim + 分隔符归一 + 去尾部 `/` + 小写，结果是逻辑比较键，禁止喂给文件系统 API。
+
+禁止在生产代码中手写 `replace('/', "\\")` 或 `replace("/", "\\")`（`src/tests/` 的回归测试可构造反斜杠形态做断言，不受此限）。
+
 ## 检查脚本
 
 ```bash

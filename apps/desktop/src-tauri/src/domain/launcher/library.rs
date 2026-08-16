@@ -23,7 +23,7 @@ use crate::domain::manifest::{
     manifest_dependencies, normalize_unique_id, project_name_from_manifest,
     required_dependency_ids, string_array_field, string_field,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
@@ -897,7 +897,7 @@ fn build_mod_summary(
         missing_required_dependencies_for_project(project, dependency_health_graph);
 
     LauncherLibraryModSummary {
-        id: normalize_path(&project.project_path).replace('\\', "/"),
+        id: normalize_separators(&normalize_path(&project.project_path)),
         label_key: preferred_cover_label_key(
             nexus_mod_id,
             string_field(&project.manifest, "UniqueID").as_deref(),

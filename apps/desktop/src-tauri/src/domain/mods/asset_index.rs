@@ -14,7 +14,9 @@ use super::discovery::{
     ProjectCompatibility, array_field, log_scan_skip, object_field, read_json_file,
 };
 use crate::domain::manifest::{project_name_from_manifest, string_field};
-use crate::infrastructure::fs::pathing::normalize_path;
+use crate::infrastructure::fs::pathing::{
+    game_path_to_pathbuf, normalize_path, normalize_separators,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -459,7 +461,7 @@ fn collect_flattened_content_patcher_patches(
                 continue;
             }
 
-            let include_path = base_dir.join(from_file.replace('\\', "/"));
+            let include_path = base_dir.join(game_path_to_pathbuf(from_file));
             let include_key = normalize_path(&include_path).to_ascii_lowercase();
             if include_stack.contains(&include_key) {
                 continue;
@@ -553,7 +555,7 @@ pub(crate) fn build_mod_asset_index_group(
 
     Some(ModAssetIndexGroup {
         mod_id: string_field(manifest, "UniqueID")
-            .unwrap_or_else(|| normalize_path(project_path).replace('\\', "/")),
+            .unwrap_or_else(|| normalize_separators(&normalize_path(project_path))),
         mod_name: project_name_from_manifest(manifest, project_path),
         mod_path: normalize_path(project_path),
         plugin_kind: "content-patcher".to_string(),

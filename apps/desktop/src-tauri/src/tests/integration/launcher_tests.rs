@@ -778,7 +778,7 @@ fn launcher_updates_cache_returns_unexpired_entry_for_matching_mods_path() {
 
     let loaded = load_cached_launcher_updates_at_path(
         &cache_path,
-        "C:/Games/Stardew Valley/Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         1_799_999,
     )
     .expect("load launcher updates cache");
@@ -829,15 +829,24 @@ fn launcher_updates_cache_invalidates_only_the_matching_mods_path() {
     save_launcher_updates_cache_at_path(&cache_path, &second, 2_000, 1_800_000)
         .expect("save second launcher updates cache entry");
 
-    invalidate_launcher_updates_cache_at_path(&cache_path, Some("C:/Games/Stardew Valley/Mods"))
-        .expect("invalidate launcher updates cache");
+    invalidate_launcher_updates_cache_at_path(
+        &cache_path,
+        Some(normalized_mods_path(r"C:\Games\Stardew Valley\Mods").as_str()),
+    )
+    .expect("invalidate launcher updates cache");
 
-    let first_loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 50_000)
-            .expect("load invalidated launcher updates cache");
-    let second_loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"D:\Games\Stardew Valley\Mods", 50_000)
-            .expect("load remaining launcher updates cache");
+    let first_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        50_000,
+    )
+    .expect("load invalidated launcher updates cache");
+    let second_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"D:\Games\Stardew Valley\Mods"),
+        50_000,
+    )
+    .expect("load remaining launcher updates cache");
 
     assert_eq!(first_loaded, None);
     assert_eq!(second_loaded, Some(second));
@@ -855,9 +864,12 @@ fn launcher_updates_cache_preserves_incomplete_entries_for_incremental_progress(
     save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
         .expect("save incomplete launcher updates cache");
 
-    let loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 60_000)
-            .expect("load incomplete launcher updates cache");
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        60_000,
+    )
+    .expect("load incomplete launcher updates cache");
 
     assert_eq!(loaded, Some(cached));
 
@@ -874,20 +886,23 @@ fn launcher_updates_cache_clears_interrupted_check_markers_without_discarding_la
         .expect("save launcher updates cache");
     mark_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         120_000,
     )
     .expect("mark launcher updates check in progress");
 
     clear_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        Some(r"C:\Games\Stardew Valley\Mods"),
+        Some(normalized_mods_path(r"C:\Games\Stardew Valley\Mods").as_str()),
     )
     .expect("clear launcher updates check in progress");
 
-    let loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 600_000)
-            .expect("load cached launcher updates");
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        600_000,
+    )
+    .expect("load cached launcher updates");
 
     assert_eq!(loaded, Some(cached));
 
@@ -907,21 +922,23 @@ fn inspect_launcher_updates_cache_reports_fresh_entry_and_in_progress_state() {
         .expect("save launcher updates cache");
     mark_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         120_000,
     )
     .expect("mark launcher updates check in progress");
 
     let inspection = inspect_launcher_updates_cache_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         600_000,
     )
     .expect("inspect launcher updates cache");
 
     assert_eq!(
         inspection.cache_key,
-        normalize_launcher_updates_cache_key(r"C:\Games\Stardew Valley\Mods")
+        normalize_launcher_updates_cache_key(&normalized_mods_path(
+            r"C:\Games\Stardew Valley\Mods"
+        ))
     );
     assert_eq!(
         inspection.entry_state,
@@ -949,7 +966,7 @@ fn inspect_launcher_updates_cache_reports_expired_entry_state() {
 
     let inspection = inspect_launcher_updates_cache_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         1_900_000,
     )
     .expect("inspect expired launcher updates cache");
