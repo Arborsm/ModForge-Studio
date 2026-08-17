@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { ImageOff, Loader2, Minus, Plus, ScanLine } from 'lucide-react'
+import { ChevronRight, ImageOff, LayoutGrid, Loader2, Minus, Plus, ScanLine } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { usePreferencesStore, type PaletteRecentSelection } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import type { MapDocument, MapTileset } from '../lib/types'
 import { resolveTilesetImagePath } from '../lib/assets'
-import { MapTilesheetPicker, type MapTilesheetPickerProjectOption } from './MapTilesheetPicker'
+import { type MapTilesheetPickerProjectOption } from './MapTilesheetPicker'
+import { MapTilesheetGallery } from './MapTilesheetGallery'
 import type { VanillaTilesheetEntry } from '../model/vanillaTilesheets'
 import {
   cellFromSheetPointer,
   normalizeSelectionRect,
   pushRecentSelection,
+  removeRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
   tilesetSelectionFromRect,
@@ -32,7 +35,7 @@ type MapTilesetPaletteProps = {
   document: MapDocument
   locale: LocaleCode
   selection: MapTilesetPaletteSelection | null
-  onSelectionChange: (selection: MapTilesetPaletteSelection) => void
+  onSelectionChange: (selection: MapTilesetPaletteSelection | null) => void
   /** Game root used to resolve dynamically referenced vanilla sheets; null disables their images and catalog rows. */
   gameRootPath?: string | null
   /** Attaches a vanilla catalog sheet as a dynamic reference; enables the catalog groups in the sheet picker. */
@@ -41,6 +44,16 @@ type MapTilesetPaletteProps = {
   projectImageOptions?: readonly MapTilesheetPickerProjectOption[]
   /** Attaches a project image as a new tileset. */
   onAddProjectImage?: ((relativePath: string) => void) | null
+  /** Removes a tileset by name; omitted in session modes without tileset management. */
+  onRemoveTileset?: ((name: string) => void) | null
+  /** Replaces a tileset's image; reuses the add-tileset flow with a replaceName. */
+  onReplaceTilesetImage?: ((relativePath: string, replaceName: string) => void) | null
+  /** Requests the host to switch the Inspector to the tilesets tab for this sheet. */
+  onEditTilesetInInspector?: ((name: string) => void) | null
+  /** Notifies the host that a sheet is being hovered in the gallery; null clears the preview. */
+  onHoverTileset?: ((imageSrc: string | null) => void) | null
+  /** Notifies the host that the gallery selection mode is active (overlay backdrop). */
+  onGalleryModeChange?: ((active: boolean) => void) | null
 }
 
 type RecentCellProps = {
@@ -123,7 +136,91 @@ function RecentCell({ document, tileset, entry, locale, gameRootPath, errorFacto
   )
 }
 
-/** Renders the docked whole-sheet palette: picker, recents, draggable sheet image, and zoom footer. */
+type TilesetHoverMagnifierProps = {
+  image: HTMLImageElement
+  tileset: MapTileset
+  rows: number
+  column: number
+  row: number
+  pointerX: number
+  pointerY: number
+  label: string
+  tileTooltipLabel: (index: number, tileset: string) => string
+}
+
+/**
+ * Floating hover magnifier for the palette sheet image. Renders a 6×4 tile
+ * crop centered on the hovered tile at 4x scale (pixelated), positioned
+ * offset from the cursor so it doesn't obscure the sheet. The magnifier
+ * follows the pointer via absolute positioning relative to the scroll body.
+ */
+function TilesetHoverMagnifier({
+  image,
+  tileset,
+  rows,
+  column,
+  row,
+  pointerX,
+  pointerY,
+  label,
+  tileTooltipLabel,
+}: TilesetHoverMagnifierProps) {
+  const MAGNIFIER_TILES_X = 6
+  const MAGNIFIER_TILES_Y = 4
+  const SCALE = 4
+  const spacing = tileset.spacing ?? 0
+  const margin = tileset.margin ?? 0
+  const tileW = tileset.tileWidth
+  const tileH = tileset.tileHeight
+  // The crop origin in source-image pixels: center the hovered tile, clamped to sheet bounds.
+  const cropStartCol = Math.max(0, Math.min(tileset.columns - MAGNIFIER_TILES_X, column - Math.floor(MAGNIFIER_TILES_X / 2)))
+  const cropStartRow = Math.max(0, Math.min(rows - MAGNIFIER_TILES_Y, row - Math.floor(MAGNIFIER_TILES_Y / 2)))
+  const cropX = margin + cropStartCol * (tileW + spacing)
+  const cropY = margin + cropStartRow * (tileH + spacing)
+  const cropW = Math.min(MAGNIFIER_TILES_X, tileset.columns - cropStartCol) * (tileW + spacing) - spacing
+  const cropH = Math.min(MAGNIFIER_TILES_Y, rows - cropStartRow) * (tileH + spacing) - spacing
+  const displayW = cropW * SCALE
+  const displayH = cropH * SCALE
+  // Position: offset to the right of the cursor; flip to the left if it would overflow the viewport.
+  const viewportW = globalThis.window.innerWidth
+  const viewportH = globalThis.window.innerHeight
+  const GAP = 12
+  const offsetX = pointerX + GAP + displayW > viewportW ? -GAP - displayW : GAP
+  const offsetY = pointerY + GAP + displayH > viewportH ? -GAP - displayH : GAP
+  const tileIndex = row * tileset.columns + column
+  return (
+    <div
+      className="map-tileset-magnifier"
+      role="img"
+      aria-label={label}
+      style={{
+        left: `${pointerX + offsetX}px`,
+        top: `${pointerY + offsetY}px`,
+        width: `${displayW}px`,
+        height: `${displayH}px`,
+        backgroundImage: `url(${JSON.stringify(image.src)})`,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: `${image.naturalWidth * SCALE}px ${image.naturalHeight * SCALE}px`,
+        backgroundPosition: `-${cropX * SCALE}px -${cropY * SCALE}px`,
+      }}
+    >
+      {/* Highlight the hovered tile inside the magnifier */}
+      <span
+        className="map-tileset-magnifier-highlight"
+        style={{
+          left: `${(column - cropStartCol) * tileW * SCALE}px`,
+          top: `${(row - cropStartRow) * tileH * SCALE}px`,
+          width: `${tileW * SCALE}px`,
+          height: `${tileH * SCALE}px`,
+        }}
+        aria-hidden="true"
+      />
+      <span className="map-tileset-magnifier-label">{tileTooltipLabel(tileIndex, tileset.name)}</span>
+    </div>
+  )
+}
+
+/** Renders the docked whole-sheet palette: sheet tabs, recents, draggable sheet image with hover magnifier, and zoom footer. */
 export function MapTilesetPalette({
   document,
   locale,
@@ -133,6 +230,11 @@ export function MapTilesetPalette({
   onAttachGameSheet = null,
   projectImageOptions = [],
   onAddProjectImage = null,
+  onRemoveTileset = null,
+  onReplaceTilesetImage = null,
+  onEditTilesetInInspector = null,
+  onHoverTileset = null,
+  onGalleryModeChange = null,
 }: MapTilesetPaletteProps) {
   const editorCopy = useEditorCopy()
   const labels = editorCopy.studioDesk.mapPatchEditor
@@ -148,6 +250,15 @@ export function MapTilesetPalette({
   const [imageState, setImageState] = useState<ImageState>({ key: imageKey, status: 'loading', image: null })
   const [dragRect, setDragRect] = useState<TilesetSelectionRect | null>(null)
   const dragRef = useRef<TilesetSelectionRect | null>(null)
+  // Hover magnifier state: the tile cell under the cursor, or null when not hovering.
+  const [hoverCell, setHoverCell] = useState<{ column: number; row: number; pointerX: number; pointerY: number } | null>(null)
+  // Sheet gallery view: replaces the palette scroll area with a grid of sheet thumbnails.
+  const [showGallery, setShowGallery] = useState(false)
+
+  useEffect(() => {
+    onGalleryModeChange?.(showGallery)
+    if (!showGallery) onHoverTileset?.(null)
+  }, [showGallery, onGalleryModeChange, onHoverTileset])
 
   useEffect(() => {
     if (!imagePath) {
@@ -264,126 +375,264 @@ export function MapTilesetPalette({
     }
   }
 
+  /** Removes a recent selection from the preferences store. */
+  function removeRecentEntry(entry: PaletteRecentSelection) {
+    const prefs = usePreferencesStore.getState().mapEditorPalette
+    setPalettePrefs({ recents: removeRecentSelection(prefs.recents, entry) })
+  }
+
+  /** Whether the sheet tab context menu should show management items. */
+  const tabManagementEnabled = Boolean(onRemoveTileset || onReplaceTilesetImage || onEditTilesetInInspector)
+
   return (
-    <section className="map-tileset-palette" aria-label={labels.tilesetPalette}>
+    <section className="map-tileset-palette" aria-label={labels.tilesetPalette} data-guide="map-tileset-palette">
       <div className="map-tileset-palette-head">
-        <div className="map-tileset-palette-sheets" role="group" aria-label={labels.tileTileset(activeTileset.name)}>
-          <MapTilesheetPicker
-            attachedTilesets={availableTilesets}
-            activeTilesetName={activeTileset.name}
-            projectImageOptions={projectImageOptions}
-            gameSheetsEnabled={gameRootPath !== null}
-            onPickAttached={switchTileset}
-            onPickGameSheet={onAttachGameSheet ?? undefined}
-            onPickProjectImage={onAddProjectImage ?? undefined}
-            triggerLabel={activeTileset.name}
-            triggerTitle={labels.sheetPickerSwitch}
-          />
-        </div>
-      </div>
-      {recentEntries.length > 0 ? (
-        <div className="map-tileset-palette-recents">
-          <span className="map-tileset-palette-recents-label">{labels.recentTilesets}</span>
-          {recentEntries.map((entry) => {
-            const tileset = availableTilesets.find((candidate) => candidate.name === entry.tilesetName)
-            if (!tileset) return null
+        <div className="map-tileset-palette-tabs" role="tablist" aria-label={labels.tilesetPalette}>
+          {availableTilesets.map((tileset) => {
+            const isActive = tileset.name === activeTileset.name
+            const tabContextMenu = tabManagementEnabled ? (
+              <ContextMenu.Portal>
+                <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                  {onEditTilesetInInspector ? (
+                    <ContextMenu.Item className="context-menu-item" onSelect={() => onEditTilesetInInspector(tileset.name)}>
+                      {labels.sheetTabEditInInspector}
+                    </ContextMenu.Item>
+                  ) : null}
+                  {onReplaceTilesetImage && projectImageOptions.length > 0 ? (
+                    <ContextMenu.Sub>
+                      <ContextMenu.SubTrigger className="context-menu-item context-menu-subtrigger">
+                        {labels.sheetTabReplaceImage}
+                        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                      </ContextMenu.SubTrigger>
+                      <ContextMenu.Portal>
+                        <ContextMenu.SubContent className="context-menu-content context-menu-subcontent" collisionPadding={12}>
+                          {projectImageOptions.map((option) => (
+                            <ContextMenu.Item
+                              key={option.value}
+                              className="context-menu-item"
+                              onSelect={() => onReplaceTilesetImage(option.value, tileset.name)}
+                            >
+                              {option.label}
+                            </ContextMenu.Item>
+                          ))}
+                        </ContextMenu.SubContent>
+                      </ContextMenu.Portal>
+                    </ContextMenu.Sub>
+                  ) : null}
+                  {onRemoveTileset ? (
+                    <>
+                      <ContextMenu.Separator className="context-menu-separator" />
+                      <ContextMenu.Item
+                        className="context-menu-item is-danger"
+                        onSelect={() => {
+                          if (globalThis.confirm(labels.sheetTabRemoveConfirm(tileset.name))) {
+                            onRemoveTileset(tileset.name)
+                          }
+                        }}
+                      >
+                        {labels.sheetTabRemove}
+                      </ContextMenu.Item>
+                    </>
+                  ) : null}
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            ) : null
             return (
-              <RecentCell
-                key={`${entry.tilesetName}:${entry.startIndex}:${entry.width}:${entry.height}`}
-                document={document}
-                tileset={tileset}
-                entry={entry}
-                locale={locale}
-                gameRootPath={gameRootPath}
-                errorFactory={labels.tilesetImageError}
-                onRestore={restoreRecent}
-              />
+              <ContextMenu.Root key={tileset.name}>
+                <ContextMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={cx('map-tileset-palette-tab', isActive && 'is-active')}
+                    title={labels.sheetTabSwitch}
+                    onClick={() => {
+                      switchTileset(tileset.name)
+                      setShowGallery(false)
+                    }}
+                  >
+                    <span className="map-tileset-palette-tab-label">{tileset.name}</span>
+                  </button>
+                </ContextMenu.Trigger>
+                {tabContextMenu}
+              </ContextMenu.Root>
             )
           })}
-        </div>
-      ) : null}
-      <div className={cx('map-tileset-palette-scroll', currentImageState.status !== 'ready' && 'is-state')}>
-        {currentImageState.status === 'loading' ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-label={labels.loadingTileset} />
-        ) : currentImageState.status === 'error' || !paletteImage ? (
-          <span className="map-tileset-palette-error">
-            <ImageOff className="h-4 w-4" aria-hidden="true" />
-            {imagePath ? labels.tilesetImageError(imagePath) : labels.tilesetImageMissing}
-          </span>
-        ) : (
-          <div
-            className="map-tileset-palette-image"
-            style={{
-              width: `${paletteImage.naturalWidth * zoom}px`,
-              height: `${paletteImage.naturalHeight * zoom}px`,
-            }}
-            onPointerDown={handleSheetPointerDown}
-            onPointerMove={handleSheetPointerMove}
-            onPointerUp={handleSheetPointerUp}
-            onPointerCancel={handleSheetPointerCancel}
+          {/* Add-sheet gallery trigger */}
+          <button
+            type="button"
+            className={cx('map-tileset-palette-tab-add', showGallery && 'is-active')}
+            aria-label={labels.sheetTabAdd}
+            title={labels.sheetTabAdd}
+            aria-pressed={showGallery}
+            onClick={() => setShowGallery((current) => !current)}
           >
-            <img src={paletteImage.src} alt={activeTileset.name} draggable={false} />
-            <span
-              className="map-tileset-palette-grid"
-              style={{
-                backgroundSize: `${100 / activeTileset.columns}% ${100 / rows}%`,
-              }}
-              aria-hidden="true"
-            />
-            {normalized ? (
-              <span
-                className="map-tileset-palette-selection"
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      {showGallery ? (
+        <MapTilesheetGallery
+          document={document}
+          locale={locale}
+          gameRootPath={gameRootPath}
+          attachedTilesets={availableTilesets}
+          activeTilesetName={activeTileset.name}
+          projectImageOptions={projectImageOptions}
+          gameSheetsEnabled={gameRootPath !== null}
+          onPickAttached={switchTileset}
+          onPickGameSheet={onAttachGameSheet}
+          onPickProjectImage={onAddProjectImage}
+          onClose={() => setShowGallery(false)}
+          onHoverTileset={onHoverTileset}
+        />
+      ) : (
+        <>
+          {recentEntries.length > 0 ? (
+            <div className="map-tileset-palette-recents">
+              <span className="map-tileset-palette-recents-label">{labels.recentTilesets}</span>
+              {recentEntries.map((entry) => {
+                const tileset = availableTilesets.find((candidate) => candidate.name === entry.tilesetName)
+                if (!tileset) return null
+                return (
+                  <ContextMenu.Root key={`${entry.tilesetName}:${entry.startIndex}:${entry.width}:${entry.height}`}>
+                    <ContextMenu.Trigger asChild>
+                      <span>
+                        <RecentCell
+                          document={document}
+                          tileset={tileset}
+                          entry={entry}
+                          locale={locale}
+                          gameRootPath={gameRootPath}
+                          errorFactory={labels.tilesetImageError}
+                          onRestore={restoreRecent}
+                        />
+                      </span>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => restoreRecent(entry)}>
+                          {labels.tilesetSelection(entry.startIndex, entry.width, entry.height)}
+                        </ContextMenu.Item>
+                        <ContextMenu.Separator className="context-menu-separator" />
+                        <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => removeRecentEntry(entry)}>
+                          {labels.recentRemove}
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
+                )
+              })}
+            </div>
+          ) : null}
+          <div
+            className={cx('map-tileset-palette-scroll', currentImageState.status !== 'ready' && 'is-state')}
+            onPointerLeave={() => setHoverCell(null)}
+          >
+            {currentImageState.status === 'loading' ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-label={labels.loadingTileset} />
+            ) : currentImageState.status === 'error' || !paletteImage ? (
+              <span className="map-tileset-palette-error">
+                <ImageOff className="h-4 w-4" aria-hidden="true" />
+                {imagePath ? labels.tilesetImageError(imagePath) : labels.tilesetImageMissing}
+              </span>
+            ) : (
+              <div
+                className="map-tileset-palette-image"
                 style={{
-                  left: `${(normalized.left / activeTileset.columns) * 100}%`,
-                  top: `${(normalized.top / rows) * 100}%`,
-                  width: `${((normalized.right - normalized.left + 1) / activeTileset.columns) * 100}%`,
-                  height: `${((normalized.bottom - normalized.top + 1) / rows) * 100}%`,
+                  width: `${paletteImage.naturalWidth * zoom}px`,
+                  height: `${paletteImage.naturalHeight * zoom}px`,
                 }}
-                aria-hidden="true"
+                onPointerDown={handleSheetPointerDown}
+                onPointerMove={(event) => {
+                  handleSheetPointerMove(event)
+                  // Track hover cell for the magnifier (only when not dragging).
+                  if (!dragRef.current) {
+                    const cell = sheetPointerCell(event)
+                    setHoverCell({ column: cell.column, row: cell.row, pointerX: event.clientX, pointerY: event.clientY })
+                  }
+                }}
+                onPointerUp={handleSheetPointerUp}
+                onPointerCancel={handleSheetPointerCancel}
+              >
+                <img src={paletteImage.src} alt={activeTileset.name} draggable={false} />
+                <span
+                  className="map-tileset-palette-grid"
+                  style={{
+                    backgroundSize: `${100 / activeTileset.columns}% ${100 / rows}%`,
+                  }}
+                  aria-hidden="true"
+                />
+                {normalized ? (
+                  <span
+                    className="map-tileset-palette-selection"
+                    style={{
+                      left: `${(normalized.left / activeTileset.columns) * 100}%`,
+                      top: `${(normalized.top / rows) * 100}%`,
+                      width: `${((normalized.right - normalized.left + 1) / activeTileset.columns) * 100}%`,
+                      height: `${((normalized.bottom - normalized.top + 1) / rows) * 100}%`,
+                    }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </div>
+            )}
+            {/* Hover magnifier: shows a zoomed-in crop of the sheet around the cursor tile. */}
+            {hoverCell && paletteImage && currentImageState.status === 'ready' && activeTileset ? (
+              <TilesetHoverMagnifier
+                image={paletteImage}
+                tileset={activeTileset}
+                rows={rows}
+                column={hoverCell.column}
+                row={hoverCell.row}
+                pointerX={hoverCell.pointerX}
+                pointerY={hoverCell.pointerY}
+                label={labels.tilesetMagnifier}
+                tileTooltipLabel={labels.tileTooltip}
               />
             ) : null}
           </div>
-        )}
-      </div>
-      <div className="map-tileset-palette-foot">
-        <span className="map-tileset-palette-foot-selection">
-          {currentSelection
-            ? `${labels.tilesetSelection(currentSelection.startIndex, currentSelection.width, currentSelection.height)} · ${activeTileset.name}`
-            : `${labels.noTileSelection} · ${activeTileset.name}`}
-        </span>
-        <div className="map-tileset-palette-zoom" role="group" aria-label={viewportLabels.zoomLabel(zoom)}>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={viewportLabels.zoomOut}
-            title={viewportLabels.zoomOut}
-            disabled={zoom <= 0.5}
-            onClick={() => setPalettePrefs({ zoom: Math.max(0.5, zoom - 0.5) })}
-          >
-            <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="map-tileset-palette-zoom-value"
-            aria-label={viewportLabels.setOneToOne}
-            title={viewportLabels.setOneToOne}
-            onClick={() => setPalettePrefs({ zoom: 1 })}
-          >
-            <ScanLine className="h-3.5 w-3.5" aria-hidden="true" />
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={viewportLabels.zoomIn}
-            title={viewportLabels.zoomIn}
-            disabled={zoom >= 4}
-            onClick={() => setPalettePrefs({ zoom: Math.min(4, zoom + 0.5) })}
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
+          <div className="map-tileset-palette-foot">
+            <span className="map-tileset-palette-foot-selection">
+              {currentSelection
+                ? `${labels.tilesetSelection(currentSelection.startIndex, currentSelection.width, currentSelection.height)} · ${activeTileset.name}`
+                : `${labels.noTileSelection} · ${activeTileset.name}`}
+            </span>
+            <div className="map-tileset-palette-zoom" role="group" aria-label={viewportLabels.zoomLabel(zoom)}>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={viewportLabels.zoomOut}
+                title={viewportLabels.zoomOut}
+                disabled={zoom <= 0.5}
+                onClick={() => setPalettePrefs({ zoom: Math.max(0.5, zoom - 0.5) })}
+              >
+                <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="map-tileset-palette-zoom-value"
+                aria-label={viewportLabels.setOneToOne}
+                title={viewportLabels.setOneToOne}
+                onClick={() => setPalettePrefs({ zoom: 1 })}
+              >
+                <ScanLine className="h-3.5 w-3.5" aria-hidden="true" />
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={viewportLabels.zoomIn}
+                title={viewportLabels.zoomIn}
+                disabled={zoom >= 4}
+                onClick={() => setPalettePrefs({ zoom: Math.min(4, zoom + 0.5) })}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   )
 }

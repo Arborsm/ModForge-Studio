@@ -15,7 +15,7 @@ import { getObjectInteractionTag, isLightMarkerObject } from '@entities/map'
 import { createMapTileRect, type MapTileRect } from '../model/tileSelection'
 import { resolveTilesetImagePath } from '../lib/assets'
 import { getMapContentBounds, getMapPreviewBounds, type MapContentBounds } from '../lib/mapContentBounds'
-import { CELL_OVERLAY_COLORS, CELL_OVERLAY_STROKE_COLORS } from '../lib/cellProperties'
+import { CELL_OVERLAY_COLORS, CELL_OVERLAY_STROKE_COLORS, DAY_NIGHT_HIGHLIGHT_COLOR, DAY_NIGHT_HIGHLIGHT_FILL } from '../lib/cellProperties'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
@@ -106,11 +106,36 @@ type MapViewportProps = {
   /** Receives the accumulated unique points while a tile stroke drags, for live previews. */
   onTileStrokeLive?: (points: readonly { tileX: number; tileY: number }[]) => void
   /**
+   * Paint preview: a semi-transparent ghost of the current palette selection
+   * rendered at the hovered tile position while a brush/stamp tool is active.
+   * Null clears the preview. The tileset image is resolved from the document's
+   * tilesets by the viewport (it already loads them for rendering).
+   */
+  paintPreview?: {
+    tilesetName: string
+    startIndex: number
+    width: number
+    height: number
+  } | null
+  /**
+   * Tileset hover preview: a full-sheet image rendered centered over the
+   * entire viewport with a dimming backdrop while the user hovers a sheet
+   * card in the palette gallery. `mode` true keeps the overlay backdrop
+   * always visible (gallery open); `imageSrc` controls the preview image.
+   */
+  tilesetPreview?: { imageSrc: string | null; mode?: boolean } | null
+  /**
    * Cell-rule overlay coloring: colored tiles of the active layer's cell
    * properties, drawn over the map (cell index → display rule). Usually active
    * only while the overlay paint mode is on; the object markers render above it.
    */
   cellOverlay?: { layerId: number; width: number; height: number; cells: Record<number, CellOverlayCell> } | null
+  /**
+   * Day/night swap highlight: cells with registered DayTiles/NightTiles
+   * properties, drawn as purple dashed borders over the map. Independent of
+   * the cellOverlay paint mode; null or empty clears the highlight.
+   */
+  dayNightHighlight?: { width: number; height: number; cells: Array<{ x: number; y: number }> } | null
   /** Persisted tile rectangle drawn over the map when no drag is active. */
   selectedTileRect?: MapTileRect | null
   /**
@@ -235,6 +260,30 @@ function positionHoverTileElement(
   element.style.height = `${tileHeight * zoom}px`
 }
 
+/** Positions the paint-preview ghost tile at the hovered tile, sized to the palette selection rect. */
+function positionPaintPreviewElement(
+  element: HTMLDivElement | null,
+  tile: TilePoint | null,
+  tileWidth: number,
+  tileHeight: number,
+  zoom: number,
+  selectionWidth: number,
+  selectionHeight: number,
+) {
+  if (!element) {
+    return
+  }
+  if (!tile) {
+    element.style.display = 'none'
+    return
+  }
+  element.style.display = 'block'
+  element.style.left = `${tile.tileX * tileWidth * zoom}px`
+  element.style.top = `${tile.tileY * tileHeight * zoom}px`
+  element.style.width = `${selectionWidth * tileWidth * zoom}px`
+  element.style.height = `${selectionHeight * tileHeight * zoom}px`
+}
+
 type ZoomAnchor = {
   viewportX: number
   viewportY: number
@@ -298,7 +347,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     onTileClick,
     onTileStroke,
     onTileStrokeLive,
+    paintPreview = null,
+    tilesetPreview = null,
     cellOverlay,
+    dayNightHighlight = null,
     selectedTileRect = null,
     inspectorHighlight = null,
     onTileRectSelect,
@@ -366,6 +418,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   // so mouse travel costs zero React renders. lastHoverTileRef keeps the tile
   // for repositioning after zoom/document changes.
   const hoverTileElementRef = useRef<HTMLDivElement | null>(null)
+  const paintPreviewElementRef = useRef<HTMLDivElement | null>(null)
   const lastHoverTileRef = useRef<TilePoint | null>(null)
   const [pickFlash, setPickFlash] = useState<PickFlashState | null>(null)
   const tilesetLoadKey = mapDocument
@@ -772,12 +825,93 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => window.clearTimeout(timeout)
   }, [pickFlash])
 
+  // Resolve the paint-preview ghost tile: find the tileset image by name, then
+  // compute the background crop for the palette selection rect.
+  const paintPreviewStyle = useMemo(() => {
+    if (!paintPreview || !mapDocument) return null
+    const tileset = mapDocument.tilesets.find((candidate) => candidate.name === paintPreview.tilesetName)
+    if (!tileset) return null
+    const loaded = Object.values(tilesetImages).find((entry) => entry.tileset === tileset)
+    if (!loaded) return null
+    const spacing = tileset.spacing ?? 0
+    const margin = tileset.margin ?? 0
+    const srcCol = paintPreview.startIndex % tileset.columns
+    const srcRow = Math.floor(paintPreview.startIndex / tileset.columns)
+    const cropX = margin + srcCol * (tileset.tileWidth + spacing)
+    const cropY = margin + srcRow * (tileset.tileHeight + spacing)
+    return {
+      backgroundImage: `url(${JSON.stringify(loaded.image.src)})`,
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: `${loaded.image.naturalWidth * zoom}px ${loaded.image.naturalHeight * zoom}px`,
+      backgroundPosition: `-${cropX * zoom}px -${cropY * zoom}px`,
+    } as const
+  }, [paintPreview, mapDocument, tilesetImages, zoom])
+
+  // Resolve the tileset hover preview: the caller provides the image src
+  // (already loaded as a data URL by the gallery). We decode it to get
+  // natural dimensions, then scale to fit ~80% of the canvas, centered.
+  // Tileset preview overlay: backdrop stays visible while gallery mode is on;
+  // the <img> src swaps directly without remounting, so hovering between sheets
+  // doesn't flash. We track the frame element size and the decoded image's
+  // natural dimensions to compute a display size that fills up to 90% of the
+  // frame, scaling up small sheets for a clear preview.
+  const showPreviewOverlay = tilesetPreview?.mode === true
+  const previewImageSrc = tilesetPreview?.imageSrc ?? null
+  const [previewImageSize, setPreviewImageSize] = useState<{ w: number; h: number } | null>(null)
+  const [frameSize, setFrameSize] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    if (!showPreviewOverlay) {
+      setPreviewImageSize(null)
+      return
+    }
+    const frame = frameRef.current
+    if (!frame) return
+    const update = () => setFrameSize({ w: frame.clientWidth, h: frame.clientHeight })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [showPreviewOverlay])
+
+  useEffect(() => {
+    if (!previewImageSrc) {
+      setPreviewImageSize(null)
+      return
+    }
+    const img = new Image()
+    img.onload = () => setPreviewImageSize({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => setPreviewImageSize(null)
+    img.src = previewImageSrc
+  }, [previewImageSrc])
+
+  const previewDisplaySize = useMemo(() => {
+    if (!previewImageSize || frameSize.w === 0 || frameSize.h === 0) return null
+    const maxW = frameSize.w * 0.9
+    const maxH = frameSize.h * 0.9
+    const scale = Math.min(maxW / previewImageSize.w, maxH / previewImageSize.h)
+    return { w: previewImageSize.w * scale, h: previewImageSize.h * scale }
+  }, [previewImageSize, frameSize])
+
   // Re-position the ref-driven hover highlight after zoom/document changes;
   // pointermove writes the same styles directly without involving React.
   useEffect(() => {
     const tile = tileInteractionEnabled ? lastHoverTileRef.current : null
     positionHoverTileElement(hoverTileElementRef.current, tile, mapDocument?.tileWidth ?? 0, mapDocument?.tileHeight ?? 0, zoom)
-  }, [mapDocument, tileInteractionEnabled, zoom])
+    if (paintPreview && paintPreviewStyle && tile) {
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        tile,
+        mapDocument?.tileWidth ?? 0,
+        mapDocument?.tileHeight ?? 0,
+        zoom,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    } else {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    }
+  }, [mapDocument, tileInteractionEnabled, zoom, paintPreview, paintPreviewStyle])
 
   useEffect(() => {
     zoomRef.current = zoom
@@ -1344,6 +1478,26 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       }
     }
 
+    // Day/night swap highlight: purple dashed borders on cells with DayTiles/NightTiles.
+    if (dayNightHighlight && dayNightHighlight.cells.length > 0) {
+      const tileWidth = mapDocument.tileWidth * zoom
+      const tileHeight = mapDocument.tileHeight * zoom
+      const strokeWidth = 2 / Math.max(pixelRatio * renderScale, 1)
+      const dash = 4 / Math.max(pixelRatio * renderScale, 1)
+      context.save()
+      context.lineWidth = strokeWidth
+      context.setLineDash([dash, dash])
+      context.strokeStyle = DAY_NIGHT_HIGHLIGHT_COLOR
+      context.fillStyle = DAY_NIGHT_HIGHLIGHT_FILL
+      for (const cell of dayNightHighlight.cells) {
+        const cellX = cell.x * tileWidth
+        const cellY = cell.y * tileHeight
+        context.fillRect(cellX, cellY, tileWidth, tileHeight)
+        context.strokeRect(cellX + strokeWidth / 2, cellY + strokeWidth / 2, tileWidth - strokeWidth, tileHeight - strokeWidth)
+      }
+      context.restore()
+    }
+
     const inspectorObjectIds = inspectorHighlight && inspectorHighlight.objectIds.length > 0 ? new Set(inspectorHighlight.objectIds) : null
 
     for (const group of visibleObjectGroups) {
@@ -1567,6 +1721,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     mapDisplayOffset.top,
     refreshToken,
     cellOverlay,
+    dayNightHighlight,
     inspectorHighlight,
   ])
 
@@ -1646,6 +1801,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       lastHoverRef.current = null
       lastHoverTileRef.current = null
       positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
       return
     }
 
@@ -1672,6 +1828,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const nextTile = tileInteractionEnabled && info ? { tileX: info.tileX, tileY: info.tileY } : null
     lastHoverTileRef.current = nextTile
     positionHoverTileElement(hoverTileElementRef.current, nextTile, mapDocument.tileWidth, mapDocument.tileHeight, zoomRef.current)
+    if (paintPreview && nextTile) {
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        nextTile,
+        mapDocument.tileWidth,
+        mapDocument.tileHeight,
+        zoomRef.current,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    } else {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    }
     onHoverChange?.(info)
   }
 
@@ -2007,6 +2176,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       onHoverChange?.(null)
       lastHoverTileRef.current = null
       positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
     }
   }
 
@@ -2070,6 +2240,25 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-4">{viewportOverlay}</div> : null}
 
       <div ref={frameRef} className="absolute inset-0">
+        {showPreviewOverlay ? (
+          <div className="map-viewport-tileset-preview-overlay">
+            {previewImageSrc && previewDisplaySize ? (
+              <img
+                key={previewImageSrc}
+                src={previewImageSrc}
+                alt=""
+                draggable={false}
+                className="map-viewport-tileset-preview-img"
+                style={{
+                  width: `${previewDisplaySize.w}px`,
+                  height: `${previewDisplaySize.h}px`,
+                }}
+              />
+            ) : (
+              <span className="map-viewport-tileset-preview-placeholder" />
+            )}
+          </div>
+        ) : null}
         <div
           ref={viewportRef}
           className={`viewport-scroll-hidden h-full w-full ${viewportCursorClass} ${zoomMode === 'fit' ? 'overflow-hidden' : 'overflow-auto'}`}
@@ -2132,6 +2321,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                     backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.14 : 0.18),
                     border: `1px solid ${rgbaFromHex(accentColor, 0.88)}`,
                     boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px ${rgbaFromHex(accentColor, 0.26)}`,
+                  }}
+                />
+                <div
+                  ref={paintPreviewElementRef}
+                  className="absolute"
+                  data-map-paint-preview="true"
+                  style={{
+                    display: 'none',
+                    opacity: 0.55,
+                    imageRendering: 'pixelated',
+                    border: `1px solid ${rgbaFromHex(accentColor, 0.6)}`,
+                    boxShadow: `0 0 0 1px ${rgbaFromHex(accentColor, 0.2)}`,
+                    ...paintPreviewStyle,
                   }}
                 />
                 {pickFlash ? (

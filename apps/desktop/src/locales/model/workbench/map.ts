@@ -94,6 +94,14 @@ export type MapAssetMapCardsCopy = {
   warpSourceAction: string
   /** Warp dialog: label of the write-to carrier selector. */
   warpCarrierLabel: string
+  /** Warp dialog: info icon tooltip explaining what a warp carrier is. */
+  warpCarrierConceptHint: string
+  /** Warp dialog: info icon tooltip for the property carrier option. */
+  warpCarrierPropertyHint: string
+  /** Warp dialog: info icon tooltip for the touch carrier option. */
+  warpCarrierTouchHint: string
+  /** Warp dialog: info icon tooltip for the action carrier option. */
+  warpCarrierActionHint: string
   /** Warp dialog: carrier option writing the `Warp` map property. */
   warpCarrierProperty: string
   /** Warp dialog: carrier option writing the picked cell's `TouchAction`. */
@@ -204,6 +212,16 @@ export type MapAssetMapCardsCopy = {
   doorTileAuto: string
   /** Toggle for the advanced tileset reference/raw-properties section. */
   advancedTilesetToggle: string
+  /** Disabled hint appended to the touch carrier option when the picked cell has no Back-layer tile. */
+  warpCarrierTouchDisabledHint: string
+  /** Disabled hint appended to the action carrier option when the picked cell has no Buildings-layer tile. */
+  warpCarrierActionDisabledHint: string
+  /** Disabled reason for the warp add button when no canvas cell is selected. */
+  addWarpDisabledNoCell: string
+  /** Disabled reason for the door add button when no canvas cell is selected. */
+  addDoorDisabledNoCell: string
+  /** Disabled reason for the day/night add button when no canvas cell is selected. */
+  addDayNightDisabledNoCell: string
 }
 
 /** Copy for the map editor top bar chips (music, indoor/outdoor, ambient). */
@@ -264,12 +282,20 @@ export type MapAssetEditorTopBarCopy = {
   ambientHint: string
   /** Ambient chip tooltip when the map is outdoors (disabled). */
   ambientOutdoorHint: string
+  /** Tooltip on the chip group pointing to the Inspector > Map tab for full property editing. */
+  chipsInspectorHint: string
 }
 
 /** Copy for direct TMX/TBin map asset authoring. */
 export type MapAssetEditorCopy = {
   invalidDocument: string
   returnToLibrary: string
+  /** Canvas chip tooltip: toggle day/night swap cell highlight overlay. */
+  dayNightHighlightToggle: string
+  /** Header mode badge: direct asset authoring (TMX/TBin). */
+  modeBadgeAsset: string
+  /** Header mode badge tooltip: explains this editor edits the map file directly. */
+  modeBadgeAssetHint: string
   save: string
   saving: string
   saved: (path: string) => string
@@ -293,6 +319,8 @@ export type MapAssetEditorCopy = {
     string
   >
   layers: string
+  /** Inspector tab label for the tileset palette. */
+  paletteTab: string
   layerDetails: string
   layerName: string
   layerPropertiesHint: string
@@ -307,13 +335,21 @@ export type MapAssetEditorCopy = {
   duplicateLayer: string
   /** Tile-count subtitle on a layer row. */
   layerTileCount: (count: number) => string
+  /** Optional purpose tooltip for a named Stardew layer (Back/Buildings/Front/AlwaysFront/Paths); null for custom names. */
+  layerPurposeHint: (layerName: string) => string | null
   newLayerName: (index: number) => string
   hideLayer: string
   showLayer: string
+  /** Accessible label for the inline layer opacity slider. */
+  layerOpacity: string
   lockLayer: string
   unlockLayer: string
   moveLayerUp: string
   moveLayerDown: string
+  /** Layer context menu: locate the active layer's selected tile on the canvas. */
+  locateLayer: string
+  /** Layer context menu: rename action label. */
+  renameLayerAction: string
   /** History label for renaming a layer. */
   renameLayer: string
   /** History label for layer property/opacity edits that are not a rename or visibility change. */
@@ -330,6 +366,8 @@ export type MapAssetEditorCopy = {
   rotateClockwise: string
   /** Tool-rail toggle (shortcut G) that turns the cell-rule overlay paint mode on/off. */
   overlayToggle: string
+  /** Longer concept hint for the overlay toggle, explaining what cell rules are. */
+  overlayToggleHint: string
   /** Floating rule-bar label of the overlay paint mode. */
   paintRulesLabel: string
   /** The five selectable paint rules (walkable = erase). */
@@ -361,10 +399,48 @@ export type MapAssetEditorCopy = {
   addTileData: string
   /** Section title for the light-source block (placed light items). */
   markersTitle: string
+  /** Section title for the general objects list (all object types). */
+  objectsTitle: string
+  /** Fallback list label for a generic (non-light-marker) object. */
+  genericObject: (id: number) => string
+  /** Subtitle shown for an object matched to a furniture catalog entry. */
+  matchedFurniture: (name: string) => string
+  /** Label for the frame info line in inspector (e.g. "4-directional, has alt state"). */
+  objectFrameInfo: (rotations: number, hasAlt: boolean) => string
+  /** Section title for placed-furniture list derived from tile scanning. */
+  furnitureTitle: string
+  /** Secondary label for a placed furniture entry showing tile position. */
+  furniturePosition: (x: number, y: number, layer: string) => string
   /** Hint shown under the add-marker button while no canvas cell is selected. */
   addTileDataHint: string
   /** Section header for tilesheet management inside the map tab. */
   tilesetsTitle: string
+  /** Inspector tab label for the map properties view (warps, doors, music, etc.). */
+  inspectorTabMap: string
+  /** Inspector tab label for the objects & light sources view. */
+  inspectorTabObjects: string
+  /** Inspector tab label for the tileset management view. */
+  inspectorTabTilesets: string
+  /** Inspector tab label for the advanced/raw properties & diagnostics view. */
+  inspectorTabAdvanced: string
+  /** Inspect popover: title showing the cell coordinate. */
+  inspectPopoverTitle: (x: number, y: number) => string
+  /** Inspect popover: label for the active layer. */
+  inspectPopoverLayer: string
+  /** Inspect popover: label for the tile at the inspected cell. */
+  inspectPopoverTile: string
+  /** Inspect popover: label when the cell has no tile (empty). */
+  inspectPopoverEmpty: string
+  /** Inspect popover: label for the object at the inspected cell. */
+  inspectPopoverObject: string
+  /** Inspect popover: label for cell properties (walkable/water/etc). */
+  inspectPopoverCellProps: string
+  /** Inspect popover: label for cell animation info. */
+  inspectPopoverAnimation: string
+  /** Inspect popover: button to open the Inspector for editing. */
+  inspectPopoverEdit: string
+  /** Inspect popover: animation frame count summary. */
+  inspectPopoverAnimationFrameCount: (count: number) => string
   /** Label for the marker item picker. */
   markerItem: string
   /** Picker option for a plain marker with no item. */
@@ -389,6 +465,8 @@ export type MapAssetEditorCopy = {
   selectObject: string
   addTileset: string
   replaceTileset: string
+  /** History label for removing a tileset from the map. */
+  removeTileset: string
   chooseImage: string
   /** Error when the project's custom tilesheet descriptor JSON fails validation. */
   sheetCatalogInvalid: (message: string) => string
@@ -409,6 +487,10 @@ export type MapAssetEditorCopy = {
   removeFrame: string
   addFrame: string
   animationDurationWarning: string
+  /** Animation editor: pause playback button label. */
+  animationPause: string
+  /** Animation editor: play playback button label. */
+  animationPlay: string
   formatCheck: string
   undo: string
   undoTitle: string
@@ -470,6 +552,28 @@ export type MapAssetEditorCopy = {
   statusBrush: (tilesetName: string, width: number, height: number) => string
   /** Floating tilesheet palette: drag handle that resizes the panel. */
   paletteResize: string
+  /** Disabled reason for brush/stamp/fill tools when no palette selection has been made yet. */
+  toolDisabledNoPalette: string
+  /** Disabled reason for all painting tools while the cell-rule overlay mode is active. */
+  toolDisabledOverlayActive: string
+  /** Disabled reason for the add-light-source button when no canvas cell is selected. */
+  addTileDataDisabledNoCell: string
+  /** Canvas guide card title shown when the brush tool is active but no palette selection has been made. */
+  canvasGuideTitle: string
+  /** Canvas guide card step 1: choose a layer. */
+  canvasGuideStep1: string
+  /** Canvas guide card step 2: pick a tile in the palette. */
+  canvasGuideStep2: string
+  /** Canvas guide card step 3: drag on the canvas to paint. */
+  canvasGuideStep3: string
+  /** Save-blocked notification title. */
+  saveBlockedTitle: string
+  /** Save-blocked notification body counting TBin compatibility issues. */
+  saveBlockedTbinIssues: (count: number) => string
+  /** Save-blocked notification body counting layer-name validation issues. */
+  saveBlockedLayerNameIssues: (count: number) => string
+  /** Save-blocked notification body counting invalid TSX source tilesets. */
+  saveBlockedTsxIssues: (count: number) => string
 }
 
 /** Copy for the read-only map Load binding summary shown in the map workspace. */
@@ -505,15 +609,19 @@ export type MapTilesSessionCopy = {
   complete: string
   discard: string
   cancel: string
-  /** Shown in the tile tray: tilesheets always come from the target map. */
-  tilesetSourceHint: string
+  /** Header mode badge: patch-tiles session (editing a Content Patcher MapTiles change card). */
+  modeBadgeSession: string
+  /** Header mode badge tooltip: explains this editor edits a MapTiles patch, not the map file. */
+  modeBadgeSessionHint: string
+  /** Complete button tooltip: explains finishing writes all paint changes back as one patch step. */
+  completeHint: string
+  /** Notification title shown after a tiles session is written back to the patch. */
+  completedNotificationTitle: string
+  /** Notification description after a tiles session completes, reminding the user Ctrl+Z undoes the whole session. */
+  completedNotificationDescription: string
 }
 
 export type MapAuthoringCopy = {
-  editorShell: {
-    showPalette: string
-    hidePalette: string
-  }
   libraryTitle: string
   searchPlaceholder: string
   importMapAction: string
@@ -561,6 +669,20 @@ export type MapAuthoringCopy = {
     creating: string
   }
   importInAssetLibrary: (name: string) => string
+  /** Map catalog card: primary button — create an EditMap patch for this game map. */
+  createPatchAction: string
+  /** Map catalog card: secondary button — import the game map into the asset library and open the asset editor. */
+  importAndEditAction: string
+  /** Map catalog card: tooltip on the import button when no game directory is connected. */
+  importAndEditNoGameRootHint: string
+  /** Map catalog card: tooltip explaining the difference between patch and asset editing. */
+  cardEntryHint: string
+  /** Map catalog card: importing state label shown while the game map is being copied. */
+  importing: string
+  /** Map catalog card: error shown when importing a game map into the asset library fails. */
+  importFailed: string
   mapLoadSummary: MapLoadSummaryCopy
   tilesSession: MapTilesSessionCopy
+  /** Human-readable descriptions for the unified map shortcut registry, keyed by `MapShortcutBinding.description`. */
+  shortcuts: Record<string, string>
 }

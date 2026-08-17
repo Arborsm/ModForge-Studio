@@ -57,6 +57,20 @@
     @apply ml-auto;
   }
 
+  .map-asset-mode-badge {
+    @apply text-text-secondary;
+    flex: 0 0 auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: help;
+    user-select: none;
+  }
+
   .map-asset-editor-header > div > span,
   .map-asset-save-status {
     @apply text-text-tertiary overflow-hidden whitespace-nowrap;
@@ -84,9 +98,8 @@
   }
 
   .map-asset-editor-body {
-    @apply grid overflow-hidden;
+    @apply relative min-h-0 overflow-hidden;
     flex: 1 1 auto;
-    grid-template-columns: 15.25rem minmax(28.75rem, 1fr) 18.375rem;
   }
 
   .map-asset-tbin-diagnostics {
@@ -130,51 +143,14 @@
     background: var(--bg-panel);
   }
 
-  /* ===== Left column: layers (top) + history (bottom) ===== */
+  /* ===== Left column: tab bar + one active tab body ===== */
   .map-asset-leftcol {
+    @apply h-full;
     display: flex;
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
     border-right: 1px solid var(--border-color);
-  }
-
-  .map-asset-leftcol > .map-asset-layers {
-    flex: 0 0 var(--map-leftcol-split, 57%);
-    min-height: 0;
-    border-right: 0;
-  }
-
-  /* Drag handle between layers and history: a 6px hot zone straddling the
-     panel seam that reveals an accent line on hover/drag. */
-  .map-asset-leftcol-divider {
-    flex: 0 0 0.375rem;
-    position: relative;
-    z-index: 1;
-    margin: -0.1875rem 0;
-    cursor: row-resize;
-    touch-action: none;
-  }
-
-  .map-asset-leftcol-divider::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0.125rem;
-    height: 0.125rem;
-    background: transparent;
-  }
-
-  .map-asset-leftcol-divider:hover::after,
-  .map-asset-leftcol-divider.is-active::after {
-    background: var(--accent);
-  }
-
-  .map-asset-leftcol > .map-asset-history-panel {
-    flex: 1;
-    min-height: 0;
-    border-top: 1px solid var(--border-color);
   }
 
   /* ===== Layers panel ===== */
@@ -279,7 +255,7 @@
 
   /* ===== Canvas: single-row float chrome ===== */
   .map-asset-canvas {
-    @apply relative grid overflow-hidden;
+    @apply relative grid h-full overflow-hidden;
     grid-template-rows: minmax(0, 1fr);
     background: var(--bg-viewport);
   }
@@ -294,6 +270,34 @@
      panel-canvas corner rounding inside this shell only. */
   .map-asset-viewport .panel-canvas {
     border-radius: 0;
+  }
+
+  /* Floating guide card shown when a painting tool is active but no palette
+     selection has been made yet. Centers over the canvas, pointer-events
+     none so it never blocks canvas interaction. */
+  .map-asset-canvas-guide {
+    @apply pointer-events-none absolute top-1/2 left-1/2 flex flex-col;
+    transform: translate(-50%, -50%);
+    gap: 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+    padding: 0.875rem 1.25rem;
+    font-size: 0.75rem;
+    text-align: center;
+    box-shadow: 0 4px 24px color-mix(in srgb, var(--bg-app) 60%, transparent);
+    z-index: 5;
+  }
+
+  .map-asset-canvas-guide strong {
+    @apply text-text-primary;
+    font-size: 0.8125rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .map-asset-canvas-guide p {
+    @apply text-text-secondary;
+    margin: 0;
   }
 
   /* Vertical tool rail, centered on the canvas left edge. */
@@ -326,6 +330,41 @@
     margin: 0.1875rem auto;
     background: var(--border-color);
     flex: none;
+  }
+
+  /* Concept info icon with hover tooltip. Used on warp carrier, world atlas,
+     and object library labels to explain domain concepts inline. */
+  .map-concept-info-anchor {
+    @apply relative inline-flex items-center;
+  }
+
+  .map-concept-info-icon {
+    @apply text-text-tertiary;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-left: 0.25rem;
+  }
+
+  .map-concept-info-tooltip {
+    @apply bg-surface-elevated text-text-primary shadow-float rounded-field absolute;
+    bottom: calc(100% + 0.375rem);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 16rem;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.25rem;
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+    z-index: var(--z-popover);
+  }
+
+  .map-concept-info-anchor:hover .map-concept-info-tooltip,
+  .map-concept-info-anchor:focus-within .map-concept-info-tooltip {
+    opacity: 1;
   }
 
   /* Cell-rule overlay paint bar: floats bottom-left over the canvas while the
@@ -559,9 +598,43 @@
     opacity: 0.55;
   }
 
-  /* ===== Inspector: single scrolling panel (no tabs) ===== */
+  /* ===== Inspector: tabbed panel ===== */
   .map-asset-inspector {
+    @apply flex flex-col;
     border-left: 1px solid var(--border-color);
+  }
+
+  .map-asset-inspector-tabs {
+    @apply flex;
+    flex: 0 0 auto;
+    gap: 0.125rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.25rem 0.25rem 0;
+  }
+
+  .map-asset-inspector-tab {
+    @apply text-text-secondary;
+    flex: 1 1 auto;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: transparent;
+    padding: 0.3125rem 0.5rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+  }
+
+  .map-asset-inspector-tab:hover {
+    @apply text-text-primary;
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  .map-asset-inspector-tab.is-active {
+    @apply text-text-primary;
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-panel);
+    background: var(--bg-panel);
+    margin-bottom: -1px;
   }
 
   .map-asset-inspector-content {

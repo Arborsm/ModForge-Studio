@@ -23,4 +23,17 @@ export const workbenchGuideDefinitions: GuideDefinition[] = [
       { id: 'translation-knowledge', anchor: 'translation-knowledge', placement: 'top' },
     ],
   },
+  {
+    id: 'workbench-map',
+    surface: 'workbench.map',
+    steps: [
+      { id: 'welcome', placement: 'center' },
+      { id: 'map-catalog-card', anchor: 'map-catalog-card', placement: 'top' },
+      { id: 'map-layer-list', anchor: 'map-layer-list', placement: 'right' },
+      { id: 'map-tileset-palette', anchor: 'map-tileset-palette', placement: 'top' },
+      { id: 'map-canvas', anchor: 'map-canvas', placement: 'bottom' },
+      { id: 'map-inspector-map', anchor: 'map-inspector-map', placement: 'left' },
+      { id: 'map-save-button', anchor: 'map-save-button', placement: 'bottom' },
+    ],
+  },
 ]

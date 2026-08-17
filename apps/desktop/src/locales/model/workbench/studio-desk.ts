@@ -245,6 +245,10 @@ export type StudioDeskCopy = {
   }
   mapPatchEditor: {
     tabs: Record<'properties' | 'warps' | 'tiles' | 'file' | 'advanced', string>
+    /** Header mode badge: patch editing (modifies the game map via a Content Patcher patch). */
+    modeBadgePatch: string
+    /** Header mode badge tooltip: explains this editor edits a Content Patcher patch, not the map file. */
+    modeBadgePatchHint: string
     playerWarps: string
     playerWarpsDescription: string
     npcWarps: string
@@ -303,6 +307,8 @@ export type StudioDeskCopy = {
     sheetPickerProjectGroup: string
     /** Sheet picker: empty state when the search filter matches nothing. */
     sheetPickerEmpty: string
+    /** Sheet gallery: back button to return to the palette view. */
+    sheetGalleryBack: string
     /** Sheet picker: badge marking a catalog sheet the map already references. */
     sheetPickerAttachedBadge: string
     /** Sheet picker: badge marking an attached sheet that references a vanilla game sheet. */
@@ -317,6 +323,22 @@ export type StudioDeskCopy = {
     sheetPickerNoGameRoot: string
     /** Sheet picker: trigger tooltip in the palette (switch between or attach sheets). */
     sheetPickerSwitch: string
+    /** Palette sheet tab bar: tooltip for a tab (switch to this sheet). */
+    sheetTabSwitch: string
+    /** Palette sheet tab bar: add button tooltip (attach a new sheet). */
+    sheetTabAdd: string
+    /** Palette sheet tab bar: context menu item to replace the sheet image. */
+    sheetTabReplaceImage: string
+    /** Palette sheet tab bar: context menu item to remove the sheet. */
+    sheetTabRemove: string
+    /** Palette sheet tab bar: context menu item to edit the sheet in the Inspector. */
+    sheetTabEditInInspector: string
+    /** Palette sheet tab bar: confirmation prompt when removing a sheet. */
+    sheetTabRemoveConfirm: (name: string) => string
+    /** Palette hover magnifier: accessible label for the magnifier element. */
+    tilesetMagnifier: string
+    /** Palette recent strip: context menu item to remove a recent selection. */
+    recentRemove: string
     noTileSelection: string
     tileTooltip: (index: number, tileset: string) => string
     quickProperty: string
@@ -435,49 +457,6 @@ export type StudioDeskCopy = {
     manageInAssetLibrary: string
     toAreaPickHint: string
     fromAreaPickHint: string
-    /** Object library sub-tab: objects. */
-    objectLibraryObjectsTab: string
-    /** Object library sub-tab: whole-sheet preview. */
-    objectLibrarySheetTab: string
-    /** Object library search box placeholder. */
-    objectLibrarySearch: string
-    /** Object library category filter "all" option. */
-    objectLibraryAllCategories: string
-    /** Object library: favorites category chip. */
-    objectLibraryFavorites: string
-    /** Object library: empty state of the favorites category. */
-    objectLibraryFavoritesEmpty: string
-    /** Object library: star toggle tooltip for one object. */
-    objectLibraryFavoriteToggle: (name: string) => string
-    /** Object library empty state. */
-    objectLibraryEmpty: string
-    /** Object library loading state for game objects. */
-    objectLibraryLoading: string
-    /** Object library hint shown while no game directory is connected. */
-    objectLibraryUnavailable: string
-    /** Object library: failed to attach an object's tilesheet. */
-    objectLibraryAttachFailed: (name: string) => string
-    /** Bottom object panel: top-edge resize handle. */
-    objectLibraryResize: string
-    /** Object library category labels. */
-    objectLibraryCategory: Record<
-      | 'seating'
-      | 'tables'
-      | 'beds'
-      | 'rugs'
-      | 'lighting'
-      | 'electronics'
-      | 'plants'
-      | 'decor'
-      | 'storage'
-      | 'windows'
-      | 'structure'
-      | 'walls-floors'
-      | 'outdoor'
-      | 'festival'
-      | 'other',
-      string
-    >
   }
   referencePreview: {
     workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail', string>

@@ -96,6 +96,19 @@ export function pushRecentSelection(
   return next
 }
 
+/** Removes a recent selection entry by identity (tileset + selection rect). */
+export function removeRecentSelection(recents: readonly PaletteRecentSelection[], entry: PaletteRecentSelection): PaletteRecentSelection[] {
+  return recents.filter(
+    (recent) =>
+      !(
+        recent.tilesetName === entry.tilesetName &&
+        recent.startIndex === entry.startIndex &&
+        recent.width === entry.width &&
+        recent.height === entry.height
+      ),
+  )
+}
+
 /** Merges a selection into the per-tileset remembered-selection map. */
 export function rememberTilesetSelection(
   remembered: Readonly<Record<string, PaletteTilesetSelection>>,

@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import { type EditorResources, type ProjectAssetRef, type VirtualPreviewAsset } from '@features/cp-maker'
 import { scanAudioAssets, scanDataAssets, scanImageAssets, type MapAssetSummary } from '@entities/game/api'
+import type { MapDocument } from '@entities/map'
+import { MapAssetEditorSession } from '../../map'
 import {
   ResourcePicker,
   toGameAudioResourceBrowserOptions,
@@ -34,7 +36,6 @@ import {
 import { useAssetLibraryCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
-import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
@@ -159,6 +160,7 @@ export function AssetLibraryWorkspace() {
   const [createMapOpen, setCreateMapOpen] = useState(false)
   const [repairingKey, setRepairingKey] = useState<string | null>(null)
   const [dismissedMissingSignature, setDismissedMissingSignature] = useState<string | null>(null)
+  const [mapAssetSession, setMapAssetSession] = useState<{ relativePath: string; document: MapDocument } | null>(null)
   const assets = project.projectAssets
   const missingDependencies = findMissingAssetDependencies(assets)
   const missingSignature = missingDependencies.map((missing) => `${missing.assetPath}\u0000${missing.missingPath}`).join('\n')
@@ -186,6 +188,13 @@ export function AssetLibraryWorkspace() {
     playerAppearanceProfile: environment.playerAppearanceProfile ?? null,
     onOpenPlayerAppearanceWindow: environment.onOpenPlayerAppearanceWindow,
     onReadProjectAsset: (relativePath) => project.readProjectAsset(relativePath),
+  }
+  async function openMapAsset(relativePath: string) {
+    const loaded = await project.loadProjectMapAsset(relativePath)
+    setMapAssetSession({ relativePath, document: JSON.parse(loaded.content) as MapDocument })
+  }
+  function closeMapAsset() {
+    setMapAssetSession(null)
   }
   const loadBindings = port ? collectLoadPatches(port.draft.patches) : []
   const loadBindingsByFamily = groupLoadPatchesByFamily(loadBindings)
@@ -1114,10 +1123,7 @@ export function AssetLibraryWorkspace() {
                         <button
                           type="button"
                           className="control-button control-button-primary"
-                          onClick={() => {
-                            usePendingMapAssetEditStore.getState().requestEdit(selected.relativePath)
-                            environment.onOpenModule('map-authoring')
-                          }}
+                          onClick={() => void openMapAsset(selected.relativePath)}
                         >
                           <MapIcon className="h-4 w-4" aria-hidden="true" />
                           {copy.editInMapEditorAction}
@@ -1512,6 +1518,25 @@ export function AssetLibraryWorkspace() {
           setSelectedLoadBindingId(null)
         }}
       />
+
+      {mapAssetSession && port ? (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg-panel)' }}>
+          <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--border-color)' }}>
+            <span className="text-caption-px font-medium">{mapAssetSession.relativePath}</span>
+            <button type="button" className="icon-button" aria-label={copy.closeAction} title={copy.closeAction} onClick={closeMapAsset}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1">
+            <MapAssetEditorSession
+              relativePath={mapAssetSession.relativePath}
+              document={mapAssetSession.document}
+              draftPort={port}
+              resources={resources}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

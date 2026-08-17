@@ -94,6 +94,7 @@ const shell: WorkbenchShellCopy = {
     lightingNight: 'Night',
     lightingPreviewHint:
       'Lighting preview (canvas only, map data untouched): outdoor = game day/night cycle, indoor = ambient day→night interpolation.',
+    worldAtlasConceptHint: 'The Stardew Valley world is a stitched mosaic of multiple maps. Switch views to browse connected regions.',
     moduleWorkspace: 'Module Workspace',
     moduleWorkspaceDisabled: 'Open or create a project to use workspaces.',
     moduleCanvas: 'Main Editing Surface',

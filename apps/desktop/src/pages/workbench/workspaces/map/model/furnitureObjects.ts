@@ -1,7 +1,7 @@
 import { createFurnitureEntryIndex } from '@entities/item'
 import { loadTextAsset } from '@entities/game/api'
 import { findTilesheetByKey, VANILLA_TILESHEET_TILE_SIZE } from '@entities/map'
-import type { MapCatalogObject, MapObjectCategory } from '@entities/map'
+import type { MapCatalogObject, MapCatalogObjectFrameInfo, MapObjectCategory } from '@entities/map'
 
 /**
  * 从游戏实时数据派生"家具类对象目录"（不含 UI）：解析 `Data/Furniture`
@@ -16,6 +16,44 @@ const BED_FURNITURE_TYPES = new Set(['bed', 'bed child', 'bed double'])
 const LIGHTING_FURNITURE_TYPES = new Set(['lamp', 'sconce', 'torch'])
 const PLANT_FURNITURE_TYPES = new Set(['plant', 'randomized_plant'])
 const DECOR_FURNITURE_TYPES = new Set(['painting', 'decor', 'fishtank', 'fireplace'])
+
+/**
+ * 把游戏家具类型名映射为 Furniture.getTypeNumberFromName 返回的数值 ID。
+ * 这些 ID 决定了旋转时 sourceRect 的换算方式和昼夜/天气替代帧的行为。
+ * "bed" 系列统一返回 15；未知类型返回 9（游戏 default case）。
+ */
+const FURNITURE_TYPE_ID_MAP: Record<string, number> = {
+  chair: 0,
+  bench: 1,
+  couch: 2,
+  armchair: 3,
+  dresser: 4,
+  'long table': 5,
+  painting: 6,
+  lamp: 7,
+  decor: 8,
+  bookcase: 10,
+  table: 11,
+  rug: 12,
+  window: 13,
+  fireplace: 14,
+  'bed child': 15,
+  'bed double': 15,
+  bed: 15,
+  torch: 16,
+  sconce: 17,
+}
+
+function furnitureTypeNameToId(typeName: string): number {
+  const normalized = typeName.trim().toLowerCase()
+  if (normalized.startsWith('bed')) return 15
+  return FURNITURE_TYPE_ID_MAP[normalized] ?? 9
+}
+
+/** 灯具（lamp=7/sconce=17/torch=16）和窗户（window=13）有昼夜/天气替代帧。 */
+function furnitureHasAlternateState(typeId: number): boolean {
+  return typeId === 7 || typeId === 13 || typeId === 16 || typeId === 17
+}
 
 /**
  * 把游戏家具类型名（如 `chair`、`long table`）映射到对象目录分类；
@@ -126,12 +164,21 @@ export function deriveFurnitureObjects(
     const y = Math.floor(spriteIndex / columns)
     if (x + sourceSize.width > columns || y + sourceSize.height > rows) continue
 
+    const furnitureType = entry.furnitureStats?.furnitureType ?? ''
+    const rotations = entry.furnitureStats?.rotations ?? 1
+    const furnitureTypeId = furnitureTypeNameToId(furnitureType)
+    const hasAlternateState = furnitureHasAlternateState(furnitureTypeId)
+
+    const frameInfo: MapCatalogObjectFrameInfo | undefined =
+      rotations > 1 || hasAlternateState ? { rotations, furnitureTypeId, hasAlternateState } : undefined
+
     objects.push({
       id: furnitureObjectId(entry.internalName),
       sheet: sheet.key,
       rect: { x, y, width: sourceSize.width, height: sourceSize.height },
-      category: furnitureTypeToCategory(entry.furnitureStats?.furnitureType ?? ''),
+      category: furnitureTypeToCategory(furnitureType),
       names: resolveFurnitureNames(entry.rawDisplayName, entry.internalName, enTable, localizedTable, locale),
+      frameInfo,
     })
   }
 

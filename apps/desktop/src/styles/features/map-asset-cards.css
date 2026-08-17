@@ -269,6 +269,18 @@
     padding: 0;
   }
 
+  .map-asset-furniture-row-label {
+    @apply flex flex-col items-start;
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.25;
+  }
+
+  .map-asset-furniture-row-pos {
+    font-size: 0.6875rem;
+    opacity: 0.55;
+  }
+
   .map-asset-object-details-head {
     @apply flex items-center justify-between;
     gap: 0.5rem;
@@ -287,6 +299,11 @@
   .map-asset-object-details-head .icon-button.is-danger:hover {
     @apply text-danger;
     background: var(--danger-soft);
+  }
+
+  .map-asset-object-details-meta {
+    @apply text-text-secondary;
+    font-size: 0.75rem;
   }
 
   /* ===== Cell-pick capture rows (warp / doors / day-night forms) ===== */

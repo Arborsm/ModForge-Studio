@@ -118,3 +118,46 @@ describe('deriveFurnitureObjects', () => {
     expect(rug?.names).toEqual({ 'en-US': 'Mystery Rug' })
   })
 })
+
+describe('furniture source rect from real game data', () => {
+  const REAL_FURNITURE_CONTENT = JSON.stringify({
+    0: 'Oak Chair/chair/-1/-1/4/350/-1/[LocalizedText Strings\\Furniture:OakChair]',
+    1366: 'Globe/decor/1 1/1 1/1/750/-1/[LocalizedText Strings\\Furniture:Globe]',
+    2048: 'Bed/bed/2 4/2 3/1/5000/-1/[LocalizedText Strings\\Furniture:Bed]',
+    2304: 'Large Fish Tank/fishtank/4 3/4 1/1/5000/-1/[LocalizedText Strings\\Furniture:LargeFishTank]',
+    BluePinstripeBed:
+      'Blue Pinstripe Bed/bed/2 4/2 3/1/500/-1/[LocalizedText Strings\\Furniture:BluePinstripeBed]/151/TileSheets\\furniture_2/true',
+    JojaBed:
+      'JojaBed/bed double/3 4/3 3/1/999/-1/[LocalizedText Strings\\Furniture:JojaBed]/0/TileSheets\\joja_furniture/true/collection_joja',
+  })
+
+  it('derives tile rects matching the in-game Furniture sheet layout', () => {
+    const objects = deriveFurnitureObjects(REAL_FURNITURE_CONTENT, null, null, 'en-US')
+    const byId = new Map(objects.map((object) => [object.id, object]))
+
+    expect(byId.get('furniture:oak-chair')).toMatchObject({
+      sheet: 'TileSheets/furniture',
+      rect: { x: 0, y: 0, width: 1, height: 2 },
+    })
+    expect(byId.get('furniture:globe')).toMatchObject({
+      sheet: 'TileSheets/furniture',
+      rect: { x: 22, y: 42, width: 1, height: 1 },
+    })
+    expect(byId.get('furniture:bed')).toMatchObject({
+      sheet: 'TileSheets/furniture',
+      rect: { x: 0, y: 64, width: 2, height: 4 },
+    })
+    expect(byId.get('furniture:large-fish-tank')).toMatchObject({
+      sheet: 'TileSheets/furniture',
+      rect: { x: 0, y: 72, width: 4, height: 3 },
+    })
+    expect(byId.get('furniture:blue-pinstripe-bed')).toMatchObject({
+      sheet: 'TileSheets/furniture_2',
+      rect: { x: 7, y: 9, width: 2, height: 4 },
+    })
+    expect(byId.get('furniture:jojabed')).toMatchObject({
+      sheet: 'TileSheets/joja_furniture',
+      rect: { x: 0, y: 0, width: 3, height: 4 },
+    })
+  })
+})

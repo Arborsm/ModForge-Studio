@@ -85,6 +85,7 @@ export {
   cellFromSheetPointer,
   normalizeSelectionRect,
   pushRecentSelection,
+  removeRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
   tilesetSelectionFromRect,
@@ -142,6 +143,7 @@ export {
   subscribeMapObjects,
   unregisterMapObjects,
   type MapCatalogObject,
+  type MapCatalogObjectFrameInfo,
   type MapCatalogObjectRect,
   type MapObjectCategory,
   type MapObjectsParseResult,
@@ -151,6 +153,7 @@ export { MapTilesetPalette } from './ui/MapTilesetPalette'
 export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
 export { MapTilesheetPicker } from './ui/MapTilesheetPicker'
 export type { MapTilesheetPickerProjectOption, MapTilesheetPickerProps } from './ui/MapTilesheetPicker'
+export { MapTilesheetGallery } from './ui/MapTilesheetGallery'
 export { MapLayerThumbnail } from './ui/MapLayerThumbnail'
 export { loadMapThumbnail } from './ui/mapThumbnail'
 export { default as MapWorldStatePreviewOverlay } from './ui/MapWorldStatePreviewOverlay'

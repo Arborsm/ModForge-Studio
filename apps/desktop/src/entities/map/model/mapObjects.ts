@@ -48,6 +48,30 @@ export const MAP_OBJECT_CATEGORIES: readonly MapObjectCategory[] = [
 export type MapCatalogObjectRect = { x: number; y: number; width: number; height: number }
 
 /**
+ * 家具类对象的多帧布局描述。在 tilesheet 上，一个家具的帧按
+ * 「旋转帧 × 状态帧」水平排列：先排 `rotations` 个旋转帧
+ * （rotation 0→1→2→3），再排一套相同布局的替代状态帧（亮灯、
+ * 雨天关窗等），整体偏移为 `sourceRect.Width * sourceIndexOffset`。
+ *
+ * - `rotations`: 方向帧数（1/2/4）。1 表示不可旋转，2/4 表示
+ *   tilesheet 上 defaultSourceRect 右侧依次排列了旋转后的帧。
+ * - `furnitureTypeId`: 游戏 `Furniture.getTypeNumberFromName` 返回
+ *   的类型 ID（0–17），决定旋转时 sourceRect 的换算规则（是否
+ *   翻转、是否交换 width/height 等）。
+ * - `hasAlternateState`: 灯具（lamp=7/sconce=17/torch=16）、
+ *   窗户（window=13）等有昼夜或天气替代帧，tilesheet 上在旋转帧
+ *   之后紧接一套等宽等高的替代帧。
+ */
+export type MapCatalogObjectFrameInfo = {
+  /** 方向帧数：1 = 不旋转，2 = 正面+背面，4 = 四向。 */
+  rotations: number
+  /** 游戏 Furniture type ID（0–17），决定旋转 sourceRect 换算方式。 */
+  furnitureTypeId: number
+  /** 是否有替代状态帧（亮灯/雨天），在旋转帧之后偏移一个 width。 */
+  hasAlternateState: boolean
+}
+
+/**
  * 对象目录中的一条预定义对象：引用 tilesheet 目录 key（如
  * `TileSheets/furniture`、`Maps/townInterior`）上的一个矩形 stamp。
  */
@@ -59,6 +83,12 @@ export type MapCatalogObject = {
   category: MapObjectCategory
   /** 按 locale code（'en-US'、'zh-CN'…）存的显示名。 */
   names: Record<string, string>
+  /**
+   * 多帧信息（可选）：家具类对象在 tilesheet 上占多个方向帧或
+   * 状态帧时填充此字段。手绘 townInterior 等 sheet 上的对象无此
+   * 字段（它们不参与旋转或昼夜切换）。
+   */
+  frameInfo?: MapCatalogObjectFrameInfo
 }
 
 /** `parseMapObjectsJson` 的结果：成功返回对象列表，失败返回带 source 前缀的错误。 */

@@ -395,7 +395,7 @@ function WarpCard({
   accentColor: string
   mapOptions: readonly WarpDialogMapOption[]
   loadTargetDocument: (target: string) => Promise<MapDocument>
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -482,16 +482,26 @@ function WarpCard({
   }
 
   const carrierOptions: readonly WarpCarrierOption[] = [
-    { value: 'property', label: copy.warpCarrierProperty },
-    { value: 'touch', label: copy.warpCarrierTouch, disabled: !perCellCarrierEnabled('Back') },
-    { value: 'action', label: copy.warpCarrierAction, disabled: !perCellCarrierEnabled('Buildings') },
+    { value: 'property', label: copy.warpCarrierProperty, description: copy.warpCarrierPropertyHint },
+    {
+      value: 'touch',
+      label: perCellCarrierEnabled('Back') ? copy.warpCarrierTouch : `${copy.warpCarrierTouch}${copy.warpCarrierTouchDisabledHint}`,
+      description: copy.warpCarrierTouchHint,
+      disabled: !perCellCarrierEnabled('Back'),
+    },
+    {
+      value: 'action',
+      label: perCellCarrierEnabled('Buildings') ? copy.warpCarrierAction : `${copy.warpCarrierAction}${copy.warpCarrierActionDisabledHint}`,
+      description: copy.warpCarrierActionHint,
+      disabled: !perCellCarrierEnabled('Buildings'),
+    },
   ]
 
   return (
     <CardSection
       title={copy.warpsTitle}
       countLabel={warpEntries.length > 0 ? String(warpEntries.length) : null}
-      addTitle={copy.addWarpTitle}
+      addTitle={selectedTile == null ? copy.addWarpDisabledNoCell : copy.addWarpTitle}
       addDisabled={selectedTile == null}
       onAdd={openAdd}
     >
@@ -525,8 +535,8 @@ function WarpCard({
           onEdit={openEdit}
           deleteLabel={copy.deleteEntry}
           onDelete={deleteEntry}
-          onHighlightEntry={(index) => onHighlightInspector(warpHighlightTarget(document, warpEntries[index] ?? null))}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onHighlightEntry={(index) => onHighlightInspector?.(warpHighlightTarget(document, warpEntries[index] ?? null))}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       <WarpDialog
@@ -574,7 +584,7 @@ function DoorsCard({
   activeLayer?: MapLayer | null
   selectedTile: { x: number; y: number } | null
   mapOptions: readonly WarpDialogMapOption[]
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
   gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
@@ -634,7 +644,8 @@ function DoorsCard({
     <CardSection
       title={copy.doorsTitle}
       countLabel={groups.length > 0 ? String(groups.length) : null}
-      addTitle={copy.addDoorTitle}
+      addTitle={selectedTile == null ? copy.addDoorDisabledNoCell : copy.addDoorTitle}
+      addDisabled={selectedTile == null}
       onAdd={() => {
         setDraft({ setTarget: false, toMap: '', toX: 0, toY: 0 })
         setFormOpen(true)
@@ -671,9 +682,9 @@ function DoorsCard({
           onDelete={(index) => commit(groups.filter((_, groupIndex) => groupIndex !== index))}
           onHighlightEntry={(index) => {
             const door = groups[index]
-            onHighlightInspector(door ? { tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }], objectIds: [] } : null)
+            onHighlightInspector?.(door ? { tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }], objectIds: [] } : null)
           }}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       {formOpen ? (
@@ -778,7 +789,7 @@ function DayNightCard({
   activeLayer?: MapLayer | null
   selectedTile: { x: number; y: number } | null
   paletteSelection: MapTilesetPaletteSelection | null
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
   gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
@@ -904,7 +915,8 @@ function DayNightCard({
     <CardSection
       title={copy.dayNightTitle}
       countLabel={rects.length > 0 ? copy.dayNightCount(rects.length) : null}
-      addTitle={copy.addDayNightTitle}
+      addTitle={selectedTile == null ? copy.addDayNightDisabledNoCell : copy.addDayNightTitle}
+      addDisabled={selectedTile == null}
       onAdd={() => {
         setDraft({ layer: activeLayer?.name ?? document.layers[0]?.name ?? '' })
         setFormOpen(true)
@@ -918,11 +930,11 @@ function DayNightCard({
           onDelete={removeEntry}
           onHighlightEntry={(index) => {
             const rect = rects[index]
-            onHighlightInspector(
+            onHighlightInspector?.(
               rect ? { tileRects: [{ x: rect.x, y: rect.y, width: rect.width, height: rect.height }], objectIds: [] } : null,
             )
           }}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       {formOpen ? (
@@ -1011,7 +1023,7 @@ export type MapAssetMapCardsProps = {
   /** Loads a target map document for the warp destination preview. */
   loadTargetDocument: (target: string) => Promise<MapDocument>
   /** Reports the hovered entry's canvas highlight (cells/objects); null clears it. */
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
   /** Game root used to resolve dynamically referenced vanilla sheets in tile previews. */
   gameRootPath?: string | null
   locale: LocaleCode

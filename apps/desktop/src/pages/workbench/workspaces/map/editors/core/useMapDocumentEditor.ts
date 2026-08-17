@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
-  findTilesheetByKey,
-  mapObjectDisplayName,
   syncLightMapProperty,
-  type MapCatalogObject,
   type MapDocument,
   type MapLayer,
   type MapObject,
@@ -14,9 +11,8 @@ import {
   type VanillaTilesheetEntry,
 } from '@entities/map'
 import { useLocalUndoShortcutOwner, type AssetDraftPort, type ProjectAssetRef } from '@features/cp-maker'
-import { useEditorCopy, useLocale, useMapAuthoringCopy } from '@locales/provider'
+import { useMapAuthoringCopy } from '@locales/provider'
 import { measureImageDimensions } from '@shared/lib/assets'
-import { usePreferencesStore } from '@shared/lib/app-state'
 import {
   addMapAssetLayer,
   applyMapAssetStamp,
@@ -26,7 +22,6 @@ import {
   setMapAssetCellOverlay,
 } from '../../model/mapAssetReducer'
 import { buildGameSheetTileset } from '../../model/gameSheetTilesets'
-import { catalogObjectSelection } from '../../model/mapObjectPick'
 import {
   buildMapHistoryTimeline,
   changedFieldKeys,
@@ -132,7 +127,6 @@ export type MapDocumentEditor = {
   selectedObjectId: number | null
   activeObjectGroupId: number
   projectImageUrls: Record<string, string>
-  paletteOpen: boolean
   undoStack: MapHistoryEntry[]
   redoStack: MapHistoryEntry[]
   /**
@@ -157,7 +151,6 @@ export type MapDocumentEditor = {
   setPendingDeleteLayerId: Dispatch<SetStateAction<number | null>>
   setSelectedObjectId: Dispatch<SetStateAction<number | null>>
   setActiveObjectGroupId: Dispatch<SetStateAction<number>>
-  setPaletteOpen: Dispatch<SetStateAction<boolean>>
   setLockedLayerIds: Dispatch<SetStateAction<Set<number>>>
   updateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
   undo: () => void
@@ -171,11 +164,12 @@ export type MapDocumentEditor = {
    */
   attachGameSheet: (sheet: VanillaTilesheetEntry) => void
   /**
-   * 点选对象目录条目：自动附加其 sheet（如尚未附着）并生成对应的
-   * brush（1×1）或 stamp 调色板选区；无法附加或矩形越界时把错误写进
-   * saveState，不改动文档。
+   * Removes a tileset by name: clears every gid that falls in its firstGid
+   * range across all layers, drops the tileset, and reindexes the remaining
+   * tilesets so firstGid ranges stay contiguous. No-op when the capability
+   * is disabled or the tileset is not found.
    */
-  pickCatalogObject: (object: MapCatalogObject) => void
+  removeTileset: (name: string) => void
   deleteSelectedObject: () => void
   updateSelectedObject: (updates: Partial<MapObject>) => void
   updateActiveLayer: (updates: Partial<MapLayer>) => void
@@ -222,8 +216,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   } = options
   const capabilities = { ...DEFAULT_MAP_EDITOR_CAPABILITIES, ...capabilitiesOverride }
   const copy = useMapAuthoringCopy().assetEditor
-  const editorCopy = useEditorCopy()
-  const locale = useLocale()
   const [activeLayerId, setActiveLayerId] = useState(document.layers[0]?.id ?? 0)
   const [lockedLayerIds, setLockedLayerIds] = useState<Set<number>>(() => new Set())
   const [tool, setTool] = useState<AssetTool>('inspect')
@@ -253,15 +245,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [overlayRule, setOverlayRule] = useState<CellOverlayRule>('walkable')
   const [overlayPaintPreview, setOverlayPaintPreview] = useState<readonly { tileX: number; tileY: number }[] | null>(null)
   const [projectImageUrls, setProjectImageUrls] = useState<Record<string, string>>({})
-  // 底部对象面板的展开状态是响应式用户偏好：持久化在共享偏好 store，编辑器
-  // 重开与模式切换后保持。paletteOpen 的布尔语义沿用旧版"面板打开"，现在
-  // 对应底部对象面板的显隐。
-  const paletteOpen = usePreferencesStore((state) => state.mapEditorPalette.objectPanelOpen)
-  const setPaletteOpen: Dispatch<SetStateAction<boolean>> = (next) => {
-    const current = usePreferencesStore.getState().mapEditorPalette.objectPanelOpen
-    const value = typeof next === 'function' ? next(current) : next
-    usePreferencesStore.getState().setMapEditorPalette({ objectPanelOpen: value })
-  }
   const [undoStack, setUndoStack] = useState<MapHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<MapHistoryEntry[]>([])
   /** Label of the most recent edit that produced the current document. */
@@ -295,7 +278,7 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     return () => {
       active = false
     }
-  }, [document.tilesets, readProjectAsset])
+  }, [document.tilesets, readProjectAsset, imageAssetPaths])
 
   const mapDocument = document
 
@@ -596,36 +579,59 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   }
 
   /**
-   * 点选对象目录条目：sheet 已附着时直接选中对象矩形并按尺寸切到
-   * brush（1×1）或 stamp；未附着且具备 tileset 管理能力时先附加动态
-   * game sheet 引用再选择；目录里没有对应 sheet、附加失败或矩形越界时
-   * 把 attachFailed 文案写进 saveState，不改动文档。选区与工具切换是
-   * 编辑器本地状态，不产生历史记录。
+   * Removes a tileset by name. Every gid in every layer that falls inside the
+   * tileset's [firstGid, firstGid+tileCount) range is cleared to 0 (erasing
+   * tiles painted from that sheet). Remaining tilesets are reindexed so their
+   * firstGid ranges stay contiguous starting at 1. The palette selection is
+   * reset to the first remaining tileset if it pointed at the removed one.
    */
-  function pickCatalogObject(object: MapCatalogObject) {
-    const selection = catalogObjectSelection(mapDocument, object)
-    if (selection) {
-      setPaletteSelection(selection)
-      setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-      setSaveState({ status: 'idle', message: '' })
-      return
+  function removeTileset(name: string) {
+    if (!capabilities.tilesetManagement) return
+    const target = mapDocument.tilesets.find((tileset) => tileset.name === name)
+    if (!target) return
+    const gidStart = target.firstGid
+    const gidEnd = target.firstGid + target.tileCount
+    const stripGid = (gid: number) => {
+      const base = gid & ~0xf0000000
+      return base >= gidStart && base < gidEnd ? 0 : gid
     }
-    const attachFailedMessage = editorCopy.studioDesk.mapPatchEditor.objectLibraryAttachFailed(mapObjectDisplayName(object, locale))
-    if (!capabilities.tilesetManagement) {
-      setSaveState({ status: 'error', message: attachFailedMessage })
-      return
+    // Build the remaining tilesets sorted by firstGid so reindexing is stable.
+    const remaining = mapDocument.tilesets.filter((tileset) => tileset.name !== name).sort((left, right) => left.firstGid - right.firstGid)
+    // Reindex firstGid contiguously starting at 1.
+    let nextGid = 1
+    const reindexed = remaining.map((tileset) => {
+      const shifted = { ...tileset, firstGid: nextGid }
+      nextGid += tileset.tileCount
+      return shifted
+    })
+    const reindexMap = new Map<number, number>()
+    remaining.forEach((old, index) => reindexMap.set(old.firstGid, reindexed[index]!.firstGid))
+    const remapGid = (gid: number) => {
+      const flags = gid & 0xf0000000
+      const base = gid & ~0xf0000000
+      if (base === 0) return 0
+      // Find the old tileset this gid belonged to and remap to the new firstGid.
+      for (const [oldFirstGid, newFirstGid] of reindexMap) {
+        const oldTileset = remaining.find((t) => t.firstGid === oldFirstGid)
+        if (oldTileset && base >= oldFirstGid && base < oldFirstGid + oldTileset.tileCount) {
+          return flags | (newFirstGid + (base - oldFirstGid))
+        }
+      }
+      return gid
     }
-    const entry = findTilesheetByKey(object.sheet)
-    const tileset = entry ? buildGameSheetTileset(mapDocument, entry) : null
-    const rows = tileset ? Math.ceil(tileset.tileCount / tileset.columns) : 0
-    const { x, y, width, height } = object.rect
-    if (!tileset || x < 0 || y < 0 || x + width > tileset.columns || y + height > rows) {
-      setSaveState({ status: 'error', message: attachFailedMessage })
-      return
+    const nextDocument: MapDocument = {
+      ...mapDocument,
+      tilesets: reindexed,
+      layers: mapDocument.layers.map((layer) => ({
+        ...layer,
+        gids: layer.gids.map((gid) => remapGid(stripGid(gid))),
+      })),
     }
-    updateDocument({ ...mapDocument, tilesets: [...mapDocument.tilesets, tileset] }, undefined, copy.addTileset)
-    setPaletteSelection({ tilesetName: tileset.name, startIndex: y * tileset.columns + x, width, height })
-    setTool(width === 1 && height === 1 ? 'brush' : 'stamp')
+    updateDocument(nextDocument, undefined, copy.removeTileset)
+    if (paletteSelection?.tilesetName === name) {
+      const fallback = reindexed[0]
+      setPaletteSelection(fallback ? { tilesetName: fallback.name, startIndex: 0, width: 1, height: 1 } : null)
+    }
     setSaveState({ status: 'idle', message: '' })
   }
 
@@ -841,7 +847,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     selectedObjectId,
     activeObjectGroupId,
     projectImageUrls,
-    paletteOpen,
     undoStack,
     redoStack,
     historyEntries,
@@ -856,7 +861,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     setPendingDeleteLayerId,
     setSelectedObjectId,
     setActiveObjectGroupId,
-    setPaletteOpen,
     setLockedLayerIds,
     updateDocument,
     undo,
@@ -865,7 +869,7 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     clickTile,
     addTileset,
     attachGameSheet,
-    pickCatalogObject,
+    removeTileset,
     deleteSelectedObject,
     updateSelectedObject,
     updateActiveLayer,

@@ -15,7 +15,9 @@
 @import './features/workspace-patch-list.css';
 @import './features/map-warp-editor.css';
 @import './features/map-asset-shell.css';
+@import './features/map-asset-left-tabs.css';
 @import './features/map-asset-cards.css';
+@import './features/map-asset-extras.css';
 @import './features/map-asset-topbar.css';
 @import './features/map-authoring-compare.css';
 @import './features/dialogue-script-field.css';
@@ -36,8 +38,8 @@
 @import './workspace/item-data-editor.css';
 @import './workspace/map-authoring.css';
 @import './workspace/map-tileset-palette.css';
-@import './workspace/map-object-library.css';
 @import './workspace/map-tilesheet-picker.css';
+@import './workspace/map-tilesheet-gallery.css';
 @import './features/map-patch-workspace.css';
 @import './workspace/ai-localization.css';
 @import './workspace/ai-localization-overview.css';

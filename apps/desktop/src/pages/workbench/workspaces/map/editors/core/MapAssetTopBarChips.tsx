@@ -406,7 +406,7 @@ function AmbientChip({
 export function MapAssetTopBarChips({ properties, onChange, isOutdoor, onToggleOutdoor }: MapAssetTopBarChipsProps) {
   const copy = useMapAuthoringCopy().assetEditor.topBar
   return (
-    <div className="map-asset-topbar-chips">
+    <div className="map-asset-topbar-chips" title={copy.chipsInspectorHint}>
       <MusicChip properties={properties} onChange={onChange} />
       <button
         type="button"

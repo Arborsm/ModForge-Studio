@@ -1,4 +1,4 @@
-import { Grid2x2, Grip, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Grid2x2, Grip, Info, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
 import { exportMapPng } from '@entities/game/api'
@@ -20,6 +20,7 @@ import {
   type ObjectLightItemIndex,
 } from '@entities/map'
 import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
+import { useMapEditorShortcuts } from '../editors/core/useMapEditorShortcuts'
 
 type CentralWorkspaceProps = {
   tabs: Array<{
@@ -91,6 +92,15 @@ export default function CentralWorkspace({
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null)
   const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null)
   const viewportRef = useRef<MapViewportHandle | null>(null)
+
+  // Browse-mode shortcuts: tool switching (select/pan) and grid toggle.
+  useMapEditorShortcuts({
+    onToolChange: (tool) => {
+      if (tool === 'hand') setToolMode('pan')
+      else if (tool === 'inspect') setToolMode('select')
+    },
+    onToggleGrid: () => setShowGrid((current) => !current),
+  })
 
   useLayoutEffect(() => {
     if (!focusedObjectTarget) {
@@ -304,6 +314,12 @@ export default function CentralWorkspace({
                       {view.label}
                     </button>
                   ))}
+                  <span className="map-concept-info-anchor">
+                    <Info className="map-concept-info-icon" aria-hidden="true" />
+                    <span className="map-concept-info-tooltip" role="tooltip">
+                      {copy.center.worldAtlasConceptHint}
+                    </span>
+                  </span>
                 </div>
               ) : null}
 

@@ -562,7 +562,7 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
         : copy.editInMapEditor
 
   return (
-    <div className="map-patch-page">
+    <div className="map-patch-page" data-guide-surface="workbench.map">
       <div className="map-patch-canvas-area">
         <nav className="map-patch-canvas-toolbar">
           <button
@@ -575,6 +575,9 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </button>
           <span className="map-patch-target-name">{target.replace(/^Maps\//iu, '')}</span>
+          <span className="map-asset-mode-badge" data-guide="map-patch-mode-badge" title={copy.modeBadgePatchHint}>
+            {copy.modeBadgePatch}
+          </span>
           <span className="spacer" />
           <div className="map-patch-preview-switch" role="group" aria-label={copy.previewTitle}>
             {(['before', 'result', 'diff'] as const).map((mode) => (
