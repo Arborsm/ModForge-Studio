@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "id": "arborsm.scaleup-unofficial",
+  "name": "ScaleUp (Unofficial) 兼容",
+  "targets": ["Arborsm.ScaleUpUnofficial"],
+  "contributions": {
+    "attachedApi": {
+      "providerUniqueId": "Arborsm.ScaleUpUnofficial",
+      "providedUniqueIds": ["Platonymous.ScaleUp", "BleakCodex.SpritesInDetail"],
+      "targets": [
+        { "assetPath": "Assets", "assetKind": "json" },
+        { "assetPath": "PreviewTexture", "assetKind": "image" }
+      ]
+    }
+  }
+}
