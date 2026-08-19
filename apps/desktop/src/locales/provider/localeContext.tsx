@@ -131,6 +131,10 @@ export function usePluginManagerCopy() {
   return useEditorCopy().pluginManager
 }
 
+export function useCompatModuleCopy() {
+  return useEditorCopy().compatModule
+}
+
 export function useAssetLibraryCopy() {
   return useEditorCopy().assetLibrary
 }

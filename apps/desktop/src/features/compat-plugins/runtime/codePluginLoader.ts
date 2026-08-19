@@ -129,12 +129,23 @@ export async function loadCodePlugins(
     if (!plugin.hasCodeEntry) continue
 
     const pluginId = plugin.id
-    try {
-      // The entry path is determined by the manifest's `entry` field (default: "index.js").
-      // For now, we use the default entry. The manifest's entry field will be
-      // available on the summary in a future wire type extension.
-      const entryPath = `plugin://${pluginId}/index.js`
 
+    // Validate SDK version from manifest before attempting import.
+    const manifestSdkVersion = plugin.sdkVersion ?? '0.0.0'
+    if (!isSdkVersionCompatible(manifestSdkVersion, HOST_SDK_MAJOR_VERSION)) {
+      diagnostics.push({
+        pluginId,
+        reason: `SDK version mismatch: manifest targets v${parseSdkMajor(manifestSdkVersion)}, host requires v${HOST_SDK_MAJOR_VERSION}`,
+        phase: 'sdkVersion',
+      })
+      continue
+    }
+
+    // Entry path from manifest; fall back to "index.js" if missing.
+    const entryFile = plugin.entry ?? 'index.js'
+    const entryPath = `plugin://${pluginId}/${entryFile}`
+
+    try {
       const module = (await import(/* @vite-ignore */ entryPath)) as { default?: PluginModule }
       const pluginModule = module.default
 
@@ -143,17 +154,6 @@ export async function loadCodePlugins(
           pluginId,
           reason: 'Plugin module has no default export',
           phase: 'import',
-        })
-        continue
-      }
-
-      // Validate SDK version compatibility.
-      const pluginSdkVersion = pluginModule.sdkVersion ?? '0.0.0'
-      if (!isSdkVersionCompatible(pluginSdkVersion, HOST_SDK_MAJOR_VERSION)) {
-        diagnostics.push({
-          pluginId,
-          reason: `SDK version mismatch: plugin targets v${parseSdkMajor(pluginSdkVersion)}, host requires v${HOST_SDK_MAJOR_VERSION}`,
-          phase: 'sdkVersion',
         })
         continue
       }

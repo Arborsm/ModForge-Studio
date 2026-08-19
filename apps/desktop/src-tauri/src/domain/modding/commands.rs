@@ -24,7 +24,7 @@ pub async fn list_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSumma
 /// Reloads compat plugins from disk, clearing all caches. Returns the refreshed
 /// plugin summaries. Used by the stage 4 plugin management page's manual reload
 /// button.
-#[host_command(control)]
+#[host_command(io)]
 pub async fn reload_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSummary>, String> {
     // Clear the plugin summaries cache and the attached API registry cache,
     // then re-scan from disk.

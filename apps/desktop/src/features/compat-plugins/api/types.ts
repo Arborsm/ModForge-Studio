@@ -107,6 +107,10 @@ export type CompatPluginSummary = {
   name: string
   format: number
   hasCodeEntry: boolean
+  /** Code-package entry file path relative to plugin root (e.g. "index.js"); null for data-pack plugins. */
+  entry: string | null
+  /** SDK version declared in manifest (e.g. "1.0.0"); null for data-pack plugins. */
+  sdkVersion: string | null
   targets: string[]
   pageIds: string[]
   pages: CompatPluginPageSummary[]

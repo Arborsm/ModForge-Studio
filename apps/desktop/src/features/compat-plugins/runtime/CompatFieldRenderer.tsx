@@ -5,6 +5,7 @@
  */
 import type { ComponentType } from 'react'
 import { CompactSelect } from '@shared/ui/CompactSelect'
+import type { CompatModuleCopy } from '@locales'
 import type { CompatPluginField } from '../api/types'
 import type { FieldValidationError } from '../lib/schemaEvaluator'
 
@@ -15,6 +16,7 @@ type CompatFieldRendererProps = {
   label: string
   error: FieldValidationError | undefined
   t: (key: string) => string
+  copy: CompatModuleCopy
 }
 
 /** Renders a single compat plugin form field based on its schema type. */
@@ -25,6 +27,7 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
   label,
   error,
   t,
+  copy,
 }: CompatFieldRendererProps) {
   const fieldId = `compat-field-${field.id}`
   const errorId = `${fieldId}-error`
@@ -136,7 +139,7 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
           <div className="compat-field-record-list">
             <label className="compat-field-label">{labelText}</label>
             <div className="compat-field-record-list-summary">
-              {Array.isArray(value) ? `${value.length} ${t('at.entryList.title').toLowerCase()}` : t('at.field.invalid')}
+              {Array.isArray(value) ? `${value.length} ${copy.recordListEntries}` : copy.invalidValue}
             </div>
             {/* Record-list editing is a future enhancement; for now show a summary */}
           </div>
@@ -148,8 +151,8 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
             <label className="compat-field-label">{labelText}</label>
             <div className="compat-field-object-summary">
               {typeof value === 'object' && value !== null && !Array.isArray(value)
-                ? `${Object.keys(value).length} fields`
-                : t('at.field.invalid')}
+                ? `${Object.keys(value).length} ${copy.objectFields}`
+                : copy.invalidValue}
             </div>
             {/* Object editing is a future enhancement; for now show a summary */}
           </div>

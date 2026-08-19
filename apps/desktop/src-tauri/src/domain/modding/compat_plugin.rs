@@ -284,6 +284,14 @@ pub(crate) struct CompatPluginSummary {
     /// Stage 4: condition syntax contributions for When/GSQ editor autocomplete.
     pub condition_syntax: Vec<ConditionSyntaxWire>,
     pub load_error: Option<String>,
+    /// Code-package entry file path relative to plugin root (e.g. "index.js");
+    /// null for data-pack plugins.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
+    /// SDK version declared in manifest (e.g. "1.0.0"); null for data-pack
+    /// plugins.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sdk_version: Option<String>,
 }
 
 /// Page descriptor included in `CompatPluginSummary`, carrying the
@@ -834,6 +842,8 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                 asset_schemas,
                 condition_syntax,
                 load_error: None,
+                entry: manifest.entry.clone(),
+                sdk_version: manifest.sdk_version.clone(),
             }
         })
         .collect()

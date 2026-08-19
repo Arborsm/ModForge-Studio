@@ -8,6 +8,8 @@ function plugin(overrides: Partial<CompatPluginSummary> = {}): CompatPluginSumma
     name: 'Test Plugin',
     format: 1,
     hasCodeEntry: false,
+    entry: null,
+    sdkVersion: null,
     targets: ['SomeMod'],
     pageIds: ['test-page'],
     pages: [

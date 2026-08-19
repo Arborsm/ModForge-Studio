@@ -666,3 +666,57 @@ conditionSyntax 贡献是纯 key 列表，并入条件自动补全。机制简�
 | EPU                  | ✅             | 数据量极小                                 |
 
 唯一在核对中发现并修复的 schema 缺口：**集合/嵌套字段类型**（`string-list` / `record-list` / `object`），JA 的 `Recipe.Ingredients` 和 AT 的 `ManualVariations` 都是硬需求，已补入 2.1 的字段模型。
+
+---
+
+## 10. 复审补缺计划
+
+首次实施（commit `9fa0f8f9`–`4858a945`）后的逐项核验结论：阶段 0/1 完整，阶段 2 主体可用但有表达力与验证缺口，阶段 3 是空壳（协议仅 Tauri 侧、loader 未接线、SDK 面全占位），阶段 4 管理页在但扩展贡献无消费端。本节是补齐这些缺口的执行计划，分四批：A 批小修（独立可合）、B 批阶段 2 收尾、C 批阶段 3 重做、D 批阶段 4 收尾。A → B → C 串行，D 的 spike 可与 C 并行。
+
+### 10.1 A 批：小修（无设计争议，直接做）
+
+| #   | 问题                                                                                                                                  | 改动                                                                                                                                                    | 验证                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| A1  | `registry-setup.test.ts` 模块矩阵快照漏 `plugin-manager`，vitest 红                                                                   | 已修（待提交）                                                                                                                                          | `vp exec vitest run --configLoader runner src/tests/unit/app/registry-setup.test.ts` |
+| A2  | `CompatModuleRuntime` 框架文案硬编码 `at.*` 插件 key（save 按钮、空态、条目列表标题、加载态），第二个数据包插件会显示 AT 文案或裸 key | 框架文案（保存/空态/列表/未选择/错误）迁入宿主 typed locale bundle（model + zh-CN + en-US 三处同步）；`at.*` 只留 AT 插件自己的字段/区块文案在插件 i18n | `vp run lint` + 架构测试（locale 硬编码扫描）                                        |
+| A3  | `CompatModuleRuntime` 手写 `useMemo`/`useCallback`（违反 React Compiler 规则）、本地重复实现 `cx`                                     | 删除手写 memo 化；`cx` 改用共享工具（与 WorkbenchSideNav 同源）                                                                                         | 架构测试全绿                                                                         |
+| A4  | `reload_compat_plugins` 挂 `control` lane 但扫盘读文件                                                                                | 改 `#[host_command(io)]`，跑 `gen:host-commands` 重新生成                                                                                               | `cargo check` + build.rs 漂移校验                                                    |
+| A5  | 代码包 sdkVersion 从 `module.sdkVersion` 读取，与文档"宿主按 manifest `sdkVersion` 匹配"不符                                          | wire 类型 `CompatPluginSummary` 增加 `sdkVersion`/`entry` 字段，loader 改从 manifest 校验                                                               | codePluginLoader 单测更新                                                            |
+
+### 10.2 B 批：阶段 2 收尾（schema 表达力验收补完）
+
+| #   | 问题                                                                                                                                                                   | 改动                                                                                                                                                          | 验证                             |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| B1  | AT manifest 未覆盖文档自定的验收矩阵：缺 `object`（Animation/Tints）、`bool` + `visibleWhen`、cross-field 校验（ItemName/ItemId/CollectiveNames/CollectiveIds 四选一） | 补全 AT manifest 字段与 i18n key；`schemaEvaluator` 若缺 cross-field 求值则补实现                                                                             | schemaEvaluator 单测覆盖新增规则 |
+| B2  | `verify-compat-plugin-page.mjs` 缺失，AT 页面无 UI 证据                                                                                                                | 新增 Playwright 脚本（mock launcher + settings，fixture 一个含 Textures/ 条目的假 AT 包），断言导航项出现、页面打开、字段渲染、校验错误态、保存回写；截图归档 | 脚本本地跑通，截图入档           |
+| B3  | 加载态误用空态文案（`at.empty.*` 同时充当中 loading）                                                                                                                  | 随 A2 一并迁宿主 locale，loading 用真实加载文案                                                                                                               | B2 脚本断言加载态                |
+
+### 10.3 C 批：阶段 3 重做（代码包机制真实化）
+
+现状：Tauri 侧 `plugin://` 协议已注册且路径安全有测试（保留），其余全部要补。
+
+| #   | 事项                 | 改动要点                                                                                                                                                                                                                                                                                         | 验证                                                           |
+| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| C1  | vendor chunk 固定名  | vite `rollupOptions.output` 把 `react`、`react-dom`、`react/jsx-runtime`、`@modforge/plugin-sdk` 打成固定文件名 ESM chunk（不用 hash）；产物经 asset/plugin 协议可访问                                                                                                                           | 构建产物含固定名文件；浏览器 `import('react')` 命中 import map |
+| C2  | import map 注入      | `index.html` 注入 importmap；宿主 bootstrap 探测注入失败（webview 不支持）→ 整体拒绝代码包、数据包不受影响；Linux webkitgtk 实测记录结论                                                                                                                                                         | 手动验证 + loader 单测（降级路径）                             |
+| C3  | Electron `plugin://` | `registerSchemesAsPrivileged`（app ready 前，`stream/supportFetchAPI/corsEnabled`）+ `protocol.handle`；路径解析经 sidecar 复用 Rust `resolve_plugin_protocol_path`，Electron main 只做字节转发                                                                                                  | Linux 构建手动验证；路径安全用例复用 Rust 侧测试               |
+| C4  | bootstrap 接线       | `importWorkbenchPage` 在 `listCompatPlugins` 后调用 `loadCodePlugins`，其 registrations 与数据包一起进 `createAppRegistry`；diagnostics 进插件管理页数据源                                                                                                                                       | 单元测试（mock import）+ 手动验证                              |
+| C5  | SDK 面真实实现       | `components` 映射真实 shared/ui 组件；`commands` 白名单表（`readModFile`/`writeModFile`/`listModDirectory` 映射现有 host command，路径限 mod/project 根）；`capabilities.get` 接宿主 capability 表；`i18n.t` 接 pluginLocaleStore；`onDispose` 已在，补 reload 全流程（dispose → 清注册 → 重建） | 每面至少一个单测；占位 throw 全部移除                          |
+| C6  | 验收代码包           | `packages/plugin-sdk/template/` 出最小可用示例页（或直接做 FS 画布页雏形），走通 放置目录 → 加载 → 渲染 → 管理页重载 全流程                                                                                                                                                                      | 手动验证 + 截图                                                |
+
+### 10.4 D 批：阶段 4 收尾（扩展贡献接消费端）
+
+| #   | 事项                 | 改动要点                                                                                      | 验证                 |
+| --- | -------------------- | --------------------------------------------------------------------------------------------- | -------------------- |
+| D1  | SpaceCore spike      | 确认 CP 编辑器是否有字段元数据注入消费点；没有则先补消费点（这是附录 A.6 本就标注的前置动作） | spike 结论写入本文档 |
+| D2  | assetSchema 消费     | CP 编辑器合并插件声明的资产字段元数据                                                         | 针对消费点的单元测试 |
+| D3  | conditionSyntax 消费 | When/GSQ 编辑器条件 key 自动补全并入插件声明的 key 集                                         | 补全逻辑单元测试     |
+| D4  | 管理页代码包列       | 代码包徽标、loadDiagnostics 展示依赖 C4/C5 落地                                               | C6 手动验证覆盖      |
+
+### 10.5 补缺批次的合并门槛
+
+- A 批：`vp run lint` 零 error + 受影响 vitest 全绿 + `cargo check`
+- B 批：A 批门槛 + `verify-compat-plugin-page.mjs` 跑通且截图归档
+- C 批：`vp run build` 产物含固定名 vendor chunk + loader/SDK 单测全绿 + 示例代码包三平台中至少 Windows（WebView2）全流程手动验证，Linux（webkitgtk import map 实测）记录结论
+- D 批：消费点单元测试 + `vp run --filter @modforge/desktop test` 全量
+- 每批收尾同步删除占位代码（C 批完成前 `codePluginLoader.ts` 的 stub 面是已知的唯一例外，合并 C 批时必须清零）

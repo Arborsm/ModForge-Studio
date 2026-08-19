@@ -18,6 +18,7 @@ import type { ScheduleEditorCopy } from './schedule'
 import type { MailEditorCopy } from './mail'
 import type { GameDebuggerCopy } from './debugger'
 import type { PluginManagerCopy } from './plugin-manager'
+import type { CompatModuleCopy } from './compat-module'
 import type { AuthoringShellCopy } from './authoring-shell'
 import type { AssetLibraryCopy } from './asset-library'
 import type { ResourceBrowserCopy } from './resource-browser'
@@ -47,6 +48,7 @@ export type EditorCopy = WorkbenchShellCopy & {
   mailEditor: MailEditorCopy
   gameDebugger: GameDebuggerCopy
   pluginManager: PluginManagerCopy
+  compatModule: CompatModuleCopy
   viewportLabels: ViewportLabels
   buildAssetDialog: BuildAssetDialogCopy
   mapPanel: MapPanelCopy
@@ -101,6 +103,7 @@ export type { ScheduleEditorCopy } from './schedule'
 export type { MailEditorCopy } from './mail'
 export type { GameDebuggerCopy } from './debugger'
 export type { PluginManagerCopy } from './plugin-manager'
+export type { CompatModuleCopy } from './compat-module'
 export type { AuthoringShellCopy } from './authoring-shell'
 export type { AssetLibraryCopy, MapLoadBindingCopy, AssetLibraryCreateMapCopy, AssetLibraryMapCategory } from './asset-library'
 export type { ResourceBrowserCopy, ResourceBrowserKindKey } from './resource-browser'

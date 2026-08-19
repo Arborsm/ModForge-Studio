@@ -5,10 +5,11 @@
  * form for editing entry fields.
  * @module features/compat-plugins
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Images } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useLocale } from '@locales/provider'
+import { useCompatModuleCopy, useLocale } from '@locales/provider'
+import { cx } from '@shared/lib/helper'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelSection } from '@shared/ui/PanelSection'
@@ -32,30 +33,26 @@ type LoadState = 'loading' | 'loaded' | 'error' | 'empty'
 export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = function CompatModuleRuntime({
   moduleId,
 }: CompatModuleRuntimeProps) {
+  const copy = useCompatModuleCopy()
   const locale = useLocale()
   const pluginBundles = usePluginLocaleStore((state) => state.bundles)
 
-  const descriptorEntry = useMemo(() => getPageDescriptorEntryByModuleId(moduleId), [moduleId])
+  const descriptorEntry = getPageDescriptorEntryByModuleId(moduleId)
   const pageDescriptor = descriptorEntry?.page ?? null
   const targets = descriptorEntry?.targets ?? []
 
-  const pluginId = useMemo(() => {
-    const rest = moduleId.replace(/^compat-/, '')
-    const colonIndex = rest.lastIndexOf(':')
-    return colonIndex >= 0 ? rest.slice(0, colonIndex) : null
-  }, [moduleId])
+  const rest = moduleId.replace(/^compat-/, '')
+  const colonIndex = rest.lastIndexOf(':')
+  const pluginId = colonIndex >= 0 ? rest.slice(0, colonIndex) : null
 
-  const t = useCallback(
-    (key: string): string => {
-      if (!pluginId) return key
-      const bundle = pluginBundles[pluginId]
-      if (!bundle) return key
-      const entries = bundle[locale]
-      if (!entries) return key
-      return entries[key] ?? key
-    },
-    [pluginBundles, locale, pluginId],
-  )
+  const t = (key: string): string => {
+    if (!pluginId) return key
+    const bundle = pluginBundles[pluginId]
+    if (!bundle) return key
+    const entries = bundle[locale]
+    if (!entries) return key
+    return entries[key] ?? key
+  }
 
   const [targetModRoot, setTargetModRoot] = useState<string | null>(null)
   const [entries, setEntries] = useState<CompatEntrySummary[]>([])
@@ -158,7 +155,7 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
   if (!pageDescriptor) {
     return (
       <div className="empty-state-card-fill">
-        <EmptyStateCard title={t('at.empty.title')} detail={t('at.empty.detail')} density="compact" />
+        <EmptyStateCard title={copy.emptyTitle} detail={copy.emptyDetail} density="compact" />
       </div>
     )
   }
@@ -166,7 +163,20 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
   if (loadState === 'loading') {
     return (
       <div className="empty-state-card-fill">
-        <EmptyStateCard title={t('at.empty.title')} detail={t('at.empty.detail')} density="compact" />
+        <EmptyStateCard title={copy.loadingTitle} detail={copy.loadingDetail} density="compact" />
+      </div>
+    )
+  }
+
+  if (loadState === 'error') {
+    return (
+      <div className="empty-state-card-fill">
+        <EmptyStateCard
+          title={copy.errorTitle}
+          detail={copy.errorDetail}
+          illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
+          density="compact"
+        />
       </div>
     )
   }
@@ -175,8 +185,8 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
     return (
       <div className="empty-state-card-fill">
         <EmptyStateCard
-          title={t('at.empty.title')}
-          detail={t('at.empty.detail')}
+          title={copy.emptyTitle}
+          detail={copy.emptyDetail}
           illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
           density="compact"
         />
@@ -226,10 +236,10 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
   return (
     <WorkspaceSplitView
       sidebar={
-        <PanelFrame title={t('at.entryList.title')} flat>
+        <PanelFrame title={copy.entryListTitle} flat>
           <div className="compat-entry-list">
             {entries.length === 0 ? (
-              <p className="compat-entry-list-empty">{t('at.entryList.empty')}</p>
+              <p className="compat-entry-list-empty">{copy.entryListEmpty}</p>
             ) : (
               <ul className="compat-entry-list-items">
                 {entries.map((entry) => (
@@ -254,16 +264,16 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
           title={t(pageDescriptor.titleKey)}
           headerAction={
             <div className="compat-editor-actions">
-              {hasUnsavedChanges && <span className="compat-editor-unsaved">{t('at.editor.unsavedChanges')}</span>}
-              {saveState === 'saved' && <span className="compat-editor-saved">{t('at.editor.saveSuccess')}</span>}
-              {saveState === 'error' && <span className="compat-editor-error">{t('at.editor.saveError')}</span>}
+              {hasUnsavedChanges && <span className="compat-editor-unsaved">{copy.unsavedChanges}</span>}
+              {saveState === 'saved' && <span className="compat-editor-saved">{copy.saveSuccess}</span>}
+              {saveState === 'error' && <span className="compat-editor-error">{copy.saveError}</span>}
               <button
                 type="button"
                 className="control-button control-button-primary"
                 disabled={!hasUnsavedChanges || saveState === 'saving'}
                 onClick={handleSave}
               >
-                {t('at.editor.save')}
+                {copy.save}
               </button>
             </div>
           }
@@ -280,6 +290,7 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
                     label={t(field.labelKey ?? field.id)}
                     error={validationErrors.find((error) => error.fieldId === field.id)}
                     t={t}
+                    copy={copy}
                   />
                 ))}
               </div>
@@ -288,14 +299,9 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
         </PanelFrame>
       ) : (
         <div className="empty-state-card-fill">
-          <EmptyStateCard title={t('at.editor.noSelection')} detail="" density="compact" />
+          <EmptyStateCard title={copy.noSelection} detail="" density="compact" />
         </div>
       )}
     </WorkspaceSplitView>
   )
-}
-
-/** Minimal class name combiner (avoids importing cx utility for this runtime). */
-function cx(...classes: (string | false | undefined | null)[]): string {
-  return classes.filter(Boolean).join(' ')
 }
