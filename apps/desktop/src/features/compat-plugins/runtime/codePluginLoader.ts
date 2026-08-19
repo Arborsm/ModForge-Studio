@@ -7,9 +7,16 @@
 import type { PluginContext, PluginModule, PluginPageContribution } from '@modforge/plugin-sdk'
 import { isSdkVersionCompatible, parseSdkMajor } from '@modforge/plugin-sdk'
 import type { ComponentType, LazyExoticComponent } from 'react'
+import { CompactSelect } from '@shared/ui/CompactSelect'
+import { PanelFrame } from '@shared/ui/PanelFrame'
+import { PanelSection } from '@shared/ui/PanelSection'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 import type { CompatPluginSummary } from '../api/types'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import { clampIcon, clampPresentation, clampProjectAccess, clampSection } from '../lib/buildCompatRegistrations'
+import { getImportMapSupport } from '../lib/importMapSupport'
+import { usePluginLocaleStore } from '../model/pluginLocaleStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 
 /** The host's SDK major version. Plugins must match this to be loaded. */
 export const HOST_SDK_MAJOR_VERSION = 1
@@ -38,35 +45,118 @@ type RegisteredPage = {
 /** Creates a PluginContext for a specific plugin that collects registrations and dispose hooks. */
 function createPluginContext(
   pluginId: string,
-  i18nBundle: Record<string, string> | undefined,
+  pluginTargets: readonly string[],
   collectedPages: RegisteredPage[],
   disposeHooks: (() => void)[],
 ): PluginContext {
+  // Resolve the plugin's i18n bundle from the plugin locale store.
+  // The store is populated by registerPluginI18nBundles during bootstrap.
+  const pluginLocaleStore = usePluginLocaleStore.getState()
+  const bundles = pluginLocaleStore.bundles[pluginId] ?? {}
+
+  // Resolve the target mod root for the plugin's first target (if any).
+  // This is used by commands that need to read/write mod files.
+  const targetUniqueId = pluginTargets[0] ?? null
+
   return {
     registerPage(page: PluginPageContribution) {
       collectedPages.push({ pluginId, page })
     },
-    // Components are injected by the host at render time via import map;
-    // the SDK package resolves these to the real components.
+    // Real design-system components from shared/ui (token-styled).
     components: {
-      CompactSelect: (() => null) as never,
-      PanelFrame: (() => null) as never,
-      PanelSection: (() => null) as never,
-      EmptyStateCard: (() => null) as never,
+      CompactSelect: CompactSelect as never,
+      PanelFrame: PanelFrame as never,
+      PanelSection: PanelSection as never,
+      EmptyStateCard: EmptyStateCard as never,
     },
     commands: {
-      async invoke<T>(_name: string, _args?: unknown): Promise<T> {
-        throw new Error('Plugin commands are not yet available in this build')
+      async invoke<T>(name: string, args?: unknown): Promise<T> {
+        switch (name) {
+          case 'resolveTargetModRoot': {
+            if (!targetUniqueId) return null as T
+            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
+            return (await resolveTargetModRoot(targetUniqueId)) as T
+          }
+          case 'listModDirectory': {
+            const { listCompatPluginEntries } = await import('../api/directoryPackApi')
+            const params = (args ?? {}) as { rootSubdir: string; entryFile: string; entryImage?: string }
+            if (!targetUniqueId) return [] as T
+            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
+            const modRoot = await resolveTargetModRoot(targetUniqueId)
+            if (!modRoot) return [] as T
+            return (await listCompatPluginEntries({
+              modRoot,
+              rootSubdir: params.rootSubdir,
+              entryFile: params.entryFile,
+              entryImage: params.entryImage,
+            })) as T
+          }
+          case 'readModFile': {
+            const { readCompatPluginEntry } = await import('../api/directoryPackApi')
+            const params = (args ?? {}) as { rootSubdir: string; entryId: string; entryFile: string }
+            if (!targetUniqueId) return null as T
+            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
+            const modRoot = await resolveTargetModRoot(targetUniqueId)
+            if (!modRoot) return null as T
+            return (await readCompatPluginEntry({
+              modRoot,
+              rootSubdir: params.rootSubdir,
+              entryId: params.entryId,
+              entryFile: params.entryFile,
+            })) as T
+          }
+          case 'writeModFile': {
+            const { writeCompatPluginEntry } = await import('../api/directoryPackApi')
+            const params = (args ?? {}) as { rootSubdir: string; entryId: string; entryFile: string; content: Record<string, unknown> }
+            if (!targetUniqueId) return undefined as T
+            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
+            const modRoot = await resolveTargetModRoot(targetUniqueId)
+            if (!modRoot) return undefined as T
+            await writeCompatPluginEntry({
+              modRoot,
+              rootSubdir: params.rootSubdir,
+              entryId: params.entryId,
+              entryFile: params.entryFile,
+              content: params.content,
+            })
+            return undefined as T
+          }
+          case 'readPluginAsset': {
+            // Plugin assets are served via the plugin:// protocol; the host
+            // resolves the URL and fetches it. This is a read-only operation.
+            const assetPath = (args as { path?: string })?.path ?? ''
+            const url = `plugin://${pluginId}/${assetPath}`
+            const response = await fetch(url)
+            return (await response.text()) as T
+          }
+          default:
+            throw new Error(`Unknown plugin command: ${name}`)
+        }
       },
     },
     capabilities: {
-      get(_id: string): unknown {
-        return undefined
+      get(id: string): unknown {
+        // Built-in capabilities: the host exposes a small set of read-only
+        // metadata that plugins can query at activation time.
+        switch (id) {
+          case 'plugin.id':
+            return pluginId
+          case 'plugin.targets':
+            return pluginTargets
+          case 'host.sdkVersion':
+            return String(HOST_SDK_MAJOR_VERSION)
+          default:
+            return undefined
+        }
       },
     },
     i18n: {
       t(key: string): string {
-        return i18nBundle?.[key] ?? key
+        // Resolve from the current locale's bundle; falls back to the key.
+        // The plugin locale store holds bundles keyed by locale code.
+        const currentLocale = usePreferencesStore.getState().locale ?? 'en-US'
+        const entries = bundles[currentLocale] ?? bundles['en-US']
+        return entries?.[key] ?? key
       },
     },
     onDispose(fn: () => void) {
@@ -125,6 +215,22 @@ export async function loadCodePlugins(
   const collectedPages: RegisteredPage[] = []
   const disposeHooks: (() => void)[] = []
 
+  // Check import map support before attempting any code-package loading.
+  // If the webview does not support import maps, all code-package plugins
+  // are rejected with a diagnostic. Data-pack plugins are unaffected.
+  const importMapSupport = getImportMapSupport()
+  if (!importMapSupport.supported) {
+    for (const plugin of plugins) {
+      if (!plugin.hasCodeEntry) continue
+      diagnostics.push({
+        pluginId: plugin.id,
+        reason: `Import maps not supported: ${importMapSupport.reason}`,
+        phase: 'other',
+      })
+    }
+    return { registrations, diagnostics }
+  }
+
   for (const plugin of plugins) {
     if (!plugin.hasCodeEntry) continue
 
@@ -159,7 +265,7 @@ export async function loadCodePlugins(
       }
 
       // Activate the plugin with a context that collects registrations.
-      const ctx = createPluginContext(pluginId, undefined, collectedPages, disposeHooks)
+      const ctx = createPluginContext(pluginId, plugin.targets, collectedPages, disposeHooks)
       pluginModule.activate(ctx)
 
       // Convert collected pages for this plugin to module registrations.

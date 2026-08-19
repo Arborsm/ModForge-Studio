@@ -57,7 +57,7 @@ export function clampProjectAccess(value: string): 'none' | 'read' | 'write' {
  * The runtime receives the module id via a closure wrapper since
  * `WorkbenchViewHost` calls `createRuntime()` without passing props.
  */
-function createCompatRuntime(moduleId: string): LazyExoticComponent<ComponentType> {
+export function createCompatRuntime(moduleId: string): LazyExoticComponent<ComponentType> {
   return lazy(() =>
     import('../runtime/CompatModuleRuntime').then((module) => ({
       default: function CompatRuntimeBound() {

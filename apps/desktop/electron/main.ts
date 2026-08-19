@@ -29,6 +29,7 @@ type PendingWindowCloseRequest = {
 
 const localFileProtocol = 'modforge-asset'
 const localFileHost = 'local'
+const pluginProtocolScheme = 'plugin'
 const appDisplayName = process.env.MODFORGE_APP_NAME?.trim() || 'ModForge Studio'
 const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'io.github.Arborsm.ModForgeStudio'
 const isDev = !app.isPackaged
@@ -68,6 +69,14 @@ protocol.registerSchemesAsPrivileged([
     privileges: {
       standard: true,
       secure: true,
+    },
+  },
+  {
+    scheme: pluginProtocolScheme,
+    privileges: {
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
     },
   },
 ])
@@ -117,6 +126,174 @@ function mimeTypeFromPath(filePath: string) {
     default:
       return 'application/octet-stream'
   }
+}
+
+// ── plugin:// protocol (Linux host) ─────────────────────────────────────────
+// This is a TypeScript mirror of the Rust `resolve_plugin_protocol_path` in
+// src-tauri/src/domain/modding/compat_plugin.rs. The design doc (3.1 §C3)
+// prescribes delegating path resolution to the sidecar to avoid dual-
+// implementation drift, but the sidecar IPC surface does not yet expose a
+// `resolve_plugin_protocol_path` command. Until that command is added, this
+// mirror carries the identical path-safety rules (extension whitelist, lexical
+// normalization, traversal rejection) and MUST be kept in sync with the Rust
+// source of truth.
+
+const pluginAssetExtensions = new Set(['js', 'json', 'png', 'jpg', 'webp', 'svg', 'css'])
+
+function resolvePluginRoots(): string[] {
+  // Mirror the sidecar's cwd-relative root resolution (sidecar.rs sets
+  // PLUGIN_ROOTS to <cwd>/compat-plugins). The Electron host spawns the
+  // sidecar with cwd = apps/desktop (dev) or process.resourcesPath (packaged),
+  // so the same anchor applies here.
+  const root = isDev ? path.resolve(__dirname, '..', 'compat-plugins') : path.join(process.resourcesPath, 'compat-plugins')
+  return [root]
+}
+
+function cleanPluginInputPath(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^"+|"+$/g, '')
+    .replace(/\\/g, '/')
+}
+
+function pluginProtocolContentType(filePath: string): string {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.js':
+      return 'application/javascript'
+    case '.json':
+      return 'application/json'
+    case '.png':
+      return 'image/png'
+    case '.jpg':
+      return 'image/jpeg'
+    case '.webp':
+      return 'image/webp'
+    case '.svg':
+      return 'image/svg+xml'
+    case '.css':
+      return 'text/css'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+function pluginProtocolNotFound(): Response {
+  return new Response(null, {
+    status: 404,
+    headers: { 'Access-Control-Allow-Origin': '*' },
+  })
+}
+
+/// Lexically normalizes `joined` relative to `base`, rejecting any `..`
+/// segment that would escape `base`. No filesystem access is performed.
+/// Mirrors `lexically_normalize_within` in compat_plugin.rs.
+function lexicallyNormalizeWithin(joined: string, base: string): string | null {
+  const baseParts = base.split('/').filter(Boolean)
+  const joinedParts = joined.split('/').filter(Boolean)
+  const normalized = [...baseParts]
+
+  for (const part of joinedParts.slice(baseParts.length)) {
+    if (part === '..') {
+      if (normalized.length === baseParts.length) {
+        return null
+      }
+      normalized.pop()
+    } else if (part === '.') {
+      // current dir — no-op
+    } else {
+      normalized.push(part)
+    }
+  }
+
+  const result = '/' + normalized.join('/')
+  const baseNormalized = '/' + baseParts.join('/')
+  if (result === baseNormalized || result.startsWith(baseNormalized + '/')) {
+    return result
+  }
+  return null
+}
+
+/// Resolves a `plugin://<pluginId>/<relativePath>` URL to an absolute file
+/// path, mirroring `resolve_plugin_protocol_path` in compat_plugin.rs.
+/// Returns `null` when the path is unsafe or no plugin directory matches.
+async function resolvePluginProtocolPath(pluginId: string, relativePath: string): Promise<string | null> {
+  const cleanedRelative = cleanPluginInputPath(relativePath)
+
+  // Reject absolute paths: leading slash or backslash (already normalized to /).
+  if (cleanedRelative.startsWith('/')) {
+    return null
+  }
+
+  // Validate extension whitelist before touching the filesystem.
+  const ext = path.extname(cleanedRelative).toLowerCase().replace(/^\./, '')
+  if (!pluginAssetExtensions.has(ext)) {
+    return null
+  }
+
+  const cleanedId = cleanPluginInputPath(pluginId)
+  if (!cleanedId) {
+    return null
+  }
+
+  for (const root of resolvePluginRoots()) {
+    const pluginDir = path.join(root, cleanedId)
+    try {
+      const stat = await fs.stat(pluginDir)
+      if (!stat.isDirectory()) {
+        continue
+      }
+    } catch {
+      continue
+    }
+
+    const joined = path.join(pluginDir, cleanedRelative)
+    const normalized = lexicallyNormalizeWithin(joined, pluginDir)
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return null
+}
+
+function registerPluginProtocol() {
+  protocol.handle(pluginProtocolScheme, async (request) => {
+    const url = new URL(request.url)
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+
+    // Electron custom schemes parse the host from the URL authority. The
+    // webview may issue either `plugin://<pluginId>/<relativePath>` (host is
+    // the plugin id) or `plugin://localhost/<pluginId>/<relativePath>` (host
+    // is localhost, plugin id is the first path segment) depending on how the
+    // URL was constructed. Handle both uniformly, matching the Tauri handler
+    // which normalises across platforms the same way.
+    let pluginId: string
+    let relativePath: string
+    if (url.hostname && url.hostname !== 'localhost') {
+      pluginId = decodeURIComponent(url.hostname)
+      relativePath = pathSegments.join('/')
+    } else {
+      pluginId = decodeURIComponent(pathSegments[0] ?? '')
+      relativePath = pathSegments.slice(1).join('/')
+    }
+
+    const resolved = await resolvePluginProtocolPath(pluginId, relativePath)
+    if (!resolved) {
+      return pluginProtocolNotFound()
+    }
+
+    try {
+      const bytes = await fs.readFile(resolved)
+      return new Response(bytes, {
+        headers: {
+          'Content-Type': pluginProtocolContentType(resolved),
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    } catch {
+      return pluginProtocolNotFound()
+    }
+  })
 }
 
 function resolveSidecarPath() {
@@ -527,6 +704,7 @@ ipcMain.handle('modforge:save-file-dialog', async (_event, options?: SaveDialogO
 
 void app.whenReady().then(() => {
   registerLocalFileProtocol()
+  registerPluginProtocol()
   sidecarTransport.start()
   createMainWindow()
   createTray()

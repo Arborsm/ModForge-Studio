@@ -113,8 +113,8 @@ async function main() {
         await pluginManagerNav.click()
         await page.waitForTimeout(1500)
 
-        const hasPluginManagerPanel = (await page.locator('.plugin-manager-list').count()) > 0 ||
-          (await page.locator('.empty-state-card-fill').count()) > 0
+        const hasPluginManagerPanel =
+          (await page.locator('.plugin-manager-list').count()) > 0 || (await page.locator('.empty-state-card-fill').count()) > 0
         if (!hasPluginManagerPanel) {
           failures.push('Plugin manager page did not render plugin list or empty state')
         }

@@ -102,8 +102,24 @@ async function importWorkbenchPage() {
     console.error('[compat-plugins] Failed to load compat plugins, falling back to static registry', error)
   }
   const pluginRegistrations = compatPluginsModule.buildCompatRegistrations(plugins)
+
+  // Load code-package plugins (stage 3). Code packages are loaded via the
+  // `plugin://` protocol with import map resolution. Data-pack plugins are
+  // already handled by buildCompatRegistrations above; code packages register
+  // their own pages via the SDK's PluginContext.registerPage.
+  let codePluginRegistrations: typeof pluginRegistrations = []
+  try {
+    const codeResult = await compatPluginsModule.loadCodePlugins(plugins, compatPluginsModule.createCompatRuntime)
+    codePluginRegistrations = codeResult.registrations
+    if (codeResult.diagnostics.length > 0) {
+      console.warn('[compat-plugins] Code plugin load diagnostics:', codeResult.diagnostics)
+    }
+  } catch (error) {
+    console.error('[compat-plugins] Failed to load code plugins, falling back to data-pack only', error)
+  }
+
   const mergedRegistry = registryModule.createAppRegistry({
-    workbenchModules: [...registrySetupModule.staticWorkbenchModules, ...pluginRegistrations],
+    workbenchModules: [...registrySetupModule.staticWorkbenchModules, ...pluginRegistrations, ...codePluginRegistrations],
   })
 
   // Register plugin i18n bundles in the plugin locale store for sidebar label resolution.

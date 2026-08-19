@@ -374,6 +374,13 @@ export default defineConfig({
         codeSplitting: {
           groups: rolldownChunkGroups,
         },
+        // Vendor chunks that back the plugin import map must have stable URLs
+        // (no hash suffix) so that `plugin://`-loaded code packages can resolve
+        // react, react-dom, jsx-runtime and the SDK via the import map.
+        chunkFileNames: (chunkInfo: { name: string }) => {
+          const fixedNameChunks = ['react-vendor', 'react-jsx-runtime', 'plugin-sdk']
+          return fixedNameChunks.includes(chunkInfo.name) ? 'assets/[name].js' : 'assets/[name]-[hash].js'
+        },
       },
     },
   },
