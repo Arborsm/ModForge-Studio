@@ -21,6 +21,13 @@ const pluginManager: PluginManagerCopy = {
   reloadError: '重新加载失败',
   trustNotice: '代码包插件以全信任模式运行',
   trustNoticeDetail: '代码包插件拥有与宿主应用相同的权限。请仅安装来自可信来源的插件。',
+  sdkVersion: 'SDK 版本',
+  entryFile: '入口文件',
+  loadDiagnostics: '加载诊断',
+  diagnosticPhaseImport: '导入',
+  diagnosticPhaseSdkVersion: 'SDK 版本',
+  diagnosticPhaseOther: '其他',
+  noDiagnostics: '无诊断信息',
 }
 
 export default pluginManager

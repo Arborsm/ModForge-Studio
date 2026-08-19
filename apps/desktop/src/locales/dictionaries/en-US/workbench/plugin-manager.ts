@@ -21,6 +21,13 @@ const pluginManager: PluginManagerCopy = {
   reloadError: 'Reload failed',
   trustNotice: 'Code-pack plugins run in full-trust mode',
   trustNoticeDetail: 'Code-pack plugins have the same permissions as the host application. Only install plugins from trusted sources.',
+  sdkVersion: 'SDK version',
+  entryFile: 'Entry file',
+  loadDiagnostics: 'Load diagnostics',
+  diagnosticPhaseImport: 'Import',
+  diagnosticPhaseSdkVersion: 'SDK version',
+  diagnosticPhaseOther: 'Other',
+  noDiagnostics: 'No diagnostics',
 }
 
 export default pluginManager

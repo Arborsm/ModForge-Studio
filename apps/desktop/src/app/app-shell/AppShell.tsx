@@ -83,14 +83,16 @@ function preloadWorkbenchStyles() {
 }
 
 async function importWorkbenchPage() {
-  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule, compatPluginsModule] = await Promise.all([
-    import('@pages/workbench'),
-    import('@app/registry-setup'),
-    import('@app/registry'),
-    import('../providers/CpMakerPlatformProvider'),
-    import('@features/compat-plugins'),
-    preloadWorkbenchStyles(),
-  ])
+  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule, compatPluginsModule, assetSchemaModule] =
+    await Promise.all([
+      import('@pages/workbench'),
+      import('@app/registry-setup'),
+      import('@app/registry'),
+      import('../providers/CpMakerPlatformProvider'),
+      import('@features/compat-plugins'),
+      import('@entities/asset-schema'),
+      preloadWorkbenchStyles(),
+    ])
   await workbenchModule.preloadWorkbenchExperience()
 
   // Load compat plugins and merge their registrations with the static set.
@@ -102,6 +104,12 @@ async function importWorkbenchPage() {
     console.error('[compat-plugins] Failed to load compat plugins, falling back to static registry', error)
   }
   const pluginRegistrations = compatPluginsModule.buildCompatRegistrations(plugins)
+
+  // Register plugin-contributed asset schemas so the CP editor renderer resolves
+  // them through the same `getAssetSchema` lookup as the built-in schemas.
+  for (const schema of compatPluginsModule.mergePluginAssetSchemas(plugins)) {
+    assetSchemaModule.registerAssetSchema(schema)
+  }
 
   // Load code-package plugins (stage 3). Code packages are loaded via the
   // `plugin://` protocol with import map resolution. Data-pack plugins are
@@ -124,6 +132,10 @@ async function importWorkbenchPage() {
 
   // Register plugin i18n bundles in the plugin locale store for sidebar label resolution.
   compatPluginsModule.registerPluginI18nBundles(plugins)
+
+  // Register plugin condition syntax contributions so the When/GSQ editors can
+  // offer plugin-provided condition keys in autocomplete alongside built-ins.
+  compatPluginsModule.registerPluginConditionSyntax(plugins)
 
   return {
     default: function WorkbenchPageWithRegistry(

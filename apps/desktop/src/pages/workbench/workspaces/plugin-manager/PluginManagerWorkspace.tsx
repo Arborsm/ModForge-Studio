@@ -9,14 +9,20 @@ import { usePluginManagerCopy } from '@locales/provider'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelSection } from '@shared/ui/PanelSection'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
-import { listCompatPlugins, reloadCompatPlugins, useCompatPluginStore } from '@features/compat-plugins'
-import type { CompatPluginSummary } from '@features/compat-plugins'
+import {
+  listCompatPlugins,
+  reloadCompatPlugins,
+  loadCodePlugins,
+  createCompatRuntime,
+  useCompatPluginStore,
+} from '@features/compat-plugins'
+import type { CompatPluginSummary, CodePluginLoadDiagnostic } from '@features/compat-plugins'
 import { openLauncherPath } from '@features/launcher/api'
 
 /** Plugin manager workspace: lists plugins, shows errors, supports reload. */
 export function PluginManagerWorkspace() {
   const copy = usePluginManagerCopy()
-  const { plugins, status, error, setPlugins, setStatus, setError } = useCompatPluginStore()
+  const { plugins, status, error, diagnostics, setPlugins, setStatus, setError, setDiagnostics } = useCompatPluginStore()
   const [reloading, setReloading] = useState(false)
   const [reloadMessage, setReloadMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
 
@@ -25,10 +31,18 @@ export function PluginManagerWorkspace() {
     try {
       const summaries = await listCompatPlugins()
       setPlugins(summaries)
+      // Load code plugins and collect diagnostics
+      try {
+        const result = await loadCodePlugins(summaries, createCompatRuntime)
+        setDiagnostics(result.diagnostics)
+      } catch {
+        // Code plugin loading failure is non-fatal; diagnostics stay empty
+        setDiagnostics([])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
-  }, [setPlugins, setStatus, setError])
+  }, [setPlugins, setStatus, setError, setDiagnostics])
 
   useEffect(() => {
     if (status === 'idle') {
@@ -42,6 +56,13 @@ export function PluginManagerWorkspace() {
     try {
       const summaries = await reloadCompatPlugins()
       setPlugins(summaries)
+      // Reload code plugins and collect diagnostics
+      try {
+        const result = await loadCodePlugins(summaries, createCompatRuntime)
+        setDiagnostics(result.diagnostics)
+      } catch {
+        setDiagnostics([])
+      }
       setReloadMessage({ kind: 'success', text: copy.reloadSuccess })
     } catch (err) {
       setReloadMessage({ kind: 'error', text: copy.reloadError })
@@ -49,7 +70,7 @@ export function PluginManagerWorkspace() {
     } finally {
       setReloading(false)
     }
-  }, [setPlugins, copy.reloadSuccess, copy.reloadError, setError])
+  }, [setPlugins, setDiagnostics, copy.reloadSuccess, copy.reloadError, setError])
 
   const handleOpenPluginDirectory = useCallback(async () => {
     // Open the first plugin root directory
@@ -132,6 +153,29 @@ export function PluginManagerWorkspace() {
             <PluginManagerRow key={plugin.id} plugin={plugin} copy={copy} />
           ))}
         </div>
+        {diagnostics.length > 0 && (
+          <div className="plugin-manager-diagnostics">
+            <div className="plugin-manager-diagnostics-title">
+              <AlertCircle className="h-4 w-4" aria-hidden="true" />
+              <span>{copy.loadDiagnostics}</span>
+            </div>
+            <ul className="plugin-manager-diagnostics-list">
+              {diagnostics.map((diag, index) => (
+                <li key={`${diag.pluginId}-${index}`} className="plugin-manager-diagnostic-item">
+                  <span className="plugin-manager-diagnostic-plugin">{diag.pluginId}</span>
+                  <span className="plugin-manager-diagnostic-phase">
+                    {diag.phase === 'import'
+                      ? copy.diagnosticPhaseImport
+                      : diag.phase === 'sdkVersion'
+                        ? copy.diagnosticPhaseSdkVersion
+                        : copy.diagnosticPhaseOther}
+                  </span>
+                  <span className="plugin-manager-diagnostic-reason">{diag.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </PanelSection>
     </PanelFrame>
   )
@@ -169,6 +213,18 @@ function PluginManagerRow({ plugin, copy }: PluginManagerRowProps) {
           <span className="plugin-manager-row-label">{copy.format}:</span>
           <span>v{plugin.format}</span>
         </div>
+        {plugin.hasCodeEntry && (
+          <>
+            <div className="plugin-manager-row-detail">
+              <span className="plugin-manager-row-label">{copy.sdkVersion}:</span>
+              <span>{plugin.sdkVersion ?? '—'}</span>
+            </div>
+            <div className="plugin-manager-row-detail">
+              <span className="plugin-manager-row-label">{copy.entryFile}:</span>
+              <span>{plugin.entry ?? 'index.js'}</span>
+            </div>
+          </>
+        )}
       </div>
       {hasError && (
         <div className="plugin-manager-row-error">

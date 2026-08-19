@@ -20,4 +20,16 @@ export type PluginManagerCopy = {
   reloadError: string
   trustNotice: string
   trustNoticeDetail: string
+  /** SDK version label for code-pack plugins. */
+  sdkVersion: string
+  /** Entry file label for code-pack plugins. */
+  entryFile: string
+  /** Load diagnostics section title. */
+  loadDiagnostics: string
+  /** Load diagnostic phase labels. */
+  diagnosticPhaseImport: string
+  diagnosticPhaseSdkVersion: string
+  diagnosticPhaseOther: string
+  /** Label shown when no load diagnostics are present. */
+  noDiagnostics: string
 }

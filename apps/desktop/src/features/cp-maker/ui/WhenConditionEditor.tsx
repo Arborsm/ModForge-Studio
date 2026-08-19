@@ -10,8 +10,11 @@ import { useEditorCopy } from '@locales/provider'
 import {
   CP_BUILTIN_TOKENS,
   findCpToken,
+  findPluginConditionSyntaxKey,
   parseWhenValueAlternatives,
+  pluginConditionSyntaxToTokens,
   toggleWhenValueAlternative,
+  usePluginConditionSyntaxStore,
   type CpTokenGroup,
   type WhenConditionRow,
 } from '@entities/content-patcher'
@@ -56,8 +59,11 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null)
   const [openMenu, setOpenMenu] = useState<'more' | 'config' | null>(null)
 
-  const catalogTokens = excludePatchBlockOnly ? CP_BUILTIN_TOKENS.filter((token) => token.patchBlockOnly !== true) : CP_BUILTIN_TOKENS
-  const extras = extraTokenNames.filter((name) => findCpToken(name) === undefined)
+  const pluginConditionKeys = usePluginConditionSyntaxStore((state) => state.contributions)
+  const builtinTokens = excludePatchBlockOnly ? CP_BUILTIN_TOKENS.filter((token) => token.patchBlockOnly !== true) : CP_BUILTIN_TOKENS
+  const pluginTokens = pluginConditionSyntaxToTokens(pluginConditionKeys)
+  const catalogTokens = [...builtinTokens, ...pluginTokens]
+  const extras = extraTokenNames.filter((name) => findCpToken(name) === undefined && findPluginConditionSyntaxKey(name) === undefined)
 
   function patchRow(index: number, updates: Partial<WhenConditionRow>) {
     onChange(rows.map((row, i) => (i === index ? { ...row, ...updates } : row)))
@@ -65,7 +71,11 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
 
   function isKnown(token: string): boolean {
     if (token.trim() === '') return true
-    return findCpToken(token) !== undefined || extraTokenNames.some((name) => name.toLowerCase() === token.trim().toLowerCase())
+    return (
+      findCpToken(token) !== undefined ||
+      findPluginConditionSyntaxKey(token) !== undefined ||
+      extraTokenNames.some((name) => name.toLowerCase() === token.trim().toLowerCase())
+    )
   }
 
   function appendPreset(seed: Partial<WhenConditionRow>) {
