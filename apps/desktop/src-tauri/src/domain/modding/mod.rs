@@ -4,4 +4,5 @@
 //! source for `AttachedApiRegistry` descriptors as of format 1.
 
 pub mod attached_api;
+pub(crate) mod commands;
 pub(crate) mod compat_plugin;

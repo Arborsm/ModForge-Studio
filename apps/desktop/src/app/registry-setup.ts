@@ -30,33 +30,36 @@ import {
 } from '@pages/workbench/module-registrations'
 import { createAppRegistry } from './registry'
 
-/** Static app registry; in DEV mode additionally includes the dev resource browser module. */
+/** Static workbench modules; in DEV mode additionally includes the dev resource browser module. */
+export const staticWorkbenchModules = [
+  mapBrowserRegistration,
+  eventBrowserRegistration,
+  characterBrowserRegistration,
+  buildingBrowserRegistration,
+  itemBrowserRegistration,
+  audioBrowserRegistration,
+  modBrowserRegistration,
+  modTranslationRegistration,
+  i18nGeneratorRegistration,
+  aiLocalizationRegistration,
+  gameDebuggerRegistration,
+  projectDashboardRegistration,
+  projectContentRegistration,
+  assetLibraryRegistration,
+  projectSettingsRegistration,
+  mapAuthoringRegistration,
+  eventAuthoringRegistration,
+  characterAuthoringRegistration,
+  dialogueEditorRegistration,
+  scheduleEditorRegistration,
+  mailEditorRegistration,
+  buildingAuthoringRegistration,
+  itemAuthoringRegistration,
+  projectTranslationRegistration,
+  ...(import.meta.env.DEV ? [devResourceBrowserRegistration] : []),
+] as const
+
+/** Static app registry built from `staticWorkbenchModules`; used as the no-plugin fallback. */
 export const appRegistry = createAppRegistry({
-  workbenchModules: [
-    mapBrowserRegistration,
-    eventBrowserRegistration,
-    characterBrowserRegistration,
-    buildingBrowserRegistration,
-    itemBrowserRegistration,
-    audioBrowserRegistration,
-    modBrowserRegistration,
-    modTranslationRegistration,
-    i18nGeneratorRegistration,
-    aiLocalizationRegistration,
-    gameDebuggerRegistration,
-    projectDashboardRegistration,
-    projectContentRegistration,
-    assetLibraryRegistration,
-    projectSettingsRegistration,
-    mapAuthoringRegistration,
-    eventAuthoringRegistration,
-    characterAuthoringRegistration,
-    dialogueEditorRegistration,
-    scheduleEditorRegistration,
-    mailEditorRegistration,
-    buildingAuthoringRegistration,
-    itemAuthoringRegistration,
-    projectTranslationRegistration,
-    ...(import.meta.env.DEV ? [devResourceBrowserRegistration] : []),
-  ],
+  workbenchModules: staticWorkbenchModules,
 })

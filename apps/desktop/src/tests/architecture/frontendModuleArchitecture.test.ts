@@ -179,6 +179,7 @@ const WORKBENCH_HOME_SOURCE_SEGMENT = /\/workbench\/ui\/WorkbenchHomePage\.tsx$/
 const SHARED_DIALOG_IMPORT = /from ['"]@shared\/ui\/Dialog['"]/
 const PLATFORM_IMPORT_ALLOWLIST = new Set([
   'src/features/cp-maker/api/cpMakerDesktopApi.ts',
+  'src/features/compat-plugins/api/listCompatPlugins.ts',
   'src/features/launcher/api/launcherDesktopApi.ts',
   'src/features/launcher/model/useLauncherDiscover.ts',
   'src/features/launcher/model/useLauncherLibrary.ts',
@@ -1318,5 +1319,26 @@ describe('frontend module architecture', () => {
     await expect(
       access(sourcePath('src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx')),
     ).rejects.toThrow()
+  }, 30000)
+
+  it('confines plugin locale runtime lookups to compat-plugins and workbench-shell', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src'))
+    const allowedDirs = ['src/features/compat-plugins/', 'src/widgets/workbench-shell/']
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const importsPluginLocale =
+        source.includes('usePluginLocaleStore') || source.includes('resolvePluginText') || source.includes('pluginLocaleStore')
+      if (!importsPluginLocale) continue
+
+      const rel = relative(sourcePath(), filePath).replace(/\\/g, '/')
+      const isAllowed = allowedDirs.some((dir) => rel.startsWith(dir))
+      if (!isAllowed) {
+        violations.push(rel)
+      }
+    }
+
+    expect(violations).toEqual([])
   }, 30000)
 })

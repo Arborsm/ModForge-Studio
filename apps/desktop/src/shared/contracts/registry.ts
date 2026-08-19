@@ -84,7 +84,10 @@ export type WorkbenchModuleRegistration = {
     section: WorkbenchNavigationSection
     order: number
     icon: WorkbenchNavigationIcon
-    labelKey: WorkbenchModuleLocaleKey
+    /** Built-in module label key; mutually exclusive with pluginLabel. */
+    labelKey?: WorkbenchModuleLocaleKey
+    /** Plugin-provided label, resolved through the plugin locale store. */
+    pluginLabel?: { pluginId: string; key: string }
   }
   presentation: 'browser' | 'authoring' | 'standalone'
   projectAccess: 'none' | 'read' | 'write'

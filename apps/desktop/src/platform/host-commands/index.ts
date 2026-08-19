@@ -56,6 +56,7 @@ export const HOST_COMMANDS = {
   installSmapiUpdate: 'install_smapi_update',
   launchLauncherGame: 'launch_launcher_game',
   listAiModels: 'list_ai_models',
+  listCompatPlugins: 'list_compat_plugins',
   listCpMakerDrafts: 'list_cp_maker_drafts',
   listKnownGameDirectories: 'list_known_game_directories',
   listLauncherInstallBackups: 'list_launcher_install_backups',

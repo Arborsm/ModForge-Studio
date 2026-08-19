@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use crate::domain::modding::compat_plugin::{
     AttachedApiContribution, AttachedApiTargetDecl, CompatPluginContributions,
-    CompatPluginManifest, PluginLoadReport, load_plugin_manifests,
+    CompatPluginManifest, PluginLoadReport, build_summaries_from_report, load_plugin_manifests,
 };
 use crate::test_support::create_temp_dir;
 
@@ -349,7 +349,9 @@ fn to_attached_api_descriptors_converts_loaded_manifests() {
                     asset_kind: "json".to_string(),
                 }],
             }),
+            pages: Vec::new(),
         },
+        plugin_dir: std::path::PathBuf::new(),
     };
     let report = PluginLoadReport {
         manifests: vec![manifest],
@@ -382,6 +384,7 @@ fn to_attached_api_descriptors_skips_manifests_without_attached_api() {
         entry: None,
         targets: vec!["x".to_string()],
         contributions: CompatPluginContributions::default(),
+        plugin_dir: std::path::PathBuf::new(),
     };
     let report = PluginLoadReport {
         manifests: vec![manifest],
@@ -391,4 +394,196 @@ fn to_attached_api_descriptors_skips_manifests_without_attached_api() {
     let descriptors = report.to_attached_api_descriptors();
 
     assert!(descriptors.is_empty());
+}
+
+// ── Summary construction & i18n loading ──────────────────────────────────────
+
+/// Writes a manifest.json and optional i18n files into a child directory of
+/// `root` named after the id, returning the plugin directory path.
+fn write_plugin_with_i18n(
+    root: &Path,
+    id: &str,
+    manifest_body: &str,
+    i18n_entries: &[(&str, &str, &str)],
+) -> PathBuf {
+    let dir = write_plugin(root, id, manifest_body);
+    if !i18n_entries.is_empty() {
+        let i18n_dir = dir.join("i18n");
+        fs::create_dir_all(&i18n_dir).unwrap();
+        // Group by locale
+        let mut by_locale: std::collections::BTreeMap<&str, Vec<(&str, &str)>> =
+            std::collections::BTreeMap::new();
+        for (locale, key, value) in i18n_entries {
+            by_locale.entry(locale).or_default().push((key, value));
+        }
+        for (locale, entries) in &by_locale {
+            let json = entries
+                .iter()
+                .map(|(k, v)| format!("\"{}\": \"{}\"", k, v))
+                .collect::<Vec<_>>()
+                .join(", ");
+            fs::write(
+                i18n_dir.join(format!("{locale}.json")),
+                format!("{{ {json} }}"),
+            )
+            .unwrap();
+        }
+    }
+    dir
+}
+
+#[test]
+fn build_summaries_extracts_basic_fields() {
+    let root = create_temp_dir("compat-plugin-summary-basic");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["SomeMod"],
+  "contributions": {
+    "attachedApi": {
+      "providerUniqueId": "SomeMod",
+      "providedUniqueIds": ["OtherMod"],
+      "targets": [{"assetPath": "Assets", "assetKind": "json"}]
+    }
+  }
+}"#,
+        &[],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].id, "arborsm.test");
+    assert_eq!(summaries[0].name, "Test");
+    assert_eq!(summaries[0].format, 1);
+    assert!(!summaries[0].has_code_entry);
+    assert_eq!(summaries[0].targets, vec!["SomeMod"]);
+    assert!(summaries[0].page_ids.is_empty());
+    assert!(summaries[0].pages.is_empty());
+    assert!(summaries[0].i18n.is_empty());
+    assert!(summaries[0].load_error.is_none());
+}
+
+#[test]
+fn build_summaries_loads_i18n_bundles() {
+    let root = create_temp_dir("compat-plugin-summary-i18n");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["x"],
+  "contributions": {"attachedApi": {"providerUniqueId": "x"}}
+}"#,
+        &[
+            ("zh-CN", "page.title", "测试页面"),
+            ("en-US", "page.title", "Test Page"),
+        ],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 1);
+    let i18n = &summaries[0].i18n;
+    assert_eq!(
+        i18n.get("zh-CN").unwrap().get("page.title").unwrap(),
+        "测试页面"
+    );
+    assert_eq!(
+        i18n.get("en-US").unwrap().get("page.title").unwrap(),
+        "Test Page"
+    );
+}
+
+#[test]
+fn build_summaries_handles_missing_i18n_dir() {
+    let root = create_temp_dir("compat-plugin-summary-no-i18n");
+    write_plugin(
+        &root,
+        "arborsm.test",
+        r#"{"format": 1, "id": "arborsm.test", "name": "Test", "targets": ["x"], "contributions": {"attachedApi": {"providerUniqueId": "x"}}}"#,
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 1);
+    assert!(summaries[0].i18n.is_empty());
+}
+
+#[test]
+fn build_summaries_extracts_page_descriptors() {
+    let root = create_temp_dir("compat-plugin-summary-pages");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["x"],
+  "contributions": {
+    "attachedApi": {"providerUniqueId": "x"},
+    "pages": [
+      {
+        "id": "main-page",
+        "navigation": {"section": "tools", "order": 50, "icon": "images"},
+        "titleKey": "page.title",
+        "presentation": "standalone",
+        "projectAccess": "read"
+      }
+    ]
+  }
+}"#,
+        &[("en-US", "page.title", "Main Page")],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].page_ids, vec!["main-page"]);
+    assert_eq!(summaries[0].pages.len(), 1);
+    let page = &summaries[0].pages[0];
+    assert_eq!(page.id, "main-page");
+    assert_eq!(page.section, "tools");
+    assert_eq!(page.order, 50);
+    assert_eq!(page.icon, "images");
+    assert_eq!(page.title_key, "page.title");
+    assert_eq!(page.presentation, "standalone");
+    assert_eq!(page.project_access, "read");
+}
+
+#[test]
+fn build_summaries_handles_multiple_plugins() {
+    let root = create_temp_dir("compat-plugin-summary-multi");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.plugin-a",
+        r#"{"format": 1, "id": "arborsm.plugin-a", "name": "A", "targets": ["x"], "contributions": {"attachedApi": {"providerUniqueId": "x"}}}"#,
+        &[("en-US", "a.title", "A Title")],
+    );
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.plugin-b",
+        r#"{"format": 1, "id": "arborsm.plugin-b", "name": "B", "targets": ["y"], "contributions": {"attachedApi": {"providerUniqueId": "y"}}}"#,
+        &[("en-US", "b.title", "B Title")],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 2);
+    let ids: Vec<&str> = summaries.iter().map(|s| s.id.as_str()).collect();
+    assert!(ids.contains(&"arborsm.plugin-a"));
+    assert!(ids.contains(&"arborsm.plugin-b"));
 }

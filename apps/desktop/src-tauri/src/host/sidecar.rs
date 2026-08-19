@@ -560,6 +560,10 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(translate_machine_translation_batch) => resolve_typed::<
             crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
         >(ctx, id, args),
+        // domain::modding::commands
+        crate::host_command_wire!(list_compat_plugins) => resolve_typed::<
+            crate::domain::modding::commands::ListCompatPluginsParams,
+        >(ctx, id, args),
         // domain::mods::commands
         crate::host_command_wire!(inspect_mod_archive) => resolve_typed::<
             crate::domain::mods::commands::InspectModArchiveParams,

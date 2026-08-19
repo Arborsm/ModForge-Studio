@@ -362,6 +362,8 @@ pub fn run() {
             domain::localization::machine_translation::commands::save_machine_translation_settings,
             domain::localization::machine_translation::commands::test_machine_translation_profile,
             domain::localization::machine_translation::commands::translate_machine_translation_batch,
+            // domain::modding::commands
+            domain::modding::commands::list_compat_plugins,
             // domain::mods::commands
             domain::mods::commands::inspect_mod_archive,
             domain::mods::commands::load_mod_project,

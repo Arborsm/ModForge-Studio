@@ -83,14 +83,31 @@ function preloadWorkbenchStyles() {
 }
 
 async function importWorkbenchPage() {
-  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule] = await Promise.all([
+  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule, compatPluginsModule] = await Promise.all([
     import('@pages/workbench'),
     import('@app/registry-setup'),
     import('@app/registry'),
     import('../providers/CpMakerPlatformProvider'),
+    import('@features/compat-plugins'),
     preloadWorkbenchStyles(),
   ])
   await workbenchModule.preloadWorkbenchExperience()
+
+  // Load compat plugins and merge their registrations with the static set.
+  // On failure, fall back to the static-only registry (today's behaviour).
+  let plugins: Awaited<ReturnType<typeof compatPluginsModule.listCompatPlugins>> = []
+  try {
+    plugins = await compatPluginsModule.listCompatPlugins()
+  } catch (error) {
+    console.error('[compat-plugins] Failed to load compat plugins, falling back to static registry', error)
+  }
+  const pluginRegistrations = compatPluginsModule.buildCompatRegistrations(plugins)
+  const mergedRegistry = registryModule.createAppRegistry({
+    workbenchModules: [...registrySetupModule.staticWorkbenchModules, ...pluginRegistrations],
+  })
+
+  // Register plugin i18n bundles in the plugin locale store for sidebar label resolution.
+  compatPluginsModule.registerPluginI18nBundles(plugins)
 
   return {
     default: function WorkbenchPageWithRegistry(
@@ -102,10 +119,8 @@ async function importWorkbenchPage() {
         <CpMakerPlatformProvider>
           <workbenchModule.WorkbenchPage
             {...props}
-            getWorkbenchModuleRegistration={(moduleId) =>
-              registryModule.getWorkbenchModuleRegistration(registrySetupModule.appRegistry, moduleId)
-            }
-            workbenchModules={registrySetupModule.appRegistry.workbenchModules}
+            getWorkbenchModuleRegistration={(moduleId) => registryModule.getWorkbenchModuleRegistration(mergedRegistry, moduleId)}
+            workbenchModules={mergedRegistry.workbenchModules}
           />
         </CpMakerPlatformProvider>
       )

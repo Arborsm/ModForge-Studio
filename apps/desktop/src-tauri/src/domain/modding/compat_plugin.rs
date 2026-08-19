@@ -11,8 +11,9 @@
 //! affects other plugins.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::domain::modding::attached_api::{AttachedApiDescriptor, AttachedApiTargetDescriptor};
 use crate::support::logging::event::LogEvent;
@@ -38,15 +39,23 @@ pub(crate) struct CompatPluginManifest {
     pub entry: Option<String>,
     pub targets: Vec<String>,
     pub contributions: CompatPluginContributions,
+    /// On-disk plugin directory; set by the loader after parsing (not
+    /// deserialized from JSON). Used to read i18n bundles and entry files.
+    #[serde(skip)]
+    pub plugin_dir: PathBuf,
 }
 
-/// Contribution container. Only `attachedApi` is realised in format 1.
+/// Contribution container. `attachedApi` is realised from format 1; `pages`
+/// is realised from stage 1 (navigation metadata) and extended in stage 2
+/// (source/layout/sections). Other contribution types are added in later stages.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CompatPluginContributions {
     pub attached_api: Option<AttachedApiContribution>,
-    // pages / capabilities / assetSchemas / conditionSyntax are added in later
-    // stages; serde ignores unknown keys so forward compatibility holds.
+    #[serde(default)]
+    pub pages: Vec<PageContribution>,
+    // capabilities / assetSchemas / conditionSyntax are added in later stages;
+    // serde ignores unknown keys so forward compatibility holds.
 }
 
 /// `contributions.attachedApi` entry.
@@ -68,6 +77,41 @@ pub(crate) struct AttachedApiTargetDecl {
     pub asset_kind: String,
 }
 
+/// Navigation metadata for a page contribution (used in stage 1 to build
+/// workbench sidebar entries).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PageNavigationDecl {
+    pub section: String,
+    pub order: i32,
+    pub icon: String,
+}
+
+/// `contributions.pages[]` entry. Stage 1 realises navigation metadata
+/// (`id`, `navigation`, `titleKey`, `presentation`, `projectAccess`); stage 2
+/// extends with `source`, `layout` and `sections` (ignored by serde until then).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PageContribution {
+    pub id: String,
+    pub navigation: PageNavigationDecl,
+    pub title_key: String,
+    #[serde(default = "default_presentation")]
+    #[allow(dead_code)]
+    pub presentation: String,
+    #[serde(default = "default_project_access")]
+    #[allow(dead_code)]
+    pub project_access: String,
+}
+
+fn default_presentation() -> String {
+    "standalone".to_string()
+}
+
+fn default_project_access() -> String {
+    "none".to_string()
+}
+
 /// Result of loading all plugin manifests from one or more roots.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct PluginLoadReport {
@@ -85,6 +129,46 @@ pub(crate) struct PluginLoadError {
     pub plugin_id: Option<String>,
     pub reason: String,
 }
+
+/// Wire type returned by `list_compat_plugins`. Frontend uses this to build
+/// workbench registrations and populate the plugin locale store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CompatPluginSummary {
+    pub id: String,
+    pub name: String,
+    pub format: u32,
+    pub has_code_entry: bool,
+    pub targets: Vec<String>,
+    pub page_ids: Vec<String>,
+    pub pages: Vec<CompatPluginPageSummary>,
+    pub i18n: PluginI18nBundle,
+    pub load_error: Option<String>,
+}
+
+/// Page descriptor included in `CompatPluginSummary`, carrying the
+/// navigation-relevant fields the frontend needs to build a
+/// `WorkbenchModuleRegistration`. Stage 2 extends the on-disk page descriptor
+/// with `source`, `layout` and `sections`; those are not forwarded here yet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CompatPluginPageSummary {
+    pub id: String,
+    pub section: String,
+    pub order: i32,
+    pub icon: String,
+    pub title_key: String,
+    pub presentation: String,
+    pub project_access: String,
+}
+
+/// Inline i18n bundles keyed by locale code. Each locale maps to a flat
+/// `key → value` record loaded from the plugin's `i18n/<locale>.json`.
+pub(crate) type PluginI18nBundle =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>;
+
+/// Supported locales for inline i18n loading. Matches the frontend `LocaleCode`.
+const SUPPORTED_LOCALES: &[&str] = &["zh-CN", "en-US"];
 
 impl PluginLoadReport {
     /// Converts all loaded `attachedApi` contributions into descriptors for the
@@ -176,9 +260,10 @@ fn load_single_manifest(
 ) -> Result<CompatPluginManifest, String> {
     let raw = std::fs::read_to_string(manifest_path)
         .map_err(|error| format!("read manifest.json failed: {error}"))?;
-    let manifest: CompatPluginManifest = serde_json::from_str(&raw)
+    let mut manifest: CompatPluginManifest = serde_json::from_str(&raw)
         .map_err(|error| format!("parse manifest.json failed: {error}"))?;
     validate_manifest(&manifest, plugin_dir, id_re)?;
+    manifest.plugin_dir = plugin_dir.to_path_buf();
     Ok(manifest)
 }
 
@@ -243,7 +328,8 @@ fn validate_manifest(
     }
 
     // V6: at least one contribution key non-empty
-    let has_contrib = manifest.contributions.attached_api.is_some();
+    let has_contrib =
+        manifest.contributions.attached_api.is_some() || !manifest.contributions.pages.is_empty();
     if !has_contrib {
         return Err("contributions must declare at least one non-empty key".to_string());
     }
@@ -272,6 +358,90 @@ fn validate_manifest(
     // there is nothing to do here for now.
 
     Ok(())
+}
+
+/// Loads plugin summaries from the given roots, including inline i18n bundles.
+///
+/// Summaries are cached for the process lifetime via a `OnceLock` — the first
+/// call loads from disk, subsequent calls return the cached result. Stage 4's
+/// `reload_compat_plugins` will reset this cache.
+pub(crate) fn list_summaries(roots: &[PathBuf]) -> Vec<CompatPluginSummary> {
+    static CACHE: OnceLock<Vec<CompatPluginSummary>> = OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let report = load_plugin_manifests(roots);
+            for error in &report.errors {
+                log::warn!(
+                    target: targets::APP_UI,
+                    "{}",
+                    LogEvent::new("compatPlugin.loadError")
+                        .field("pluginDir", &error.plugin_dir)
+                        .field("reason", &error.reason)
+                        .render()
+                );
+            }
+            build_summaries_from_report(&report)
+        })
+        .clone()
+}
+
+/// Builds summaries from an already-loaded manifest report. Extracted from
+/// `list_summaries` so unit tests can exercise the summary construction and
+/// i18n loading without the process-level `OnceLock` cache.
+pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<CompatPluginSummary> {
+    report
+        .manifests
+        .iter()
+        .map(|manifest| {
+            let i18n = load_plugin_i18n(&manifest.plugin_dir);
+            let pages: Vec<CompatPluginPageSummary> = manifest
+                .contributions
+                .pages
+                .iter()
+                .map(|page| CompatPluginPageSummary {
+                    id: page.id.clone(),
+                    section: page.navigation.section.clone(),
+                    order: page.navigation.order,
+                    icon: page.navigation.icon.clone(),
+                    title_key: page.title_key.clone(),
+                    presentation: page.presentation.clone(),
+                    project_access: page.project_access.clone(),
+                })
+                .collect();
+            let page_ids = pages.iter().map(|page| page.id.clone()).collect();
+            CompatPluginSummary {
+                id: manifest.id.clone(),
+                name: manifest.name.clone(),
+                format: manifest.format,
+                has_code_entry: manifest.entry.is_some(),
+                targets: manifest.targets.clone(),
+                page_ids,
+                pages,
+                i18n,
+                load_error: None,
+            }
+        })
+        .collect()
+}
+
+/// Reads `i18n/<locale>.json` for each supported locale from the plugin
+/// directory. Missing files or parse failures produce an empty bundle for that
+/// locale (not an error — i18n is optional).
+fn load_plugin_i18n(plugin_dir: &Path) -> PluginI18nBundle {
+    let mut bundle = PluginI18nBundle::new();
+    let i18n_dir = plugin_dir.join("i18n");
+    for locale in SUPPORTED_LOCALES {
+        let path = i18n_dir.join(format!("{locale}.json"));
+        let entries = match std::fs::read_to_string(&path) {
+            Ok(raw) => serde_json::from_str::<std::collections::BTreeMap<String, String>>(&raw)
+                .unwrap_or_default(),
+            Err(_) => std::collections::BTreeMap::new(),
+        };
+        if !entries.is_empty() {
+            bundle.insert((*locale).to_string(), entries);
+        }
+    }
+    bundle
 }
 
 /// Resolves the plugin roots to scan for the current build configuration.
