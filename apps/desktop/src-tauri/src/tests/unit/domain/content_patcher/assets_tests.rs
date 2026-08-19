@@ -1,11 +1,13 @@
-#[cfg(unix)]
-use super::load_json_patch_asset;
-use super::{infer_target_asset_kind, load_map_patch_asset, with_virtual_preview_assets};
+use super::{
+    infer_target_asset_kind, load_json_patch_asset, load_map_patch_asset,
+    with_virtual_preview_assets,
+};
 use crate::domain::content_patcher::types::{
     ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, VirtualPreviewAsset,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use base64::Engine;
+use serde_json::Value;
 
 fn virtual_preview_asset(
     relative_path: &str,
@@ -61,7 +63,32 @@ fn infer_target_asset_kind_prefers_sidecar_registry_for_custom_targets() {
 }
 
 #[test]
-fn load_map_patch_asset_uses_virtual_asset_path_relative_to_included_source() {
+fn infer_target_asset_kind_treats_character_dialogue_and_schedules_as_data() {
+    for target in [
+        "Characters/Dialogue/Abigail",
+        "Characters/Dialogue/Marriage/Abigail",
+        "Characters/Schedules/Alex",
+    ] {
+        let kind = infer_target_asset_kind(
+            target,
+            &["EditData".to_string()],
+            &[None],
+            &AttachedApiRegistry::default(),
+        );
+        assert_eq!(kind, "json", "target {target}");
+    }
+
+    let sprite_kind = infer_target_asset_kind(
+        "Characters/Abigail",
+        &["EditData".to_string()],
+        &[None],
+        &AttachedApiRegistry::default(),
+    );
+    assert_eq!(sprite_kind, "image");
+}
+
+#[test]
+fn load_map_patch_asset_resolves_from_file_relative_to_pack_root() {
     let snapshot = ContentPatcherProjectSnapshot {
         summary: ContentPatcherProjectSummary::default(),
         sources: Vec::new(),
@@ -69,6 +96,8 @@ fn load_map_patch_asset_uses_virtual_asset_path_relative_to_included_source() {
         diagnostics: Vec::new(),
     };
 
+    // Content Patcher resolves patch FromFile paths relative to the content pack
+    // root, even when the patch is declared inside an included file.
     let error = with_virtual_preview_assets(
         Some(&[virtual_preview_asset(
             "assets/generated/Town.tbin",
@@ -76,18 +105,43 @@ fn load_map_patch_asset_uses_virtual_asset_path_relative_to_included_source() {
             b"not-a-tbin",
         )]),
         || {
-            load_map_patch_asset(
-                &snapshot,
-                "patches/map.json",
-                "../assets/generated/Town.tbin",
-            )
-            .expect_err("virtual map parse")
+            load_map_patch_asset(&snapshot, "assets/generated/Town.tbin")
+                .expect_err("virtual map parse")
         },
     );
 
     assert!(error.to_string().contains("File is not a tbin file."));
     assert!(!error.to_string().contains("Unable to resolve FromFile"));
     assert!(!error.to_string().contains("Failed to read map patch asset"));
+}
+
+#[test]
+fn load_json_patch_asset_resolves_included_patch_from_file_from_pack_root() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-fromfile-pack-root");
+    let pack_root = temp_dir.join("pack");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
+    std::fs::write(
+        pack_root.join("assets").join("data.json"),
+        r#"{"Value": 1}"#,
+    )
+    .expect("write json");
+
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: ContentPatcherProjectSummary {
+            absolute_path: Some(pack_root.to_string_lossy().into_owned()),
+            ..Default::default()
+        },
+        sources: Vec::new(),
+        include_tree: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+
+    // A patch declared in `patches/nested.json` uses a pack-root-relative FromFile.
+    let parsed = load_json_patch_asset(&snapshot, "assets/data.json").expect("load json");
+    assert_eq!(parsed.get("Value").and_then(Value::as_i64), Some(1));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
 
 #[cfg(unix)]
@@ -118,8 +172,7 @@ fn load_json_patch_asset_rejects_symlink_escape_outside_project_root() {
         diagnostics: Vec::new(),
     };
 
-    let error = load_json_patch_asset(&snapshot, "content.json", "assets/secret.json")
-        .expect_err("symlink escape");
+    let error = load_json_patch_asset(&snapshot, "assets/secret.json").expect_err("symlink escape");
     assert!(error.to_string().contains("outside the content pack root"));
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");

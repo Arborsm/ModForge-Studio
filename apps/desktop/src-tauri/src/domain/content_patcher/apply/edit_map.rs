@@ -1063,7 +1063,6 @@ pub fn apply_edit_map_patch(
     snapshot: &ContentPatcherProjectSnapshot,
     result_map: &mut LoadedMapAsset,
     patch: &serde_json::Map<String, Value>,
-    source_path: &str,
 ) -> anyhow::Result<String> {
     let document = &mut result_map.document;
     let debug = &mut result_map.debug;
@@ -1076,7 +1075,7 @@ pub fn apply_edit_map_patch(
         .map(str::trim)
         .filter(|v| !v.is_empty())
     {
-        let source = load_map_patch_asset(snapshot, source_path, from_file)?;
+        let source = load_map_patch_asset(snapshot, from_file)?;
         let from_area = parse_area_value(patch.get("FromArea"), AreaDefaults::source())?;
         let to_area = parse_area_value(
             patch.get("ToArea"),

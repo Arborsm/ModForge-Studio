@@ -236,7 +236,7 @@ pub fn load_target_result(
                         let from_file = patch.from_file.as_deref().with_context(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        load::apply_load_patch(snapshot, result_json, &patch.source_path, from_file)
+                        load::apply_load_patch(snapshot, result_json, from_file)
                     } else {
                         Err(anyhow::anyhow!(
                             "Action `{}` is not supported for JSON target loading in this phase.",
@@ -246,21 +246,12 @@ pub fn load_target_result(
                 }
                 (LoadedTargetBase::Image { result_image, .. }, "image") => {
                     if patch.action.eq_ignore_ascii_case("EditImage") {
-                        edit_image::apply_edit_image_patch(
-                            snapshot,
-                            result_image,
-                            &parsed_patch,
-                            &patch.source_path,
-                        )
+                        edit_image::apply_edit_image_patch(snapshot, result_image, &parsed_patch)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().with_context(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        let loaded = super::assets::load_image_patch_asset(
-                            snapshot,
-                            &patch.source_path,
-                            from_file,
-                        )?;
+                        let loaded = super::assets::load_image_patch_asset(snapshot, from_file)?;
                         *result_image = loaded;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
@@ -272,21 +263,12 @@ pub fn load_target_result(
                 }
                 (LoadedTargetBase::Map { result_map }, "map") => {
                     if patch.action.eq_ignore_ascii_case("EditMap") {
-                        edit_map::apply_edit_map_patch(
-                            snapshot,
-                            result_map,
-                            &parsed_patch,
-                            &patch.source_path,
-                        )
+                        edit_map::apply_edit_map_patch(snapshot, result_map, &parsed_patch)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().with_context(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        *result_map = super::assets::load_map_patch_asset(
-                            snapshot,
-                            &patch.source_path,
-                            from_file,
-                        )?;
+                        *result_map = super::assets::load_map_patch_asset(snapshot, from_file)?;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
                         Err(anyhow::anyhow!(
@@ -325,7 +307,14 @@ pub fn load_target_result(
                             field: Some(format!("patch.{}", patch.id)),
                         };
                         entry_diagnostics.push(diagnostic.clone());
-                        diagnostics.push(diagnostic);
+                        // Several patches often fail on the same unresolved FromFile;
+                        // keep one copy of each distinct message in the shared list.
+                        if !diagnostics.iter().any(|existing| {
+                            existing.severity == diagnostic.severity
+                                && existing.message == diagnostic.message
+                        }) {
+                            diagnostics.push(diagnostic);
+                        }
                     }
                 }
             }

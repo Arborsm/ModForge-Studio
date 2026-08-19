@@ -35,6 +35,18 @@ fn value_to_scalar_strings(value: &Value) -> anyhow::Result<Vec<String>> {
             }
             Ok(scalars)
         }
+        Value::String(text) => {
+            // Content Patcher condition and token values are comma-delimited lists
+            // (e.g. `"Season": "spring, summer"`), so split string scalars on commas.
+            if text.trim().is_empty() {
+                return Ok(vec![String::new()]);
+            }
+            Ok(text
+                .split(',')
+                .map(|part| part.trim().to_string())
+                .filter(|part| !part.is_empty())
+                .collect())
+        }
         _ => value_to_scalar_string(value)
             .map(|scalar| vec![scalar])
             .context("has an unsupported value type"),

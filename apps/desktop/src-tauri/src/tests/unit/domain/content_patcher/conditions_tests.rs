@@ -279,3 +279,27 @@ fn relationship_condition_with_contains() {
     assert_eq!(dating.status, "applied");
     assert_eq!(missing.status, "indeterminate");
 }
+
+#[test]
+fn condition_expected_values_are_comma_delimited_alternates() {
+    let context = SimulationContext {
+        config: [("ManualRecolourSelection".to_string(), json!("Off"))]
+            .into_iter()
+            .collect(),
+        ..SimulationContext::default()
+    };
+
+    let matches_one = evaluate_patch_status(
+        &json!({ "ManualRecolourSelection": "Off, Vanilla" }),
+        &context,
+        None,
+    );
+    let matches_none = evaluate_patch_status(
+        &json!({ "ManualRecolourSelection": "Earthy, Vanilla" }),
+        &context,
+        None,
+    );
+
+    assert_eq!(matches_one.status, "applied");
+    assert_eq!(matches_none.status, "skipped");
+}

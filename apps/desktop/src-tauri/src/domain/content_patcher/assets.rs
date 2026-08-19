@@ -1,6 +1,6 @@
 //! Content Patcher asset loading: base game assets, patch assets, virtual preview assets and image utilities.
 
-use super::project::{normalize_relative_path, resolve_include_relative_path};
+use super::project::{normalize_relative_path, resolve_pack_relative_path};
 use super::schema::parse_json_file;
 use super::types::{
     ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot, VirtualPreviewAsset,
@@ -100,9 +100,20 @@ fn target_looks_like_map(target: &str) -> bool {
 }
 
 fn target_looks_like_image(target: &str) -> bool {
+    let mut segments = target.split('/');
+    let Some(root) = segments.next() else {
+        return false;
+    };
+    if root.eq_ignore_ascii_case("Characters") {
+        // `Characters/Dialogue/*` and `Characters/Schedules/*` are data assets, not
+        // textures, even though they share the `Characters` prefix with sprite sheets.
+        return !segments.next().is_some_and(|sub| {
+            sub.eq_ignore_ascii_case("Dialogue") || sub.eq_ignore_ascii_case("Schedules")
+        });
+    }
     matches!(
-        target.split('/').next(),
-        Some("TileSheets" | "LooseSprites" | "Maps" | "Portraits" | "Characters" | "Minigames")
+        root,
+        "TileSheets" | "LooseSprites" | "Maps" | "Portraits" | "Minigames"
     )
 }
 
@@ -145,11 +156,12 @@ pub fn infer_target_asset_kind(
     "json".to_string()
 }
 
-fn resolve_from_file_relative_path(
-    source_path: &str,
-    from_file: &str,
-) -> anyhow::Result<(PathBuf, String)> {
-    let relative_from = resolve_include_relative_path(Path::new(source_path), from_file)?;
+/// Resolves a patch `FromFile` path against the content pack root. Content Patcher
+/// resolves these paths relative to `content.json` even when the patch is declared in
+/// an included file, so the declaring source path is intentionally not part of the
+/// resolution.
+fn resolve_from_file_relative_path(from_file: &str) -> anyhow::Result<(PathBuf, String)> {
+    let relative_from = resolve_pack_relative_path(from_file)?;
     let normalized_from = normalize_relative_path(&relative_from);
     Ok((relative_from, normalized_from))
 }
@@ -428,10 +440,9 @@ pub fn load_base_map_asset(
 
 pub fn load_json_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<Value> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let raw_json = String::from_utf8(bytes).with_context(|| {
@@ -455,10 +466,9 @@ pub fn load_json_patch_asset(
 
 pub fn load_image_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<RgbaImage> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let image = image::load_from_memory(&bytes).with_context(|| {
@@ -479,10 +489,9 @@ pub fn load_image_patch_asset(
 
 pub fn load_map_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<LoadedMapAsset> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let virtual_path = PathBuf::from(&normalized_from);

@@ -40,15 +40,16 @@ fn canonicalize_path(path: &Path) -> anyhow::Result<PathBuf> {
         .with_context(|| format!("Failed to resolve path {}", normalize_path(path)))
 }
 
-pub(crate) fn resolve_include_relative_path(
-    source_rel_path: &Path,
-    from_file: &str,
-) -> anyhow::Result<PathBuf> {
-    let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
+/// Resolves a Content Patcher relative file path against the content pack root.
+///
+/// Content Patcher always resolves local paths (patch `FromFile`, `Include` targets)
+/// relative to the content pack folder containing `content.json`, even when the path
+/// is declared inside an included file.
+pub(crate) fn resolve_pack_relative_path(from_file: &str) -> anyhow::Result<PathBuf> {
     let include_path = normalize_include_path(from_file);
     let mut normalized = PathBuf::new();
 
-    for component in source_parent.components().chain(include_path.components()) {
+    for component in include_path.components() {
         match component {
             Component::CurDir => {}
             Component::Normal(segment) => normalized.push(segment),
@@ -101,7 +102,7 @@ fn collect_include_edges(
             continue;
         };
 
-        let included_rel_path = resolve_include_relative_path(source_rel_path, &from_file)?;
+        let included_rel_path = resolve_pack_relative_path(&from_file)?;
         let include_candidate_abs_path = root_canonical.join(&included_rel_path);
         if !include_candidate_abs_path.is_file() {
             bail!(

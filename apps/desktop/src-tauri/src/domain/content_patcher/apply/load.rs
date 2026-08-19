@@ -7,10 +7,9 @@ use serde_json::Value;
 pub fn apply_load_patch(
     snapshot: &ContentPatcherProjectSnapshot,
     base: &mut Value,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<String> {
-    let loaded = load_json_patch_asset(snapshot, source_path, from_file)?;
+    let loaded = load_json_patch_asset(snapshot, from_file)?;
     *base = loaded;
     Ok(format!("replaced target with `{from_file}`"))
 }

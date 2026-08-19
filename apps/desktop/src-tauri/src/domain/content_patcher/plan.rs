@@ -4,8 +4,7 @@ use super::conditions::evaluate_patch_status;
 use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};
 use super::project::{
-    include_from_file, normalize_relative_path, patch_action_is_include,
-    resolve_include_relative_path,
+    include_from_file, normalize_relative_path, patch_action_is_include, resolve_pack_relative_path,
 };
 use super::tokens::INVALID_WHEN_TOKEN;
 use super::types::{
@@ -111,10 +110,27 @@ fn parse_config_defaults(root: &Value) -> BTreeMap<String, Value> {
             schema
                 .iter()
                 .filter_map(|(key, field)| {
-                    field
-                        .as_object()
-                        .and_then(|field| field.get("Default"))
-                        .map(|value| (key.clone(), value.clone()))
+                    let field = field.as_object()?;
+                    if let Some(default) = field.get("Default") {
+                        return Some((key.clone(), default.clone()));
+                    }
+                    // Fields without `Default` default to blank per CP docs, but a blank
+                    // token makes patches unusable in preview; fall back to the first
+                    // allowed value so the pack stays browsable.
+                    let allow_blank = field
+                        .get("AllowBlank")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    if allow_blank {
+                        return None;
+                    }
+                    let first_allowed = field
+                        .get("AllowValues")
+                        .and_then(Value::as_str)?
+                        .split(',')
+                        .map(str::trim)
+                        .find(|value| !value.is_empty())?;
+                    Some((key.clone(), Value::String(first_allowed.to_string())))
                 })
                 .collect::<BTreeMap<_, _>>()
         })
@@ -193,13 +209,25 @@ pub fn build_effective_context(
     snapshot: &ContentPatcherProjectSnapshot,
     context: &SimulationContext,
 ) -> anyhow::Result<SimulationContext> {
-    let root_source = snapshot
-        .sources
-        .iter()
-        .find(|source| source.path == "content.json")
+    let mut source_values = BTreeMap::new();
+    for source in &snapshot.sources {
+        let parsed = parse_json_str(&source.raw_json, &source.path)?;
+        source_values.insert(source.path.clone(), parsed);
+    }
+
+    let root_source = source_values
+        .get("content.json")
         .context("Snapshot sources are missing content.json.")?;
-    let parsed_root = parse_json_str(&root_source.raw_json, &root_source.path)?;
-    Ok(with_config_defaults(context, &parsed_root))
+    let mut effective_context = with_config_defaults(context, root_source);
+
+    // Dynamic tokens must also be visible when conditions are re-evaluated at apply
+    // time, not only while building the plan.
+    let dynamic_tokens = resolve_dynamic_tokens(snapshot, &source_values, &effective_context);
+    for (key, value) in dynamic_tokens {
+        effective_context.custom_tokens.insert(key, value);
+    }
+
+    Ok(effective_context)
 }
 
 fn parse_log_name(
@@ -237,10 +265,8 @@ fn build_patch_id(
 
 fn token_value_to_string(value: &Value) -> Option<String> {
     match value {
-        Value::String(text) => {
-            let trimmed = text.trim();
-            (!trimmed.is_empty()).then(|| trimmed.to_string())
-        }
+        // Blank tokens resolve to an empty string, matching Content Patcher.
+        Value::String(text) => Some(text.trim().to_string()),
         Value::Number(number) => Some(number.to_string()),
         Value::Bool(flag) => Some(flag.to_string()),
         _ => None,
@@ -1074,8 +1100,7 @@ fn collect_patches_from_source(
             let Some(from_file) = include_from_file(patch) else {
                 continue;
             };
-            let include_rel_path =
-                resolve_include_relative_path(Path::new(source_path), &from_file)?;
+            let include_rel_path = resolve_pack_relative_path(&from_file)?;
             let include_rel = normalize_relative_path(&include_rel_path);
             let include_when = parse_when(patch);
             let merged_when = merge_when(inherited_when, &include_when);
@@ -1186,6 +1211,8 @@ fn resolve_dynamic_tokens(
 
             let value_str = match value {
                 Value::String(s) => s.clone(),
+                // Content Patcher treats a null dynamic token value as blank.
+                Value::Null => String::new(),
                 other => other.to_string(),
             };
             let resolved = resolve_template_tokens(&value_str, |token_name| {

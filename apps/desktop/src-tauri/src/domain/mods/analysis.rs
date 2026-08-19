@@ -233,13 +233,12 @@ fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModP
             continue;
         };
 
-        if patch
+        let action = patch
             .get("Action")
             .and_then(Value::as_str)
             .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .is_none()
-        {
+            .filter(|value| !value.is_empty());
+        if action.is_none() {
             diagnostics.push(ModProjectDiagnostic {
                 severity: "warning".to_string(),
                 message: format!("Patch #{index} is missing Action."),
@@ -247,7 +246,10 @@ fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModP
             });
         }
 
-        if patch.get("Target").is_none() {
+        // Include patches reference another file instead of a game asset.
+        if patch.get("Target").is_none()
+            && !action.is_some_and(|action| action.eq_ignore_ascii_case("Include"))
+        {
             diagnostics.push(ModProjectDiagnostic {
                 severity: "warning".to_string(),
                 message: format!("Patch #{index} is missing Target."),
