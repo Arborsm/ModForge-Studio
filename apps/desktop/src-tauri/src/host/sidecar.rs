@@ -570,6 +570,9 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(read_compat_plugin_entry) => resolve_typed::<
             crate::domain::modding::commands::ReadCompatPluginEntryParams,
         >(ctx, id, args),
+        crate::host_command_wire!(reload_compat_plugins) => resolve_typed::<
+            crate::domain::modding::commands::ReloadCompatPluginsParams,
+        >(ctx, id, args),
         crate::host_command_wire!(write_compat_plugin_entry) => resolve_typed::<
             crate::domain::modding::commands::WriteCompatPluginEntryParams,
         >(ctx, id, args),

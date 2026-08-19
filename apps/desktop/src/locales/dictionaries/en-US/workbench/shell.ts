@@ -243,6 +243,7 @@ const shell: WorkbenchShellCopy = {
       'mail-editor': 'Mail authoring',
       'game-debugger': 'Game debugger',
       'dev-resource-browser': 'Resource browser',
+      'plugin-manager': 'Plugin manager',
     },
     shellHistoryBack: 'Go back',
     shellHistoryForward: 'Go forward',

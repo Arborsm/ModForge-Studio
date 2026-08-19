@@ -474,6 +474,7 @@ pub fn run() {
             domain::modding::commands::list_compat_plugin_entries,
             domain::modding::commands::list_compat_plugins,
             domain::modding::commands::read_compat_plugin_entry,
+            domain::modding::commands::reload_compat_plugins,
             domain::modding::commands::write_compat_plugin_entry,
             // domain::mods::commands
             domain::mods::commands::inspect_mod_archive,

@@ -73,6 +73,7 @@ export type WorkbenchModuleLocaleKey =
   | 'mail-editor'
   | 'game-debugger'
   | 'dev-resource-browser'
+  | 'plugin-manager'
 
 /** Current workbench location — either the home screen or a specific module. */
 export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }

@@ -118,6 +118,7 @@ export const HOST_COMMANDS = {
   recordConfirmedTranslations: 'record_confirmed_translations',
   recordLauncherImageFailure: 'record_launcher_image_failure',
   releaseLocalizationSemanticRuntime: 'release_localization_semantic_runtime',
+  reloadCompatPlugins: 'reload_compat_plugins',
   removeLocalizationProfileBinding: 'remove_localization_profile_binding',
   renameCpMakerProjectAsset: 'rename_cp_maker_project_asset',
   renameLocalizationProfile: 'rename_localization_profile',

@@ -21,6 +21,19 @@ pub async fn list_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSumma
     )
 }
 
+/// Reloads compat plugins from disk, clearing all caches. Returns the refreshed
+/// plugin summaries. Used by the stage 4 plugin management page's manual reload
+/// button.
+#[host_command(control)]
+pub async fn reload_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSummary>, String> {
+    // Clear the plugin summaries cache and the attached API registry cache,
+    // then re-scan from disk.
+    domain::modding::compat_plugin::clear_plugin_caches();
+    Ok::<Vec<CompatPluginSummary>, String>(
+        domain::modding::compat_plugin::list_summaries_from_resolved_roots(),
+    )
+}
+
 /// Lists pack entries under a directory-pack source. Scans `<mod_root>/<root_subdir>`
 /// for subdirectories containing the declared entry file, returning one summary
 /// per entry. Used by stage 2 `directory-pack` source adapters.

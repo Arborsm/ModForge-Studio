@@ -73,6 +73,34 @@ export type CompatPluginPageSummary = {
   sections: CompatPluginSection[]
 }
 
+/** Asset schema field declaration from a plugin's assetSchema contribution. */
+export type AssetSchemaField = {
+  id: string
+  path: string
+  type: string
+  labelKey?: string
+  descriptionKey?: string
+}
+
+/** Asset schema contribution: declares asset field metadata for CP editor merging. */
+export type AssetSchemaContribution = {
+  assetPath: string
+  fields: AssetSchemaField[]
+}
+
+/** Condition syntax key declaration from a plugin's conditionSyntax contribution. */
+export type ConditionSyntaxKey = {
+  key: string
+  labelKey?: string
+  descriptionKey?: string
+}
+
+/** Condition syntax contribution: declares condition keys for When/GSQ editor autocomplete. */
+export type ConditionSyntaxContribution = {
+  namespace: string
+  keys: ConditionSyntaxKey[]
+}
+
 /** Wire type returned by `list_compat_plugins`. */
 export type CompatPluginSummary = {
   id: string
@@ -84,4 +112,8 @@ export type CompatPluginSummary = {
   pages: CompatPluginPageSummary[]
   i18n: PluginI18nBundle
   loadError: string | null
+  /** Stage 4: asset schema contributions for CP editor merging. */
+  assetSchemas: AssetSchemaContribution[]
+  /** Stage 4: condition syntax contributions for When/GSQ editor autocomplete. */
+  conditionSyntax: ConditionSyntaxContribution[]
 }

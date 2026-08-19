@@ -3,7 +3,7 @@
  * building, and plugin locale resolution.
  * @module features/compat-plugins
  */
-export { listCompatPlugins } from './api/listCompatPlugins'
+export { listCompatPlugins, reloadCompatPlugins } from './api/listCompatPlugins'
 export type {
   CompatPluginSummary,
   CompatPluginPageSummary,
@@ -11,6 +11,10 @@ export type {
   CompatPluginField,
   CompatPluginPageSource,
   PluginI18nBundle,
+  AssetSchemaContribution,
+  AssetSchemaField,
+  ConditionSyntaxContribution,
+  ConditionSyntaxKey,
 } from './api/types'
 export { listCompatPluginEntries, readCompatPluginEntry, writeCompatPluginEntry } from './api/directoryPackApi'
 export type { CompatPluginEntrySummary, ReadCompatPluginEntryResult } from './api/directoryPackApi'

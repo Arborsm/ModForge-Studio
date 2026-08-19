@@ -58,6 +58,7 @@
 @import './features/initialization-overlay.css';
 @import './features/translation-editor-ai.css';
 @import './features/compat-plugins.css';
+@import './features/plugin-manager.css';
 @source '../App.tsx';
 @source not '../widgets/launcher-shell';
 @source '../app';

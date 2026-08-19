@@ -127,6 +127,10 @@ export function useGameDebuggerCopy() {
   return useEditorCopy().gameDebugger
 }
 
+export function usePluginManagerCopy() {
+  return useEditorCopy().pluginManager
+}
+
 export function useAssetLibraryCopy() {
   return useEditorCopy().assetLibrary
 }

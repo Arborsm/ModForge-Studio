@@ -6,7 +6,7 @@
 //! `apps/desktop/compat-plugins/arborsm.scaleup-unofficial/manifest.json`; the
 //! aggregated registry is behaviour-equivalent.
 
-use std::sync::OnceLock;
+use std::sync::Mutex;
 
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::domain::modding::compat_plugin::{load_plugin_manifests, resolve_plugin_roots};
@@ -14,8 +14,10 @@ use crate::domain::modding::compat_plugin::{load_plugin_manifests, resolve_plugi
 /// Process-level cache of the attached API registry. Built once from the
 /// resolved plugin roots and reused for the process lifetime — plugin manifests
 /// are static for a given run. This mirrors the `list_summaries` cache and
-/// avoids re-reading `manifest.json` on every mod scan / CP operation.
-static CACHED_REGISTRY: OnceLock<AttachedApiRegistry> = OnceLock::new();
+/// avoids re-reading `manifest.json` on every mod scan / CP operation. Stage
+/// 4's `reload_compat_plugins` resets this cache via
+/// [`clear_attached_api_cache`].
+static CACHED_REGISTRY: Mutex<Option<AttachedApiRegistry>> = Mutex::new(None);
 
 /// Loads the attached API registry from compat plugin manifests on disk.
 ///
@@ -25,9 +27,10 @@ static CACHED_REGISTRY: OnceLock<AttachedApiRegistry> = OnceLock::new();
 /// startup via `set_plugin_roots`).
 ///
 /// When `plugin_root_override` is `None`, the result is cached for the process
-/// lifetime via a `OnceLock` — the first call loads from disk, subsequent calls
-/// return the cached registry. This matches the previous hardcoded descriptor's
-/// zero-cost repeated access. Override calls (tests) always re-read from disk.
+/// lifetime via a `Mutex<Option<>>` — the first call loads from disk,
+/// subsequent calls return the cached registry. This matches the previous
+/// hardcoded descriptor's zero-cost repeated access. Override calls (tests)
+/// always re-read from disk.
 ///
 /// Load errors for individual plugins are logged via `support::logging` and do
 /// not abort the registry build — a bad plugin simply contributes no
@@ -36,11 +39,28 @@ pub(crate) fn load_attached_api_registry(
     plugin_root_override: Option<&str>,
 ) -> AttachedApiRegistry {
     if plugin_root_override.is_none() {
-        return CACHED_REGISTRY
-            .get_or_init(|| build_registry(plugin_root_override))
-            .clone();
+        let mut guard = CACHED_REGISTRY
+            .lock()
+            .expect("attached API registry cache mutex poisoned");
+        if let Some(cached) = guard.as_ref() {
+            return cached.clone();
+        }
+        let registry = build_registry(plugin_root_override);
+        *guard = Some(registry.clone());
+        return registry;
     }
     build_registry(plugin_root_override)
+}
+
+/// Clears the attached API registry cache. Called by
+/// `compat_plugin::clear_plugin_caches` as part of the stage 4
+/// `reload_compat_plugins` host command so that subsequent reads re-scan from
+/// disk.
+pub(crate) fn clear_attached_api_cache() {
+    let mut guard = CACHED_REGISTRY
+        .lock()
+        .expect("attached API registry cache mutex poisoned");
+    *guard = None;
 }
 
 /// Builds the registry from disk. Extracted so the cached and uncached paths

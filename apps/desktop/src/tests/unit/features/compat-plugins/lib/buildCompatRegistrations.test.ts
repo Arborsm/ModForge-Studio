@@ -26,6 +26,8 @@ function plugin(overrides: Partial<CompatPluginSummary> = {}): CompatPluginSumma
     ],
     i18n: {},
     loadError: null,
+    assetSchemas: [],
+    conditionSyntax: [],
     ...overrides,
   }
 }

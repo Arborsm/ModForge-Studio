@@ -11,7 +11,7 @@
 //! affects other plugins.
 
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -48,15 +48,63 @@ pub(crate) struct CompatPluginManifest {
 
 /// Contribution container. `attachedApi` is realised from format 1; `pages`
 /// is realised from stage 1 (navigation metadata) and extended in stage 2
-/// (source/layout/sections). Other contribution types are added in later stages.
+/// (source/layout/sections). `assetSchemas` and `conditionSyntax` are realised
+/// from stage 4. Other contribution types are added in later stages.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CompatPluginContributions {
     pub attached_api: Option<AttachedApiContribution>,
     #[serde(default)]
     pub pages: Vec<PageContribution>,
-    // capabilities / assetSchemas / conditionSyntax are added in later stages;
+    /// Stage 4: asset schema contributions for CP editor merging.
+    #[serde(default)]
+    pub asset_schemas: Vec<AssetSchemaContribution>,
+    /// Stage 4: condition syntax contributions for When/GSQ editor autocomplete.
+    #[serde(default)]
+    pub condition_syntax: Vec<ConditionSyntaxContribution>,
+    // capabilities are added in later stages;
     // serde ignores unknown keys so forward compatibility holds.
+}
+
+/// Asset schema contribution: declares asset field metadata for CP editor merging.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssetSchemaContribution {
+    /// Asset path pattern (e.g. "spacechase0.SpaceCore/*").
+    pub asset_path: String,
+    /// Field declarations for this asset type.
+    #[serde(default)]
+    pub fields: Vec<AssetSchemaFieldDecl>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssetSchemaFieldDecl {
+    pub id: String,
+    pub path: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    pub label_key: Option<String>,
+    pub description_key: Option<String>,
+}
+
+/// Condition syntax contribution: declares condition keys for When/GSQ editor autocomplete.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConditionSyntaxContribution {
+    /// Condition key namespace (e.g. "EPU").
+    pub namespace: String,
+    /// Declared condition keys.
+    #[serde(default)]
+    pub keys: Vec<ConditionSyntaxKeyDecl>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConditionSyntaxKeyDecl {
+    pub key: String,
+    pub label_key: Option<String>,
+    pub description_key: Option<String>,
 }
 
 /// `contributions.attachedApi` entry.
@@ -231,6 +279,10 @@ pub(crate) struct CompatPluginSummary {
     pub page_ids: Vec<String>,
     pub pages: Vec<CompatPluginPageSummary>,
     pub i18n: PluginI18nBundle,
+    /// Stage 4: asset schema contributions for CP editor merging.
+    pub asset_schemas: Vec<AssetSchemaWire>,
+    /// Stage 4: condition syntax contributions for When/GSQ editor autocomplete.
+    pub condition_syntax: Vec<ConditionSyntaxWire>,
     pub load_error: Option<String>,
 }
 
@@ -318,6 +370,44 @@ pub(crate) struct PageFieldVisibleWhenWire {
     pub field: String,
     pub value: Option<serde_json::Value>,
     pub values: Option<Vec<serde_json::Value>>,
+}
+
+/// Wire form of `AssetSchemaContribution` (Serialize + Deserialize, since the
+/// decl only derives Deserialize).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssetSchemaWire {
+    pub asset_path: String,
+    pub fields: Vec<AssetSchemaFieldWire>,
+}
+
+/// Wire form of `AssetSchemaFieldDecl`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AssetSchemaFieldWire {
+    pub id: String,
+    pub path: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    pub label_key: Option<String>,
+    pub description_key: Option<String>,
+}
+
+/// Wire form of `ConditionSyntaxContribution`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConditionSyntaxWire {
+    pub namespace: String,
+    pub keys: Vec<ConditionSyntaxKeyWire>,
+}
+
+/// Wire form of `ConditionSyntaxKeyDecl`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConditionSyntaxKeyWire {
+    pub key: String,
+    pub label_key: Option<String>,
+    pub description_key: Option<String>,
 }
 
 /// Inline i18n bundles keyed by locale code. Each locale maps to a flat
@@ -486,8 +576,10 @@ fn validate_manifest(
     }
 
     // V6: at least one contribution key non-empty
-    let has_contrib =
-        manifest.contributions.attached_api.is_some() || !manifest.contributions.pages.is_empty();
+    let has_contrib = manifest.contributions.attached_api.is_some()
+        || !manifest.contributions.pages.is_empty()
+        || !manifest.contributions.asset_schemas.is_empty()
+        || !manifest.contributions.condition_syntax.is_empty();
     if !has_contrib {
         return Err("contributions must declare at least one non-empty key".to_string());
     }
@@ -624,6 +716,12 @@ fn validate_page_field(page_id: &str, field: &PageFieldDecl) -> Result<(), Strin
 /// plugin directories. Falls back to the dev-build anchor when not set.
 static PLUGIN_ROOTS: OnceLock<Vec<PathBuf>> = OnceLock::new();
 
+/// Process-level cache of plugin summaries. Built once from the resolved
+/// plugin roots and reused for the process lifetime. Stage 4's
+/// `reload_compat_plugins` resets this cache (and the attached API registry
+/// cache) via [`clear_plugin_caches`].
+static CACHED_SUMMARIES: Mutex<Option<Vec<CompatPluginSummary>>> = Mutex::new(None);
+
 /// Initializes the process-level plugin root set. Called once at app startup
 /// from the Tauri `setup` hook (macOS/Windows) or the sidecar entry point
 /// (Linux). Subsequent calls are no-ops — the first set wins.
@@ -638,27 +736,31 @@ pub(crate) fn set_plugin_roots(roots: Vec<PathBuf>) {
 /// Loads plugin summaries from the resolved plugin roots, including inline i18n
 /// bundles.
 ///
-/// Summaries are cached for the process lifetime via a `OnceLock` — the first
-/// call loads from disk, subsequent calls return the cached result. Stage 4's
-/// `reload_compat_plugins` will reset this cache.
+/// Summaries are cached for the process lifetime via a `Mutex<Option<>>` — the
+/// first call loads from disk, subsequent calls return the cached result.
+/// Stage 4's `reload_compat_plugins` resets this cache via
+/// [`clear_plugin_caches`].
 pub(crate) fn list_summaries(roots: &[PathBuf]) -> Vec<CompatPluginSummary> {
-    static CACHE: OnceLock<Vec<CompatPluginSummary>> = OnceLock::new();
-    CACHE
-        .get_or_init(|| {
-            let report = load_plugin_manifests(roots);
-            for error in &report.errors {
-                log::warn!(
-                    target: targets::APP_UI,
-                    "{}",
-                    LogEvent::new("compatPlugin.loadError")
-                        .field("pluginDir", &error.plugin_dir)
-                        .field("reason", &error.reason)
-                        .render()
-                );
-            }
-            build_summaries_from_report(&report)
-        })
-        .clone()
+    let mut guard = CACHED_SUMMARIES
+        .lock()
+        .expect("compat plugin summaries cache mutex poisoned");
+    if let Some(cached) = guard.as_ref() {
+        return cached.clone();
+    }
+    let report = load_plugin_manifests(roots);
+    for error in &report.errors {
+        log::warn!(
+            target: targets::APP_UI,
+            "{}",
+            LogEvent::new("compatPlugin.loadError")
+                .field("pluginDir", &error.plugin_dir)
+                .field("reason", &error.reason)
+                .render()
+        );
+    }
+    let summaries = build_summaries_from_report(&report);
+    *guard = Some(summaries.clone());
+    summaries
 }
 
 /// Loads plugin summaries using the process-level resolved plugin roots.
@@ -666,6 +768,19 @@ pub(crate) fn list_summaries(roots: &[PathBuf]) -> Vec<CompatPluginSummary> {
 /// other caller that does not supply explicit roots.
 pub(crate) fn list_summaries_from_resolved_roots() -> Vec<CompatPluginSummary> {
     list_summaries(&resolve_plugin_roots(None))
+}
+
+/// Clears all compat plugin caches: the summaries cache and the attached API
+/// registry cache. Used by the stage 4 `reload_compat_plugins` host command's
+/// manual reload button so that subsequent reads re-scan from disk.
+pub(crate) fn clear_plugin_caches() {
+    {
+        let mut guard = CACHED_SUMMARIES
+            .lock()
+            .expect("compat plugin summaries cache mutex poisoned");
+        *guard = None;
+    }
+    crate::domain::content_patcher::attached::clear_attached_api_cache();
 }
 
 /// Builds summaries from an already-loaded manifest report. Extracted from
@@ -695,6 +810,18 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                 })
                 .collect();
             let page_ids = pages.iter().map(|page| page.id.clone()).collect();
+            let asset_schemas = manifest
+                .contributions
+                .asset_schemas
+                .iter()
+                .map(asset_schema_to_wire)
+                .collect();
+            let condition_syntax = manifest
+                .contributions
+                .condition_syntax
+                .iter()
+                .map(condition_syntax_to_wire)
+                .collect();
             CompatPluginSummary {
                 id: manifest.id.clone(),
                 name: manifest.name.clone(),
@@ -704,6 +831,8 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                 page_ids,
                 pages,
                 i18n,
+                asset_schemas,
+                condition_syntax,
                 load_error: None,
             }
         })
@@ -762,6 +891,50 @@ fn page_field_to_wire(field: &PageFieldDecl) -> PageFieldWire {
             }),
         fields: field.fields.iter().map(page_field_to_wire).collect(),
         sub_fields: field.sub_fields.iter().map(page_field_to_wire).collect(),
+    }
+}
+
+/// Converts an `AssetSchemaContribution` into its serializable wire form.
+fn asset_schema_to_wire(schema: &AssetSchemaContribution) -> AssetSchemaWire {
+    AssetSchemaWire {
+        asset_path: schema.asset_path.clone(),
+        fields: schema
+            .fields
+            .iter()
+            .map(asset_schema_field_to_wire)
+            .collect(),
+    }
+}
+
+/// Converts an `AssetSchemaFieldDecl` into its serializable wire form.
+fn asset_schema_field_to_wire(field: &AssetSchemaFieldDecl) -> AssetSchemaFieldWire {
+    AssetSchemaFieldWire {
+        id: field.id.clone(),
+        path: field.path.clone(),
+        field_type: field.field_type.clone(),
+        label_key: field.label_key.clone(),
+        description_key: field.description_key.clone(),
+    }
+}
+
+/// Converts a `ConditionSyntaxContribution` into its serializable wire form.
+fn condition_syntax_to_wire(syntax: &ConditionSyntaxContribution) -> ConditionSyntaxWire {
+    ConditionSyntaxWire {
+        namespace: syntax.namespace.clone(),
+        keys: syntax
+            .keys
+            .iter()
+            .map(condition_syntax_key_to_wire)
+            .collect(),
+    }
+}
+
+/// Converts a `ConditionSyntaxKeyDecl` into its serializable wire form.
+fn condition_syntax_key_to_wire(key: &ConditionSyntaxKeyDecl) -> ConditionSyntaxKeyWire {
+    ConditionSyntaxKeyWire {
+        key: key.key.clone(),
+        label_key: key.label_key.clone(),
+        description_key: key.description_key.clone(),
     }
 }
 

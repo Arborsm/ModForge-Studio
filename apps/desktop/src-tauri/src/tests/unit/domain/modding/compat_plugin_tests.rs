@@ -350,6 +350,8 @@ fn to_attached_api_descriptors_converts_loaded_manifests() {
                 }],
             }),
             pages: Vec::new(),
+            asset_schemas: Vec::new(),
+            condition_syntax: Vec::new(),
         },
         plugin_dir: std::path::PathBuf::new(),
     };
