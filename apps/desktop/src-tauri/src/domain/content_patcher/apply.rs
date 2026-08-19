@@ -1,3 +1,5 @@
+//! Patch application engine: loads target base assets and applies planned patches to produce results.
+
 use super::assets::{
     LoadedBaseImageAsset, LoadedMapAsset, image_to_data_url, infer_target_asset_kind,
     load_base_image_asset, load_base_json_asset, load_base_map_asset,

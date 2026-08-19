@@ -1,3 +1,5 @@
+//! Host command bindings for the debug bridge domain (status, mod state, install, command relay).
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::debug_bridge::{DebugBridgeModState, DebugBridgeStatus};

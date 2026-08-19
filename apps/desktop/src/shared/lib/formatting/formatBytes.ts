@@ -1,3 +1,5 @@
+/** @file Byte-count formatting helpers with configurable base, precision, and unit labels. */
+
 /** Options controlling byte formatting base, precision, and unit labels. */
 type FormatBytesOptions = {
   base?: number

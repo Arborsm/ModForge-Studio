@@ -1,3 +1,8 @@
+/**
+ * @file useLauncherLibrary hook: installed mod library state — scanning,
+ * filtering, pack/folder organization, child mods, auto-cover fetching, and
+ * update hint subscription.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
@@ -399,6 +404,7 @@ function buildLatestVersionLookup(updates: LauncherUpdateSummary[] | null | unde
   )
 }
 
+/** Manages installed mod library state: scanning, filtering, pack/folder organization, auto-cover, and update hints. */
 export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const launcherPort = useLauncherPort()
   const runLibraryStateSaveTask = useQueuedMutationTask('LauncherLibraryState')

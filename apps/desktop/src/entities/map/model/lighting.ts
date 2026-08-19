@@ -4,9 +4,9 @@ import { findTilesetForGid } from '../lib/tilesets'
 import type { MapDocument, MapObject, MapPropertyValue } from '../lib/types'
 
 /**
- * Stardew Valley world-lighting model (Game1.DrawLighting / UpdateGameClock /
- * GameLocation light sources), reduced to pure data so previews can bake the
- * same lightmap the game composes on the GPU.
+ * @file Stardew Valley world-lighting model (Game1.DrawLighting /
+ * UpdateGameClock / GameLocation light sources), reduced to pure data so
+ * previews can bake the same lightmap the game composes on the GPU.
  *
  * The game renders a lightmap render target: cleared to black, filled with the
  * ambient base color, then each light source lerps the map toward its tint. The
@@ -499,7 +499,6 @@ export function computeLightingOverlayChannel(storedChannel: number) {
   return Math.round(255 - (clamped * clamped) / 255)
 }
 
-// ---------------------------------------------------------------------------
 // Placed-object lights (Object.initializeLightSource)
 //
 // The game never serializes placed objects into map files — they come from
@@ -509,7 +508,6 @@ export function computeLightingOverlayChannel(storedChannel: number) {
 // fireplace/lamp furniture, IsLamp big craftable, Bonfire, Strange Capsule)
 // previews that item's glow at night. The preview treats markers as lit; an
 // explicit `IsOn` property set to false models an unlit fixture.
-// ---------------------------------------------------------------------------
 
 /** Furniture type that emits a fireplace light when on (getTypeNumberFromName: "fireplace"). */
 export const FIREPLACE_FURNITURE_TYPE = 14

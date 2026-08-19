@@ -1,5 +1,6 @@
 /**
- * Sprite assembly for building textures.
+ * @file Sprite assembly for building textures.
+ * @module entities/building
  *
  * One implementation shared by the codex preview and the authoring preview, so
  * a building looks identical in both: the same source rectangle resolution and

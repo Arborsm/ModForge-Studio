@@ -1,3 +1,5 @@
+//! GMCM probe payload analysis: field merging, diagnostics, and probe path resolution.
+
 use super::probe_run::{mod_has_probe_dll, probe_assembly_path, run_probe_with_timeout};
 use crate::domain::app_paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;

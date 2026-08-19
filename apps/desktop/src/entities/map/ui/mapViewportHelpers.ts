@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport helper functions: tile image loading, tile flag handling,
+ * color conversion, and rasterization utilities shared across viewport components.
+ */
+
 import {
   FLIPPED_DIAGONALLY_FLAG,
   FLIPPED_HORIZONTALLY_FLAG,

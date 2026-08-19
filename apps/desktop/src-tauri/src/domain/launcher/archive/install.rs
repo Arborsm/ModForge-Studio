@@ -1,3 +1,5 @@
+//! Archive install/restore entry points and Tauri command wrappers for launcher archive operations.
+
 use super::extract::{expand_archive_to_path, temp_work_dir};
 use super::inspect::inspect_archive_at_path;
 use crate::AppHandle;

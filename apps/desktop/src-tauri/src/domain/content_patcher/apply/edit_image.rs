@@ -1,3 +1,5 @@
+//! EditImage patch application: overlay, replace, crop and pad operations on image targets.
+
 use super::super::assets::{crop_image_area, expand_image_to_fit, load_image_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::ContentPatcherProjectSnapshot;

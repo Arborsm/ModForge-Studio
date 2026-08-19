@@ -1,5 +1,6 @@
 /**
- * Read model over `Data/Buildings`.
+ * @file Read model over `Data/Buildings`.
+ * @module entities/building
  *
  * Turns the raw game records into the view entries both building surfaces read:
  * the codex lists and previews them, the authoring editor uses them for the

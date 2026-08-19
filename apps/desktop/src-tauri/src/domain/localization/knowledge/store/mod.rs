@@ -45,6 +45,8 @@ use rusqlite::{OptionalExtension, params};
 use schema::normalize;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Aggregated translation knowledge (exact matches, glossary contexts, style)
+/// resolved for a set of translation items.
 #[derive(Default)]
 pub(crate) struct TranslationKnowledge {
     pub exact: BTreeMap<String, String>,
@@ -54,6 +56,8 @@ pub(crate) struct TranslationKnowledge {
     pub revision: String,
 }
 
+/// Inspects the localization context for a source text, gathering glossary
+/// matches, translation memory, official corpus results and style guidance.
 pub fn inspect_context(
     request: InspectLocalizationContextRequest,
 ) -> anyhow::Result<LocalizationContextInspection> {

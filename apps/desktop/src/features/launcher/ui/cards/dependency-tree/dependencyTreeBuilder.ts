@@ -1,3 +1,8 @@
+/**
+ * @file Dependency tree builder: recursively resolves local and remote
+ * dependency nodes with cycle detection, status classification, and preload
+ * expansion.
+ */
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '../../../model/types'
 import type { DependencyTreeNode, DependencyTreeNodeStatus } from '../launcherModDetailData'
 import { normalizeVersion } from '../launcherModDetailData'
@@ -20,6 +25,7 @@ import {
 import { collectExpandedDependencyNodeIds, collectLoadableDependencyModIds, countDependencyIssues } from './dependencyTreeSelectors'
 import type { DependencyTreeCopy, LauncherDetailMod, RemoteDependencyLoadState } from './dependencyTreeTypes'
 
+/** Input shape for {@link buildLauncherDependencyTree}. */
 export type BuildLauncherDependencyTreeInput = {
   mod: LauncherDetailMod | null
   remote: LauncherDiscoverDetail | null | undefined
@@ -29,6 +35,7 @@ export type BuildLauncherDependencyTreeInput = {
   rootImageUrl: string | null | undefined
 }
 
+/** Output model of the dependency tree builder: nodes, issue count, expanded ids, and loadable mod ids. */
 export type LauncherDependencyTreeModel = {
   items: DependencyTreeNode[]
   issueCount: number

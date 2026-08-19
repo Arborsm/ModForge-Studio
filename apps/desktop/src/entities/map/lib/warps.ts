@@ -1,3 +1,8 @@
+/**
+ * @file Warp entry parsing and grouping: reads `Warp` properties and per-cell
+ * action warps, then groups them by source location for the warp overlay UI.
+ */
+
 import type { MapDocument } from './types'
 import { asMapPropertyString, WARP_PROPERTY_KEY } from './properties'
 import { collectCellActions, parseCellWarpAction } from './cellActions'
@@ -60,8 +65,6 @@ export function parseWarpEntries(mapDocument: MapDocument) {
 export function isExteriorWarp(mapDocument: MapDocument, entry: WarpEntry) {
   return entry.sourceX < 0 || entry.sourceY < 0 || entry.sourceX >= mapDocument.width || entry.sourceY >= mapDocument.height
 }
-
-// ── Raw fixed-size group parsing (warp and door properties) ────────────────
 
 type GroupParseResult<T> = { groups: T[]; leftover: string[] }
 
@@ -132,8 +135,6 @@ export function serializeDoorGroups(groups: readonly DoorGroup[], leftover: read
     leftover,
   )
 }
-
-// ── Merged warp reading (property + per-cell carriers) ─────────────────────
 
 /**
  * One warp entry shown by the warp card, merged from the three carriers the

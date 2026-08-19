@@ -1,3 +1,5 @@
+//! MIME type inference for game image and audio assets by file extension.
+
 use std::path::Path;
 
 pub fn infer_image_mime(path: &Path) -> &'static str {

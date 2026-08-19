@@ -1,3 +1,5 @@
+//! CP Maker draft builder: imports a Content Patcher mod directory into a draft record.
+
 use super::types::{
     ChangeRegistry, ChangeRegistryPatch, CpMakerDependency, CpMakerDraftRecord, CpMakerI18nFile,
     CpMakerMetadata, CustomLocation, DynamicToken,
@@ -134,7 +136,7 @@ pub(super) fn validate_i18n_locale(locale: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ─── manifest.json ────────────────────────────────────────────────────
+// manifest.json
 
 fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, Value)> {
     let value = parse_json_str(manifest_json, "manifest.json")?;
@@ -234,7 +236,7 @@ fn parse_manifest_json(manifest_json: &str) -> anyhow::Result<(CpMakerMetadata, 
     ))
 }
 
-// ─── content.json ─────────────────────────────────────────────────────
+// content.json
 
 fn parse_content_json(
     content_json: &str,
@@ -275,7 +277,7 @@ fn parse_content_json(
     ))
 }
 
-// ─── Include resolution ───────────────────────────────────────────────
+// Include resolution
 
 /// Resolve Changes from a content object, recursively following Include actions.
 ///
@@ -399,7 +401,7 @@ fn extract_workspace_from_include_path(path: &str) -> String {
         .to_string()
 }
 
-// ─── Changes → Patches ────────────────────────────────────────────────
+// Changes to Patches
 
 fn changes_to_patches(changes: Vec<(String, Value)>) -> anyhow::Result<Vec<ChangeRegistryPatch>> {
     // Group EditData by (workspace, target)
@@ -829,7 +831,7 @@ fn standalone_change_to_patch(
     })
 }
 
-// ─── Root-level parsers ───────────────────────────────────────────────
+// Root-level parsers
 
 fn parse_dynamic_tokens(value: Option<&Value>) -> anyhow::Result<Vec<DynamicToken>> {
     let mut result = Vec::new();
@@ -899,7 +901,7 @@ fn parse_alias_token_names(value: Option<&Value>) -> anyhow::Result<BTreeMap<Str
     Ok(result)
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────
+// Tests
 
 #[cfg(test)]
 #[path = "../../tests/unit/domain/cp_maker/builder_tests.rs"]

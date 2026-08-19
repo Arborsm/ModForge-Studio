@@ -1,3 +1,7 @@
+/**
+ * @file Accumulates streaming AI translation deltas and extracts completed items from partial JSON.
+ * @module entities/ai
+ */
 import type { AiTranslationResultItem, AiTranslationStreamPayload } from '@shared/contracts'
 
 /** Streaming accumulation state for one translation job. */

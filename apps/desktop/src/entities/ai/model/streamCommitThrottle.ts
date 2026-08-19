@@ -1,4 +1,9 @@
 /**
+ * @file Trailing-edge throttle coalescing high-frequency translation stream deltas into bounded commits.
+ * @module entities/ai
+ */
+
+/**
  * Trailing-edge throttle that coalesces high-frequency translation stream
  * deltas (each content delta can complete several items) into a bounded number
  * of commits. At most one commit fires per `intervalMs` window, and a final
@@ -14,6 +19,7 @@ export type StreamCommitThrottle = {
   dispose: () => void
 }
 
+/** Creates a trailing-edge throttle wrapping the given commit callback. */
 export function createStreamCommitThrottle(commit: () => void, intervalMs = 80): StreamCommitThrottle {
   let timer: ReturnType<typeof setTimeout> | null = null
   let pending = false

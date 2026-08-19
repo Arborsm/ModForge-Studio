@@ -1,7 +1,11 @@
+/** @file Task runtime with ownership/cancellation semantics: latest, keyedLatest, exclusive/queued mutations, parallel pools, and React hooks. */
+
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
+/** String key identifying a task scope (e.g. a feature or component instance). */
 export type TaskScopeKey = string
 
+/** Ownership handle for one running task: carries the abort signal and current-generation check. */
 export interface TaskScope {
   readonly key: TaskScopeKey
   readonly signal: AbortSignal
@@ -9,6 +13,7 @@ export interface TaskScope {
   cancel(reason?: unknown): void
 }
 
+/** Scheduling strategies for async tasks (latest-wins, keyed-latest, exclusive/queued mutation, parallel pool, service gate). */
 export interface TaskRuntime {
   latest<T>(key: string, task: (scope: TaskScope) => Promise<T>): Promise<T>
   keyedLatest<T>(key: string, task: (scope: TaskScope) => Promise<T>): Promise<T>
@@ -18,6 +23,7 @@ export interface TaskRuntime {
   serviceGate<T>(key: string, task: (scope: TaskScope) => Promise<T>): Promise<T>
 }
 
+/** Error thrown when a task is cancelled or superseded by a newer generation. */
 export class TaskCancelledError extends Error {
   constructor(message = 'Task was cancelled.') {
     super(message)
@@ -58,6 +64,7 @@ function assertCurrent(scope: TaskScope) {
   }
 }
 
+/** Creates an isolated task runtime instance with its own task maps and queues. */
 export function createTaskRuntime(): TaskRuntime {
   const latestTasks = new Map<string, TaskRecord>()
   const mutationQueues = new Map<string, Promise<unknown>>()
@@ -165,8 +172,10 @@ export function createTaskRuntime(): TaskRuntime {
   }
 }
 
+/** Shared global task runtime for app-wide task scheduling. */
 export const globalTaskRuntime = createTaskRuntime()
 
+/** React hook that creates a per-component task scope with automatic cancellation on unmount. */
 export function useTaskScope(scopeKey: TaskScopeKey) {
   const runtime = useMemo(() => createTaskRuntime(), [])
   const activeScopeRef = useRef<TaskScope | null>(null)
@@ -199,6 +208,7 @@ export function useTaskScope(scopeKey: TaskScopeKey) {
   )
 }
 
+/** Hook returning a `latest` task runner bound to the component's task scope. */
 export function useLatestTask(scopeKey: string) {
   const taskScope = useTaskScope(scopeKey)
   return useCallback(
@@ -208,6 +218,7 @@ export function useLatestTask(scopeKey: string) {
   )
 }
 
+/** Hook returning a `keyedLatest` task runner bound to the component's task scope. */
 export function useKeyedResourceTask(scopeKey: string) {
   const taskScope = useTaskScope(scopeKey)
   return useCallback(
@@ -217,11 +228,13 @@ export function useKeyedResourceTask(scopeKey: string) {
   )
 }
 
+/** Hook returning an `exclusiveMutation` runner with its own isolated runtime. */
 export function useExclusiveMutationTask(resource: string) {
   const runtime = useMemo(() => createTaskRuntime(), [])
   return useCallback(<T>(task: (scope: TaskScope) => Promise<T>) => runtime.exclusiveMutation(resource, task), [resource, runtime])
 }
 
+/** Hook returning a `queuedMutation` runner with its own isolated runtime. */
 export function useQueuedMutationTask(queue: string) {
   const runtime = useMemo(() => createTaskRuntime(), [])
   return useCallback(<T>(task: (scope: TaskScope) => Promise<T>) => runtime.queuedMutation(queue, task), [queue, runtime])

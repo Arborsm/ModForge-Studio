@@ -1,3 +1,8 @@
+/**
+ * @file Map asset path resolution: translates tileset image references into
+ * loadable paths, handling vanilla game-sheet redirects and project-relative assets.
+ */
+
 import type { MapDocument, MapTileset } from './types'
 
 import { gameSheetImagePath, gameSheetKeyOfTileset } from './gameSheets'

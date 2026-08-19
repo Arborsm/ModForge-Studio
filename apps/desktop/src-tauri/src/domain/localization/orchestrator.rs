@@ -1,3 +1,5 @@
+//! Localization orchestration: coordinates AI translation, machine translation, review, and knowledge usage.
+
 use super::knowledge;
 use super::official;
 use super::operational_log::{

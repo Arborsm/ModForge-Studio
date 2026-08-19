@@ -1,3 +1,8 @@
+/**
+ * @file Builds the event patch hub read model: parses and validates every event
+ * script in a patch, aggregates stats, and produces the searchable patch list.
+ */
+
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup, splitEventPreconditions } from './parser'
 import { findDuplicateEventKeys, validateEventScript } from './eventValidation'
 import type { EventCommand, EventSceneActor } from './types'
@@ -107,6 +112,7 @@ function formatConditionValue(value: unknown): string {
   return JSON.stringify(value)
 }
 
+/** Formats a patch `When` condition map into a human-readable summary string. */
 export function summarizePatchWhen(when: EventPatchHubSourcePatch['when']): string {
   if (!when || Object.keys(when).length === 0) {
     return ''
@@ -318,6 +324,7 @@ function buildPatchSearchText(patch: EventPatchHubSourcePatch, events: EventPatc
     .toLowerCase()
 }
 
+/** Builds the full event patch hub read model from raw source patches, with cached per-script analysis. */
 export function buildEventPatchHubPatches(patches: EventPatchHubSourcePatch[]): EventPatchHubPatch[] {
   const duplicatesByPatch = findDuplicateEventKeys(
     patches.map((patch) => ({

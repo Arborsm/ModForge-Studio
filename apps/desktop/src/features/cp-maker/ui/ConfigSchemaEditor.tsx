@@ -1,3 +1,7 @@
+/**
+ * @file Editor for the pack's `ConfigSchema`: one collapsible row per config key.
+ * @module features/cp-maker
+ */
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'

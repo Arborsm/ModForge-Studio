@@ -1,3 +1,5 @@
+//! Host command bindings for the launcher domain (settings, library, downloads, installs, Nexus).
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::launcher::types::{

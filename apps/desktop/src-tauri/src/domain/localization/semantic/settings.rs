@@ -1,3 +1,5 @@
+//! Semantic search settings persistence: mode, execution preference, and remote profile management.
+
 use crate::domain::ai::validate_base_url;
 use crate::domain::app_paths::localization_semantic_settings_path;
 use crate::domain::localization::types::{

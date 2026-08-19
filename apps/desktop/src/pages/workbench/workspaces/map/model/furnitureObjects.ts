@@ -4,9 +4,10 @@ import { findTilesheetByKey, VANILLA_TILESHEET_TILE_SIZE } from '@entities/map'
 import type { MapCatalogObject, MapCatalogObjectFrameInfo, MapObjectCategory } from '@entities/map'
 
 /**
- * 从游戏实时数据派生"家具类对象目录"（不含 UI）：解析 `Data/Furniture`
- * 与 `Strings/Furniture` 的 JSON 文本，把每条家具换算成 tilesheet 上的
- * 矩形 stamp，产出可直接进 `registerMapObjects` 的对象目录条目。
+ * @file Derives the furniture object catalog from live game data (no UI):
+ * parses `Data/Furniture` and `Strings/Furniture` JSON text, converts each
+ * furniture entry into a tilesheet rectangle stamp, and produces catalog
+ * entries ready for `registerMapObjects`.
  */
 
 const SEATING_FURNITURE_TYPES = new Set(['chair', 'armchair', 'bench', 'stool', 'couch'])
@@ -18,9 +19,10 @@ const PLANT_FURNITURE_TYPES = new Set(['plant', 'randomized_plant'])
 const DECOR_FURNITURE_TYPES = new Set(['painting', 'decor', 'fishtank', 'fireplace'])
 
 /**
- * 把游戏家具类型名映射为 Furniture.getTypeNumberFromName 返回的数值 ID。
- * 这些 ID 决定了旋转时 sourceRect 的换算方式和昼夜/天气替代帧的行为。
- * "bed" 系列统一返回 15；未知类型返回 9（游戏 default case）。
+ * Maps game furniture type names to numeric IDs returned by
+ * `Furniture.getTypeNumberFromName`. These IDs determine sourceRect
+ * conversion during rotation and day/night/weather alternate frame behavior.
+ * "bed" variants all return 15; unknown types return 9 (game default case).
  */
 const FURNITURE_TYPE_ID_MAP: Record<string, number> = {
   chair: 0,
@@ -50,15 +52,15 @@ function furnitureTypeNameToId(typeName: string): number {
   return FURNITURE_TYPE_ID_MAP[normalized] ?? 9
 }
 
-/** 灯具（lamp=7/sconce=17/torch=16）和窗户（window=13）有昼夜/天气替代帧。 */
+/** Lighting (lamp=7/sconce=17/torch=16) and windows (window=13) have day/night/weather alternate frames. */
 function furnitureHasAlternateState(typeId: number): boolean {
   return typeId === 7 || typeId === 13 || typeId === 16 || typeId === 17
 }
 
 /**
- * 把游戏家具类型名（如 `chair`、`long table`）映射到对象目录分类；
- * 比较前做小写归一并容忍首尾空白，未知类型（含 `other`）一律落入
- * `'other'`。
+ * Maps game furniture type names (e.g. `chair`, `long table`) to catalog
+ * categories; comparison is case-insensitive with trimmed whitespace,
+ * unknown types (including `other`) fall back to `'other'`.
  */
 export function furnitureTypeToCategory(type: string): MapObjectCategory {
   const normalized = type.trim().toLowerCase()
@@ -74,10 +76,10 @@ export function furnitureTypeToCategory(type: string): MapObjectCategory {
   return 'other'
 }
 
-/** 匹配 `[LocalizedText Strings\Furniture:<key>]` 显示名 token。 */
+/** Matches `[LocalizedText Strings\\Furniture:<key>]` display name tokens. */
 const FURNITURE_DISPLAY_NAME_TOKEN = /^\[LocalizedText Strings\\Furniture:(.+)\]$/u
 
-/** 家具 internalName 的小写 slug：非 [a-z0-9] 序列折叠为 '-'，空结果回退 'item'。 */
+/** Lowercase slug from furniture internalName: non-[a-z0-9] sequences collapse to '-', empty result falls back to 'item'. */
 function furnitureObjectId(internalName: string): string {
   const slug = internalName
     .toLowerCase()
@@ -86,7 +88,7 @@ function furnitureObjectId(internalName: string): string {
   return `furniture:${slug || 'item'}`
 }
 
-/** 解析 Strings/* 表的 JSON 文本；缺失或畸形内容返回 null（names 回退 internalName）。 */
+/** Parses JSON text of Strings/* tables; returns null on missing or malformed content (names fall back to internalName). */
 function parseStringTable(content: string | null): Record<string, string> | null {
   if (!content) return null
   try {
@@ -102,8 +104,10 @@ function parseStringTable(content: string | null): Record<string, string> | null
 }
 
 /**
- * 解析一条家具的显示名：token 命中字符串表取对应 locale 名，任一表缺失
- * 或未命中时回退 internalName；非 token 显示名直接作为两个 locale 的名。
+ * Resolves a furniture entry's display name: when the token matches a string
+ * table key, the corresponding locale name is used; on missing table or key
+ * mismatch, falls back to internalName. Non-token display names are used
+ * directly as names for both locales.
  */
 function resolveFurnitureNames(
   rawDisplayName: string,
@@ -127,11 +131,13 @@ function resolveFurnitureNames(
 }
 
 /**
- * 从 `Data/Furniture` 与 `Strings/Furniture` 的 JSON 文本派生对象目录条目。
- * 每条家具以 `textureAssetName` 查 tilesheet 目录、按 `spriteIndex` 换算
- * tile 矩形；查不到目录、spriteIndex 无效（null/非有限/负数）或矩形越界
- * 的条目跳过（未知贴图会 console.warn）。字符串表缺失或畸形时显示名回退
- * internalName。纯函数，无缓存、无 I/O。
+ * Derives catalog entries from `Data/Furniture` and `Strings/Furniture` JSON
+ * text. Each furniture entry looks up its tilesheet by `textureAssetName` and
+ * converts `spriteIndex` to a tile rectangle; entries with no matching sheet,
+ * invalid spriteIndex (null/non-finite/negative), or out-of-bounds rectangles
+ * are skipped (unknown textures log a console.warn). On missing or malformed
+ * string tables, display names fall back to internalName. Pure function, no
+ * caching, no I/O.
  */
 export function deriveFurnitureObjects(
   furnitureContent: string,
@@ -149,7 +155,9 @@ export function deriveFurnitureObjects(
     if (!textureAssetName) continue
     const sheet = findTilesheetByKey(textureAssetName)
     if (!sheet) {
-      console.warn(`[furnitureObjects] 家具 "${entry.internalName}" 的贴图 "${textureAssetName}" 不在 tilesheet 目录中，已跳过`)
+      console.warn(
+        `[furnitureObjects] Furniture "${entry.internalName}" texture "${textureAssetName}" not found in tilesheet catalog, skipped`,
+      )
       continue
     }
 
@@ -186,11 +194,13 @@ export function deriveFurnitureObjects(
 }
 
 /**
- * 加载游戏目录中的家具数据并派生对象目录：并行读取
- * `Content/Data/Furniture.xnb` 与带 locale 的 `Content/Strings/Furniture.xnb`，
- * locale 非 en-US 时再读一份无 locale 的字符串表作英文名（en-US 时本地化
- * 表即英文表，不重复请求）。字符串表加载失败容忍（显示名回退
- * internalName），Data/Furniture 加载失败则向上抛出。
+ * Loads furniture data from the game directory and derives the object catalog:
+ * reads `Content/Data/Furniture.xnb` and locale-suffixed
+ * `Content/Strings/Furniture.xnb` in parallel; for non-en-US locales, also
+ * reads the unsuffixed string table for English names (en-US skips the
+ * duplicate request since the localized table is the English table). String
+ * table load failures are tolerated (display names fall back to
+ * internalName); Data/Furniture load failures propagate upward.
  */
 export async function loadGameFurnitureObjects(gameRootPath: string, locale: string): Promise<MapCatalogObject[]> {
   const furnitureAssetPath = `${gameRootPath}/Content/Data/Furniture.xnb`

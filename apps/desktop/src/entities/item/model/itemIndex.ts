@@ -1,3 +1,8 @@
+/**
+ * @file Item index builders: parses raw game data assets into the unified
+ * `ItemWorkspaceEntry` read model, with entry indices per item kind and relation hydration.
+ */
+
 import { getQualifiedItemId, normalizeQualifiedItemId } from './itemIdentity'
 import { getDefaultItemSpriteMetrics } from './itemSpriteMetrics'
 import type {

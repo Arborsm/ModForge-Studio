@@ -1,3 +1,5 @@
+//! Localization scope lifecycle — create, resolve, bind, configure and list profiles.
+
 use super::schema::{GLOBAL_SCOPE_ID, bump, normalized_binding, now, open, text_hash};
 use crate::domain::ai::types::KnowledgePolicy;
 use crate::domain::localization::types::*;
@@ -49,6 +51,8 @@ fn attach_bindings(db: &Connection, scopes: &mut [AiLocalizationScope]) -> anyho
     Ok(())
 }
 
+/// Resolves or creates a localization scope from a binding, returning the
+/// current snapshot.
 pub fn resolve_scope(
     request: ResolveLocalizationScopeRequest,
 ) -> anyhow::Result<AiLocalizationScopeSnapshot> {
@@ -87,6 +91,8 @@ pub fn resolve_scope(
     load_scope(LoadLocalizationScopeRequest { scope_id })
 }
 
+/// Initializes a localization plan, optionally importing existing translations
+/// into the scope's translation memory.
 pub fn initialize_plan(
     request: InitializeLocalizationPlanRequest,
 ) -> anyhow::Result<InitializeLocalizationPlanResult> {
@@ -191,6 +197,7 @@ pub fn initialize_plan(
     })
 }
 
+/// Creates a new localization profile scope with the given name.
 pub fn create_profile(name: String) -> anyhow::Result<AiLocalizationScopeSnapshot> {
     let name = name.trim().to_string();
     if name.is_empty() {
@@ -209,6 +216,7 @@ pub fn create_profile(name: String) -> anyhow::Result<AiLocalizationScopeSnapsho
     load_scope(LoadLocalizationScopeRequest { scope_id })
 }
 
+/// Renames a localization profile scope.
 pub fn rename_profile(
     scope_id: String,
     name: String,
@@ -238,6 +246,7 @@ pub fn rename_profile(
     load_scope(LoadLocalizationScopeRequest { scope_id })
 }
 
+/// Deletes a localization profile scope; the global scope cannot be deleted.
 pub fn delete_profile(scope_id: String) -> anyhow::Result<()> {
     let mut db = open()?;
     let tx = db.transaction()?;
@@ -256,6 +265,7 @@ pub fn delete_profile(scope_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Associates a binding with a profile scope, transferring ownership if needed.
 pub fn set_profile_binding(
     scope_id: String,
     binding_kind: String,
@@ -299,6 +309,7 @@ pub fn set_profile_binding(
     load_scope(LoadLocalizationScopeRequest { scope_id })
 }
 
+/// Removes a binding from whichever scope currently owns it.
 pub fn remove_profile_binding(binding_kind: String, binding_value: String) -> anyhow::Result<()> {
     let (binding_kind, binding_value) = normalized_binding(&binding_kind, &binding_value)?;
     let mut db = open()?;
@@ -321,6 +332,7 @@ pub fn remove_profile_binding(binding_kind: String, binding_value: String) -> an
     Ok(())
 }
 
+/// Lists localization scopes with optional name/binding query and pagination.
 pub fn list_scopes(
     request: ListLocalizationScopesRequest,
 ) -> anyhow::Result<AiLocalizationScopePage> {
@@ -341,6 +353,7 @@ pub fn list_scopes(
     Ok(AiLocalizationScopePage { records, total })
 }
 
+/// Loads a single localization scope with its bindings and settings.
 pub fn load_scope(
     request: LoadLocalizationScopeRequest,
 ) -> anyhow::Result<AiLocalizationScopeSnapshot> {
@@ -351,6 +364,7 @@ pub fn load_scope(
     Ok(AiLocalizationScopeSnapshot { scope, settings })
 }
 
+/// Persists scope settings and returns the updated snapshot.
 pub fn save_scope_settings(
     request: SaveLocalizationScopeSettingsRequest,
 ) -> anyhow::Result<AiLocalizationScopeSnapshot> {

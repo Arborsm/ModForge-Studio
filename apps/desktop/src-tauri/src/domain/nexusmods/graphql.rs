@@ -1,3 +1,6 @@
+//! Nexus Mods GraphQL shared helpers: headers, user-avatar query, and the
+//! endpoint constant used by catalog/mod-detail/update operations.
+
 pub mod catalog;
 pub mod mod_detail;
 pub mod updates;

@@ -1,5 +1,5 @@
 /**
- * Shared `[LocalizedText Strings\X:key]` resolver.
+ * @file Shared `[LocalizedText Strings\X:key]` resolver.
  *
  * The game writes localizable strings as references into data assets; every
  * authoring and browsing surface needs the *readable* text. This module is the

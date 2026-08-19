@@ -1,3 +1,7 @@
+/**
+ * @file Launcher desktop host command client: typed wrappers, caching, and
+ * update-check session bookkeeping for every launcher backend command.
+ */
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'

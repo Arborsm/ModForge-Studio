@@ -1,3 +1,8 @@
+/**
+ * @file Generic atlas sprite renderer: draws a sub-rect from a texture atlas
+ * with optional tint mask layer, independent of item workspace models.
+ */
+
 import type { CSSProperties, ReactNode } from 'react'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 

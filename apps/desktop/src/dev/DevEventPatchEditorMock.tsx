@@ -1,3 +1,8 @@
+/**
+ * @file Dev-only mock for the event patch editor, wiring a fixture draft to
+ * the real EventPatchEditor with a dev asset bridge.
+ * @module dev
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { createAssetDraftPort, type CpMakerDraft, type DraftPatch, type EditorResources } from '@features/cp-maker'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
@@ -67,6 +72,7 @@ function createDraft(patch: DraftPatch): CpMakerDraft {
   }
 }
 
+/** Dev scenario rendering the event patch editor against a mock draft. */
 export function DevEventPatchEditorMock() {
   const [gameRootPath, setGameRootPath] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search)

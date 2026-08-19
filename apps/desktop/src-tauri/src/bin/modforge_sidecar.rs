@@ -1,3 +1,5 @@
+//! Sidecar binary entry point: runs the stdio transport for the Electron host.
+
 fn main() {
     if let Err(error) = modforge_studio_desktop_lib::sidecar::run_stdio() {
         modforge_studio_desktop_lib::logging::write_sidecar_fallback_log(

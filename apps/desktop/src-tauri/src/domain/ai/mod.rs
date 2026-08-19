@@ -1,3 +1,5 @@
+//! AI domain: provider profiles, settings, translation orchestration and caching.
+
 mod cache;
 pub(crate) mod commands;
 mod exchange;

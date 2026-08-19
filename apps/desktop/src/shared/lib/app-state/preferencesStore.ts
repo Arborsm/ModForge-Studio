@@ -1,3 +1,5 @@
+/** @file Global preferences store (theme, locale, window chrome, loading motion, palette) backed by app UI state persistence. */
+
 import { create } from 'zustand'
 import type { AppUiState, ThemeId, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionPreference } from '@shared/lib/loading-motion'
@@ -22,6 +24,7 @@ type PreferencesStateValues = {
   rememberCloseChoice: boolean
 }
 
+/** Public preferences state shape: reactive values plus setter actions consumed by UI components. */
 export type PreferencesState = PreferencesStateValues & {
   mapEditorPalette: MapEditorPalettePreferences
   setMapEditorPalette: (patch: Partial<MapEditorPalettePreferences>) => void
@@ -157,6 +160,7 @@ function persistMapEditorPalettePreferences(preferences: MapEditorPalettePrefere
 
 const initialPreferencesState = readPreferencesFromAppUiState(getAppUiStateSnapshot())
 
+/** Zustand store that mirrors persisted preferences and syncs DOM theme/locale attributes. */
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   ...initialPreferencesState,
   mapEditorPalette: readMapEditorPalettePreferences(),

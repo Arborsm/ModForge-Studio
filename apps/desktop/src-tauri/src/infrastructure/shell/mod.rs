@@ -1,3 +1,5 @@
+//! Shell infrastructure: cross-platform directory and URL opening via platform-native file managers.
+
 use anyhow::bail;
 use std::path::Path;
 

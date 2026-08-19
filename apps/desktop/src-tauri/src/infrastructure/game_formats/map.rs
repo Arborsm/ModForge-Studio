@@ -1,3 +1,5 @@
+//! Shared map data model: tile layers, properties, and TMX gid flag constants.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

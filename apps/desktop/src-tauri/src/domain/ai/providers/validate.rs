@@ -1,3 +1,5 @@
+//! Request validation and response parsing: placeholder sentinels, language detection and result reassembly.
+
 use super::super::types::{
     AiProtocol, AiTranslateBatchRequest, AiTranslationItem, AiTranslationResultItem,
 };

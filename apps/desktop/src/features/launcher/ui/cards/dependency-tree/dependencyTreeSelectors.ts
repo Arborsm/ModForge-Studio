@@ -1,3 +1,7 @@
+/**
+ * @file Dependency tree selectors: collect loadable mod ids, expanded node ids,
+ * and issue counts from a built dependency tree.
+ */
 import type { DependencyTreeNode } from '../launcherModDetailData'
 
 /** Collects every loadable remote mod id so the Dependencies tab can preload the full tree by design. */

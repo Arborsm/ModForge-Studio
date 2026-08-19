@@ -1,8 +1,12 @@
+//! Placeholder token protection for machine translation request/response cycles.
+
 use crate::domain::ai::types::AiTranslationFormat;
 use anyhow::{Context, bail};
 use regex::Regex;
 use std::sync::OnceLock;
 
+/// Holds text with localization tokens replaced by opaque markers and the
+/// original token list for later restoration.
 #[derive(Debug)]
 pub struct ProtectedText {
     text: String,
@@ -18,6 +22,7 @@ fn marker(index: usize) -> String {
     format!("__MF_TOKEN_{index:04}__")
 }
 
+/// Replaces localization tokens in `text` with opaque markers.
 pub fn protect(text: &str, _format: AiTranslationFormat) -> ProtectedText {
     let mut tokens = Vec::new();
     let replaced = token_pattern().replace_all(text, |captures: &regex::Captures<'_>| {
@@ -32,10 +37,13 @@ pub fn protect(text: &str, _format: AiTranslationFormat) -> ProtectedText {
 }
 
 impl ProtectedText {
+    /// Returns the marker-substituted text to send to the provider.
     pub fn request_text(&self) -> &str {
         &self.text
     }
 
+    /// Restores original tokens into the translated text, validating marker
+    /// integrity.
     pub fn restore(&self, translated: &str) -> anyhow::Result<String> {
         let mut output = translated.to_string();
         for (index, token) in self.tokens.iter().enumerate() {

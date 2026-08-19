@@ -1,5 +1,11 @@
+/**
+ * @file Pure layout calculations for guide step cards: positions a card
+ * relative to an anchor rect and auto-flips placement when space is tight.
+ * @module features/guide
+ */
 import type { GuideStepPlacement } from '@shared/contracts'
 
+/** Viewport-relative bounds of the element a guide card points at. */
 export type GuideAnchorRect = {
   top: number
   left: number
@@ -7,6 +13,7 @@ export type GuideAnchorRect = {
   height: number
 }
 
+/** Measured dimensions of a rendered guide card. */
 export type GuideCardSize = {
   width: number
   height: number
@@ -20,6 +27,7 @@ export type GuideCardArrow = {
   offset: number
 }
 
+/** Computed on-screen position and arrow for a guide card. */
 export type GuideCardLayout = {
   top: number
   left: number
@@ -29,6 +37,7 @@ export type GuideCardLayout = {
   arrow: GuideCardArrow | null
 }
 
+/** Inputs required to resolve a guide card layout. */
 export type GuideCardLayoutInput = {
   /** Viewport-relative anchor bounds; null renders a centered card. */
   anchorRect: GuideAnchorRect | null

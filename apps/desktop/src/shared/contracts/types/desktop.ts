@@ -1,3 +1,4 @@
+/** Detected game directory info — root path, executable, maps path, and map count. */
 export type GameDirectoryInfo = {
   rootPath: string
   executablePath: string
@@ -5,6 +6,7 @@ export type GameDirectoryInfo = {
   mapCount: number
 }
 
+/** Summary of one map asset discovered in the game directory. */
 export type MapAssetSummary = {
   id: string
   name: string
@@ -15,6 +17,7 @@ export type MapAssetSummary = {
   sizeBytes: number
 }
 
+/** Summary of one event asset discovered in the game directory. */
 export type EventAssetSummary = {
   id: string
   name: string
@@ -24,9 +27,12 @@ export type EventAssetSummary = {
   sizeBytes: number
 }
 
+/** Kind of plugin detected for a mod project — Content Patcher or unknown. */
 export type PluginKind = 'content-patcher' | 'unknown'
+/** Severity level for a mod project diagnostic. */
 export type PluginDiagnosticSeverity = 'info' | 'warning' | 'error'
 
+/** Summary of one installed mod project — id, name, author, version, paths, plugin kind, and status. */
 export type ModProjectSummary = {
   id: string
   name: string
@@ -44,12 +50,14 @@ export type ModProjectSummary = {
   missingRequiredDependencies: string[]
 }
 
+/** One diagnostic for a mod project (severity, message, and optional field path). */
 export type ModProjectDiagnostic = {
   severity: PluginDiagnosticSeverity
   message: string
   field: string | null
 }
 
+/** Summary of one Content Patcher patch (action, target, from-file, log name, when keys, update keys). */
 export type ContentPatcherPatchSummary = {
   id: string
   index: number
@@ -62,6 +70,7 @@ export type ContentPatcherPatchSummary = {
   updateKeys: string[]
 }
 
+/** Parsed Content Patcher project data — manifest, content JSON, format, patch/include/token counts, i18n files. */
 export type ContentPatcherProjectData = {
   manifestPath: string
   contentPath: string
@@ -77,6 +86,7 @@ export type ContentPatcherProjectData = {
   patches: ContentPatcherPatchSummary[]
 }
 
+/** One i18n file in a Content Patcher project — locale, path, raw JSON, and entry count. */
 export type ContentPatcherI18nFile = {
   locale: string
   path: string
@@ -85,6 +95,7 @@ export type ContentPatcherI18nFile = {
   entryCount: number
 }
 
+/** Full detail of one mod project — summary, diagnostics, Content Patcher data, and i18n files. */
 export type ModProjectDetail = {
   pluginKind: PluginKind
   summary: ModProjectSummary
@@ -93,6 +104,7 @@ export type ModProjectDetail = {
   i18nFiles: ContentPatcherI18nFile[]
 }
 
+/** Lightweight summary of a Content Patcher project — name, unique id, paths. */
 export type ContentPatcherProjectSummary = {
   name: string | null
   uniqueId: string | null
@@ -102,17 +114,20 @@ export type ContentPatcherProjectSummary = {
   contentPath: string | null
 }
 
+/** One source file in a Content Patcher project (path, absolute path, raw JSON). */
 export type ContentPatcherSourceFile = {
   path: string
   absolutePath: string
   rawJson: string
 }
 
+/** One edge in the Content Patcher include tree (source path → included path). */
 export type ContentPatcherIncludeEdge = {
   sourcePath: string
   includedPath: string
 }
 
+/** Full snapshot of a Content Patcher project — summary, source files, include tree, and diagnostics. */
 export type ContentPatcherProjectSnapshot = {
   summary: ContentPatcherProjectSummary
   sources: ContentPatcherSourceFile[]
@@ -124,6 +139,7 @@ type ContentPatcherAssetKind = 'json' | 'image' | 'map' | (string & {})
 type ContentPatcherResultState = 'determinate' | 'indeterminate' | 'error' | (string & {})
 type ContentPatcherTraceStatus = 'applied' | 'skipped' | 'indeterminate' | 'error' | (string & {})
 
+/** Summary of one Content Patcher target asset — path, kind, touched patch count, and result state. */
 export type ContentPatcherTargetSummary = {
   path: string
   assetKind: ContentPatcherAssetKind
@@ -132,6 +148,7 @@ export type ContentPatcherTargetSummary = {
   patchIds: string[]
 }
 
+/** One trace entry showing how a patch was applied to a target asset. */
 export type ContentPatcherTraceEntry = {
   patchId: string
   logName: string
@@ -143,6 +160,7 @@ export type ContentPatcherTraceEntry = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+/** Resolved payload for a Content Patcher result asset — JSON, image data URLs, or map debug data. */
 export type ContentPatcherResultAssetPayload = {
   kind: ContentPatcherAssetKind
   json: unknown
@@ -152,6 +170,7 @@ export type ContentPatcherResultAssetPayload = {
   mapDebug: Record<string, unknown> | null
 }
 
+/** Result of loading a Content Patcher result asset — target, trace, payload, diagnostics, and exportability. */
 export type LoadContentPatcherResultAssetResult = {
   target: ContentPatcherTargetSummary
   trace: ContentPatcherTraceEntry[]
@@ -160,8 +179,10 @@ export type LoadContentPatcherResultAssetResult = {
   exportable: boolean
 }
 
+/** Status of one Nexus Mods API route in the launcher diagnostics view. */
 export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
 
+/** Snapshot of one Nexus Mods API route — endpoint, status, attempts, latency, and message. */
 export type LauncherNexusRouteSnapshot = {
   routeId: string
   label: string
@@ -174,6 +195,7 @@ export type LauncherNexusRouteSnapshot = {
   message: string
 }
 
+/** Result of running Nexus Mods API route diagnostics in the launcher. */
 export type LauncherNexusDiagnosticsResult = {
   routes: LauncherNexusRouteSnapshot[]
 }

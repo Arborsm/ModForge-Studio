@@ -56,8 +56,9 @@ describe('workbench streaming commit', () => {
   })
 
   it('reassembles oversized chunk ids back to the entry key', () => {
-    // 略高于单条目上限（32 KB）即可强制拆出多个 chunk；保持文本足够小，
-    // 避免 splitOversizedText 的逐字符字节预算校验退化为秒级用例。
+    // Just above the single-entry limit (32 KB) to force splitting into multiple
+    // chunks; keep the text small enough to avoid degrading splitOversizedText's
+    // per-character byte budget check into a seconds-level test case.
     const longText = '汉'.repeat(12 * 1024)
     const plan = buildAiTranslationBatches(
       { targetLocale: 'zh-CN' },
@@ -87,9 +88,11 @@ describe('workbench streaming commit', () => {
       { id: 'no-tokens', text: 'Plain greeting' },
     ])
     const content = JSON.stringify([
-      // 源有占位符但 provider 直接写了最终占位符（未走 sentinel 线）。
+      // Source has placeholders but the provider wrote the final placeholder
+      // directly (without going through the sentinel path).
       plainItem('with-tokens', '你好，朋友'),
-      // 源无占位符，映射里根本没有该 item，必须原样直通。
+      // Source has no placeholders; the map has no entry for this item, so it
+      // must pass through verbatim.
       plainItem('no-tokens', '普通问候'),
     ])
     const commit = resolveWorkbenchStreamCommit(content, 0, identityOriginalId, passthroughMerge, sentinelMap)
@@ -104,15 +107,17 @@ describe('workbench streaming commit', () => {
     ])
     const content = JSON.stringify([plainItem('a', '嗨 ⟦0⟧'), plainItem('b', '支付 ⟦0⟧ 金币')])
     const commit = resolveWorkbenchStreamCommit(content, 0, identityOriginalId, passthroughMerge, sentinelMap)
-    // 两个 item 的 ⟦0⟧ 各自还原成自己的第一个占位符，互不串位。
+    // The ⟦0⟧ of each item is restored to its own first placeholder, with no
+    // cross-contamination between items.
     expect(commit.preview?.get('a')).toBe('嗨 {{name}}')
     expect(commit.preview?.get('b')).toBe('支付 %s 金币')
   })
 
   it('restores sentinels on suffixed wire ids before reassembly', { timeout: 15_000 }, () => {
-    // 镜像 hook 的真实路径：映射按发送的 wire item 构建（超长条目按
-    // \u0000N chunk id 发送），还原发生在 mergeResults 重新拼装之前，
-    // 每个 chunk 用自己那份 token 还原后再拼接回完整条目。
+    // Mirrors the hook's real path: the map is built per sent wire item (oversized
+    // entries are sent with \u0000N chunk ids), and restoration happens before
+    // mergeResults reassembles; each chunk is restored with its own tokens before
+    // being concatenated back into the full entry.
     const longText = '你好，{{name}}，余额 {0} 金币。'.repeat(1000)
     const plan = buildAiTranslationBatches(
       { targetLocale: 'zh-CN' },
@@ -123,8 +128,9 @@ describe('workbench streaming commit', () => {
     expect(chunkItems.length).toBeGreaterThan(1)
     const sentinelMap = buildPlaceholderSentinelMap(chunkItems)
     expect(sentinelMap.size).toBe(chunkItems.length)
-    // splitOversizedText 只按句子边界（。 分隔）切分，每个 chunk 都以完整
-    // 模式开头，所以每个 chunk 的第一个 token 都是 {{name}}。
+    // splitOversizedText only splits at sentence boundaries (。 separator), so each
+    // chunk starts with a complete pattern, meaning the first token of every chunk
+    // is {{name}}.
     const content = JSON.stringify(chunkItems.map((item, index) => plainItem(item.id, `译${index} ⟦0⟧`)))
     const stripChunkSuffix = (id: string) => id.split('\u0000', 1)[0] ?? id
     const commit = resolveWorkbenchStreamCommit(content, 0, stripChunkSuffix, plan.mergeResults, sentinelMap)

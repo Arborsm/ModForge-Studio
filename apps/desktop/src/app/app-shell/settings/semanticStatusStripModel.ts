@@ -1,3 +1,6 @@
+/**
+ * @file Display state model for the semantic status strip: composes overall state from per-field states of three independent queries.
+ */
 import type { AiSemanticIndexStatus, AiSemanticModelStatus, AiSemanticSearchMode, AiSemanticSettingsSnapshot } from '@shared/contracts'
 
 /**
@@ -7,6 +10,7 @@ import type { AiSemanticIndexStatus, AiSemanticModelStatus, AiSemanticSearchMode
  */
 export type SemanticStripItemState<T> = { status: 'pending' } | { status: 'ok'; value: T } | { status: 'error'; timedOut: boolean }
 
+/** Overall display state of the semantic status strip: loading, load-error, or ready (with mode/model/index details). */
 export type SemanticStripState =
   | { kind: 'loading' }
   | { kind: 'load-error'; timedOut: boolean }

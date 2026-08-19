@@ -1,3 +1,8 @@
+/**
+ * @file Cell overlay view derivation: computes the per-cell display rules
+ * (passable, water, NPC barrier, etc.) for the viewport's overlay rendering.
+ */
+
 import type { MapDocument, MapLayer } from './mapTypes'
 import { cellOverlayRule, deriveCellOverlayCells, type CellOverlayRule } from './cellProperties'
 import { stripTileGidFlags } from './tileFlags'

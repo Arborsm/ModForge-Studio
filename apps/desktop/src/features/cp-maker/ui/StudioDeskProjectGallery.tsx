@@ -1,3 +1,8 @@
+/**
+ * @file Studio Desk project gallery with list/cards variants, search, context
+ * menu, and delete confirmation.
+ * @module features/cp-maker
+ */
 import { useState, type ReactNode } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowRight, Check, FolderOpen, Search } from 'lucide-react'
@@ -38,6 +43,7 @@ function getProjectInitials(project: StudioDeskGalleryProject) {
     .toUpperCase()
 }
 
+/** Project gallery with search, list/cards variants, and delete confirmation. */
 export function StudioDeskProjectGallery({
   model,
   className,

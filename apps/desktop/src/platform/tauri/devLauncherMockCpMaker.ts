@@ -1,3 +1,8 @@
+/**
+ * @file Browser-only CP Maker mock handler — drafts, project assets, map/audio/image scans and event fixtures for dev UI verification.
+ * @module platform/tauri/devLauncherMockCpMaker
+ */
+
 import { readMockSessionState, writeMockSessionState } from './devLauncherMockSessionState'
 
 type MockCommandResult = { handled: true; result: unknown } | { handled: false }

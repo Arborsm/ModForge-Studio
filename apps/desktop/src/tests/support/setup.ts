@@ -1,3 +1,6 @@
+/**
+ * @file Vitest global setup: switches to the desktop test root directory and polyfills browser APIs missing from jsdom.
+ */
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import '@testing-library/jest-dom/vitest'

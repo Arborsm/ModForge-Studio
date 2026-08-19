@@ -1,3 +1,6 @@
+/**
+ * @file Launcher port adapter: bridges the launcher API and platform host commands into a LauncherPort.
+ */
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import {
   startNexusSso,
@@ -59,6 +62,7 @@ import { detectDefaultGameDirectory, loadResourceRegistry } from '@entities/game
 import { reportAppEvent } from '@platform/observability'
 import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@platform/host'
 
+/** Creates a launcher port adapter that composes the launcher API and platform host commands into a LauncherPort instance. */
 export function createLauncherPortAdapter(): LauncherPort {
   return {
     loadSettings: () => loadLauncherSettings(),

@@ -3,6 +3,7 @@ import type { ThemePreset } from '@shared/lib/theme/presets'
 export type { ResourcePreloadState, WorkspaceStatus, WorldAtlasView, WorldAtlasViewId } from '@entities/map'
 export type { ThemePreset }
 
+/** Map workspace tab state. */
 export type MapWorkspaceTab = {
   id: string
   assetId: string

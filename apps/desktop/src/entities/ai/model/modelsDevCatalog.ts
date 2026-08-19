@@ -1,3 +1,7 @@
+/**
+ * @file Searches and resolves models.dev catalog entries for AI profile model selection.
+ * @module entities/ai
+ */
 import type { ModelsDevCatalog, ModelsDevModelEntry, ModelsDevProviderEntry } from '@shared/contracts'
 
 export type ModelsDevSearchEntry = {

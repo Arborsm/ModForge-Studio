@@ -1,3 +1,7 @@
+/**
+ * @file Parent/child mod assignment logic: normalization, lookups, and
+ * expand/assign/remove operations enforcing single child ownership.
+ */
 import type { LauncherLibraryChildModGroup, LauncherLibraryModSummary } from './launcherContracts'
 import { getModKey, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
 
@@ -41,6 +45,7 @@ export function normalizeChildModGroups(groups: LauncherLibraryChildModGroup[] |
   return normalizedGroups
 }
 
+/** Builds a parent-key -> group lookup from persisted child mod assignments. */
 export function buildChildModLookup(groups: LauncherLibraryChildModGroup[]) {
   const lookup = new Map<string, LauncherLibraryChildModGroup>()
   for (const group of normalizeChildModGroups(groups)) {
@@ -49,6 +54,7 @@ export function buildChildModLookup(groups: LauncherLibraryChildModGroup[]) {
   return lookup
 }
 
+/** Builds a child-key -> parent-key lookup from persisted child mod assignments. */
 export function buildParentModLookup(groups: LauncherLibraryChildModGroup[]) {
   const lookup = new Map<string, string>()
   for (const group of normalizeChildModGroups(groups)) {
@@ -59,6 +65,7 @@ export function buildParentModLookup(groups: LauncherLibraryChildModGroup[]) {
   return lookup
 }
 
+/** Expands a mod key list to include each parent's child mod keys, deduplicated. */
 export function expandModKeysWithChildren(modKeys: string[], groups: LauncherLibraryChildModGroup[]) {
   const childLookup = buildChildModLookup(groups)
   const expanded: string[] = []
@@ -84,6 +91,7 @@ export function expandModKeysWithChildren(modKeys: string[], groups: LauncherLib
   return expanded
 }
 
+/** Expands a mod id list to include child mods, resolving ids back to library summaries. */
 export function expandModIdsWithChildren(modIds: string[], mods: LauncherLibraryModSummary[], groups: LauncherLibraryChildModGroup[]) {
   const modById = new Map(mods.map((mod) => [mod.id, mod]))
   const keyToMod = new Map(mods.map((mod) => [normalizeLookupKey(getModKey(mod)), mod]))
@@ -97,6 +105,10 @@ export function expandModIdsWithChildren(modIds: string[], mods: LauncherLibrary
   return expandedKeys.map((key) => keyToMod.get(normalizeLookupKey(key))).filter((item): item is LauncherLibraryModSummary => Boolean(item))
 }
 
+/**
+ * Assigns child mods to a parent, flattening nested children and removing them
+ * from any previous parent (single ownership).
+ */
 export function assignChildModsToParent(
   groups: LauncherLibraryChildModGroup[],
   parentModKey: string,
@@ -157,6 +169,7 @@ export function assignChildModsToParent(
   return normalizeChildModGroups([...cleanedGroups, { parentModKey: parentKey, childModKeys: mergedChildKeys }])
 }
 
+/** Removes the given child mod keys from all groups and drops now-empty groups. */
 export function removeChildModsFromGroups(groups: LauncherLibraryChildModGroup[], childModKeys: string[]) {
   const childLookup = new Set(childModKeys.map((key) => normalizeLookupKey(normalizeModKey(key))).filter(Boolean))
   if (!childLookup.size) {
@@ -173,6 +186,7 @@ export function removeChildModsFromGroups(groups: LauncherLibraryChildModGroup[]
   )
 }
 
+/** Replaces all children of one parent with a fresh key list (remove then assign). */
 export function replaceChildModsForParent(groups: LauncherLibraryChildModGroup[], parentModKey: string, childModKeys: string[]) {
   const parentKey = normalizeModKey(parentModKey)
   if (!parentKey) {

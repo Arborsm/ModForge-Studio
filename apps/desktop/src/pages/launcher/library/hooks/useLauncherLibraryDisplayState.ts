@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library display state hook: derives the sorted list, lookup maps, and display labels from library state.
+ */
 import { useCallback, useMemo } from 'react'
 import type { LauncherCopy } from '@locales/model'
 import { LAUNCHER_ARCHIVE_FILE_SUFFIXES } from '@platform/host'

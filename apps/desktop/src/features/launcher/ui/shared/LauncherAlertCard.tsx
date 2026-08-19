@@ -1,3 +1,7 @@
+/**
+ * @file Reusable launcher alert card with tone-based icon, chips, and optional
+ * action slot.
+ */
 import type { ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Info, OctagonAlert } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

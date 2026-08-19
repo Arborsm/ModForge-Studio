@@ -1,5 +1,6 @@
 /**
- * Single vanilla-asset load path for both building pages.
+ * @file Single vanilla-asset load path for both building pages.
+ * @module entities/building
  *
  * Reads `Data/Buildings` once per (game root, locale), resolves the
  * `[LocalizedText …]` references its names and descriptions carry, hydrates the
@@ -25,7 +26,7 @@ import {
   parseQualifiedObjectId,
 } from '../model/buildingIndex'
 
-// ── Localized string tables ───────────────────────────────────────────────
+// Localized string tables
 
 const buildingEntriesCache = new Map<string, Promise<BuildingWorkspaceEntry[]>>()
 
@@ -88,7 +89,7 @@ export async function localizeBuildingEntries(
   return localizedEntries.sort((left, right) => left.displayName.localeCompare(right.displayName))
 }
 
-// ── Object display index ──────────────────────────────────────────────────
+// Object display index
 
 type ObjectDataEntry = {
   DisplayName?: string | null
@@ -183,7 +184,7 @@ export function hydrateBuildingMaterials(
   }))
 }
 
-// ── Texture sheets ────────────────────────────────────────────────────────
+// Texture sheets
 
 const EMPTY_TEXTURE_STATE: BuildingTextureAssetState = {
   path: null,
@@ -252,7 +253,7 @@ export async function loadChainTextureStates(
   return Object.fromEntries(textureEntries)
 }
 
-// ── Vanilla index ─────────────────────────────────────────────────────────
+// Vanilla index
 
 async function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string, loader: () => Promise<T>) {
   const cached = cache.get(key)

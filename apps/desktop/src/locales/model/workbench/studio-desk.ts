@@ -882,6 +882,12 @@ export type StudioDeskCopy = {
     preconditionWeatherName: (weather: string) => string
     preconditionDayName: (day: string) => string
     preconditionGenderName: (gender: string) => string
+    /** Formats a single friendship pair as a localized "X friendship at least Y" label. */
+    friendshipAtLeast: (name: string, points: string) => string
+    /** Formats a single shipped-item pair as a localized "X shipped at least Y" label. */
+    shippedAtLeast: (item: string, count: string) => string
+    /** Compact heart unit symbol used in friendship chip labels (e.g. "心" / "h"). */
+    heartUnit: string
     preconditions: {
       gameStateQuery: (query: string) => string
       activeDialogueEvent: (id: string) => string

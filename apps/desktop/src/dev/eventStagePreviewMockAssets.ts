@@ -1,4 +1,9 @@
-﻿import {
+﻿/**
+ * @file Dev asset loader for event stage preview: falls back from the dev
+ * bridge to the real game API, then to generated placeholder assets.
+ * @module dev
+ */
+import {
   loadImageDataUrlFromDevBridge,
   loadMapAssetFromDevBridge,
   validateGameDirectoryFromDevBridge,
@@ -8,6 +13,7 @@ import type { GameDirectoryInfo } from '@entities/game/api'
 import type { MapDocument } from '@entities/map'
 import type { EventStagePreviewAssetLoader } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview'
 
+/** Creates a dev asset loader that chains dev bridge → real API → generated fallbacks. */
 export function createEventStagePreviewDevAssetLoader(): EventStagePreviewAssetLoader {
   return {
     loadMapAsset: async (gameRootPath, mapPath, locale) =>

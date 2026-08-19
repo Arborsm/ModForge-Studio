@@ -1,3 +1,7 @@
+/**
+ * @file Non-blocking dialogue script validation surfacing authoring warnings.
+ * @module entities/dialogue
+ */
 import { parseDialogueScript } from './script'
 
 export type DialogueScriptWarningCode =

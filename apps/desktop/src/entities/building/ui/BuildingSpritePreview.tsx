@@ -1,5 +1,6 @@
 /**
- * The building body sprite, auto-fitted to whatever box it is given.
+ * @file Building body sprite preview, auto-fitted to its container with optional overlay.
+ * @module entities/building
  *
  * Shared by the codex preview and the authoring preview so a building is
  * assembled exactly once: resolve the source rect, scale it to the measured

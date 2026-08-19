@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library page content component: composes the grid, sidebar, detail panel, and dialogs.
+ */
 import { useEffect, useRef } from 'react'
 import { FolderSearch, PackageOpen, RefreshCw, Settings } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
@@ -15,6 +18,7 @@ import { LauncherLibraryDialogs } from './ui/LauncherLibraryDialogs'
 import { useLauncherLibraryController } from './hooks/useLauncherLibraryController'
 import { getLibraryViewOrderContainerKey } from './model/launcherLibraryDisplay'
 
+/** Props for the launcher mod library page. */
 export type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft
   launchGameLabel: string
@@ -35,6 +39,7 @@ type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
   library: ReturnType<typeof useLauncherLibrary>
 }
 
+/** Mod library page content component: receives controller state and renders the grid, sidebar, detail panel, and dialogs. */
 export function LauncherLibraryPageContent({
   settings,
   library,
@@ -499,6 +504,7 @@ export function LauncherLibraryPageContent({
   )
 }
 
+/** Launcher mod library page component: initializes the library hook and delegates to the content component. */
 export function LauncherLibraryPage(props: LauncherLibraryPageProps) {
   const library = useLauncherLibrary(props.settings)
   return <LauncherLibraryPageContent {...props} library={library} />

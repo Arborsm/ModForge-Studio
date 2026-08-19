@@ -1,3 +1,6 @@
+/**
+ * @file Launcher page component: composes the top navigation, downloads popover, and launcher shell.
+ */
 import { useCallback, useEffect, useState } from 'react'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
@@ -82,6 +85,7 @@ function navigateToGmcmDiagnostics(onLauncherPageChange: (page: LauncherPageId) 
   window.requestAnimationFrame(revealTarget)
 }
 
+/** Launcher page component: manages launch, downloads, GMCM detection notifications, and page routing. */
 export function LauncherPage({
   page,
   debugEnabled,

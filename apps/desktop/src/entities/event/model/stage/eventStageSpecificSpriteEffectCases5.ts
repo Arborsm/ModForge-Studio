@@ -1,8 +1,13 @@
+/**
+ * @file Case handler part 5 for vanilla `specificTemporarySprite` sprite ids.
+ */
+
 import type { EventCommand } from '@entities/event'
 import { createObjectSheetEffect, createStageEffect, type SpecificTemporarySpriteResolution } from '@entities/event'
 
 const UNRESOLVED: SpecificTemporarySpriteResolution | null = null
 
+/** Resolves specific sprite ids handled in part 5 (e.g. WizardPromise, raccoon dance). */
 export function resolveSpecificTemporarySpriteEffectCase5(
   command: EventCommand,
   spriteId: string,

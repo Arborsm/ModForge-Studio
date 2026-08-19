@@ -1,3 +1,7 @@
+/**
+ * @file Debug bridge host-command wrappers for probing and controlling the running game.
+ * @module entities/debug-bridge
+ */
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from '@platform/host/runtime'
 import type { HostCommandPolicy } from '@platform/host-command-client'

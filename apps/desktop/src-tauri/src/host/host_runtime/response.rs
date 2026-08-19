@@ -1,3 +1,5 @@
+//! Host command response types and panic-safe dispatch wrapper.
+
 use crate::support::logging::{LogEvent, targets};
 use serde::Serialize;
 use serde::de::DeserializeOwned;

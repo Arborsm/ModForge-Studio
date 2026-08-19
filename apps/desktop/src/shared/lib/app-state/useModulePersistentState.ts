@@ -1,3 +1,5 @@
+/** @file React hook for debounced per-module preference persistence under `workspace.modules`. */
+
 import { useEffect, useRef, useState } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from './appUiState'
 

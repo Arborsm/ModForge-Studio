@@ -1,3 +1,8 @@
+/**
+ * @file Derives farmer bed-state from map tile properties so the stage renderer
+ * can show the farmer sleeping when standing on a `Bed`-tagged tile.
+ */
+
 import type { MapDocument, MapLayer, MapTileset } from '@entities/map'
 import type { EventActorState } from '@entities/event'
 
@@ -42,6 +47,7 @@ function getTileProperty(mapDocument: MapDocument, layerName: string, tileX: num
   return tileset.tileProperties[tileId]?.[propertyName] ?? null
 }
 
+/** Derives whether the farmer is in bed and when they went to bed, based on map tile properties. */
 export function deriveMapDrivenFarmerBedState(mapDocument: MapDocument | null, actor: EventActorState) {
   const timeOfDay = actor.farmerRenderState?.timeOfDay ?? 0
   const previousTimeWentToBed = actor.farmerRenderState?.timeWentToBed ?? 0

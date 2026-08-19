@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library dialog state type definitions.
+ */
 import type { InspectLauncherArchiveResult, InstallLauncherArchiveResult, LauncherInstallBackupSummary } from '@features/launcher/api'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherVirtualFolder } from '@features/launcher/model/types'
 

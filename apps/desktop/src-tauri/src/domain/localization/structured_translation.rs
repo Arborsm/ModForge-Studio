@@ -1,3 +1,5 @@
+//! Structured translation: template parsing and placeholder-aware translation for i18n file formats.
+
 use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::Context;
 use serde_json::Value;

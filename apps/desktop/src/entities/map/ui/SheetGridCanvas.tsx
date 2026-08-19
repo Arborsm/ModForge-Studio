@@ -1,3 +1,8 @@
+/**
+ * @file Sheet grid canvas component: reusable scrollable, zoomable tile grid
+ * for tileset sheets, supporting pointer-based selection and hover highlighting.
+ */
+
 import {
   useEffect,
   useImperativeHandle,

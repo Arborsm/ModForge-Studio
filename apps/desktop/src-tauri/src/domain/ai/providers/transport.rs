@@ -1,3 +1,5 @@
+//! Wire transport: HTTP client, auth headers, bounded retry, response reading and SSE stream parsing.
+
 use super::super::jobs::AiJobGuard;
 use super::super::presets::provider_preset;
 use super::super::settings::validate_base_url;

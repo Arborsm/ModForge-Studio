@@ -1,3 +1,5 @@
+//! Nexus Mods batch update lookup via the `legacyModsByDomain` GraphQL query.
+
 use crate::domain::nexusmods::can_use_nexus_graphql;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;

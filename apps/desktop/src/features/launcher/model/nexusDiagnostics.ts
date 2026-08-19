@@ -1,3 +1,8 @@
+/**
+ * @file Nexus diagnostics route helpers and configuration-page cache: route
+ * lookups, merge logic, auto-fetch gating, and cached snapshots for Settings
+ * remounts.
+ */
 import type {
   LauncherLibraryScanResult,
   LauncherNexusDiagnosticsResult,
@@ -62,18 +67,22 @@ function isSuccessfulRoute(route: LauncherNexusRouteSnapshot | null | undefined)
   return route?.available === true && route.status === 'success'
 }
 
+/** Returns one Nexus diagnostics route snapshot by route id, or null. */
 export function getLauncherNexusRoute(diagnostics: LauncherNexusDiagnosticsResult | null | undefined, routeId: string) {
   return diagnostics?.routes.find((route) => route.routeId === routeId) ?? null
 }
 
+/** Returns routes that are in warning state or unavailable. */
 export function getLauncherNexusWarningRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
   return (diagnostics?.routes ?? []).filter((route) => route.status === 'warning' || !route.available)
 }
 
+/** Returns true when any diagnostics route is still in the loading state. */
 export function hasLoadingLauncherNexusRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
   return (diagnostics?.routes ?? []).some((route) => route.status === 'loading')
 }
 
+/** Merges current and next route snapshots by route id, keeping current routes and appending new ones. */
 export function mergeLauncherNexusDiagnostics(currentRoutes: LauncherNexusRouteSnapshot[], nextRoutes: LauncherNexusRouteSnapshot[]) {
   if (!currentRoutes.length) {
     return nextRoutes
@@ -349,6 +358,7 @@ function getDiscoverRouteIds(options?: { query?: string | null; sort?: string | 
   return AUTO_DISCOVER_GRAPHQL_ROUTE_IDS
 }
 
+/** Returns true when Nexus image and detail routes are healthy enough to auto-fetch remote covers. */
 export function canAutoFetchLauncherRemoteCovers(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
   if (!diagnostics?.routes.length || hasLoadingLauncherNexusRoutes(diagnostics)) {
     return false
@@ -361,6 +371,7 @@ export function canAutoFetchLauncherRemoteCovers(diagnostics: LauncherNexusDiagn
   return AUTO_REMOTE_COVER_DETAIL_ROUTE_IDS.some((routeId) => isSuccessfulRoute(getLauncherNexusRoute(diagnostics, routeId)))
 }
 
+/** Returns true when SMAPI and Nexus update routes are healthy enough to auto-check mod updates. */
 export function canAutoCheckLauncherUpdates(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
   if (!diagnostics?.routes.length || hasLoadingLauncherNexusRoutes(diagnostics)) {
     return false
@@ -372,6 +383,7 @@ export function canAutoCheckLauncherUpdates(diagnostics: LauncherNexusDiagnostic
   })
 }
 
+/** Returns true when the relevant discover routes are healthy enough to auto-load catalog results. */
 export function canAutoLoadLauncherDiscover(
   diagnostics: LauncherNexusDiagnosticsResult | null | undefined,
   options?: { query?: string | null; sort?: string | null },
@@ -386,6 +398,7 @@ export function canAutoLoadLauncherDiscover(
   })
 }
 
+/** Returns a human-readable unavailable reason for discover, or null when routes are healthy. */
 export function getLauncherDiscoverUnavailableReason(
   diagnostics: LauncherNexusDiagnosticsResult | null | undefined,
   options?: { query?: string | null; sort?: string | null },
@@ -393,6 +406,7 @@ export function getLauncherDiscoverUnavailableReason(
   return getUnavailableRouteMessages(diagnostics, getDiscoverRouteIds(options))
 }
 
+/** Returns a human-readable unavailable reason for update checks, or null when routes are healthy. */
 export function getLauncherUpdateUnavailableReason(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
   return getUnavailableRouteMessages(diagnostics, AUTO_UPDATE_ROUTE_IDS)
 }
@@ -403,6 +417,7 @@ type LoadSettledLauncherNexusDiagnosticsOptions = {
   maxAttempts?: number
 }
 
+/** Polls diagnostics until all routes settle (no loading state) or max attempts is reached. */
 export async function loadSettledLauncherNexusDiagnostics(options: LoadSettledLauncherNexusDiagnosticsOptions) {
   const loadDiagnostics = options.loadDiagnostics
   const delayMs = options.delayMs ?? 1000

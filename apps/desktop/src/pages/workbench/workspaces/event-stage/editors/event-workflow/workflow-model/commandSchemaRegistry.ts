@@ -1,4 +1,6 @@
-// 命令 Schema 注册表 — 所有命令 UI 的单一数据源
+/**
+ * @file Command schema registry: the single source of truth for all command UIs.
+ */
 
 import type { CommandSchema, CommandCategory } from './commandSchema'
 import { animationCommandSchemas } from './command-schemas/animation'

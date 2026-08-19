@@ -1,6 +1,6 @@
 /**
- * The Content Patcher built-in token catalog (70 tokens), mirrored from the
- * official docs (`ContentPatcher/docs/author-guide/tokens.md`, CP 2.9).
+ * @file The Content Patcher built-in token catalog (70 tokens), mirrored from the official docs.
+ * @module entities/content-patcher
  *
  * Each entry records what the condition editor and validation need: whether
  * the token takes an input argument, whether that input is optional, and the
@@ -90,7 +90,6 @@ const NO_INPUT = { takesInput: false, inputOptional: false } as const
 const REQUIRED_INPUT = { takesInput: true, inputOptional: false } as const
 
 export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
-  // ── Date and weather ──
   { name: 'Day', group: 'dateWeather', ...NO_INPUT },
   {
     name: 'DayEvent',
@@ -126,7 +125,6 @@ export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
   },
   { name: 'Year', group: 'dateWeather', ...NO_INPUT },
 
-  // ── Player ──
   { name: 'DailyLuck', group: 'player', ...PLAYER_TOKEN, whenKeyCaveat: 'queryOnly' },
   { name: 'FarmhouseUpgrade', group: 'player', ...PLAYER_TOKEN, values: ['0', '1', '2', '3'] },
   { name: 'HasActiveQuest', group: 'player', ...PLAYER_TOKEN },
@@ -169,7 +167,6 @@ export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
   { name: 'PreferredPet', group: 'player', ...NO_INPUT, values: ['Cat', 'Dog'] },
   { name: 'SkillLevel', group: 'player', ...REQUIRED_INPUT },
 
-  // ── Relationships ──
   { name: 'ChildNames', group: 'relationship', ...PLAYER_TOKEN },
   { name: 'ChildGenders', group: 'relationship', ...PLAYER_TOKEN, values: ['Female', 'Male'] },
   { name: 'Hearts', group: 'relationship', ...REQUIRED_INPUT },
@@ -182,7 +179,6 @@ export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
   { name: 'Roommate', group: 'relationship', ...PLAYER_TOKEN },
   { name: 'Spouse', group: 'relationship', ...PLAYER_TOKEN },
 
-  // ── World ──
   { name: 'FarmCave', group: 'world', ...NO_INPUT, values: ['None', 'Bats', 'Mushrooms'] },
   {
     name: 'FarmMapAsset',
@@ -202,20 +198,17 @@ export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
   { name: 'HavingChild', group: 'world', ...NO_INPUT },
   { name: 'Pregnant', group: 'world', ...NO_INPUT },
 
-  // ── Number manipulation ──
   { name: 'Count', group: 'number', ...REQUIRED_INPUT },
   { name: 'Query', group: 'number', ...REQUIRED_INPUT },
   { name: 'Range', group: 'number', ...REQUIRED_INPUT },
   { name: 'Round', group: 'number', ...REQUIRED_INPUT },
 
-  // ── String manipulation ──
   { name: 'Lowercase', group: 'string', ...REQUIRED_INPUT },
   { name: 'Uppercase', group: 'string', ...REQUIRED_INPUT },
   { name: 'Merge', group: 'string', ...REQUIRED_INPUT },
   { name: 'PathPart', group: 'string', ...REQUIRED_INPUT },
   { name: 'Render', group: 'string', ...REQUIRED_INPUT },
 
-  // ── Metadata ──
   { name: 'FirstValidFile', group: 'metadata', ...REQUIRED_INPUT },
   { name: 'HasMod', group: 'metadata', ...NO_INPUT },
   { name: 'HasFile', group: 'metadata', ...REQUIRED_INPUT, values: BOOLEAN_VALUES },
@@ -224,18 +217,15 @@ export const CP_BUILTIN_TOKENS: readonly CpTokenDefinition[] = [
   { name: 'Language', group: 'metadata', ...NO_INPUT, values: ['de', 'en', 'es', 'fr', 'hu', 'it', 'ja', 'ko', 'pt', 'ru', 'tr', 'zh'] },
   { name: 'ModId', group: 'metadata', ...NO_INPUT },
 
-  // ── Field references (patch blocks only) ──
   { name: 'FromFile', group: 'fieldReference', ...NO_INPUT, patchBlockOnly: true },
   { name: 'Target', group: 'fieldReference', ...NO_INPUT, patchBlockOnly: true },
   { name: 'TargetPathOnly', group: 'fieldReference', ...NO_INPUT, patchBlockOnly: true },
   { name: 'TargetWithoutPath', group: 'fieldReference', ...NO_INPUT, patchBlockOnly: true },
 
-  // ── Specialized ──
   { name: 'AbsoluteFilePath', group: 'specialized', ...REQUIRED_INPUT },
   { name: 'FormatAssetName', group: 'specialized', ...REQUIRED_INPUT },
   { name: 'InternalAssetKey', group: 'specialized', ...REQUIRED_INPUT },
 
-  // ── Randomization ──
   { name: 'Random', group: 'random', ...REQUIRED_INPUT, whenKeyCaveat: 'undocumented' },
 ]
 

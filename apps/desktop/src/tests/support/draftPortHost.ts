@@ -1,5 +1,5 @@
 /**
- * In-memory host for `AssetDraftPort` unit tests.
+ * @file In-memory host for `AssetDraftPort` unit tests.
  *
  * The port closes over one render's draft, so a test that stages and then reads
  * has to rebuild it the way a re-render would. `port()` does exactly that over

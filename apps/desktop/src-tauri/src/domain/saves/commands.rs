@@ -1,3 +1,5 @@
+//! Host command bindings for the saves domain.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::saves::DefaultSaveSlotSummary;

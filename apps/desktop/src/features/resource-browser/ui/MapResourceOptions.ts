@@ -1,3 +1,8 @@
+/**
+ * @file Builds path-aware map options for the shared resource browser from map asset summaries.
+ * @module features/resource-browser
+ */
+
 import type { MapAssetSummary } from '@entities/game/api'
 import type { ResourceBrowserOption } from './ResourcePicker'
 

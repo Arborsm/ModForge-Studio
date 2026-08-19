@@ -1,3 +1,5 @@
+//! Localization review: run management, issue detection, and review-run persistence.
+
 use super::jobs;
 use super::knowledge;
 use super::official;

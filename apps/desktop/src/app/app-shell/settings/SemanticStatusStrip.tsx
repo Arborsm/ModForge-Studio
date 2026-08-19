@@ -1,3 +1,6 @@
+/**
+ * @file Semantic search status strip: displays compact semantic index/model status above all AI settings tabs.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
@@ -49,14 +52,15 @@ export function SemanticStatusStrip({ active, onConfigure }: { active: boolean; 
     setIndex(nextIndex)
   }, [localization])
 
-  // 组件挂载即加载状态：strip 渲染在所有 tab 上，不能只在语义 tab 活跃时才
-  // 首次触发，否则用户不进语义 tab 会一直看到「正在加载语义搜索配置…」。
+  // Load status on mount: the strip renders across all tabs, so it must not wait
+  // for the semantic tab to become active, otherwise users who never open it would
+  // keep seeing "Loading semantic search configuration...".
   useEffect(() => {
     void refreshStatus()
   }, [localization, refreshStatus])
 
-  // 进度监听只在语义 tab 活跃时订阅：进度条属于语义 tab 的内容，避免在
-  // 其他 tab 上做无谓的后台监听。
+  // Subscribe to progress only while the semantic tab is active: the progress bar
+  // belongs to the semantic tab, avoiding needless background listening on other tabs.
   useEffect(() => {
     if (!active) return
     let disposed = false

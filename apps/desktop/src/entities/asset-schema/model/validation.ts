@@ -1,5 +1,6 @@
 /**
- * Schema-driven validation.
+ * @file Schema-driven validation for Content Patcher data assets.
+ * @module entities/asset-schema
  *
  * Runs three universal rules (required fields, unknown enum values,
  * case-insensitive duplicate entry ids — all three follow from how Content

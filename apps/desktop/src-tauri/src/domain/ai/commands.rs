@@ -1,3 +1,5 @@
+//! Host command bindings for AI settings, profiles, translation and cache operations.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::ai::types::{

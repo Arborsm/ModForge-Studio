@@ -1586,9 +1586,7 @@ fn streamed_responses_that_changed_placeholders_still_fail_validation() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Structured-output capability table, serialization and 400 degradation chain
-// ---------------------------------------------------------------------------
 
 #[test]
 fn capability_cache_resolves_declared_then_remembered_levels() {
@@ -1768,9 +1766,7 @@ fn does_not_degrade_on_non_400_rejections() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Placeholder sentinels
-// ---------------------------------------------------------------------------
 
 #[test]
 fn sentinelize_batch_replaces_placeholders_in_order_and_skips_collisions() {

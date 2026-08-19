@@ -1,3 +1,8 @@
+/**
+ * @file Animation group extraction and expansion for multi-tile synchronized
+ * tileset animations in map documents.
+ */
+
 import type { MapTileset, MapTilesetAnimationFrame } from './mapTypes'
 
 /** A multi-tile animation group. The owner tile is the top-left tile of the

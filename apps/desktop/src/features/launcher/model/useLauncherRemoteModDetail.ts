@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherRemoteModDetail hook: loads and caches remote Nexus mod
+ * detail for the discover/library detail panels.
+ */
 import { useEffect, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 
@@ -14,6 +18,7 @@ type UseLauncherRemoteModDetailOptions = {
   includeFiles?: boolean
 }
 
+/** Loads remote Nexus mod detail by mod id, with loading/error state and unavailable-mod short-circuit. */
 export function useLauncherRemoteModDetail(modId: number | null, options: UseLauncherRemoteModDetailOptions = {}) {
   const launcherPort = useLauncherPort()
   const includeFiles = options.includeFiles

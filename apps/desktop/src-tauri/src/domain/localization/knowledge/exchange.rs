@@ -1,3 +1,5 @@
+//! Knowledge import/export: TMX and XML exchange format serialization for glossary and translation memory.
+
 use super::store::{bump_import, insert_imported_glossary, insert_imported_memory, open};
 use crate::domain::localization::types::*;
 use anyhow::{Context, bail};

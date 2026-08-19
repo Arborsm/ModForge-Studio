@@ -1,3 +1,5 @@
+//! CP Maker domain: draft management, project assets, import/export and session persistence.
+
 pub(crate) mod builder;
 pub(crate) mod commands;
 mod export;

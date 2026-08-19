@@ -1,3 +1,9 @@
+/**
+ * @file Shared types, constants, and helper functions for the event stage
+ * playback engine: actor state, effects, lighting, farmer render state, and
+ * metadata caches consumed by the playback and asset modules.
+ */
+
 import { loadTextAsset } from '@entities/game/api'
 import type { LocaleCode } from '@locales/api'
 import type { LightingColor } from '@entities/map'

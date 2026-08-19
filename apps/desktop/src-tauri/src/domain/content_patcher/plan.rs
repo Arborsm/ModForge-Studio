@@ -1,3 +1,5 @@
+//! Patch plan builder: token resolution, include expansion, condition filtering and patch scheduling.
+
 use super::conditions::evaluate_patch_status;
 use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};

@@ -1,3 +1,7 @@
+/**
+ * @file Archive install diff view: per-root file changes, unified diff lines,
+ * and size-delta badges for the archive install preview dialog.
+ */
 import { useState } from 'react'
 import type { LauncherArchiveFileDiff, LauncherArchiveModRootInfo } from '../../model/launcherContracts'
 import { planArchiveModRootInstall } from '../../model/archiveInstallPlan'

@@ -1,3 +1,5 @@
+//! Host command bindings for CP Maker drafts, assets, sessions and export.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::cp_maker::types::{

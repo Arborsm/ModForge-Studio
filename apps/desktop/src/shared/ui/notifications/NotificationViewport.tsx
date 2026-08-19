@@ -1,3 +1,5 @@
+/** @file Notification toast stack viewport with expand/collapse, stacking, and auto-dismiss animations. */
+
 import { Bug, CheckCircle2, CircleAlert, CircleX, Info, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -237,6 +239,7 @@ function NotificationToast({
   )
 }
 
+/** Renders the notification toast stack with hover-to-expand, collapse-on-leave, and per-toast auto-dismiss. */
 export function NotificationViewport({ notifications, onDismiss }: NotificationViewportProps) {
   const copy = useNotificationCopy()
   const viewportRef = useRef<HTMLElement | null>(null)

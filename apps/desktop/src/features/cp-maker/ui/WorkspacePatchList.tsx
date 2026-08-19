@@ -1,3 +1,8 @@
+/**
+ * @file Shared change list for authoring workspaces: patches in export order
+ * with drag-to-reorder, duplicate, enable toggle, and delete.
+ * @module features/cp-maker
+ */
 import { useState, type JSX } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react'
@@ -12,13 +17,13 @@ import type { DraftPatch } from '../model/types'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 export type WorkspacePatchListProps = {
-  /** 按导出顺序展示的行（调用方已过滤）。 */
+  /** Rows in export order (already filtered by the caller). */
   patches: readonly DraftPatch[]
   draftPort: AssetDraftPort
-  /** 传给 reorderPatch 的 within 谓词：覆盖完整草稿中与展示列表相同的子集。 */
+  /** Predicate passed to reorderPatch: covers the same subset as the visible list. */
   reorderWithin: (patch: DraftPatch) => boolean
   onOpenPatch: (patchId: string) => void
-  /** 可选标题；提供后会渲染共享标题头。 */
+  /** Optional header label; omit to render frameless. */
   title?: string
 }
 

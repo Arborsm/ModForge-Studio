@@ -1,3 +1,8 @@
+/**
+ * @file Locale-scoped metadata caches for farmer hair and hat styles, shared
+ * across stage asset resolution and playback.
+ */
+
 import type { LocaleCode } from '@locales/api'
 import type { FarmerHairMetadataEntry } from './farmerAppearanceRenderer'
 
@@ -10,6 +15,7 @@ export type HatMetadataEntry = {
 export const hatMetadataCache = new Map<string, Promise<Record<string, HatMetadataEntry>>>()
 export const hairMetadataCache = new Map<string, Promise<Record<string, FarmerHairMetadataEntry>>>()
 
+/** Builds the locale-scoped cache key used by hair and hat metadata caches. */
 export function getLocalizedMetadataCacheKey(rootPath: string, locale: LocaleCode) {
   return `${rootPath}::${locale}`
 }

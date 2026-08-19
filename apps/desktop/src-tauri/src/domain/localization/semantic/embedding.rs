@@ -1,3 +1,5 @@
+//! Semantic embedding generation: local model inference and remote embedding API calls.
+
 use super::{model, settings};
 use crate::domain::localization::types::{AiSemanticExecutionPreference, AiSemanticSearchMode};
 use anyhow::{Context, bail};

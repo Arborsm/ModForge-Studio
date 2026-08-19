@@ -1,3 +1,7 @@
+/**
+ * @file Per-field config editor controls for the launcher mod config panel:
+ * text, number, color, keybind, item-list, choice, and object-group inputs.
+ */
 import { ArrowDown, ArrowUp, Check, Keyboard, Plus, Trash2, X } from 'lucide-react'
 import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { useEditorCopy } from '@locales/provider'

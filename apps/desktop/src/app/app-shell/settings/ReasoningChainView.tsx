@@ -1,3 +1,6 @@
+/**
+ * @file Reasoning chain (chain-of-thought) collapsible view: displays the AI reasoning process in the connection test dialog.
+ */
 import { useSettingsMenuCopy } from '@locales/provider'
 
 /** Collapsible chain-of-thought block inside the connection-test dialog. */

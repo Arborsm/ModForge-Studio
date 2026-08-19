@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport type definitions: hover info, zoom state, and overlay
+ * display models for the map viewport canvas.
+ */
+
 import type { MapPropertyValue } from './mapTypes'
 
 export type HoverObjectInfo = {

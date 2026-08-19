@@ -1,5 +1,5 @@
 /**
- * Single write path from an asset editor into the CP Maker draft.
+ * @file Single write path from an asset editor into the CP Maker draft.
  *
  * Editing only ever *stages*: `stage` rewrites the owning patch's `editorState`
  * in memory, exactly like the toolbar's dirty state expects, and nothing hits
@@ -21,6 +21,7 @@
  * Because every write funnels through one place, each staged operation is also
  * recorded on the shared undo stack; see `undoStack.ts` for how operations are
  * grouped, and use `undo` / `redo` below to walk them.
+ * @module features/cp-maker
  */
 
 import {
@@ -43,6 +44,7 @@ export type AssetEntryMeta = {
   label: string | null
 }
 
+/** Draft-wide write port handed to registered asset editors. */
 export type AssetDraftPort = {
   /** Draft being edited; read-only access for editors that need project metadata or assets. */
   draft: CpMakerDraft
@@ -132,6 +134,7 @@ export type UpdatePatchOptions = {
   record?: boolean
 }
 
+/** Options for constructing an AssetDraftPort. */
 export type AssetDraftPortOptions = {
   draft: CpMakerDraft
   /** Patch currently open in the shell; it wins when several patches edit one asset. */

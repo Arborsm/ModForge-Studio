@@ -1,6 +1,11 @@
+//! Internal read buffer for XNB parsing: tracks byte position, provides
+//! little-endian primitives, and validates bounds for all reader calls.
+
 use anyhow::{Context, bail};
 use std::str;
 
+/// Little-endian cursor over a byte buffer with bounds-checked primitives
+/// for XNB binary parsing.
 #[derive(Debug, Clone)]
 pub struct CursorReader {
     data: Vec<u8>,
@@ -8,19 +13,23 @@ pub struct CursorReader {
 }
 
 impl CursorReader {
+    /// Creates a new cursor starting at byte offset 0.
     pub fn new(data: Vec<u8>) -> Self {
         Self { data, pos: 0 }
     }
 
+    /// Returns a new cursor with the read position set to `pos`.
     pub fn with_position(mut self, pos: usize) -> Self {
         self.pos = pos;
         self
     }
 
+    /// Returns the current read position.
     pub fn position(&self) -> usize {
         self.pos
     }
 
+    /// Sets the read position, returning an error if out of bounds.
     pub fn set_position(&mut self, pos: usize) -> anyhow::Result<()> {
         if pos > self.data.len() {
             bail!("Seek out of bounds.");
@@ -29,10 +38,13 @@ impl CursorReader {
         Ok(())
     }
 
+    /// Returns the total length of the underlying buffer.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Reads `count` bytes and advances the cursor, returning an error on
+    /// truncation.
     pub fn read_bytes(&mut self, count: usize) -> anyhow::Result<Vec<u8>> {
         if self.pos + count > self.data.len() {
             bail!("Unexpected end of buffer.");
@@ -42,29 +54,35 @@ impl CursorReader {
         Ok(out)
     }
 
+    /// Reads a single unsigned byte.
     pub fn read_u8(&mut self) -> anyhow::Result<u8> {
         let bytes = self.read_bytes(1)?;
         Ok(bytes[0])
     }
 
+    /// Reads a single signed byte.
     pub fn read_i8(&mut self) -> anyhow::Result<i8> {
         Ok(self.read_u8()? as i8)
     }
 
+    /// Reads a little-endian `u16`.
     pub fn read_u16_le(&mut self) -> anyhow::Result<u16> {
         let bytes = self.read_bytes(2)?;
         Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
     }
 
+    /// Reads a little-endian `i16`.
     pub fn read_i16_le(&mut self) -> anyhow::Result<i16> {
         Ok(self.read_u16_le()? as i16)
     }
 
+    /// Reads a little-endian `u32`.
     pub fn read_u32_le(&mut self) -> anyhow::Result<u32> {
         let bytes = self.read_bytes(4)?;
         Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     }
 
+    /// Reads a little-endian `i32`.
     pub fn read_i32_le(&mut self) -> anyhow::Result<i32> {
         Ok(self.read_u32_le()? as i32)
     }

@@ -1,4 +1,6 @@
-// 智能指令添加器
+/**
+ * @file Smart command adder component.
+ */
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Search, X, Command } from 'lucide-react'

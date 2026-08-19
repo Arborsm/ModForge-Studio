@@ -1,3 +1,5 @@
+/** @file Read-only list showing which mods contribute patches to a given asset. */
+
 type ModSourceEntry = {
   modId: string
   modName: string
@@ -13,6 +15,7 @@ type ModSourceListProps = {
   variant?: 'card' | 'flat'
 }
 
+/** Lists the mod sources that patch a given asset, in card or flat layout. */
 export function ModSourceList({ sources, emptyLabel = 'No mod source recorded.', variant = 'card' }: ModSourceListProps) {
   if (!sources.length) {
     return <p className="text-text-secondary text-sm">{emptyLabel}</p>

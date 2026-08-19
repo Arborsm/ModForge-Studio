@@ -1,3 +1,7 @@
+/**
+ * @file Dialogue priority tree builder grouping entries into tiers, families, and precedence order.
+ * @module entities/dialogue
+ */
 import type { DialogueEntrySummary } from './entries'
 import {
   compareDialoguePriority,

@@ -1,3 +1,7 @@
+//! Filesystem path utilities: game-relative path validation, separator
+//! normalization, install-path discovery (Steam/GOG/registry), and save-slot
+//! resolution for Stardew Valley.
+
 use crate::infrastructure::text_encoding::read_text_file;
 #[cfg(any(windows, test))]
 use std::collections::BTreeMap;

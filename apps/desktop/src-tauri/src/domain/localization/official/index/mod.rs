@@ -1,3 +1,5 @@
+//! Official localization index — build, persist and search game-content units.
+
 mod build;
 mod persistence;
 mod search;

@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host API for CP Maker: draft CRUD, project asset I/O, map
+ * preview, and export operations routed through HostCommandClient policies.
+ * @module features/cp-maker
+ */
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
 import { invokeDesktop } from '@platform/host/runtime'

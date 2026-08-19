@@ -1,3 +1,8 @@
+/**
+ * @file Dev-only page-level performance scenarios: renders individual workbench
+ * pages with large fixture data for render stress testing.
+ * @module dev
+ */
 import { useDeferredValue, useEffect, useState, type ReactNode } from 'react'
 import '../styles/workbench.css'
 import { localeBundles } from '@locales'
@@ -1059,8 +1064,9 @@ const performanceCpMakerPort: CpMakerPort = {
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
 }
 
-// 真实游戏目录场景（?mfGameRoot=…，通常配合 dev asset bridge）改用真实图像
-// 加载链路；默认性能场景保持 1px 固定像素桩，避免图片解码干扰性能测量。
+// Real game directory scenario (?mfGameRoot=…, typically with the dev asset
+// bridge) uses the real image loading chain; the default performance scenario
+// keeps a 1px fixed-pixel stub to avoid image decode interfering with perf.
 if (scenarioGameRootPath) {
   const { loadImageDataUrl: loadRealImageDataUrl } = await import('@entities/game/api')
   configureImageDataUrlLoader((path, locale) => loadRealImageDataUrl(path, locale))
@@ -1468,6 +1474,7 @@ function resolveScenarioId(): PageScenarioId {
   return pageScenarioIds.includes(requested as PageScenarioId) ? (requested as PageScenarioId) : 'workbench-home'
 }
 
+/** Dev scenario entry point: resolves the requested page performance scenario from URL params. */
 export function DevPagePerformanceScenario() {
   const locale = new URLSearchParams(window.location.search).get('mfLocale') === 'zh-CN' ? 'zh-CN' : 'en-US'
   return (

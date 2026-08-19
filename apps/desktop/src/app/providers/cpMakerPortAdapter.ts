@@ -1,3 +1,6 @@
+/**
+ * @file CP Maker port adapter: bridges platform ports and the CP Maker API into a CpMakerPort.
+ */
 import { scanEvents, scanMaps } from '@entities/game/api'
 import { scanModProjects } from '@entities/mod/api'
 import {
@@ -30,9 +33,9 @@ function normalizeCpMakerDraftForPersistence(draft: CpMakerPortDraftRecord): CpM
   }
 }
 
+/** Creates a CP Maker port adapter that composes platform ports and the CP Maker API into a CpMakerPort instance. */
 export function createCpMakerPortAdapter({ dialog }: PlatformPorts): CpMakerPort {
   return {
-    // Draft CRUD
     listDrafts: () => listCpMakerDrafts(),
     loadDraft: (draftStorageKey) => loadCpMakerDraft(draftStorageKey),
     saveDraft: (draft) => saveCpMakerDraft(normalizeCpMakerDraftForPersistence(draft)),
@@ -48,18 +51,15 @@ export function createCpMakerPortAdapter({ dialog }: PlatformPorts): CpMakerPort
     renameProjectAsset: (request) => renameCpMakerProjectAsset(request),
     deleteProjectAsset: (request) => deleteCpMakerProjectAsset(request),
 
-    // Import / Export
     importPack: (modDirectoryPath) => importCpMakerPack(modDirectoryPath),
     exportPack: (request) => exportCpMakerPack(request),
 
-    // Directory selection
     chooseDirectory: (title) => dialog.chooseDirectory(title),
     chooseFiles: async (title, filters) => {
       const selected = await dialog.open({ title, directory: false, multiple: true, filters })
       return Array.isArray(selected) ? selected : typeof selected === 'string' ? [selected] : []
     },
 
-    // Preview scan / load
     scanMaps: (path, locale) => scanMaps(path, locale),
     scanEvents: (path) => scanEvents(path),
     scanModProjects: (rootPath) => scanModProjects(rootPath),

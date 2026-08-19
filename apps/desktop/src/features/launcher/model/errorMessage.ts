@@ -1,4 +1,8 @@
 /**
+ * @file Normalizes unknown host-bridge rejections into readable error messages.
+ */
+
+/**
  * Normalizes an unknown rejection into a readable message.
  * Host bridge rejections are usually strings or serialized objects, so the
  * Error-only check alone would swallow the real cause; the fallback is only

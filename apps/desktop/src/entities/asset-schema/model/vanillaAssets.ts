@@ -1,5 +1,6 @@
 /**
- * Catalog of the Content Patcher targets that ship with Stardew Valley 1.6.
+ * @file Catalog of the Content Patcher targets that ship with Stardew Valley 1.6.
+ * @module entities/asset-schema
  *
  * The lists mirror the vanilla `Content/` tree (`Data/`, `Data/Events/`,
  * `Characters/Dialogue/`, `Characters/schedules/`, `Maps/`, `Portraits/`,

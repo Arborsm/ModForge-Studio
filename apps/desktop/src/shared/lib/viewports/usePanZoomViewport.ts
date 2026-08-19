@@ -1,3 +1,5 @@
+/** @file Pan/zoom viewport hook with pointer drag, wheel zoom, keyboard shortcuts, and fit-to-screen. */
+
 import {
   useCallback,
   useEffect,
@@ -43,6 +45,7 @@ type UsePanZoomViewportOptions = {
   onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
 }
 
+/** Event handler props spread onto the viewport surface element. */
 export type PanZoomViewportSurfaceProps = {
   onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void
   onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void
@@ -53,9 +56,13 @@ export type PanZoomViewportSurfaceProps = {
   tabIndex: number
 }
 
+/** Minimum zoom level (8%). */
 export const PAN_ZOOM_MIN_ZOOM = 0.08
+/** Maximum zoom level (800%). */
 export const PAN_ZOOM_MAX_ZOOM = 8
+/** Multiplicative zoom step for toolbar buttons. */
 export const PAN_ZOOM_TOOLBAR_ZOOM_FACTOR = 1.12
+/** Wheel delta-to-zoom exponential sensitivity. */
 export const PAN_ZOOM_WHEEL_INTENSITY = 0.0007
 
 function toViewportSize(node: HTMLElement | null): PanZoomViewportSize {
@@ -79,10 +86,16 @@ function getAnchorFromTarget(target: HTMLElement, clientX: number, clientY: numb
   }
 }
 
+/** Clamps a zoom value to the `[PAN_ZOOM_MIN_ZOOM, PAN_ZOOM_MAX_ZOOM]` range. */
 export function clampPanZoomZoom(value: number) {
   return Math.min(PAN_ZOOM_MAX_ZOOM, Math.max(PAN_ZOOM_MIN_ZOOM, value))
 }
 
+/**
+ * Pan/zoom viewport controller: manages zoom level, pan offset, pointer drag,
+ * wheel zoom with anchor, keyboard shortcuts, and fit-to-screen.
+ * @returns viewport state plus `surfaceProps` to spread on the surface element.
+ */
 export function usePanZoomViewport({ contentHeight, contentWidth, fitPadding = 56, onZoomChange }: UsePanZoomViewportOptions) {
   const dragStateRef = useRef<DragState | null>(null)
   const measuredViewportRef = useRef<HTMLElement | null>(null)

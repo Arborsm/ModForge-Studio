@@ -10,8 +10,9 @@ import type {
 import { isUpdateAvailable } from './versionCompare'
 
 /**
- * Derivation model for the SMAPI update card on the launcher configuration page.
- * Kept free of locale strings and DOM concerns so the state transitions are unit-testable.
+ * @file Derivation model for the SMAPI update card on the launcher configuration
+ * page. Kept free of locale strings and DOM concerns so the state transitions
+ * are unit-testable.
  */
 
 /** Current install run surfaced by progress events. */
@@ -66,6 +67,7 @@ export type SmapiUpdateCardStatus =
   | { kind: 'install-success'; installedVersion: string }
   | { kind: 'install-failed'; message: string }
 
+/** Input shape for {@link deriveSmapiUpdateCardStatus}. */
 export type SmapiUpdateCardDerivationInput = {
   gamePathConfigured: boolean
   checkResult: SmapiUpdateCheckResult | null

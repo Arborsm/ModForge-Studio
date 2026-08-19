@@ -275,6 +275,7 @@ export type SettingsMenuCopy = {
       loadError: string
       saveError: string
       noneSelected: string
+      noKeyLabel: string
     }
     title: string
     description: string

@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherAiTranslation hook: AI batch translation of launcher mod
+ * detail text with streaming preview, corpus warmup, caching, and degradation.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   appendTranslationStreamDelta,
@@ -29,6 +33,7 @@ import { resolveLauncherAiTranslationProfileId } from '@features/launcher/model/
 import { getSessionCorpusWarmup, markSessionCorpusWarmed, startSessionCorpusWarmup } from '@features/launcher/model/sessionCorpusWarmup'
 import type { ChangelogListItem } from './launcherModDetailData'
 
+/** Translated launcher detail payload: overview, full description, and changelog items. */
 type LauncherTranslationPayload = {
   overview: string
   full: string
@@ -100,6 +105,7 @@ function parseCached(value: string): LauncherTranslationPayload | null {
   }
 }
 
+/** Translates launcher mod detail text (overview, full description, changelog) via AI with streaming, caching, and corpus warmup. */
 export function useLauncherAiTranslation({
   scopeKey,
   overview,
@@ -143,20 +149,25 @@ export function useLauncherAiTranslation({
   const streamingRef = useRef<StreamingTranslationContext | null>(null)
   const streamAccumulatorRef = useRef<TranslationStreamAccumulator>(EMPTY_TRANSLATION_STREAM)
   const streamCompletedCountRef = useRef(0)
-  // 整个任务的累计进度：跨批次累计，保证进度环在批次间隙不回退。
+  // Overall progress for the whole job: accumulated across batches so the
+  // progress ring never regresses between batches.
   const overallCompletedRef = useRef(0)
   const totalItemsRef = useRef(0)
-  // 流式期间的确定进度；非流式（无 content delta）保持 null → 进度环退化为不确定旋转。
+  // Determinate progress during streaming; non-streaming (no content delta)
+  // stays null → the progress ring degrades to an indeterminate spinner.
   const [streamProgress, setStreamProgress] = useState<TranslationProgress | null>(null)
   const source = JSON.stringify({ overview, full, changelog })
 
-  // 流式订阅：按 jobId + operation 双保险过滤，过期/错位 delta 一律丢弃。
-  // 订阅在挂载期建立一次，所有状态通过 ref 读取，避免与 run 的竞态管理冲突。
+  // Streaming subscription: filters by jobId + operation as a double guard;
+  // stale/misplaced deltas are always discarded.
+  // The subscription is established once on mount; all state is read via refs
+  // to avoid racing with run's ownership management.
   useEffect(() => {
     let disposed = false
     let dispose: (() => void) | undefined
-    // 高频 content delta 经尾沿节流（80ms）合并后统一提交渲染：提交粒度即
-    // 逐字段渐入/进度环的一个 tick，避免每个 delta 触发一次整段重渲染。
+    // High-frequency content deltas are merged via a trailing-edge throttle
+    // (80ms) before a unified render commit: each commit tick is one
+    // per-field fade-in / progress ring step, avoiding a full re-render per delta.
     const throttle = createStreamCommitThrottle(() => {
       if (disposed) return
       const active = streamingRef.current
@@ -196,7 +207,8 @@ export function useLauncherAiTranslation({
         }
         streamAccumulatorRef.current = appendTranslationStreamDelta(streamAccumulatorRef.current, payload)
         if (payload.kind === 'reasoning') {
-          // 思考链不走节流：逐字累积保持流式光标流畅。
+          // Chain-of-thought bypasses the throttle: accumulates char-by-char
+          // to keep the streaming cursor smooth.
           setStreamingReasoning(streamAccumulatorRef.current.reasoning)
           return
         }
@@ -213,11 +225,14 @@ export function useLauncherAiTranslation({
     }
   }, [ai])
 
-  // 语料预热：知识库/语义运行时/官方索引就绪前翻译不可用。自动预热按会话只
-  // 触发一次（模块级单例跨所有 mod detail 实例共享），预热中的并发挂载复用
-  // 同一个在途 promise，不再向单槽 AiSemanticSearch 池重复下发
-  // prewarm_localization_corpus；预热失败后由用户显式重试（retryCorpus），
-  // 手动重试总是直接调用后端，不受单例挡。
+  // Corpus warmup: translation is unavailable until the knowledge base /
+  // semantic runtime / official index is ready. Auto-warmup fires once per
+  // session (the module-level singleton is shared across all mod detail
+  // instances); concurrent mounts during warmup reuse the same in-flight
+  // promise and do not re-issue prewarm_localization_corpus to the
+  // single-slot AiSemanticSearch pool. On warmup failure the user explicitly
+  // retries (retryCorpus); manual retry always calls the backend directly and
+  // is not blocked by the singleton.
   const warmCorpus = useCallback(async () => {
     setCorpusState('warming')
     try {
@@ -252,7 +267,8 @@ export function useLauncherAiTranslation({
     )
   }, [localization])
 
-  // 取消在途翻译：使 run 的 ensureCurrent 失效、作废旧 run 的 catch，并取消宿主侧任务。
+  // Cancels the in-flight translation: invalidates run's ensureCurrent,
+  // voids the old run's catch, and cancels the host-side task.
   const cancelInFlight = useCallback(() => {
     inFlightRef.current = null
     operationRef.current += 1
@@ -272,14 +288,16 @@ export function useLauncherAiTranslation({
   useEffect(() => {
     const inFlight = inFlightRef.current
     if (inFlight && inFlight.scopeKey === scopeKey && inFlight.target === target && inFlight.source === source) {
-      // 远程详情到达但翻译内容未变：保留在途任务，不重置状态。
+      // Remote detail arrived but translated content unchanged: keep the
+      // in-flight task, do not reset state.
       return
     }
     if (inFlight) {
       const restart = inFlight.scopeKey === scopeKey && inFlight.target === target
       cancelInFlight()
       if (restart) {
-        // 同一 mod 的内容更新：用户已表达过翻译意图，自动针对新内容重开翻译。
+        // Same mod content updated: the user already expressed translation
+        // intent, so automatically re-run translation against the new content.
         setTranslation(null)
         setReasoning([])
         translateRef.current(false)
@@ -310,7 +328,8 @@ export function useLauncherAiTranslation({
     }
   }, [ai, cancelInFlight, notificationId, scopeKey, source, target, transientNotificationId, usageNotificationId])
 
-  // 仅在卸载或切换 mod（scopeKey 变化）时取消在途任务并清理通知。
+  // Only cancel in-flight tasks and clean up notifications on unmount or when
+  // switching mods (scopeKey changes).
   useEffect(() => {
     return () => {
       cancelInFlight()
@@ -341,7 +360,8 @@ export function useLauncherAiTranslation({
       }
       try {
         if (corpusStateRef.current !== 'ready') {
-          // UI 已禁用翻译按钮；此处是程序化调用（自动重开/通知重试）的双保险。
+          // The UI has already disabled the translate button; this is a
+          // programmatic call (auto re-run / notification retry) double-guard.
           throw new Error('AI_ERROR::corpus-not-ready::Localization corpus is not warmed up yet.')
         }
         dismissNotification(notificationId)
@@ -382,7 +402,8 @@ export function useLauncherAiTranslation({
             })),
           ),
         ]
-        // 进度分母 = 原始条目数（不含批次拆分产生的 chunk）；跨批累计已完成数。
+        // Progress denominator = original item count (excluding chunks
+        // produced by batch splitting); completed count accumulates across batches.
         totalItemsRef.current = items.length
         overallCompletedRef.current = 0
         setStreamProgress(null)
@@ -455,8 +476,10 @@ export function useLauncherAiTranslation({
                   } finally {
                     activeJobs.current.delete(request.jobId)
                     if (streamingRef.current?.jobId === request.jobId) {
-                      // 该 job 已 settle：后续迟到 delta 全部丢弃，正式结果接管。
-                      // 已完成的条目并入累计进度，进度环在批次间隙保持不回退。
+                      // This job has settled: all late deltas are discarded
+                      // and the authoritative result takes over. Completed
+                      // items are merged into the accumulated progress so the
+                      // progress ring never regresses between batches.
                       overallCompletedRef.current += streamCompletedCountRef.current
                       streamingRef.current = null
                       streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
@@ -503,9 +526,11 @@ export function useLauncherAiTranslation({
               }),
             )
           } catch (cause) {
-            // 单批超时/网络错误属于瞬时故障：该批保留原文、继续剩余批次，
-            // 避免整个详情翻译因一个慢批次作废。确定性错误（鉴权、模型、
-            // 限流、占位符校验、取消）照常上抛，不掩盖真实失败原因。
+            // A single batch timeout / network error is a transient failure:
+            // that batch keeps the original text and remaining batches continue,
+            // so one slow batch does not void the entire detail translation.
+            // Deterministic errors (auth, model, rate-limit, placeholder
+            // validation, cancellation) still propagate and are not masked.
             ensureCurrent()
             const failure = parseAiFailure(cause)
             if (!isTransientAiFailure(failure)) throw cause
@@ -527,8 +552,9 @@ export function useLauncherAiTranslation({
           retainedIds.push(...outcome.retainedIds)
         }
         if (results.length === 0 && transientRetainedIds.length > 0) {
-          // 没有任何批次成功：抛出最后一次瞬时失败，让错误 toast 照常出现，
-          // 而不是把“全部超时/网络失败”伪装成一次成功。
+          // No batch succeeded at all: throw the last transient failure so the
+          // error toast still appears, instead of disguising "all batches
+          // timed out / network failed" as a success.
           throw lastTransientCause ?? new Error('AI_ERROR::network::All translation batches failed with transient provider errors.')
         }
         const resultMap = new Map(plan.mergeResults(results).map((item) => [item.id, item.translatedText]))
@@ -550,7 +576,9 @@ export function useLauncherAiTranslation({
         setState('ready')
         dismissNotification(notificationId)
         if (retainedIds.length > 0) {
-          // 占位符反复 mismatch 的条目保留原文，其余结果照常落地；用 warning 告知而非整批失败。
+          // Items with repeated placeholder mismatches keep the original text;
+          // the rest of the results land normally. A warning informs the user
+          // rather than failing the whole batch.
           launcherPort.writeDebugLog({
             message: 'launcher.ai.translation.partialKeptOriginal',
             keyValues: { scopeKey, retained: String(retainedIds.length), itemIds: retainedIds.join(',') },
@@ -563,8 +591,10 @@ export function useLauncherAiTranslation({
           })
         }
         if (transientRetainedIds.length > 0) {
-          // 至少有一个批次因瞬时超时/网络错误保留原文，但其余批次成功：用 warning
-          // 明确告知哪些内容未翻译，而不是让用户以为整个详情都失败了。
+          // At least one batch kept the original text due to a transient
+          // timeout / network error, but the rest succeeded: a warning clearly
+          // tells the user which content was not translated, instead of letting
+          // them think the entire detail failed.
           launcherPort.writeDebugLog({
             message: 'launcher.ai.translation.partialTransientKeptOriginal',
             keyValues: { scopeKey, retained: String(transientRetainedIds.length) },
@@ -587,8 +617,10 @@ export function useLauncherAiTranslation({
       } finally {
         if (inFlightRef.current?.operation === operation) {
           inFlightRef.current = null
-          // 结构性保证：当前 run 是最后的在途所有者且已 settle 时，若状态仍停留在
-          // loading（例如 translate 的 catch 因序号守卫被跳过），必须复位，按钮永远离开「翻译中」。
+          // Structural guarantee: when the current run is the last in-flight
+          // owner and has settled, if the state is still stuck at loading
+          // (e.g. translate's catch was skipped by the sequence guard), it must
+          // be reset so the button never stays in "translating".
           setState((current) => (current === 'loading' ? (translationRef.current ? 'ready' : 'idle') : current))
         }
       }
@@ -615,7 +647,8 @@ export function useLauncherAiTranslation({
       const sequence = ++runSequenceRef.current
       void run(refresh).catch((cause) => {
         if (sequence !== runSequenceRef.current) {
-          // 已有更新的 operation 接管 UI 状态（取消后自动重开或上下文切换）；状态复位由 run 的 finally 负责。
+          // A newer operation has taken over UI state (auto re-run after
+          // cancel or context switch); state reset is handled by run's finally.
           return
         }
         const failure = parseAiFailure(cause)

@@ -291,6 +291,24 @@ export type EventWorkflowCopy = {
   presets: Record<EventScenarioPresetId, { label: string; description: string }>
 }
 
+export type CommandSummaryCopy = {
+  choosePath: string
+  waitForMovement: string
+  waitForOtherPlayers: string
+  faceDirection: (dirName: string) => string
+  stop: string
+  playAnimation: string
+  stopAnimation: string
+  frameLabel: (frame: string) => string
+  offset: (x: string, y: string) => string
+  optionCount: (count: number) => string
+  conditionLabel: (condition: string) => string
+  eventEnd: string
+  beginParallel: string
+  endParallel: string
+  jump: string
+}
+
 export type EventStageCopy = {
   empty: string
   scene: string
@@ -328,6 +346,23 @@ export type EventStageCopy = {
   flashAlphaLabel: (alpha: string) => string
   playbackHaltedTitle: string
   playbackHaltedDetail: string
+  pickModeComplete: string
+  pickModeClear: string
+  pickModeCancel: string
+  clickMapToPick: string
+  directionLabels: {
+    up: string
+    right: string
+    down: string
+    left: string
+  }
+  directionName: (dir: number) => string
+  pathPointCount: (count: number) => string
+  toggleTrue: string
+  toggleFalse: string
+  pickFromMapPath: string
+  pickFromMap: string
+  commandSummary: CommandSummaryCopy
   workflow: EventWorkflowCopy
   playerAppearance: PlayerAppearanceCopy
 }

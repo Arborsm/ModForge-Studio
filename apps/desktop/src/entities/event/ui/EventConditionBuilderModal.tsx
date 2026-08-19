@@ -1,3 +1,8 @@
+/**
+ * @file Modal dialog for the event condition builder: catalog browser, chip
+ * chain editor, GameStateQuery sub-builder, and live preview dock.
+ */
+
 import {
   BadgeCheck,
   CalendarDays,
@@ -67,6 +72,7 @@ interface EventConditionBuilderModalProps {
   onCancel: () => void
 }
 
+/** Renders the full event condition builder modal with catalog, chip chain, and preview dock. */
 export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, copy, onApply, onCancel }: EventConditionBuilderModalProps) {
   const [activeCategory, setActiveCategory] = useState<ConditionCategory>('world')
   const [eventId, setEventId] = useState(initialEventId(event))

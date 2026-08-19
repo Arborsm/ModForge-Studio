@@ -1,3 +1,5 @@
+//! App UI state persistence: shell, appearance, workspace, and launcher UI preferences with patch merging.
+
 pub(crate) mod commands;
 
 use serde::{Deserialize, Serialize};

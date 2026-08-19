@@ -1,3 +1,5 @@
+//! Install manager: plans, executes, and backs up mod install/upgrade/overlay operations with restore support.
+
 use super::fs::{discover_project_roots, read_json_file, sanitize_file_name, unique_path};
 use super::library::scan_library_at_path;
 use crate::domain::app_paths::current_timestamp_ms;

@@ -1,3 +1,8 @@
+/**
+ * @file Builds sprite-backed item options for the shared resource browser from item workspace entries.
+ * @module features/resource-browser
+ */
+
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 import type { ResourceBrowserOption } from './ResourcePicker'
 

@@ -1,8 +1,10 @@
-// 命令参数选项列表 — 为选择器提供可枚举值
+/**
+ * @file Enumerated option constants for event command parameters, providing enumerable values for command selectors.
+ */
 
 import { GAME_MUSIC_COMMON_CUES } from '@entities/map/lib/musicCues'
 
-// ─── NPC / 角色 ─────────────────────────────────────────────────────────
+// NPC / characters
 
 export const NPC_OPTIONS = [
   'Abigail',
@@ -46,7 +48,7 @@ export const NPC_OPTIONS = [
 
 export const ACTOR_OPTIONS = [...NPC_OPTIONS, 'farmer', 'farmer2', 'farmer3', 'farmer4', 'spouse', 'player']
 
-// ─── 地图 ────────────────────────────────────────────────────────────────
+// Maps
 
 export const MAP_OPTIONS = [
   'Farm',
@@ -115,13 +117,13 @@ export const MAP_OPTIONS = [
   'VolcanoDungeon5',
 ]
 
-// ─── 音乐 ────────────────────────────────────────────────────────────────
-// 真实游戏 cue 名清单在 entities/map/lib/musicCues.ts，这里仅做兼容再导出，
-// 避免事件编排与音频工作区各持一份副本。
+// Music
+// The real game cue name list lives in entities/map/lib/musicCues.ts; this only
+// re-exports it for compatibility, so event orchestration and the audio workspace don't each hold a copy.
 
 export const MUSIC_OPTIONS = GAME_MUSIC_COMMON_CUES
 
-// ─── 音效 ────────────────────────────────────────────────────────────────
+// Sound effects
 
 export const SOUND_OPTIONS = [
   'coin',
@@ -277,7 +279,7 @@ export const SOUND_OPTIONS = [
   'fairy',
 ]
 
-// ─── 表情 ────────────────────────────────────────────────────────────────
+// Emotes
 
 export const EMOTE_OPTIONS = [
   { value: '0', label: '0 思考' },
@@ -314,7 +316,7 @@ export const EMOTE_OPTIONS = [
   { value: '31', label: '31 皇冠' },
 ]
 
-// ─── 常用物品 / 对象 ─────────────────────────────────────────────────────
+// Common items / objects
 
 export const ITEM_OPTIONS = [
   { value: '(O)24', label: 'Parsnip (O)24' },
@@ -340,31 +342,31 @@ export const ITEM_OPTIONS = [
   { value: '(O)787', label: 'Battery Pack (O)787' },
 ]
 
-// ─── 速度 ────────────────────────────────────────────────────────────────
+// Speed
 
 export const SPEED_OPTIONS = ['1', '2', '3', '4', '5', '6']
 
-// ─── 方向 ────────────────────────────────────────────────────────────────
+// Direction
 
 export const DIRECTION_OPTIONS = ['0', '1', '2', '3']
 
-// ─── 淡出速度 ────────────────────────────────────────────────────────────
+// Fade speed
 
 export const FADE_SPEED_OPTIONS = ['slow', 'medium', 'fast']
 
-// ─── 结束模式 ────────────────────────────────────────────────────────────
+// End mode
 
 export const END_MODE_OPTIONS = ['dialogue', 'none']
 
-// ─── 动画帧 ──────────────────────────────────────────────────────────────
+// Animation frames
 
 export const ANIMATION_FRAME_OPTIONS = Array.from({ length: 32 }, (_, i) => String(i))
 
-// ─── 天气/季节相关 ───────────────────────────────────────────────────────
+// Weather/season-related
 
 export const SEASON_OPTIONS = ['spring', 'summer', 'fall', 'winter']
 
-// ─── 眼睛状态 ────────────────────────────────────────────────────────────
+// Eye state
 
 export const EYES_OPTIONS = [
   { value: '0', label: '0 正常' },
@@ -374,10 +376,10 @@ export const EYES_OPTIONS = [
   { value: '4', label: '4 睡觉' },
 ]
 
-// ─── 玩家动画 ────────────────────────────────────────────────────────────
+// Player animation
 
 export const FARMER_ANIMATION_OPTIONS = ['0', '1', '2', '3', '4', '5', '6', '7']
 
-// ─── 图层 ────────────────────────────────────────────────────────────────
+// Layers
 
 export const LAYER_OPTIONS = ['Back', 'Buildings', 'Front', 'AlwaysFront']

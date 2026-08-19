@@ -1,3 +1,5 @@
+//! Linux shell integration: opens directories via `xdg-open`.
+
 use anyhow::bail;
 use std::path::Path;
 use std::process::Command;

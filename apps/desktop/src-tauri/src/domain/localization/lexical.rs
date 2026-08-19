@@ -1,3 +1,5 @@
+//! Lexical keyword extraction and stop-word filtering for localization search.
+
 use std::collections::BTreeSet;
 
 const ENGLISH_STOP_WORDS: &[&str] = &[

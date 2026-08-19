@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library display model: includes sorting, custom ordering, folder tinting, and progressive display batch computation.
+ */
 import { getModKey, normalizeLookupKey, normalizeModKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherVirtualFolder } from '@features/launcher/model/types'
 

@@ -1,3 +1,8 @@
+/**
+ * @file Shared resource picker dialog — searchable, paginated browser for game/project/catalog assets with grid and list views.
+ * @module features/resource-browser
+ */
+
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ChevronLeft,
@@ -23,9 +28,12 @@ import { useResourceBrowserCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 
+/** Resource kind displayed in the browser — drives card rendering and filtering. */
 export type ResourceBrowserKind = 'actor' | 'item' | 'location' | 'music' | 'sound' | 'texture' | 'map' | 'building'
+/** Origin of a resource option — game assets, project patches, or catalog entries. */
 export type ResourceSourceKind = 'game' | 'project' | 'catalog'
 
+/** One selectable option in the resource browser, with optional preview, sprite, audio, and item metadata. */
 export type ResourceBrowserOption = {
   id: string
   value: string
@@ -75,6 +83,7 @@ export type ResourceBrowserOption = {
   itemTexture?: ItemTextureAssetState | null
 }
 
+/** Props for the `ResourcePicker` component. */
 export type ResourcePickerProps = {
   value: string
   label: string
@@ -417,6 +426,7 @@ function formatAudioWaveformBars(seed: string) {
   return values
 }
 
+/** Audio card with waveform visualization and play/pause controls for music and sound resources. */
 export function AudioCard({
   option,
   selected,
@@ -638,6 +648,11 @@ function EntityCard({
   )
 }
 
+/**
+ * Shared resource picker dialog with search, category/source filters, grid/list views, pagination,
+ * and optional confirm-selection mode. Supports audio playback for music/sound resources and
+ * a detail dialog for inspecting full resource metadata.
+ */
 export function ResourcePicker({
   value,
   label,

@@ -1,3 +1,8 @@
+/**
+ * @file Export dialog with preflight validation summary and output directory
+ * selection.
+ * @module features/cp-maker
+ */
 import { useId, useState } from 'react'
 import { AlertTriangle, CircleAlert, FolderOpen } from 'lucide-react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
@@ -16,6 +21,7 @@ interface ExportDialogProps {
   onExport: (outputPath: string) => Promise<void>
 }
 
+/** Export dialog showing preflight findings, output directory picker, and file list. */
 export function ExportDialog({ open, draftName, fileList, issues, onClose, onExport }: ExportDialogProps) {
   const copy = useEditorCopy().studioDesk.exportDialog
   const issueCopy = useAssetAuthoringCopy().issues

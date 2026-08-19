@@ -1,3 +1,7 @@
+/**
+ * @file Dialogue entry merging, patch target helpers, and editor state reading.
+ * @module entities/dialogue
+ */
 import { parseStardewI18n } from '@shared/infra/game-formats/stardew-i18n/stardewI18n'
 import { parseDialogueScript } from './script'
 

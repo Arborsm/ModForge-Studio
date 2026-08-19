@@ -1,3 +1,7 @@
+/**
+ * @file React context provider exposing the host-agnostic AI capability port to launcher and workbench features.
+ * @module entities/ai
+ */
 import { createContext, useContext, type ReactNode } from 'react'
 import type { AiPort } from '@shared/contracts'
 

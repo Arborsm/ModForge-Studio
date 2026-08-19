@@ -1,5 +1,6 @@
 /**
- * Colour string parsing for the game's `color` fields.
+ * @file Colour string parsing for the game's `color` fields.
+ * @module entities/asset-schema
  *
  * `Utility.StringToColor` accepts three spellings and mods use all of them:
  * an XNA colour name (`DarkOrchid`), `R G B` / `R G B A` and `R,G,B` / `R,G,B,A`.

@@ -1,3 +1,7 @@
+/**
+ * @file Renders validation findings of one asset as a severity-sorted list with locale-resolved messages.
+ * @module entities/asset-schema
+ */
 import { AlertTriangle, CircleAlert, Info } from 'lucide-react'
 import { useAssetAuthoringCopy } from '@locales/provider'
 import type { AssetIssue, AssetIssueSeverity } from '../model/fieldSchema'

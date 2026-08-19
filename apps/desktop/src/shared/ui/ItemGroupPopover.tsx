@@ -1,3 +1,5 @@
+/** @file Hover/focus popover that groups multiple items into a grid preview with floating-ui positioning. */
+
 import type { CSSProperties, ReactNode } from 'react'
 import { useCallback, useState } from 'react'
 import {
@@ -46,6 +48,7 @@ function getPopoverColumnCount(itemCount: number) {
   return 4
 }
 
+/** Hover/focus popover that renders a group of items as a responsive grid with floating-ui positioning. */
 export function ItemGroupPopover<T>({ groupIcon, items, renderItem, title, subtitle }: ItemGroupPopoverProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const hasItems = items.length > 0

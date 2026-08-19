@@ -1,3 +1,5 @@
+//! Content Patcher asset loading: base game assets, patch assets, virtual preview assets and image utilities.
+
 use super::project::{normalize_relative_path, resolve_include_relative_path};
 use super::schema::parse_json_file;
 use super::types::{

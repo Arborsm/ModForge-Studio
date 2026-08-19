@@ -1,3 +1,8 @@
+/**
+ * @file Player appearance profile types and helpers: default/clone/sanitize
+ * profiles, read from save files, and color conversion utilities.
+ */
+
 export type PlayerAppearanceColor = {
   r: number
   g: number
@@ -74,6 +79,7 @@ function sanitizeColor(input: Partial<PlayerAppearanceColor> | null | undefined,
   }
 }
 
+/** Creates a default player appearance profile with vanilla-like starting values. */
 export function createDefaultPlayerAppearanceProfile(label = 'Default Player'): PlayerAppearanceProfile {
   return {
     id: createProfileId(),
@@ -102,6 +108,7 @@ export function createDefaultPlayerAppearanceProfile(label = 'Default Player'): 
   }
 }
 
+/** Deep-clones a player appearance profile so callers can mutate without aliasing. */
 export function clonePlayerAppearanceProfile(profile: PlayerAppearanceProfile): PlayerAppearanceProfile {
   return {
     ...profile,
@@ -115,6 +122,7 @@ export function clonePlayerAppearanceProfile(profile: PlayerAppearanceProfile): 
   }
 }
 
+/** Normalizes a partial profile into a complete one, filling missing fields with defaults. */
 export function sanitizePlayerAppearanceProfile(profile: Partial<PlayerAppearanceProfile> | null | undefined): PlayerAppearanceProfile {
   const fallback = createDefaultPlayerAppearanceProfile(
     typeof profile?.label === 'string' && profile.label.trim() ? profile.label.trim() : 'Player',
@@ -147,6 +155,7 @@ export function sanitizePlayerAppearanceProfile(profile: Partial<PlayerAppearanc
   }
 }
 
+/** Reads the stored player appearance state from a save slot directory, returning profiles and the active slot. */
 export function readStoredPlayerAppearanceState(
   rawProfiles: string | null,
   rawActiveProfileId: string | null,
@@ -244,6 +253,7 @@ function isProbablyVanillaHatItemId(itemId: string | null) {
   return Boolean(itemId && /^\d+$/u.test(itemId))
 }
 
+/** Parses a player appearance profile from raw save-game JSON data. */
 export function parsePlayerAppearanceProfileFromSave(
   xmlText: string,
   options?: {
@@ -310,10 +320,12 @@ export function parsePlayerAppearanceProfileFromSave(
   })
 }
 
+/** Converts a `PlayerAppearanceColor` to a `#rrggbb` hex string. */
 export function colorToHex(color: PlayerAppearanceColor) {
   return `#${[color.r, color.g, color.b].map((value) => clampByte(value, 0).toString(16).padStart(2, '0')).join('')}`
 }
 
+/** Parses a hex color string into a `PlayerAppearanceColor`, falling back when malformed. */
 export function hexToColor(value: string, fallback: PlayerAppearanceColor): PlayerAppearanceColor {
   const normalized = value.trim().replace(/^#/u, '')
   if (!/^[0-9a-f]{6}$/iu.test(normalized)) {

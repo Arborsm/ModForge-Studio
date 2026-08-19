@@ -1,3 +1,6 @@
+//! Semantic search — embedding generation, vector index and candidate
+//! retrieval for localization knowledge and official corpus.
+
 mod embedding;
 mod index;
 mod model;
@@ -17,6 +20,8 @@ pub use service::{
     inspect_index, rebuild_index, run_probe, synchronize_after_local_mutation, synchronize_index,
     test_remote_profile,
 };
+/// Loads semantic search settings, augmenting the snapshot with the active
+/// execution provider status.
 pub fn load_settings()
 -> anyhow::Result<crate::domain::localization::types::AiSemanticSettingsSnapshot> {
     let mut snapshot = settings::load_settings()?;
@@ -26,6 +31,8 @@ pub fn load_settings()
     Ok(snapshot)
 }
 
+/// Saves semantic search settings and releases the runtime so the next
+/// embedding uses the new configuration.
 pub fn save_settings(
     request: crate::domain::localization::types::SaveAiSemanticSettingsRequest,
 ) -> anyhow::Result<crate::domain::localization::types::AiSemanticSettingsSnapshot> {
@@ -138,6 +145,7 @@ pub fn release_runtime_lease(lease_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Deletes the built-in semantic model and releases the runtime.
 pub fn delete_builtin_model(
     request: crate::domain::localization::types::DeleteAiSemanticModelRequest,
 ) -> anyhow::Result<crate::domain::localization::types::AiSemanticModelStatus> {
@@ -167,6 +175,7 @@ pub fn prewarm() -> anyhow::Result<()> {
     index::prewarm(&model_key)
 }
 
+/// A single semantic benchmark sample measuring embedding and kNN latency.
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SemanticBenchmarkSample {

@@ -1,3 +1,6 @@
+//! Nexus Mods domain: GraphQL/REST API access, SSO, route diagnostics, and
+//! launcher-facing wire types for catalog search and mod detail.
+
 pub mod diagnostics;
 pub mod endpoints;
 pub mod graphql;

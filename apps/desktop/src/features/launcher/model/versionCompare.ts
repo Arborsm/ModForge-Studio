@@ -1,5 +1,5 @@
 /**
- * Semantic version comparison for launcher update detection.
+ * @file Semantic version comparison for launcher update detection.
  *
  * Version strings follow SMAPI-style semantic rules (see SMAPI `SemanticVersion`):
  * short-form `x.y` is equivalent to `x.y.0`, an optional `-prerelease` tag may

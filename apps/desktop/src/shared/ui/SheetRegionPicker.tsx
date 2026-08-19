@@ -1,3 +1,5 @@
+/** @file Rubber-band region selection over a sprite sheet with grid snapping and cell-pick modes. */
+
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { cx } from '@shared/lib/helper'
 

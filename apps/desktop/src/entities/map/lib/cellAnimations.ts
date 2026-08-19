@@ -1,3 +1,8 @@
+/**
+ * @file Per-cell tileset animation editing: set, remove, and hoist animation
+ * frames on individual map layer cells with immutable document updates.
+ */
+
 import type { MapDocument, MapTilesetAnimationFrame } from './mapTypes'
 import { findTilesetForGid } from './tilesets'
 import { stripTileGidFlags } from './tileFlags'

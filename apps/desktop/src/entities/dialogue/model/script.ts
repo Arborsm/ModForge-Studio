@@ -1,5 +1,6 @@
 /**
- * Lossless page-level AST for Stardew `Characters/Dialogue` scripts.
+ * @file Lossless page-level AST for Stardew `Characters/Dialogue` scripts.
+ * @module entities/dialogue
  *
  * Fidelity contract: every page keeps its exact raw chunk, so
  * `serializeDialogueScript(parseDialogueScript(s)) === s` for any input.

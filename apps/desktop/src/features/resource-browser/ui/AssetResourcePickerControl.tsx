@@ -1,3 +1,8 @@
+/**
+ * @file Adapts asset-schema resource picker control props to the shared resource browser.
+ * @module features/resource-browser
+ */
+
 import { Search } from 'lucide-react'
 import type { ResourcePickerControlProps, ResourceRefKind } from '@entities/asset-schema'
 import { ResourcePicker, type ResourceBrowserKind, type ResourceBrowserOption } from './ResourcePicker'

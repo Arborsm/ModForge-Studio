@@ -1,5 +1,6 @@
 /**
- * Two layers over `Characters/Dialogue` entry keys.
+ * @file Two layers over `Characters/Dialogue` entry keys: builder and priority.
+ * @module entities/dialogue
  *
  * 1. Builder layer (`DialogueKeyBuild` / `buildDialogueKey` / `parseDialogueKey`):
  *    round-trips the key-composer UI state. Deliberately coarse.
@@ -168,10 +169,6 @@ export function createDefaultKeyBuild(mode: DialogueKeyMode, previous?: Dialogue
       return { mode, key: previous ? buildDialogueKey(previous) : '' }
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Priority layer                                                      */
-/* ------------------------------------------------------------------ */
 
 export type DialogueKeyFamily =
   | 'marriage_spouseRoom'

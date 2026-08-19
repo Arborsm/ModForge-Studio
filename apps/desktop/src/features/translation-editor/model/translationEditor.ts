@@ -1,9 +1,17 @@
+/**
+ * @file Core translation-editor model — i18n parsing, entry building, token validation, and check summaries.
+ * @module features/translation-editor
+ */
+
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
 import { stardewI18nPlaceholders } from '@shared/infra/game-formats/stardew-i18n/stardewI18n'
 
+/** Status of one translation entry — translated, missing, or error (token mismatch). */
 export type TranslationEntryStatus = 'translated' | 'missing' | 'error'
+/** Status filter for the translation entry list — one of the entry statuses or 'all'. */
 export type TranslationStatusFilter = TranslationEntryStatus | 'all'
 
+/** One translation entry with source/target text, token sets, and computed status. */
 export type TranslationEntry = {
   key: string
   sourceText: string
@@ -14,16 +22,19 @@ export type TranslationEntry = {
   missingTokens: string[]
 }
 
+/** Result of parsing an i18n JSON file — either valid entries or a structured error. */
 export type I18nParseResult =
   | { valid: true; entries: Record<string, string> }
   | { valid: false; entries: Record<string, never>; reason: 'invalid-json' | 'not-object' | 'non-string-value' }
 
+/** One issue found during translation checks (invalid JSON, missing tokens, whitespace, etc.). */
 export type TranslationCheckIssue = {
   key: string | null
   kind: 'invalid-json' | 'missing-token' | 'missing-translation' | 'whitespace' | 'line-breaks' | 'length' | 'language-mix'
   severity: 'blocking' | 'warning'
 }
 
+/** Summary of translation checks — blocking issues, warnings, and passed count. */
 export type TranslationCheckSummary = {
   blocking: TranslationCheckIssue[]
   warnings: TranslationCheckIssue[]
@@ -37,6 +48,7 @@ type BuildTranslationEntriesOptions = {
   status: TranslationStatusFilter
 }
 
+/** Parses an i18n file's raw JSON into a key-value map or returns a structured error. */
 export function parseI18nFile(file: ContentPatcherI18nFile | null): I18nParseResult {
   if (!file) {
     return { valid: true, entries: {} }
@@ -62,6 +74,7 @@ function validEntries(file: ContentPatcherI18nFile | null) {
   return result.valid ? result.entries : {}
 }
 
+/** Extracts and sorts Stardew i18n placeholder tokens from a text value. */
 export function extractI18nTokens(value: string): string[] {
   const tokens = new Set(stardewI18nPlaceholders(value))
 
@@ -99,6 +112,7 @@ function getEntryStatus(hasTargetKey: boolean, targetText: string, missingTokens
   return 'translated'
 }
 
+/** Builds filtered translation entries from source/target i18n files with query and status filtering. */
 export function buildTranslationEntries({ sourceFile, targetFile, query, status }: BuildTranslationEntriesOptions): TranslationEntry[] {
   const sourceEntries = validEntries(sourceFile)
   const targetEntries = validEntries(targetFile)
@@ -134,6 +148,7 @@ export function buildTranslationEntries({ sourceFile, targetFile, query, status 
     })
 }
 
+/** Updates a single key in an i18n file and returns the updated file with refreshed raw JSON. */
 export function updateI18nFileEntry(file: ContentPatcherI18nFile, key: string, value: string): ContentPatcherI18nFile {
   const result = parseI18nFile(file)
   if (!result.valid) throw new Error(`Cannot update invalid i18n JSON: ${result.reason}`)
@@ -148,6 +163,7 @@ export function updateI18nFileEntry(file: ContentPatcherI18nFile, key: string, v
   }
 }
 
+/** Updates multiple keys in an i18n file from a map and returns the updated file with refreshed raw JSON. */
 export function updateI18nFileEntries(file: ContentPatcherI18nFile, values: ReadonlyMap<string, string>): ContentPatcherI18nFile {
   const result = parseI18nFile(file)
   if (!result.valid) throw new Error(`Cannot update invalid i18n JSON: ${result.reason}`)
@@ -157,6 +173,7 @@ export function updateI18nFileEntries(file: ContentPatcherI18nFile, values: Read
   return { ...file, rawJson, entryCount: Object.keys(entries).length }
 }
 
+/** Builds a check summary (blocking issues, warnings, passed count) from source/target files and entries. */
 export function buildTranslationCheckSummary(
   sourceFile: ContentPatcherI18nFile | null,
   targetFile: ContentPatcherI18nFile | null,
@@ -193,6 +210,7 @@ export function buildTranslationCheckSummary(
   return { blocking, warnings, passed: Math.max(0, entries.length - failing.size) }
 }
 
+/** Creates a fresh empty i18n file for a locale at the standard `i18n/<locale>.json` path. */
 export function createI18nFile(projectPath: string, locale: string): ContentPatcherI18nFile {
   const filename = `${locale}.json`
   return {

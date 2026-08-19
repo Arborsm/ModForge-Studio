@@ -1,3 +1,5 @@
+//! Content Patcher condition evaluation: token resolution, modifier matching and patch status.
+
 use super::context::SimulationContext;
 use super::tokens::{ConditionModifier, INVALID_WHEN_TOKEN, parse_condition_token};
 use super::types::ContentPatcherPatchStatus;

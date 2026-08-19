@@ -1,3 +1,5 @@
+//! Localization corpus warmup: opens knowledge DB, preloads semantic model, verifies official index.
+
 use super::operational_log::{CORPUS, event};
 use super::types::LocalizationCorpusWarmupStatus;
 use crate::domain::localization::semantic;

@@ -1,5 +1,6 @@
 /**
- * `Data/NPCGiftTastes` parsing and formatting.
+ * @file `Data/NPCGiftTastes` parsing and formatting.
+ * @module entities/character
  *
  * One NPC row is a ten-slot, slash-delimited string that alternates a reaction
  * dialogue line and a space-delimited item token list, in the fixed order
@@ -113,6 +114,7 @@ export function createEmptyNpcGiftTasteEntry(): NpcGiftTasteEntry {
   return entry
 }
 
+/** Strips the `(O)` qualifier from a gift-taste item token, keeping the bare object id. */
 export function parseQualifiedGiftTasteObjectId(token: string) {
   const trimmed = token.trim()
   if (!trimmed) {
@@ -127,14 +129,17 @@ export function parseQualifiedGiftTasteObjectId(token: string) {
   return trimmed
 }
 
+/** Lowercases and trims a context tag for case-insensitive matching. */
 export function normalizeContextTag(value: string) {
   return value.trim().toLowerCase()
 }
 
+/** Normalizes a tag fragment: lowercase, strip apostrophes, replace whitespace with underscores. */
 export function normalizeTagFragment(value: string) {
   return value.trim().toLowerCase().replaceAll("'", '').replace(/\s+/gu, '_')
 }
 
+/** Extracts the five universal gift-taste token lists from a `Data/NPCGiftTastes` record set. */
 export function buildUniversalGiftTasteBuckets(giftTasteEntries: Record<string, string>): GiftTasteBuckets {
   return {
     love: parseGiftTasteTokenList(giftTasteEntries.Universal_Love),
@@ -145,6 +150,7 @@ export function buildUniversalGiftTasteBuckets(giftTasteEntries: Record<string, 
   }
 }
 
+/** Extracts the five NPC-specific gift-taste token buckets from one raw row value. */
 export function buildNpcGiftTasteBuckets(rawValue: string | null | undefined): GiftTasteBuckets {
   const entry = parseNpcGiftTasteEntry(rawValue)
   return {

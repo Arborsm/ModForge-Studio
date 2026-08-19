@@ -1,3 +1,8 @@
+/**
+ * @file Catalog of known Stardew event commands and helpers to classify and
+ * title them for the event timeline and graph views.
+ */
+
 import type { EventCommandKind } from './types'
 
 const DIALOGUE_COMMANDS = new Set(['speak', 'splitSpeak'])
@@ -7,6 +12,7 @@ const BRANCH_COMMANDS = new Set(['fork', 'switchEvent'])
 const TIMING_COMMANDS = new Set(['pause', 'waitForAllStationary', 'waitForOtherPlayers'])
 const FLOW_COMMANDS = new Set(['end', 'beginSimultaneousCommand', 'endSimultaneousCommand'])
 
+/** All event command names recognized by the editor; unknown commands are reported as warnings. */
 export const KNOWN_EVENT_COMMANDS = new Set([
   'action',
   'addBigProp',
@@ -237,10 +243,12 @@ function humanizeCommandName(command: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+/** Returns whether `command` is a known Stardew event command. */
 export function isKnownEventCommand(command: string) {
   return KNOWN_EVENT_COMMANDS.has(command)
 }
 
+/** Classifies an event command into a broad kind used by timeline grouping and icons. */
 export function getEventCommandKind(command: string): EventCommandKind {
   if (DIALOGUE_COMMANDS.has(command)) {
     return 'dialogue'
@@ -264,6 +272,7 @@ export function getEventCommandKind(command: string): EventCommandKind {
   return 'action'
 }
 
+/** Returns a human-readable title for an event command, using overrides where the naive humanization is unclear. */
 export function getEventCommandTitle(command: string) {
   return TITLE_OVERRIDES[command] ?? humanizeCommandName(command || 'command')
 }

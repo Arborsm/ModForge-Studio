@@ -1,3 +1,7 @@
+/**
+ * @file Icon component mapping a patch action to its lucide icon.
+ * @module features/cp-maker
+ */
 import { Database, FileCode, Image, MapPin } from 'lucide-react'
 import type { DraftPatch } from '@features/cp-maker'
 
@@ -5,6 +9,7 @@ type PatchActionIconProps = {
   action: DraftPatch['action']
 }
 
+/** Returns the lucide icon for a given patch action. */
 export function PatchActionIcon({ action }: PatchActionIconProps) {
   switch (action) {
     case 'EditData':

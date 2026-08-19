@@ -1,3 +1,5 @@
+//! Asset loaders: maps, text, events, images and audio from XNB or unpacked game files.
+
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::parse_map_asset;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};

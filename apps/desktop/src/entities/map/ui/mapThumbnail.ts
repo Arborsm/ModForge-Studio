@@ -1,3 +1,8 @@
+/**
+ * @file Map thumbnail generator: rasterizes a map document into a cached
+ * thumbnail data URL for use in browser cards and tab previews.
+ */
+
 import type { LocaleCode } from '@locales/api'
 import { createResourceCache } from '@shared/lib/resources'
 import { getMapContentBounds } from '../lib/mapContentBounds'

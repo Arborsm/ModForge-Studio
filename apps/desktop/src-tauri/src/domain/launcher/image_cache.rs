@@ -1,3 +1,5 @@
+//! Launcher image cache: fetch, persist, and resolve mod cover images with failure tracking.
+
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
 use crate::AppHandle;
 use crate::domain::app_paths::{launcher_image_cache_dir, launcher_image_failures_path};

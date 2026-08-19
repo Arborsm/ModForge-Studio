@@ -1,3 +1,8 @@
+/**
+ * @file Project-level structure settings page: manifest identity, ConfigSchema,
+ * DynamicTokens, CustomLocations, and AliasTokenNames.
+ * @module features/cp-maker
+ */
 import { useState } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

@@ -1,7 +1,13 @@
+/**
+ * @file Resolves `specificTemporarySprite` commands into stage effects,
+ * dispatching to per-sprite-id case handlers for vanilla special-cased sprites.
+ */
+
 import type { EventCommand } from '@entities/event'
 import { createStageEffect, parseNumber, parsePoint, type SpecificTemporarySpriteResolution, type StageEffectState } from '@entities/event'
 import { resolveSpecificTemporarySpriteEffectCase } from './eventStageSpecificSpriteEffectCases'
 
+/** Resolves a `specificTemporarySprite` command into effects and a resolution mode (append/remove/update). */
 export function buildSpecificTemporarySpriteEffects(command: EventCommand): SpecificTemporarySpriteResolution {
   const spriteId = command.args[1]
   if (!spriteId) {

@@ -1,3 +1,8 @@
+/**
+ * @file Tileset palette component: interactive tileset sheet grid for picking
+ * tiles, managing favorite/recent selections, and uploading custom tilesheets.
+ */
+
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, Download, ImageOff, LayoutGrid, Star, Upload } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'

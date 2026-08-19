@@ -1,3 +1,6 @@
+//! Nexus Mods download link resolution and file selection: fetches mod file
+//! lists, picks the best download candidate, and resolves CDN URLs.
+
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
 use crate::domain::nexusmods::request::NexusRequestContext;

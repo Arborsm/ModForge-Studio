@@ -1,3 +1,5 @@
+//! Load patch application: replaces a JSON target with the content of a patch FromFile asset.
+
 use super::super::assets::load_json_patch_asset;
 use super::super::types::ContentPatcherProjectSnapshot;
 use serde_json::Value;

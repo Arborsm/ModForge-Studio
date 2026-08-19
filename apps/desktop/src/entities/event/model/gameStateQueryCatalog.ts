@@ -1,3 +1,8 @@
+/**
+ * @file Field definitions and serialization helpers for the GameStateQuery
+ * clause builder UI, mapping each known query key to its editable fields.
+ */
+
 import {
   GAME_STATE_QUERY_KEYS,
   parseGameStateQuery,
@@ -287,6 +292,7 @@ function inferFieldsForKey(key: GameStateQueryKey): GameStateQueryFieldDefinitio
   return [valueField()]
 }
 
+/** All GameStateQuery definitions keyed by query key, used to drive the clause builder. */
 export const GAME_STATE_QUERY_DEFINITIONS: GameStateQueryDefinition[] = GAME_STATE_QUERY_KEYS.map((key) => ({
   key,
   title: titleForKey(key),
@@ -300,6 +306,7 @@ function quoteGameStateQueryToken(value: string) {
   return /[\s,"]/u.test(value) ? `"${value.replace(/(["\\])/gu, '\\$1')}"` : value
 }
 
+/** Creates a clause draft with default field values for the given query key. */
 export function createDefaultGameStateQueryClause(
   key: GameStateQueryKey,
   id = `${key.toLowerCase()}-${Date.now()}`,
@@ -329,6 +336,7 @@ function serializeFieldValues(definition: GameStateQueryDefinition | undefined, 
     .map(quoteGameStateQueryToken)
 }
 
+/** Serializes one clause draft back into the game's GameStateQuery string syntax. */
 export function serializeGameStateQueryClause(clause: GameStateQueryClauseDraft): string {
   const prefix = clause.negated ? '!' : ''
   if (clause.key === 'ANY') {
@@ -341,6 +349,7 @@ export function serializeGameStateQueryClause(clause: GameStateQueryClauseDraft)
   return `${prefix}${clause.key}${args.length > 0 ? ` ${args.join(' ')}` : ''}`
 }
 
+/** Serializes an array of clause drafts into a comma-separated GameStateQuery string. */
 export function serializeGameStateQueryClauses(clauses: GameStateQueryClauseDraft[]): string {
   return clauses.map(serializeGameStateQueryClause).filter(Boolean).join(', ')
 }
@@ -375,6 +384,7 @@ function hydrateClauseFromParsed(clause: ParsedGameStateQueryClause, id: string)
   return draft
 }
 
+/** Parses a raw GameStateQuery string into editable clause drafts, hydrating fields from definitions. */
 export function parseGameStateQueryClauses(source: string): GameStateQueryClauseDraft[] {
   const trimmed = source.trim()
   if (!trimmed) {

@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport canvas drawing routines: renders tiles, objects, overlays,
+ * warp routes, and inspector highlights onto the viewport's 2D canvas context.
+ */
+
 import { getObjectInteractionTag, isLightMarkerObject } from '@entities/map'
 import type { ThemeMode } from '@locales/api'
 import type {

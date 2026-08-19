@@ -1,5 +1,6 @@
 /**
- * `Data/Objects` validation, expressed as the workbench-wide `AssetIssue` shape.
+ * @file `Data/Objects` validation, expressed as the workbench-wide `AssetIssue`
+ * shape.
  *
  * Layered on top of the generic schema rules (required fields, duplicate entry
  * keys, the per-field `validate` callbacks in `./itemObjectSchema`): the rules

@@ -1,4 +1,10 @@
 /**
+ * @file Pure array helpers for reordering and duplicating patches in the
+ * draft's export-ordered `Changes` list.
+ * @module features/cp-maker
+ */
+
+/**
  * Moves one patch one position earlier or later in the draft's export order.
  *
  * Content Patcher applies the `Changes` array top to bottom, so this is the

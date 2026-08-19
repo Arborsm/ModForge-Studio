@@ -1,3 +1,8 @@
+/**
+ * @file World state preview overlay component: renders building sprites and
+ * world-state-dependent overlays on top of the map viewport.
+ */
+
 import { memo, useMemo } from 'react'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type { MapDocument, MapWorldOverlaySprite, OverlayTextureAsset } from '@entities/map'

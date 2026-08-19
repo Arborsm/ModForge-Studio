@@ -1,3 +1,8 @@
+/**
+ * @file Cell overlay property keys, rules, and painting helpers for the grid-rule
+ * overlay mode (Passable, NPCBarrier, Water, etc.).
+ */
+
 import type { MapPropertyValue } from './mapTypes'
 
 /**

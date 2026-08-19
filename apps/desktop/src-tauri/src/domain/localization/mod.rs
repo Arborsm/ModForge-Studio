@@ -1,3 +1,5 @@
+//! Localization domain — translation, review, knowledge and semantic search.
+
 pub(crate) mod commands;
 pub mod corpus;
 pub mod jobs;

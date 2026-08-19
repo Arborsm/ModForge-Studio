@@ -1,4 +1,6 @@
+/** Wire protocol used to talk to an AI provider (OpenAI Responses, chat completions, or Anthropic Messages). */
 export type AiProtocol = 'openai-responses' | 'openai-chat-completions' | 'anthropic-messages'
+/** Stable error category for AI operations, used for diagnostics and usage tracking. */
 export type AiErrorCode =
   | 'not-configured'
   | 'authentication'
@@ -11,9 +13,12 @@ export type AiErrorCode =
   | 'placeholder-mismatch'
   | 'cancelled'
   | 'unknown'
+/** Structured-output mode supported by a provider (JSON schema, JSON object, tool use, or none). */
 export type AiStructuredOutputCapability = 'json-schema' | 'json-object' | 'tool-use' | 'none'
+/** Authentication scheme required by a provider preset. */
 export type AiAuthentication = 'bearer' | 'anthropic-api-key' | 'none'
 
+/** Built-in provider preset (e.g. OpenAI, Anthropic) with protocol and capability metadata. */
 export type AiProviderPreset = {
   id: string
   name: string
@@ -26,6 +31,7 @@ export type AiProviderPreset = {
   structuredOutput: AiStructuredOutputCapability
 }
 
+/** User-configured AI provider profile with model, credentials, and generation parameters. */
 export type AiProviderProfile = {
   id: string
   name: string
@@ -53,6 +59,7 @@ export type AiProviderProfile = {
   resolvedCredentialSource: 'keychain' | 'environment' | null
 }
 
+/** Persisted snapshot of all AI settings — default profile, profiles, and presets. */
 export type AiSettingsSnapshot = {
   version: number
   defaultProfileId: string | null
@@ -60,12 +67,15 @@ export type AiSettingsSnapshot = {
   presets: AiProviderPreset[]
 }
 
+/** Payload for saving a provider profile, optionally setting or clearing the API key. */
 export type SaveAiProviderProfile = Omit<AiProviderProfile, 'keyConfigured' | 'resolvedCredentialSource'> & {
   apiKey?: string
   clearApiKey?: boolean
 }
 
+/** Request to persist the full AI settings (default profile + profiles). */
 export type SaveAiSettingsRequest = { defaultProfileId: string | null; profiles: SaveAiProviderProfile[] }
+/** One model returned by a provider's model-listing endpoint. */
 export type AiModelInfo = { id: string; displayName: string | null; contextWindowTokens: number | null }
 
 /** One model inside the models.dev catalog with its limit metadata. */
@@ -81,9 +91,12 @@ export type ModelsDevProviderEntry = { id: string; name: string; models: ModelsD
 
 /** Parsed models.dev catalog plus the backend fetch timestamp for cache display. */
 export type ModelsDevCatalog = { fetchedAtMs: number; providers: ModelsDevProviderEntry[] }
+/** Translation format for AI batch items — plain text, Nexus BBCode, or Stardew i18n. */
 export type AiTranslationFormat = 'plainText' | 'nexusBbcodeText' | 'stardewI18n'
+/** One translatable item in an AI translation batch request. */
 export type AiTranslationItem = { id: string; text: string; format: AiTranslationFormat; context?: string }
 
+/** Request to translate a batch of items via an AI provider. */
 export type AiTranslateBatchRequest = {
   jobId: string
   profileId?: string
@@ -97,7 +110,9 @@ export type AiTranslateBatchRequest = {
   /** Per-batch input byte cap override (bounded by the 256 KB backend cap). */
   maxBatchBytes?: number | null
 }
+/** Knowledge-source policy controlling which corpora the AI may consult during translation. */
 export type KnowledgePolicy = { enabled: boolean; useOfficialCorpus: boolean; useGlobalKnowledge: boolean; useProfileKnowledge: boolean }
+/** Counts of knowledge-base matches found during a translation batch, for traceability. */
 export type KnowledgeTrace = {
   officialMatches: number
   globalGlossaryMatches: number
@@ -105,6 +120,7 @@ export type KnowledgeTrace = {
   translationMemoryMatches: number
 }
 
+/** One translated item returned in an AI batch result. */
 export type AiTranslationResultItem = {
   id: string
   translatedText: string
@@ -112,6 +128,7 @@ export type AiTranslationResultItem = {
   skippedSameLanguage: boolean
 }
 
+/** Full result of an AI translation batch including model, usage state, and knowledge trace. */
 export type AiTranslateBatchResult = {
   jobId: string
   profileId: string
@@ -123,6 +140,7 @@ export type AiTranslateBatchResult = {
   /** Provider chain-of-thought text for this batch when reasoning was enabled and returned; null/absent otherwise. */
   reasoning?: string | null
 }
+/** Progress payload emitted over the host event channel while a translation batch runs. */
 export type AiTranslationProgressPayload = {
   jobId: string
   completed: number
@@ -137,6 +155,7 @@ export type AiTranslationStreamPayload = {
   delta: string
 }
 
+/** One persisted AI translation cache entry keyed by scope, locale, and source hash. */
 export type AiTranslationCacheEntry = {
   scopeKey: string
   targetLocale: string
@@ -147,7 +166,9 @@ export type AiTranslationCacheEntry = {
   updatedAtMs: number
 }
 
+/** Aggregate stats for the AI translation cache (entry count and size). */
 export type AiTranslationCacheStats = { entryCount: number; sizeBytes: number }
+/** Result of probing a provider profile with a test request. */
 export type AiProfileTestResult = {
   provider: string
   protocol: AiProtocol
@@ -158,8 +179,11 @@ export type AiProfileTestResult = {
   /** Provider chain-of-thought text from the probe when reasoning is enabled; null/absent otherwise. */
   reasoning?: string | null
 }
+/** Conflict-resolution policy when importing profiles that clash with existing ids. */
 export type AiProfileImportConflictPolicy = 'overwrite' | 'copy' | 'skip'
+/** Request to export selected profiles to a file. */
 export type ExportAiProfilesRequest = { destinationPath: string; profileIds: string[] }
+/** One entry in the profile-import preview, with conflict detection. */
 export type AiProfileImportPreviewEntry = {
   id: string
   name: string
@@ -167,7 +191,9 @@ export type AiProfileImportPreviewEntry = {
   model: string
   conflicts: boolean
 }
+/** Preview of a profile-import file — format version, credential exclusion flag, and entries. */
 export type AiProfileImportPreview = { formatVersion: number; credentialsExcluded: true; entries: AiProfileImportPreviewEntry[] }
+/** Result of applying a profile import — counts of imported, overwritten, copied, and skipped entries. */
 export type AiProfileImportResult = {
   settings: AiSettingsSnapshot
   imported: number

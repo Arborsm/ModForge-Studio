@@ -1,5 +1,6 @@
 import type { OpenDialogOptions, PlatformDragDropPayload, PlatformUnlistenFn, SaveDialogOptions } from '@shared/contracts'
 
+/** Bridge surface exposed on `window.modforgeElectron` by the Electron preload script. */
 export type ModforgeElectronApi = {
   invokeCommand: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
   minimize: () => Promise<void>

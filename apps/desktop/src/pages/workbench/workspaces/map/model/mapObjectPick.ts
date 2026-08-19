@@ -10,17 +10,18 @@ import {
 } from '@entities/map'
 
 /**
- * 反向查找：给定地图上一个 raw gid（含翻转标志），在对象目录注册表中
- * 查找包含该 tile 的 `MapCatalogObject`。用于 Inspector 面板将地图上
- * 已放置的贴图匹配到家具/结构物目录条目。
+ * Reverse lookup: given a raw gid (with flip flags) on the map, finds the
+ * `MapCatalogObject` in the object catalog registry that contains that tile.
+ * Used by the Inspector panel to match a placed tile on the map to a
+ * furniture/structure catalog entry.
  *
- * 查找逻辑：
- * 1. 从 gid 解析出所属 tileset 和 tileId
- * 2. 从 tileset 属性获取对应的游戏 sheet key
- * 3. 将 tileId 转为 sheet 上的 (tileX, tileY) 坐标
- * 4. 遍历对象目录，查找 sheet 匹配且 rect 包含 (tileX, tileY) 的条目
+ * Lookup logic:
+ * 1. Parse the owning tileset and tileId from the gid
+ * 2. Get the corresponding game sheet key from tileset properties
+ * 3. Convert tileId to (tileX, tileY) coordinates on the sheet
+ * 4. Iterate the object catalog, finding an entry whose sheet matches and whose rect contains (tileX, tileY)
  *
- * 返回第一个匹配的目录条目，或 null。
+ * Returns the first matching catalog entry, or null.
  */
 export function matchTileToCatalogObject(rawGid: number, tilesets: readonly MapTileset[]): MapCatalogObject | null {
   const gid = stripTileGidFlags(rawGid)
@@ -48,36 +49,37 @@ export function matchTileToCatalogObject(rawGid: number, tilesets: readonly MapT
   return null
 }
 
-// ── Placed furniture scanning ─────────────────────────────────────────
+// Placed furniture scanning
 
-/** 一个被扫描识别出的已放置家具实例。 */
+/** A scanned, recognized placed furniture instance. */
 export type PlacedFurnitureEntry = {
-  /** 目录条目。 */
+  /** Catalog entry. */
   catalogObject: MapCatalogObject
-  /** 家具左上角在地图上的 tile 坐标。 */
+  /** Top-left tile coordinate of the furniture on the map. */
   tileX: number
   tileY: number
-  /** 所在图层名称。 */
+  /** Name of the layer it resides on. */
   layerName: string
 }
 
 /**
- * 扫描文档所有 tile 层，将每个非零 gid 匹配到对象目录，识别出已
- * 放置的家具并推导其左上角位置。同一家具在同一位置只记录一次。
+ * Scans all tile layers of the document, matching each non-zero gid to the
+ * object catalog to identify placed furniture and derive its top-left position.
+ * The same furniture at the same position is recorded only once.
  *
- * 算法：
- * 1. 为文档中有 game-sheet 映射的 tileset 预构建 sheetKey 查找表
- * 2. 将对象目录按 sheet key 分桶
- * 3. 遍历每层每个 cell：gid → tileset → sheetKey → 桶内查找
- * 4. 命中后计算家具在地图上的左上角 tile 坐标，以 `id+x+y+layer`
- *    去重（同一家具的多个 tile 只产出一条记录）
+ * Algorithm:
+ * 1. Pre-build a sheetKey lookup table for tilesets in the document that have a game-sheet mapping
+ * 2. Bucket the object catalog by sheet key
+ * 3. Iterate each cell of each layer: gid → tileset → sheetKey → bucket lookup
+ * 4. On a hit, compute the furniture's top-left tile coordinate on the map and
+ *    dedupe by `id+x+y+layer` (multiple tiles of the same furniture yield only one record)
  *
- * 纯函数，无副作用。对象目录由调用方传入。
+ * Pure function, no side effects. The object catalog is passed in by the caller.
  */
 export function scanPlacedFurniture(document: MapDocument, catalogObjects: readonly MapCatalogObject[]): PlacedFurnitureEntry[] {
   if (catalogObjects.length === 0 || document.layers.length === 0) return []
 
-  // 为每个 tileset 预解析 sheetKey
+  // Pre-parse sheetKey for each tileset
   const tilesetSheetKeys = new Map<MapTileset, string>()
   for (const tileset of document.tilesets) {
     const key = gameSheetKeyOfTileset(tileset)
@@ -85,7 +87,7 @@ export function scanPlacedFurniture(document: MapDocument, catalogObjects: reado
   }
   if (tilesetSheetKeys.size === 0) return []
 
-  // 按 sheet key 分桶建索引
+  // Build an index by bucketing on sheet key
   const objectsBySheet = new Map<string, MapCatalogObject[]>()
   for (const obj of catalogObjects) {
     const sheetLower = obj.sheet.toLowerCase()
@@ -123,7 +125,7 @@ export function scanPlacedFurniture(document: MapDocument, catalogObjects: reado
         const { x, y, width, height } = obj.rect
         if (sheetTileX < x || sheetTileX >= x + width || sheetTileY < y || sheetTileY >= y + height) continue
 
-        // 从 cell 坐标和 tile 在家具 rect 内的偏移推算家具左上角
+        // Derive the furniture top-left from the cell coordinate and the tile's offset within the furniture rect
         const cellX = cellIndex % layer.width
         const cellY = Math.floor(cellIndex / layer.width)
         const furnitureX = cellX - (sheetTileX - x)
@@ -138,12 +140,12 @@ export function scanPlacedFurniture(document: MapDocument, catalogObjects: reado
     }
   }
 
-  // 按 y → x → 图层名排序，方便阅读
+  // Sort by y → x → layer name for readability
   results.sort((a, b) => a.tileY - b.tileY || a.tileX - b.tileX || a.layerName.localeCompare(b.layerName))
   return results
 }
 
-/** 已放置家具的显示标签。 */
+/** Display label for placed furniture. */
 export function placedFurnitureLabel(entry: PlacedFurnitureEntry, locale: string): string {
   return mapObjectDisplayName(entry.catalogObject, locale)
 }

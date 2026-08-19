@@ -1,3 +1,7 @@
+/**
+ * @file Launcher mod detail panel list sections: property rows, detail sections,
+ * file list, changelog list, and dependency tree/list rendering.
+ */
 import { ChevronDown, ChevronRight, Download, ExternalLink, Minus, Search } from 'lucide-react'
 import { useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { cx } from '@shared/lib/helper'

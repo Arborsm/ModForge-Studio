@@ -1,3 +1,8 @@
+/**
+ * @file Item sprite metrics helpers: default sprite dimensions per kind, source
+ * rect calculation, tint mask rects, and contained-fit scaling for item thumbnails.
+ */
+
 import {
   getClothingPantsMenuSourceRect,
   getClothingShirtMenuMaskSourceRect,
@@ -6,6 +11,7 @@ import {
 
 import type { ItemKind, ItemTextureAssetState, ItemWorkspaceEntry } from './itemTypes'
 
+/** Returns the default sprite dimensions (width, height in source pixels) for an item kind. */
 export function getDefaultItemSpriteMetrics(kind: ItemKind) {
   if (kind === 'big-craftable') {
     return { width: 16, height: 32 }
@@ -22,6 +28,7 @@ export function getDefaultItemSpriteMetrics(kind: ItemKind) {
   return { width: 16, height: 16 }
 }
 
+/** Returns the effective sprite metrics, falling back to defaults when the entry has no explicit dimensions. */
 export function getItemSpriteMetrics(entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteWidth' | 'spriteHeight'>) {
   return {
     width: entry.spriteWidth || getDefaultItemSpriteMetrics(entry.kind).width,
@@ -29,6 +36,7 @@ export function getItemSpriteMetrics(entry: Pick<ItemWorkspaceEntry, 'kind' | 's
   }
 }
 
+/** Computes the source rect for an item's sprite in its texture atlas, handling kind-specific layouts. */
 export function getItemSpriteSourceRect(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight'>,
   textureState: Pick<ItemTextureAssetState, 'width'> | null,
@@ -67,6 +75,7 @@ export function getItemSpriteSourceRect(
   }
 }
 
+/** Computes the tint mask source rect for apparel items (shirts/pants), or null when not applicable. */
 export function getItemSpriteTintMaskSourceRect(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight'>,
   textureState: Pick<ItemTextureAssetState, 'width'> | null,
@@ -88,6 +97,7 @@ export function getItemSpriteTintMaskSourceRect(
   return null
 }
 
+/** Returns the largest scale that fits an item sprite within a square frame of `frameSize` pixels. */
 export function getContainedItemSpriteScale(
   entry: Pick<ItemWorkspaceEntry, 'spriteWidth' | 'spriteHeight'>,
   frameSize: number,
@@ -96,6 +106,7 @@ export function getContainedItemSpriteScale(
   return Math.min(preferredScale, frameSize / Math.max(1, entry.spriteWidth, entry.spriteHeight))
 }
 
+/** Computes a contained-fit frame (scale + pixel dimensions) for an item sprite within a max-size box. */
 export function getContainedItemSpriteFrame(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteWidth' | 'spriteHeight'>,
   maxFrameSize: number,

@@ -1,3 +1,5 @@
+//! Localization domain wire types: usage events, review runs, knowledge entries, semantic and corpus types.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

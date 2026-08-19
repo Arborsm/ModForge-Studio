@@ -1,5 +1,6 @@
 /**
- * The item asset families and which of them this build can edit structurally.
+ * @file The item asset families and which of them this build can edit
+ * structurally.
  *
  * The codex covers every family, while structured authoring currently reaches
  * `Data/Objects` only. That boundary lives here as data rather than as a branch

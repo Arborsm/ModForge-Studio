@@ -1,3 +1,5 @@
+//! Localization job cancellation tracking shared across translation, review, and indexing operations.
+
 use anyhow::bail;
 use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};

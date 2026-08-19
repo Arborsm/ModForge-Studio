@@ -1,3 +1,5 @@
+//! Data-driven provider preset table: protocols, base URLs, auth modes and structured-output capabilities.
+
 use super::types::{AiAuthentication, AiProtocol, AiProviderPreset, AiStructuredOutputCapability};
 
 /// Data-driven provider capability table.

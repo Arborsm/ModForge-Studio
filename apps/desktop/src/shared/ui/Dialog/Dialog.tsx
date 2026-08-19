@@ -1,7 +1,10 @@
+/** @file Modal dialog container with portal, focus trap, body scroll lock, and stacking support. */
+
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { cx } from '@shared/lib/helper'
 
+/** Card width preset for the dialog. */
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full'
 
 type DialogProps = {

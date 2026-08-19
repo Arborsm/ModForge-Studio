@@ -1,3 +1,8 @@
+/**
+ * @file Applies temporary sprite commands to the stage effect list, handling
+ * append, remove, and specific-sprite update modes.
+ */
+
 import type { EventCommand } from '@entities/event'
 import { appendStageEffect, appendStageEffects, createStageEffect, parsePoint, type StageEffectState } from '@entities/event'
 import { parseTemporaryAnimatedSpriteCommand, parseTemporarySpriteCommand } from './eventStageTemporarySpriteCommands'

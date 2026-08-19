@@ -1,3 +1,8 @@
+/**
+ * @file Hook tracking official corpus and semantic model readiness for AI translation.
+ * @module features/translation-editor
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
 import { useTranslationEditorCopy } from '@locales/provider'
@@ -189,4 +194,5 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
   }
 }
 
+/** Return type of `useCorpusReadiness` — readiness flags, progress, and build/download actions. */
 export type CorpusReadiness = ReturnType<typeof useCorpusReadiness>

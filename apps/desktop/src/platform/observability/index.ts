@@ -1,3 +1,8 @@
+/**
+ * @file Frontend observability — app event reporting, notification dispatch and console-to-host log bridge.
+ * @module platform/observability
+ */
+
 import type { NotificationAction, NotificationLevel } from '@shared/ui/notifications'
 
 /** Event severity used for both notifications and observability routing. */

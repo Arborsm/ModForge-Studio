@@ -1,10 +1,12 @@
+/**
+ * @file Default translation engine selection panel: chooses the default engine between generative AI and machine translation configurations.
+ */
 import { AlertTriangle, ArrowRight, Check, Sparkles, Languages } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAi } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
 import type { LocalizationEngineRef } from '@shared/contracts'
-import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { cx } from '@shared/lib/helper'
 import { useNotificationPublisher } from '@shared/ui/notifications'
 
@@ -21,6 +23,7 @@ function sameEngine(left: LocalizationEngineRef | null, right: LocalizationEngin
   return left?.kind === right?.kind && left?.profileId === right?.profileId
 }
 
+/** Default translation engine selection panel: displays available engines and persists the user's choice. */
 export function DefaultTranslationEngineSection({
   onDirtyChange,
   onNavigateTab,
@@ -31,10 +34,9 @@ export function DefaultTranslationEngineSection({
   const ai = useAi()
   const localization = useLocalization()
   const settingsCopy = useSettingsMenuCopy()
-  const locale = usePreferencesStore((state) => state.locale)
   const copy = settingsCopy.ai.defaultEngine
   const aiCopy = settingsCopy.ai
-  const noKeyLabel = locale.startsWith('zh') ? '无需 Key' : 'No key'
+  const noKeyLabel = copy.noKeyLabel
   const publishNotification = useNotificationPublisher()
   const [choices, setChoices] = useState<EngineChoice[]>([])
   const [saved, setSaved] = useState<LocalizationEngineRef | null>(null)

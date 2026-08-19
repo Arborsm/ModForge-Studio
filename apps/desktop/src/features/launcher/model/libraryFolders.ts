@@ -1,3 +1,7 @@
+/**
+ * @file Virtual library folder normalization and mutation logic: single mod
+ * ownership, acyclic nesting, and pack-scope filtering.
+ */
 import type { LauncherLibraryFolder, LauncherLibraryPackPreset } from './launcherContracts'
 import { normalizeLookupKey, normalizeModKey } from './libraryHelpers'
 
@@ -128,6 +132,7 @@ export function normalizeLibraryFolders(
   }))
 }
 
+/** Adds mod keys to a folder, removing them from other same-scope folders first. */
 export function addModKeysToLibraryFolder(
   folders: LauncherLibraryFolder[],
   folderId: string,
@@ -171,6 +176,7 @@ export function addModKeysToLibraryFolder(
   )
 }
 
+/** Removes the given mod keys from all library folders. */
 export function removeModKeysFromLibraryFolders(
   folders: LauncherLibraryFolder[],
   modKeys: string[],
@@ -190,6 +196,7 @@ export function removeModKeysFromLibraryFolders(
   )
 }
 
+/** Moves a folder under a new parent (or to root when parentFolderId is null), rejecting cycles. */
 export function moveLibraryFolder(
   folders: LauncherLibraryFolder[],
   folderId: string,

@@ -1,13 +1,19 @@
+/**
+ * @file useLauncherDependencyDetails hooks: remote dependency detail loading
+ * and preload triggering for the Dependencies tab.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LauncherPort } from '../../../model/launcherPort'
 import type { LauncherDetailTab } from '../launcherModDetailData'
 import type { RemoteDependencyLoadState } from './dependencyTreeTypes'
 
+/** Input shape for {@link useLauncherDependencyDetails}. */
 export type UseLauncherDependencyDetailsInput = {
   detailContentKey: string
   launcherPort: LauncherPort
 }
 
+/** Input shape for {@link usePreloadLauncherDependencyDetails}. */
 export type UsePreloadLauncherDependencyDetailsInput = {
   open: boolean
   selectedTab: LauncherDetailTab

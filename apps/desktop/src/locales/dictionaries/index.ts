@@ -1,12 +1,12 @@
 /**
- * 显式注册所有语言包。
+ * Explicitly registers all locale bundles.
  *
- * 新增语言的步骤：
- * 1. 在 `../model/core.ts` 的 `LocaleCode` 中添加新的语言代码。
- * 2. 在 `../model/settings.ts` 的 `SettingsMenuCopy.localeLabels` 中补充标签。
- * 3. 复制一个已有语言目录（如 `en-US/`）作为骨架，逐域补完翻译。
- * 4. 在下方 `localeBundles` 中新增一行注册。
- * 5. 运行 `pnpm --filter @modforge/desktop test` 验证。
+ * Steps to add a new language:
+ * 1. Add the new locale code to `LocaleCode` in `../model/core.ts`.
+ * 2. Add the label to `SettingsMenuCopy.localeLabels` in `../model/settings.ts`.
+ * 3. Copy an existing language directory (e.g. `en-US/`) as a skeleton and complete translations per domain.
+ * 4. Add a registration line in `localeBundles` below.
+ * 5. Run `pnpm --filter @modforge/desktop test` to verify.
  */
 import enUS from './en-US'
 import zhCN from './zh-CN'

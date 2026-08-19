@@ -1,3 +1,5 @@
+//! Archive inspection: file tree building, mod-root detection, manifest metadata, and install diff summaries.
+
 use super::extract::{
     ArchiveEntryMtimes, expand_archive_to_path, system_time_ms, with_temp_work_dir,
 };

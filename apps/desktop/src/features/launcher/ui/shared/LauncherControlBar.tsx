@@ -1,3 +1,7 @@
+/**
+ * @file Launcher control bar: titled section wrapper with optional subtitle and
+ * action slot for toolbar areas.
+ */
 import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 

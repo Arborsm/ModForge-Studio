@@ -1,3 +1,7 @@
+/**
+ * @file Entry-level change manager for asset workspaces (characters/buildings/items).
+ * @module features/cp-maker
+ */
 import { useState, type JSX } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Pencil, Trash2 } from 'lucide-react'

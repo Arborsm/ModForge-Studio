@@ -1,11 +1,13 @@
 /**
- * Pure helpers for rendering the archive install diff view: unified diff line
- * parsing, size-delta formatting, and timestamp formatting. No DOM or locale
- * context is required; callers pass the locale explicitly.
+ * @file Pure helpers for rendering the archive install diff view: unified diff
+ * line parsing, size-delta formatting, and timestamp formatting. No DOM or
+ * locale context is required; callers pass the locale explicitly.
  */
 
+/** Kind label for one parsed unified diff line. */
 export type UnifiedDiffLineKind = 'header' | 'hunk' | 'add' | 'remove' | 'context'
 
+/** One parsed unified diff line with its kind and raw text. */
 export type UnifiedDiffLine = {
   kind: UnifiedDiffLineKind
   /** Line content including the leading diff marker (e.g. `+foo`, ` context`). */

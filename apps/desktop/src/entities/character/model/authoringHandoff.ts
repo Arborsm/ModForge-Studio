@@ -1,5 +1,6 @@
 /**
- * "Open in character authoring" handoff.
+ * @file "Open in character authoring" handoff store.
+ * @module entities/character
  *
  * The browser page and the authoring page are separate workbench modules and
  * must not import each other, so the NPC key travels through this shared

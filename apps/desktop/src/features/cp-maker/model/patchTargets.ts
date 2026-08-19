@@ -1,11 +1,12 @@
 /**
- * Target suggestions for the "add patch" flow.
+ * @file Target suggestions for the "add patch" flow.
  *
  * The suggestions come from two sources that must not drift apart: the vanilla
  * 1.6 asset catalog in `@entities/asset-schema`, and the asset ids that already
  * have a structured editor registered. Registered ids are listed first and win
  * the spelling, so an asset the workbench can edit is never hidden behind a
  * differently-cased catalog entry.
+ * @module features/cp-maker
  */
 
 import { listAssetSchemaIds, VANILLA_DATA_TARGETS, VANILLA_IMAGE_TARGETS, VANILLA_MAP_TARGETS } from '@entities/asset-schema'

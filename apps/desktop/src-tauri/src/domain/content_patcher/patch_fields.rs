@@ -1,3 +1,5 @@
+//! Patch field parsing: Target and FromFile value extraction from raw patch maps.
+
 use serde_json::{Map, Value};
 
 pub(crate) fn parse_target_values(patch: &Map<String, Value>) -> Vec<String> {

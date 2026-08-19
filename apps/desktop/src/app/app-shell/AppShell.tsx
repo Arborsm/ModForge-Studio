@@ -1,3 +1,6 @@
+/**
+ * @file App shell root component: manages app mode switching, window controls, settings window, guide tour, and workbench lazy loading.
+ */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -136,6 +139,9 @@ configureObservability({
 setNotificationDispatcher(publishNotification)
 useGuideEngineStore.getState().registerGuideDefinitions(appGuideDefinitions)
 
+/**
+ * App shell component: coordinates launcher/workbench mode switching, window frame controls, settings window, and guide tour lifecycle.
+ */
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)

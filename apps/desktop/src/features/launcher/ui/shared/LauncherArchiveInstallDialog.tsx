@@ -1,3 +1,7 @@
+/**
+ * @file Archive install preview/confirm dialog: mod-root tree, install-state
+ * badges, diff view, and confirm/update action for local archive installation.
+ */
 import { useId } from 'react'
 import { AlertTriangle, File, FileArchive, Folder, PackageOpen } from 'lucide-react'
 import type { InspectLauncherArchiveResult, LauncherArchiveModRootInfo, LauncherArchiveTreeNode } from '../../model/launcherContracts'

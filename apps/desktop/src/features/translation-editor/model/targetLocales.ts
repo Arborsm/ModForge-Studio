@@ -1,3 +1,8 @@
+/**
+ * @file Target locale constants and default-locale mapping for the translation editor.
+ * @module features/translation-editor
+ */
+
 import type { LocaleCode } from '@locales/model'
 
 /** Common Stardew Valley i18n locales offered as target languages even before the file exists. */

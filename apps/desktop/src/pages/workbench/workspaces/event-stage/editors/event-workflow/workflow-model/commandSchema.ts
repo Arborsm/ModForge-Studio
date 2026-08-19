@@ -1,24 +1,26 @@
-// 指令定义 Schema — 所有命令 UI 的单一数据源
+/**
+ * @file Event command definition schema: the single source of truth for all command UIs.
+ */
 
 export type UIControlType =
-  | 'text' // 单行文本
-  | 'textarea' // 多行文本
-  | 'dialogue_script' // 结构化对话脚本（共享 entities/dialogue 编辑器）
-  | 'number' // 数字
-  | 'npc_selector' // NPC 头像选择器
-  | 'tile_picker' // 地图瓷砖拾取器
-  | 'path_picker' // 地图路径拾取器
-  | 'direction' // 方向选择 0/1/2/3
-  | 'emote' // 表情选择器
-  | 'item' // 物品/对象选择
-  | 'animation_frames' // 动画帧序列选择
-  | 'quick_question' // 快速选择和分支命令编辑
-  | 'music' // 音乐选择
-  | 'sound' // 音效选择
-  | 'toggle' // 布尔开关
-  | 'choice' // 选项列表
-  | 'color_rgb' // RGB 颜色
-  | 'raw' // 原始文本（高级模式）
+  | 'text' // Single-line text
+  | 'textarea' // Multi-line text
+  | 'dialogue_script' // Structured dialogue script (shares the entities/dialogue editor)
+  | 'number' // Number
+  | 'npc_selector' // NPC portrait selector
+  | 'tile_picker' // Map tile picker
+  | 'path_picker' // Map path picker
+  | 'direction' // Direction select 0/1/2/3
+  | 'emote' // Emote selector
+  | 'item' // Item/object selection
+  | 'animation_frames' // Animation frame sequence selection
+  | 'quick_question' // Quick choice and branch command editing
+  | 'music' // Music selection
+  | 'sound' // Sound effect selection
+  | 'toggle' // Boolean toggle
+  | 'choice' // Option list
+  | 'color_rgb' // RGB color
+  | 'raw' // Raw text (advanced mode)
 
 export type OptionItem = string | { value: string; label: string }
 

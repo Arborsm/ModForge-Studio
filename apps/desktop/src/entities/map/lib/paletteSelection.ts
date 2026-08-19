@@ -1,3 +1,8 @@
+/**
+ * @file Tileset palette selection helpers: drag-rect normalization, favorite
+ * and recent selection management, and sheet-pointer-to-cell conversion.
+ */
+
 import {
   PALETTE_FAVORITE_LIMIT,
   PALETTE_RECENT_LIMIT,

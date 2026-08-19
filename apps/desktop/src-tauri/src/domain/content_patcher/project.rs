@@ -1,3 +1,5 @@
+//! Content Patcher project loader: manifest validation, include-tree resolution and snapshot assembly.
+
 use super::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};
 use super::diagnostics::{
     include_outside_root_error, missing_file_error, non_content_patcher_manifest_error,

@@ -57,10 +57,6 @@ describe('isValidSpeedId', () => {
   })
 })
 
-/* ------------------------------------------------------------------ */
-/*  Default resolution (D-08, D-09)                                    */
-/* ------------------------------------------------------------------ */
-
 describe('DEFAULT_LOADING_MOTION_PREFERENCE', () => {
   it('is softFadeIn / standard (柔和淡入 / 标准)', () => {
     expect(DEFAULT_LOADING_MOTION_PREFERENCE).toEqual({
@@ -72,10 +68,6 @@ describe('DEFAULT_LOADING_MOTION_PREFERENCE', () => {
     })
   })
 })
-
-/* ------------------------------------------------------------------ */
-/*  normalizeLoadingMotionPreference — independence (D-06)             */
-/* ------------------------------------------------------------------ */
 
 describe('normalizeLoadingMotionPreference', () => {
   it('returns defaults when given null', () => {
@@ -186,10 +178,6 @@ describe('resolveLoadingMotionConfig', () => {
   })
 })
 
-/* ------------------------------------------------------------------ */
-/*  orderRevealItems — ready-first within priority tier                */
-/* ------------------------------------------------------------------ */
-
 describe('orderRevealItems', () => {
   it('returns empty array for empty input', () => {
     expect(orderRevealItems([])).toEqual([])
@@ -230,10 +218,6 @@ describe('orderRevealItems', () => {
     expect(result.map((r) => r.itemId)).toEqual(['slowButHighPriority', 'readyButLowPriority'])
   })
 })
-
-/* ------------------------------------------------------------------ */
-/*  validateAnchors — max 2 anchors (D-15, D-16)                       */
-/* ------------------------------------------------------------------ */
 
 describe('validateAnchors', () => {
   it('passes validation with 0 anchors', () => {

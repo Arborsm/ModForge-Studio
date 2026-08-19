@@ -1,3 +1,7 @@
+/**
+ * @file React hook for one-shot debug bridge commands from authoring surfaces.
+ * @module entities/debug-bridge
+ */
 import { useEffect, useRef, useState } from 'react'
 import { getDebugBridgeStatus, sendDebugBridgeCommand } from '../api/debugBridgeApi'
 import type { DebugBridgeCommandRequest } from '../model/types'

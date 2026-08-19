@@ -1,3 +1,5 @@
+//! CP Maker map asset serialization: TMX/TBin output with external TSX companion generation.
+
 use super::types::{BuildCpMakerMapAssetRequest, BuildCpMakerMapAssetResult};
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};

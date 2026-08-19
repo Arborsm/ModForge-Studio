@@ -1,3 +1,8 @@
+/**
+ * @file Tauri platform adapter — wires `@tauri-apps/api` into the `PlatformPorts` contract for macOS/Windows.
+ * @module platform/tauri
+ */
+
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
@@ -40,6 +45,7 @@ async function saveFileDialog(options?: SaveDialogOptions) {
   })
 }
 
+/** Builds the `PlatformPorts` instance backed by the Tauri webview API. */
 export function createTauriPlatformPorts(): PlatformPorts {
   return {
     fileSystem: {

@@ -1,3 +1,5 @@
+//! Launcher domain wire types: settings, library state, downloads, updates, SMAPI, and archive inspection.
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 

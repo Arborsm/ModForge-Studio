@@ -1,3 +1,8 @@
+/**
+ * @file Manifest metadata form-state helpers: converts between the string-based
+ * form shape used by dialogs and the typed draft metadata.
+ * @module features/cp-maker
+ */
 import type { CpMakerDraft } from './types'
 
 /**

@@ -1,3 +1,6 @@
+/**
+ * @file AI provider configuration editor component: edits identity, endpoint, credentials, models, and advanced generation parameters.
+ */
 import { Eraser, Import as ModelsDevImportIcon, LoaderCircle, RefreshCw, Trash2 } from 'lucide-react'
 import { formatAiTokenCount, modelsDevProviderForPreset, parseOptionalNumberInput, resolveAiContextWindow } from '@entities/ai'
 import type { AiGenerationParamField } from '@entities/ai'

@@ -7,12 +7,12 @@ function sourcePath(...segments: string[]) {
   return resolve(process.cwd(), ...segments)
 }
 
-// `src/tests/` 下是 Rust 测试代码（回归测试会构造反斜杠形态做断言），不属于生产代码。
+// `src/tests/` contains Rust test code (regression tests construct backslash forms for assertions), not production code.
 const TEST_SOURCE_EXCLUDE_DIRS = /(?:^|\/)src\/(tests|test)\//
 
-// 禁止手写 `/` → `\` 替换：Linux/macOS 上 `\` 不是路径分隔符而是普通文件名字符，
-// 会把相对路径拼成含反斜杠的单文件名（如 `assets\maps\foo.png`）。两种引号风格都查。
-// 分隔符转换必须收敛到 infrastructure/fs/pathing.rs 的语义 helper。
+// Hand-written `/` → `\` replacement is forbidden: on Linux/macOS `\` is not a path separator but a regular filename character,
+// which would turn relative paths into single filenames containing backslashes (e.g. `assets\maps\foo.png`). Both quote styles are checked.
+// Separator conversion must converge to the semantic helpers in infrastructure/fs/pathing.rs.
 const HAND_WRITTEN_BACKSLASH_REPLACE_PATTERNS = [/replace\(\s*'\/'\s*,\s*"\\\\"\s*\)/g, /replace\(\s*"\/"\s*,\s*"\\\\"\s*\)/g]
 
 describe('rust backend path separator rules', () => {

@@ -1,3 +1,7 @@
+/**
+ * @file Dialog for editing the active draft's project manifest metadata.
+ * @module features/cp-maker
+ */
 import { useState, type FormEvent } from 'react'
 import { useId } from 'react'
 import { useEditorCopy } from '@locales/provider'
@@ -13,6 +17,7 @@ type ProjectPropertiesDialogProps = {
   onSave: (metadata: Partial<CpMakerDraft['projectMetadata']>) => void | Promise<void>
 }
 
+/** Dialog wrapper that remounts the form on metadata identity change. */
 export function ProjectPropertiesDialog({ open, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
   return <ProjectPropertiesDialogForm key={JSON.stringify(metadata)} open={open} metadata={metadata} onClose={onClose} onSave={onSave} />
 }

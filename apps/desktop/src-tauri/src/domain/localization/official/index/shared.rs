@@ -1,3 +1,6 @@
+//! Shared constants, locale mapping and hashing helpers for the official
+//! localization index.
+
 use sha2::{Digest, Sha256};
 use std::fmt::Write as _;
 use std::sync::{Mutex, OnceLock};

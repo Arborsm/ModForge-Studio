@@ -1,5 +1,5 @@
 /**
- * Ctrl+Z / Ctrl+Shift+Z (and Cmd on macOS) for every authoring page.
+ * @file Ctrl+Z / Ctrl+Shift+Z (and Cmd on macOS) for every authoring page.
  *
  * The binding lives beside the draft port rather than in each page so all pages
  * walk the same history with the same keys. Text fields keep their own native
@@ -9,6 +9,7 @@
  * Editors that own their own undo stack register through
  * {@link useLocalUndoShortcutOwner} while mounted; the shared binding then
  * stands down so one keystroke pops exactly one stack.
+ * @module features/cp-maker
  */
 
 import { useEffect, useRef } from 'react'

@@ -1,4 +1,6 @@
-// 剧本卡片 — 按 beat_card_lucide.html 草图组织的 4 列剧本行
+/**
+ * @file Script card component: a 4-column script row organized per the beat_card_lucide.html mock.
+ */
 
 import { useMemo, useState, type ComponentType, type MouseEvent } from 'react'
 import {

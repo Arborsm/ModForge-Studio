@@ -1,4 +1,6 @@
-// 右侧剧本编辑器容器
+/**
+ * @file Right-side script editor container component.
+ */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ListOrdered, Plus, Rows3 } from 'lucide-react'

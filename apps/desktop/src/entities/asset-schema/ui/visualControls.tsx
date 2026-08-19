@@ -1,6 +1,6 @@
 /**
- * Visual field controls: reference pickers, the colour picker, the season chip
- * row and the localized-text field.
+ * @file Visual field controls: reference pickers, colour picker, season chip row, and localized-text field.
+ * @module entities/asset-schema
  *
  * These are the controls that need more than an input element — a browsable
  * dialog, a swatch, a resolved-text preview. They keep the same contract as the

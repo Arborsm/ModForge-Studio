@@ -1,3 +1,6 @@
+/**
+ * @file Recursively collects source files for architecture scan tests; rejects empty scan scopes.
+ */
 import { readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 

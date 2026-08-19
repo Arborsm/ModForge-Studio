@@ -1,5 +1,6 @@
 /**
- * Animated character previews shared by the codex and the authoring page.
+ * @file Animated character previews shared by the codex and the authoring page.
+ * @module entities/character
  *
  * Both surfaces show the same thing — a looping walk cycle per facing and the
  * idle breathing overlay the game applies to NPC sprites — so the animation

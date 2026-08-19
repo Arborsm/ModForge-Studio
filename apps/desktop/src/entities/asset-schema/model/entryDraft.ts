@@ -1,5 +1,6 @@
 /**
- * Lossless draft view over one raw asset entry.
+ * @file Lossless draft view over one raw asset entry.
+ * @module entities/asset-schema
  *
  * `fields` holds keys the schema knows, `unknown` preserves everything else
  * verbatim and `keyOrder` records the original key sequence, so an entry that

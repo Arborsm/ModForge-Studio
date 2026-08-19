@@ -1,3 +1,5 @@
+/** @file Shared empty-state card for loading, empty, and unavailable result states. */
+
 import { type ReactNode } from 'react'
 import { SearchX } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

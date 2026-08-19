@@ -1,3 +1,8 @@
+/**
+ * @file Event patch hub: storyboard view of event patches with create, import,
+ * filter, and context-menu actions.
+ * @module features/cp-maker
+ */
 import {
   AlertTriangle,
   CheckSquare,
@@ -115,6 +120,7 @@ function nextDuplicateEventKey(entries: Record<string, unknown>, eventKey: strin
   return `${baseKey}_${index}`
 }
 
+/** Event patch hub with a storyboard of events, create/import dialogs, and context-menu actions. */
 export function PatchListPage({
   patches,
   onEditPatch,

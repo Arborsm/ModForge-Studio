@@ -1,4 +1,6 @@
-// raw string ↔ args[] 双向序列化
+/**
+ * @file Bidirectional serialization between raw string and args[].
+ */
 
 export function serializeRaw(args: string[]): string {
   return args

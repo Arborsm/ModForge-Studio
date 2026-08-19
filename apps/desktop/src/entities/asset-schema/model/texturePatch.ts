@@ -1,5 +1,6 @@
 /**
- * Companion-image lookup shared by every structured asset editor.
+ * @file Companion-image lookup shared by every structured asset editor.
+ * @module entities/asset-schema
  *
  * A data entry only names its sheet (`Texture`); whether that sheet exists is a
  * property of the *draft*, not of the entry, so each authoring page has to join

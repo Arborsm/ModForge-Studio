@@ -1,9 +1,4 @@
-/**
- * Pure loading motion defaults and normalization helpers.
- *
- * No React, no rendering, no Tauri — pure data transforms that can be
- * tested without DOM or platform dependencies.
- */
+/** @file Pure loading motion defaults and normalization helpers — no React, no rendering, no Tauri. */
 
 import {
   type LoadingMotionStyleId,
@@ -43,11 +38,7 @@ export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light'
 /** All valid preset speed ids in a stable array. */
 export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
 
-/* ------------------------------------------------------------------ */
-/*  Default preference                                                 */
-/* ------------------------------------------------------------------ */
-
-/** Default loading motion: `softFadeIn / standard` (柔和淡入 / 标准). */
+/** Default loading motion: `softFadeIn / standard` (soft fade-in / standard). */
 export const DEFAULT_LOADING_MOTION_PREFERENCE: LoadingMotionPreference = {
   styleId: 'softFadeIn',
   intensityId: 'standard',
@@ -55,10 +46,6 @@ export const DEFAULT_LOADING_MOTION_PREFERENCE: LoadingMotionPreference = {
   speedId: 'standard',
   speedMultiplier: 1,
 } as const
-
-/* ------------------------------------------------------------------ */
-/*  Style / intensity validation                                       */
-/* ------------------------------------------------------------------ */
 
 /** Returns `true` if the given value is a valid LoadingMotionStyleId. */
 export function isValidStyleId(value: unknown): value is LoadingMotionStyleId {
@@ -100,10 +87,6 @@ export function normalizeLoadingMotionSpeedMultiplier(value: unknown): number {
 
   return Math.min(3, Math.max(0.25, Math.round(value * 100) / 100))
 }
-
-/* ------------------------------------------------------------------ */
-/*  Preference normalization                                           */
-/* ------------------------------------------------------------------ */
 
 /**
  * Normalize a partial or potentially-invalid loading motion preference.
@@ -168,10 +151,6 @@ export function getLoadingMotionSpeedState(preference: LoadingMotionPreference) 
   }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Reveal item ordering                                               */
-/* ------------------------------------------------------------------ */
-
 /**
  * Order reveal items for presentation.
  *
@@ -216,10 +195,7 @@ export function orderRevealItems(items: readonly RevealItemMetadata[]): RevealIt
   }))
 }
 
-/* ------------------------------------------------------------------ */
-/*  Anchor validation                                                  */
-/* ------------------------------------------------------------------ */
-
+/** Result of anchor validation: either a valid anchor set or an error with a best-effort truncated set. */
 export type AnchorValidationResult =
   | { valid: true; anchors: readonly string[] }
   | { valid: false; error: string; anchors: readonly string[] }

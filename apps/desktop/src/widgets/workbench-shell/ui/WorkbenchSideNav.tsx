@@ -1,3 +1,6 @@
+/**
+ * @file Workbench side navigation: displays the home page and feature area entries grouped by registered modules.
+ */
 import {
   Beaker,
   BookOpen,
@@ -51,6 +54,7 @@ const ICONS = {
   images: Images,
 } as const
 
+/** Expand/collapse state for each side navigation section. */
 export type WorkbenchSideNavSectionState = {
   browseOpen: boolean
   authoringOpen: boolean
@@ -59,6 +63,7 @@ export type WorkbenchSideNavSectionState = {
   devOpen: boolean
 }
 
+/** Props for the workbench side navigation. */
 export type WorkbenchSideNavProps = {
   collapsed: boolean
   hasActiveProject: boolean

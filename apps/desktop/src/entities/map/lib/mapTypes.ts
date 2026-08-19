@@ -1,3 +1,8 @@
+/**
+ * @file Core map document types: property values, tilesets, layers, objects,
+ * and the top-level `MapDocument` read model shared across the map workspace.
+ */
+
 export type MapPropertyValue = string | number | boolean | { value: MapPropertyValue; tmxType: string; propertyType?: string }
 
 export type MapTilesetAnimationFrame = {

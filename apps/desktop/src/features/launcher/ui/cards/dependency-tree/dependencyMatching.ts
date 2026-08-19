@@ -1,6 +1,11 @@
+/**
+ * @file Dependency matching helpers: alias normalization, SMAPI detection,
+ * local/remote lookups, and optional-requirement inference for the dependency tree.
+ */
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '../../../model/types'
 import type { LauncherDetailMod } from './dependencyTreeTypes'
 
+/** Lookup maps for matching dependency references against installed library mods and the root detail mod. */
 export type LocalDependencyLookup = {
   identity: Map<string, LauncherLibraryItem | LauncherDetailMod>
   display: Map<string, LauncherLibraryItem | LauncherDetailMod>

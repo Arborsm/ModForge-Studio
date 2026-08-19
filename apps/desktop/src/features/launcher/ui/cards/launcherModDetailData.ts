@@ -1,3 +1,7 @@
+/**
+ * @file Launcher mod detail panel data helpers: formatting, file grouping,
+ * changelog merging, and detail row/tab type definitions.
+ */
 import type { LauncherDiscoverDetail } from '../../model/types'
 
 export type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files' | 'config'
@@ -71,6 +75,7 @@ export type ChangelogListItem = {
   lines: string[]
 }
 
+/** Formats a number with K/M suffixes, or returns a fallback label for null/invalid values. */
 export function compactNumber(value: number | null | undefined, noneLabel: string) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return noneLabel
@@ -87,6 +92,7 @@ export function compactNumber(value: number | null | undefined, noneLabel: strin
   return new Intl.NumberFormat().format(value)
 }
 
+/** Formats an ISO date string as `YYYY-MM-DD`, or returns the fallback label for invalid input. */
 export function formatDate(value: string | null | undefined, noneLabel: string) {
   if (!value) {
     return noneLabel
@@ -100,6 +106,7 @@ export function formatDate(value: string | null | undefined, noneLabel: string) 
   return parsed.toISOString().slice(0, 10)
 }
 
+/** Formats a file size from bytes or kilobytes into a human-readable label. */
 export function formatSize(kilobytes: number | null | undefined, bytes: number | null | undefined, noneLabel: string) {
   const byteValue = typeof bytes === 'number' && Number.isFinite(bytes) ? bytes : null
   if (byteValue !== null) {
@@ -119,6 +126,7 @@ export function formatSize(kilobytes: number | null | undefined, bytes: number |
   return noneLabel
 }
 
+/** Normalizes a version string with a `v` prefix, or returns the fallback label for missing values. */
 export function normalizeVersion(value: string | null | undefined, noneLabel: string) {
   const normalized = value?.trim()
   if (!normalized) {
@@ -127,6 +135,7 @@ export function normalizeVersion(value: string | null | undefined, noneLabel: st
   return normalized.startsWith('v') || normalized === noneLabel ? normalized : `v${normalized}`
 }
 
+/** Truncates a long file path to `root\...\last-two\segments`, or returns the fallback for missing values. */
 export function truncatePath(value: string | null | undefined, noneLabel: string) {
   if (!value) {
     return noneLabel
@@ -145,6 +154,7 @@ function normalizeFileCategory(value: string | null | undefined) {
   return value?.trim().toUpperCase() ?? ''
 }
 
+/** Resolves a remote file's display group (main/optional/old) from its category and primary flag. */
 export function resolveFileGroup(file: { category?: string | null; primary?: boolean }): FileListItem['group'] {
   const category = normalizeFileCategory(file.category)
   if (category.includes('OLD') || category.includes('ARCHIVE')) {
@@ -184,6 +194,7 @@ function compareVersionsDesc(left: string, right: string) {
   return right.localeCompare(left, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+/** Merges primary and per-file changelog entries into version-grouped, deduplicated, sorted list items. */
 export function buildChangelogItems({
   primaryLines,
   primarySource,

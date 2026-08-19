@@ -1,3 +1,8 @@
+/**
+ * @file Per-cell action property parsing and writing: reads `Action` and
+ * `TouchAction` properties from map layers and serializes warp/action entries.
+ */
+
 import type { MapDocument, MapPropertyValue } from './mapTypes'
 import { writeCellPropertyObjects } from './cellOverlayObjects'
 import { asMapPropertyString } from './properties'

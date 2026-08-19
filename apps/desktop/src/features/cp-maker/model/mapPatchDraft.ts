@@ -1,5 +1,11 @@
+/**
+ * @file Reads and serializes the EditMap patch draft state, converting between
+ * the stable semantic surface and Content Patcher map fields.
+ * @module features/cp-maker
+ */
 type JsonRecord = Record<string, unknown>
 
+/** Stable semantic view of an EditMap patch's editor state. */
 export type MapPatchDraft = {
   properties: JsonRecord
   warps: JsonRecord[]

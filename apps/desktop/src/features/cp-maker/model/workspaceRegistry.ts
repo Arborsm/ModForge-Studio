@@ -1,3 +1,8 @@
+/**
+ * @file Registry for CP Maker workspace editor plugins, assembled during
+ * workbench setup.
+ * @module features/cp-maker
+ */
 import type { ComponentType } from 'react'
 import type { AssetSchema } from '@entities/asset-schema'
 import type { GameDirectoryInfo } from '@entities/game/api'

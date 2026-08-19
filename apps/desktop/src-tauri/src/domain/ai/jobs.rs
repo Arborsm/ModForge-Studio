@@ -1,3 +1,5 @@
+//! Cancellation registry for in-flight AI translation and review jobs.
+
 use anyhow::{Context, bail};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};

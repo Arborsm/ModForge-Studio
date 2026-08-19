@@ -1,5 +1,6 @@
 /**
- * "Open in building authoring" handoff.
+ * @file "Open in building authoring" handoff store.
+ * @module entities/building
  *
  * The codex page and the authoring page are separate workbench modules and must
  * not import each other, so the building key travels through this shared

@@ -1,3 +1,6 @@
+//! Nexus Mods route probes: one-shot connectivity checks for each launcher
+//! Nexus route (public/private GraphQL, image CDN, SMAPI, REST API).
+
 use super::http::{api_headers, with_nexus_request_slot};
 use super::request::NexusRequestContext;
 use super::routes::{LauncherNexusRoute, launcher_nexus_api_key};

@@ -1,10 +1,11 @@
 /**
- * Manifest-level validation for a draft's `projectMetadata`.
+ * @file Manifest-level validation for a draft's `projectMetadata`.
  *
  * SMAPI rejects packs whose manifest is malformed (empty UniqueID, non-semver
  * Version), and update checks silently stop working for misshapen UpdateKeys.
  * These rules run before export so the author finds out in the workbench,
  * not in the SMAPI console.
+ * @module features/cp-maker
  */
 
 import type { AssetIssue } from '@entities/asset-schema'

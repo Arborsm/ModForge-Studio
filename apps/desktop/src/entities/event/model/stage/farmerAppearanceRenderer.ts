@@ -1,3 +1,8 @@
+/**
+ * @file Farmer appearance layer renderer: bakes base/hair/shirt/pants textures
+ * from player appearance profiles and builds sprite layer descriptors for the stage.
+ */
+
 import type { PlayerAppearanceColor, PlayerAppearanceProfile } from '@entities/event'
 import {
   getClothingPantsVariantSourceRect,

@@ -5,6 +5,7 @@ import type { ProjectAssetRef } from './types'
 
 export type { GameDirectoryInfo }
 
+/** Lightweight CP Maker draft metadata for draft lists. */
 export type CpMakerDraftSummary = {
   draftStorageKey: string
   projectName: string
@@ -13,44 +14,53 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+/** Active-project session tracking which draft is open in the editor. */
 export type CpMakerSession = {
   activeDraftKey: string | null
   activeGeneratedDraftKey: string | null
 }
 
+/** Request to read a single project asset by draft key and relative path. */
 export type ReadProjectAssetRequest = {
   draftStorageKey: string
   relativePath: string
 }
 
+/** Request to write a single project asset with its bytes and source type. */
 export type WriteProjectAssetRequest = ReadProjectAssetRequest & {
   mediaType: string
   bytesBase64: string
   sourceType: ProjectAssetRef['sourceType']
 }
 
+/** Request to write a batch of project assets atomically under one draft. */
 export type WriteProjectAssetsRequest = {
   draftStorageKey: string
   assets: Array<Omit<WriteProjectAssetRequest, 'draftStorageKey'>>
 }
 
+/** Request to rename a project asset to a new relative path. */
 export type RenameProjectAssetRequest = ReadProjectAssetRequest & {
   newRelativePath: string
 }
 
+/** Request to delete a single project asset from a draft. */
 export type DeleteProjectAssetRequest = ReadProjectAssetRequest
 
+/** Request to import external files into a draft's project asset store. */
 export type ImportProjectAssetsRequest = {
   draftStorageKey: string
   sourcePaths: string[]
   destinationDirectory: string
 }
 
+/** Asset payload with base64-encoded bytes for transport to the host. */
 export type ProjectAssetPayload = {
   asset: ProjectAssetRef
   bytesBase64: string
 }
 
+/** Parsed map asset content returned for preview or editing. */
 export type ProjectMapAssetContent = {
   name: string
   format: string
@@ -59,6 +69,7 @@ export type ProjectMapAssetContent = {
   content: string
 }
 
+/** Complete persisted CP Maker draft payload. */
 export type CpMakerDraftRecord = {
   draftStorageKey: string
   projectMetadata: {
@@ -92,6 +103,7 @@ export type CpMakerDraftRecord = {
   } | null
 }
 
+/** Request to export a generated Content Patcher pack to disk. */
 export type CpMakerExportRequest = {
   draft_storage_key: string
   output_path: string
@@ -101,6 +113,7 @@ export type CpMakerExportRequest = {
   i18n_files: Array<{ locale: string; rawJson: string }>
 }
 
+/** Paths written by a CP Maker export operation. */
 export type CpMakerExportResult = {
   output_path: string
   manifest_path: string
@@ -108,6 +121,7 @@ export type CpMakerExportResult = {
   virtual_asset_paths: string[]
 }
 
+/** Platform-agnostic port contract for CP Maker host operations. */
 export type CpMakerPort = {
   // Draft CRUD
   listDrafts: () => Promise<CpMakerDraftSummary[]>
@@ -150,6 +164,7 @@ export type CpMakerPort = {
   loadImageDataUrl: (path: string, locale?: string) => Promise<string>
 }
 
+/** Summary of a discovered map asset from a preview scan. */
 export type CpMakerMapAssetSummary = {
   id: string
   name: string
@@ -160,6 +175,7 @@ export type CpMakerMapAssetSummary = {
   sizeBytes: number
 }
 
+/** Summary of a discovered event asset from a preview scan. */
 export type CpMakerEventAssetSummary = {
   id: string
   name: string
@@ -169,6 +185,7 @@ export type CpMakerEventAssetSummary = {
   sizeBytes: number
 }
 
+/** Summary of a discovered mod project from a root-path scan. */
 export type CpMakerModProjectSummary = {
   id: string
   name: string

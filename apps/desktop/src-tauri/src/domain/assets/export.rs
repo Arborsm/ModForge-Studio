@@ -1,3 +1,5 @@
+//! File export helpers: map PNG and generic file persistence with path validation.
+
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use anyhow::{Context, bail};
 use base64::Engine;

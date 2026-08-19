@@ -1,3 +1,5 @@
+/** @file Deferred workspace mount helpers: placeholder, reveal-on-mount, and crossfade transitions. */
+
 import { useEffect, useState, type ReactNode } from 'react'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
@@ -9,6 +11,7 @@ type DeferredWorkspacePlaceholderProps = {
   lines?: number
 }
 
+/** Placeholder card shown while a workspace's lazy content is still loading. */
 export function DeferredWorkspacePlaceholder({ title, subtitle }: DeferredWorkspacePlaceholderProps) {
   return (
     <PanelFrame title={title} subtitle={subtitle} className="h-full" bodyClassName="empty-state-card-fill">
@@ -17,6 +20,7 @@ export function DeferredWorkspacePlaceholder({ title, subtitle }: DeferredWorksp
   )
 }
 
+/** Reveals children with a one-frame deferred fade/slide-in to avoid layout flash on mount. */
 export function DeferredWorkspaceReveal({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false)
 
@@ -42,6 +46,7 @@ export function DeferredWorkspaceReveal({ children }: { children: ReactNode }) {
 
 const DEFERRED_WORKSPACE_CROSSFADE_MS = 220
 
+/** Crossfades between a placeholder and real content based on the `ready` flag. */
 export function DeferredWorkspaceCrossfade({
   ready,
   placeholder,

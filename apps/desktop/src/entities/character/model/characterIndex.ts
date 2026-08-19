@@ -1,8 +1,9 @@
 /**
- * Read-only index over the vanilla `Data/Characters` asset.
+ * @file Read-only index over the vanilla `Data/Characters` asset.
+ * @module entities/character
  *
  * Turns the raw game JSON into the entry shape both character pages render:
- * the browser lists and previews it, the authoring page uses it for the "仅原版"
+ * the browser lists and previews it, the authoring page uses it for the "vanilla-only"
  * side of its NPC index and for the walking/portrait preview of an entry it is
  * about to override. Pure data — loading and caching live in `../api`.
  */
@@ -212,6 +213,7 @@ export const EMPTY_CHARACTER_VISUAL_ASSET_STATE: CharacterVisualAssetState = {
   spriteImage: null,
 }
 
+/** Normalizes a character asset name, prefixing the expected folder when absent. */
 export function normalizeCharacterAssetName(assetName: string | null | undefined, folderName: 'Characters' | 'Portraits') {
   const trimmed = assetName?.trim().replaceAll('\\', '/') ?? ''
   if (!trimmed) {
@@ -380,6 +382,7 @@ export function createCharacterWorkspaceEntry(key: string, entry: CharacterDataE
   }
 }
 
+/** Parses raw `Data/Characters` JSON into sorted workspace entries. */
 export function createCharacterEntryIndex(content: string) {
   const parsed = JSON.parse(content) as Record<string, CharacterDataEntry>
 
@@ -388,6 +391,7 @@ export function createCharacterEntryIndex(content: string) {
     .sort((left, right) => left.displayName.localeCompare(right.displayName))
 }
 
+/** Resolves the sprite and portrait content paths of one appearance variant. */
 export function resolveCharacterVariantPaths(rootPath: string | null, variant: CharacterAppearanceVariant | null) {
   if (!rootPath || !variant) {
     return { spritePath: null, portraitPath: null }
@@ -399,6 +403,7 @@ export function resolveCharacterVariantPaths(rootPath: string | null, variant: C
   }
 }
 
+/** Frame count of a portrait sheet, assuming 64×64 tiles. */
 export function getCharacterPortraitFrameCount(width: number | null, height: number | null) {
   if (!width || !height) {
     return 0

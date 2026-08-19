@@ -1,3 +1,8 @@
+/**
+ * @file Tilesheet gallery component: browsable grid of available tilesheets
+ * (vanilla + project + game-sheet references) for the tilesheet picker dialog.
+ */
+
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ArrowLeft, ImageOff, Loader2, Search } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'

@@ -1,10 +1,13 @@
+/** Value type for a map property — string, number, or boolean. */
 export type MapPropertyValue = string | number | boolean
 
+/** One frame in a tileset tile animation. */
 export type MapTilesetAnimationFrame = {
   tileId: number
   duration: number
 }
 
+/** One tileset in a map — first gid, dimensions, image, properties, and animations. */
 export type MapTileset = {
   firstGid: number
   name: string
@@ -21,6 +24,7 @@ export type MapTileset = {
   animations: Record<number, MapTilesetAnimationFrame[]>
 }
 
+/** One tile layer in a map — id, name, dimensions, visibility, opacity, and GID array. */
 export type MapLayer = {
   id: number
   name: string
@@ -36,6 +40,7 @@ export type MapLayer = {
   nonEmptyTiles: number
 }
 
+/** One map object (entity placed on the map with position, size, rotation, and properties). */
 export type MapObject = {
   id: number
   name: string
@@ -48,6 +53,7 @@ export type MapObject = {
   properties: Record<string, MapPropertyValue>
 }
 
+/** One object group layer in a map — id, name, visibility, draw order, and contained objects. */
 export type MapObjectGroup = {
   id: number
   name: string
@@ -59,6 +65,7 @@ export type MapObjectGroup = {
   objects: MapObject[]
 }
 
+/** One map placement in a world atlas — map name, source path, offset, and dimensions. */
 export type MapAtlasPlacement = {
   mapName: string
   sourcePath: string
@@ -69,11 +76,13 @@ export type MapAtlasPlacement = {
   height: number
 }
 
+/** One point in a world atlas (tile or pixel coordinates). */
 export type MapAtlasPoint = {
   x: number
   y: number
 }
 
+/** One warp route connecting two maps in the world atlas. */
 export type MapAtlasWarpRoute = {
   id: string
   fromMap: string
@@ -83,6 +92,7 @@ export type MapAtlasWarpRoute = {
   path: MapAtlasPoint[]
 }
 
+/** One portal in the world atlas — from map, target map, label, and position. */
 export type MapAtlasPortal = {
   id: string
   fromMap: string
@@ -91,6 +101,7 @@ export type MapAtlasPortal = {
   position: MapAtlasPoint
 }
 
+/** World atlas data — root map, origin offset, placements, warp routes, and portals. */
 export type MapAtlasData = {
   rootMapName: string
   originOffsetX: number
@@ -100,6 +111,7 @@ export type MapAtlasData = {
   portals: MapAtlasPortal[]
 }
 
+/** Parsed map document — name, format, dimensions, tilesets, layers, object groups, and optional atlas. */
 export type MapDocument = {
   name: string
   format: 'tmx' | 'xnb' | 'atlas'

@@ -1,3 +1,8 @@
+/**
+ * @file Farmer event animation frame tables and visual-state inference:
+ * maps animation ids and frame sequences to tool/pose state for the stage renderer.
+ */
+
 import type { ActorAnimationFrameState } from '@entities/event'
 
 const PRIMARY_ARM_OFFSET = 6

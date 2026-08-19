@@ -1,8 +1,14 @@
+/**
+ * @file Review inspector panel — issue list, severity badges, diff view, and accept/ignore/reopen actions.
+ * @module features/translation-editor
+ */
+
 import { ArrowDown, ArrowUp, Ban, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { useTranslationEditorCopy } from '@locales/provider'
 import type { AiReviewIssue, AiReviewResult } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
 
+/** Inspector panel for AI review results — issue list, detail diff, and accept/ignore/reopen actions. */
 export function TranslationReviewInspector({
   result,
   selectedId,

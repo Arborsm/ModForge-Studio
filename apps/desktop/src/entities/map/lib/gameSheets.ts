@@ -1,3 +1,8 @@
+/**
+ * @file Vanilla game-sheet reference helpers: resolves dynamic tilesheet
+ * references to game-directory textures via the `GameSheet` tileset property.
+ */
+
 import type { MapTileset } from './types'
 import { findTilesheetByKey, type VanillaTilesheetEntry } from '../model/vanillaTilesheets'
 

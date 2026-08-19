@@ -1,3 +1,6 @@
+/**
+ * @file Workbench command intent resolution: routes AppCommands to the corresponding workspace and drives patch navigation.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PendingWorkbenchCommandIntent, AppCommand } from '@shared/contracts'
 import type { UseCpMakerReturn } from '@features/cp-maker'
@@ -97,7 +100,6 @@ export function useWorkbenchCommandIntent({
           return
         }
 
-        // Resolve the patch
         const target = resolveWorkbenchOpenAssetTarget(cmd, cpMaker)
         if (!target) {
           // Missing patch: safe failure

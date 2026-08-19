@@ -1,3 +1,5 @@
+//! Portable AI profile import/export (JSON file format with credentials excluded).
+
 use super::types::*;
 use super::{load_ai_settings, save_ai_settings};
 use anyhow::{Context, bail};

@@ -1,3 +1,5 @@
+//! Localization settings persistence: engine reference, AI profile binding, and machine translation config.
+
 use crate::domain::ai::load_ai_settings;
 use crate::domain::app_paths::localization_settings_path;
 use crate::domain::localization::machine_translation;

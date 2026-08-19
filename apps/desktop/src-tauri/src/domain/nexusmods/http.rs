@@ -1,3 +1,6 @@
+//! Nexus Mods HTTP transport: throttled blocking client, retry policies,
+//! rate-limit header parsing, and shared request/response helpers.
+
 use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use reqwest::StatusCode;

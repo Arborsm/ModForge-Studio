@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherSettings hook: launcher settings load/save with autosave,
+ * default-path derivation, and exit-time flush.
+ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { SetStateAction } from 'react'
 import { useEditorCopy } from '@locales/provider'
@@ -90,6 +94,7 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
   )
 }
 
+/** Manages launcher settings: load, edit, autosave, default-path derivation, and exit-time flush. */
 export function useLauncherSettings() {
   const launcherPort = useLauncherPort()
   const launcherCopy = useEditorCopy().launcher

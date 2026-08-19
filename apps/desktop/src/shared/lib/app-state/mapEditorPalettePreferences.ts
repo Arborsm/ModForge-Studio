@@ -1,3 +1,5 @@
+/** @file Map editor palette preference types and normalization (zoom, per-tileset selections, recents, favorites). */
+
 /** Maximum number of recently used palette selections kept in preferences. */
 export const PALETTE_RECENT_LIMIT = 8
 

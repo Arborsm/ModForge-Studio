@@ -1,9 +1,12 @@
+/** @file Static skeleton placeholder mirroring the workbench shell layout for initial load. */
+
 const NAV_ITEMS = Array.from({ length: 6 }, (_, index) => `nav:${index}`)
 const GLOBAL_APP_ITEMS = Array.from({ length: 6 }, (_, index) => `global:${index}`)
 const MAKER_APP_ITEMS = Array.from({ length: 3 }, (_, index) => `maker:${index}`)
 const PROJECT_ITEMS = Array.from({ length: 3 }, (_, index) => `project:${index}`)
 const METRIC_ITEMS = Array.from({ length: 3 }, (_, index) => `metric:${index}`)
 
+/** Skeleton placeholder mirroring the workbench shell layout during initial load. */
 export function WorkbenchShellSkeleton() {
   return (
     <div className="workbench-shell-skeleton" data-testid="workbench-shell-skeleton" aria-hidden="true">

@@ -1,3 +1,8 @@
+/**
+ * @file Browser-only localization knowledge mock handler — scopes, glossary, translation memory, style guides, official corpus and review runs.
+ * @module platform/tauri/devLauncherMockLocalization
+ */
+
 import type {
   AiGlossaryEntry,
   AiLocalizationScope,

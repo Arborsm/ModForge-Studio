@@ -4,7 +4,8 @@ import { useAssetAuthoringCopy } from '@locales/provider'
 import { matchEnumValue } from '../model/fieldSchema'
 
 /**
- * Presentational form primitives shared by every schema-driven asset editor.
+ * @file Presentational form primitives shared by every schema-driven asset editor.
+ * @module entities/asset-schema
  *
  * Each control commits through a single callback; committing `undefined` means
  * "remove the key so the game default applies". Chrome copy is self-consumed

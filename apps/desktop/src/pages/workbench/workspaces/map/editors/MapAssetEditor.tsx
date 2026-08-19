@@ -436,7 +436,7 @@ function MapAssetEditorContent({
         editor.setSaveState({ status: 'error', message: copy.sheetCatalogInvalid(result.error) })
       })
       .catch(() => {
-        // 可选文件读取失败按缺失处理：只卸载，不报错。
+        // Optional file read failure is treated as missing: unregister only, no error.
         if (!active) return
         unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
       })

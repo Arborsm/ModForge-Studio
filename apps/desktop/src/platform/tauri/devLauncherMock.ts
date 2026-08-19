@@ -1,3 +1,8 @@
+/**
+ * @file Browser-only Tauri IPC mock for launcher, AI, localization and CP Maker UI debugging without a native host.
+ * @module platform/tauri/devLauncherMock
+ */
+
 import { mockConvertFileSrc, mockIPC, mockWindows } from '@tauri-apps/api/mocks'
 import { emit } from '@tauri-apps/api/event'
 import type {
@@ -1132,8 +1137,8 @@ export function installDevLauncherMock() {
           const profile =
             request.engine.kind === 'generative-ai' ? aiSettings.profiles.find((item) => item.id === request.engine.profileId) : undefined
           if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
-            // 与 translate_ai_batch 同款：按 jobId 发射 content delta（不发射
-            // reasoning，工作台没有思考链控件），方便 dev 模式人工验证流式渲染。
+            // Same as translate_ai_batch: emit content deltas by jobId (no reasoning,
+            // since the workbench has no chain-of-thought control), for manual streaming verification in dev mode.
             const encoded = JSON.stringify(
               request.items.map((item) => ({
                 id: item.id,

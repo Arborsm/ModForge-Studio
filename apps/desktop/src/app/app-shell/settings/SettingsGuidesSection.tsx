@@ -1,3 +1,6 @@
+/**
+ * @file Guide tour replay control in the settings window; loaded only when the interaction settings category is visible.
+ */
 import type { GuideId } from '@locales/api'
 import { useGuidesCopy, useSettingsMenuCopy } from '@locales/provider'
 import { useGuideEngineStore } from '@features/guide'

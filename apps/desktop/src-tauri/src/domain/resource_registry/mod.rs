@@ -1,3 +1,7 @@
+//! Resource registry: scans game assets (maps, images, audio, items,
+//! characters) and builds a unified, deduplicated registry for the resource
+//! browser.
+
 pub(crate) mod commands;
 
 use serde::{Deserialize, Serialize};

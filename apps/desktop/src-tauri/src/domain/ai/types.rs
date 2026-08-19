@@ -1,3 +1,5 @@
+//! AI domain types: protocols, provider presets/profiles, settings snapshots, translation requests/results and cache models.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

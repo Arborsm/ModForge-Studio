@@ -1,3 +1,7 @@
+/**
+ * @file Small status pill showing the new/update/reinstall/downgrade install
+ * state for one archive mod root.
+ */
 import type { ArchiveInstallStatus } from '../../model/archiveInstallPlan'
 import { useEditorCopy } from '@locales/provider'
 

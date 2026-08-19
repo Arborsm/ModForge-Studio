@@ -1,4 +1,9 @@
-﻿import type { GameDirectoryInfo, MapAssetContent, ParsedEventAssetContent, ResourceRegistry, TextAssetContent } from './types'
+﻿/**
+ * @file Dev-only HTTP asset bridge for browser-only labs: forwards asset loads
+ * to a local dev server so plain Chrome can consume Rust-parsed game assets.
+ */
+
+import type { GameDirectoryInfo, MapAssetContent, ParsedEventAssetContent, ResourceRegistry, TextAssetContent } from './types'
 
 function getDevAssetBridgeBaseUrl() {
   if (!import.meta.env.DEV || typeof window === 'undefined') {

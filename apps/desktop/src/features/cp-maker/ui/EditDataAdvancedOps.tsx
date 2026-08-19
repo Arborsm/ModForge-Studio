@@ -1,3 +1,8 @@
+/**
+ * @file GUI for EditData advanced operations: Fields, MoveEntries, and
+ * TextOperations stored in patch `editorState`.
+ * @module features/cp-maker
+ */
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'

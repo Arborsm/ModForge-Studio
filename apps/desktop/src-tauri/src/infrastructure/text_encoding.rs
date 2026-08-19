@@ -1,3 +1,5 @@
+//! Text encoding detection and decoding: BOM-aware UTF-8/UTF-16 reading for game data files.
+
 use crate::support::logging::{LogEvent, targets};
 use anyhow::Context;
 use std::path::Path;

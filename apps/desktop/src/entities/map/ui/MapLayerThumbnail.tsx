@@ -1,3 +1,8 @@
+/**
+ * @file Map layer thumbnail component: renders a small rasterized preview of a
+ * single map layer for use in layer panels and tab strips.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { Grid3X3 } from 'lucide-react'
 import type { LocaleCode } from '@locales/api'
@@ -73,7 +78,6 @@ async function renderLayerThumbnail(document: MapDocument, layer: MapLayer, loca
   return canvas.toDataURL('image/png')
 }
 
-/** Max preview dimension for full-resolution layer hover preview (keeps aspect ratio). */
 /**
  * Renders a single tile layer into a small pixelated preview (64×48 CSS px,
  * fit keep-ratio centered) through the shared viewport rasterizer. The source

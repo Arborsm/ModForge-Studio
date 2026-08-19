@@ -1,8 +1,13 @@
+/**
+ * @file useLauncherRuntime hook: aggregates settings, downloads, and updates
+ * badge counts into a single runtime state object for the launcher shell.
+ */
 import type { LauncherSettings } from './launcherContracts'
 import { useLauncherDownloads } from './useLauncherDownloads'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { useLauncherSettings } from './useLauncherSettings'
 
+/** Launcher configuration warning flags derived from settings. */
 export type LauncherWarningState = {
   missingGamePath: boolean
   missingModsPath: boolean
@@ -10,10 +15,12 @@ export type LauncherWarningState = {
   missingCredentials: boolean
 }
 
+/** Returns true when a Nexus API key is configured. */
 export function hasLauncherCredentials(settings: LauncherSettings) {
   return Boolean(settings.nexusApiKey?.trim())
 }
 
+/** Derives configuration warning flags (missing paths/credentials) from settings. */
 export function getLauncherWarningState(settings: LauncherSettings): LauncherWarningState {
   return {
     missingGamePath: !settings.gamePath?.trim(),
@@ -23,6 +30,7 @@ export function getLauncherWarningState(settings: LauncherSettings): LauncherWar
   }
 }
 
+/** Aggregates settings, downloads, and updates badge counts into one runtime state object. */
 export function useLauncherRuntime() {
   const settingsState = useLauncherSettings()
   const downloads = useLauncherDownloads(settingsState.settings)

@@ -1,3 +1,5 @@
+//! Host command bindings for XACT audio loading.
+
 use crate::AppHandle;
 use host_command_macros::host_command;
 

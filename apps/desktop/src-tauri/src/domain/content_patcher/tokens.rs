@@ -1,3 +1,5 @@
+//! Condition token parsing: name/modifier splitting for Content Patcher `When` keys.
+
 pub const INVALID_WHEN_TOKEN: &str = "__modforgeInvalidWhen";
 
 #[derive(Debug, Clone, PartialEq, Eq)]

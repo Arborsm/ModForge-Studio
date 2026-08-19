@@ -1,3 +1,5 @@
+//! Game directory scanning: maps, events, audio, images and data assets with locale grouping.
+
 use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
     map_source_path, normalize_path, normalize_separators, stardew_game_validation_candidates,

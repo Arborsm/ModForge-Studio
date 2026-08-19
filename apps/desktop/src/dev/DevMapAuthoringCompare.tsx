@@ -1,3 +1,8 @@
+/**
+ * @file Dev-only side-by-side view for matching the checked-in map authoring
+ * HTML mocks against the current implementation.
+ * @module dev
+ */
 import { useState } from 'react'
 import mapEditorMock from '../../../../prototype/map-editor-workbench.html?raw'
 import patchEditorMock from '../../../../prototype/patch-editor-workbench.html?raw'
@@ -10,7 +15,7 @@ const comparePages: Array<{ id: ComparePage; label: string; mock: string }> = [
   { id: 'map-patch-editor', label: 'EditMap Patch', mock: patchEditorMock },
 ]
 
-/** Development-only side-by-side view for matching the checked-in map authoring mocks. */
+/** Side-by-side comparison of map authoring HTML mocks vs the live implementation. */
 export function DevMapAuthoringCompare() {
   const [activePage, setActivePage] = useState<ComparePage>('map-asset-editor')
   const current = comparePages.find((page) => page.id === activePage) ?? comparePages[0]!

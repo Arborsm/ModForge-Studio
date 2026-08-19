@@ -1,3 +1,7 @@
+/**
+ * @file Structured editor for one Stardew dialogue script string.
+ * @module entities/dialogue
+ */
 import { CircleHelp, Plus, Terminal, Trash2 } from 'lucide-react'
 import { useDialogueScriptFieldCopy } from '@locales/provider'
 import { cx, formatCopyTemplate } from '@shared/lib/helper'

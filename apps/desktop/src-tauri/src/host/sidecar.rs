@@ -1,3 +1,6 @@
+//! Sidecar JSON-RPC transport: resolves typed command bindings from wire
+//! frames and runs the stdio main loop for the Electron sidecar process.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::host_runtime::{DispatchContext, HostCommand};

@@ -1,3 +1,5 @@
+//! Host command bindings for Content Patcher result asset loading.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::content_patcher::types::{

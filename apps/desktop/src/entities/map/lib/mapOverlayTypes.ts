@@ -1,3 +1,8 @@
+/**
+ * @file Map overlay type definitions: texture assets, world overlay sprites,
+ * and building data entries used by the world-state preview overlay.
+ */
+
 export type OverlayTextureAsset = {
   url: string | null
   loading?: boolean

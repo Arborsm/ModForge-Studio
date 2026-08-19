@@ -1,3 +1,7 @@
+/**
+ * @file Launcher child-mod assignment dialogs: manager and picker for
+ * assigning/unassigning child mods to a parent mod.
+ */
 import { useId } from 'react'
 import type { LauncherLibraryItem } from '@features/launcher/model/types'
 import { useEditorCopy } from '@locales/provider'

@@ -1,3 +1,5 @@
+//! Content Patcher domain: project loading, patch planning, condition evaluation and result simulation.
+
 use self::apply::load_target_result;
 use self::assets::with_virtual_preview_assets;
 use self::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};

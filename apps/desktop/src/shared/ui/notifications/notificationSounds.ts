@@ -1,3 +1,5 @@
+/** @file Notification sound playback with per-level volume and a global enable/disable toggle. */
+
 import successSoundUrl from '../../../assets/notifications/success.mp3'
 import infoSoundUrl from '../../../assets/notifications/info.mp3'
 import debugSoundUrl from '../../../assets/notifications/debug.mp3'

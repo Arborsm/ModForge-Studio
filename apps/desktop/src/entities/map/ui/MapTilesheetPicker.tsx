@@ -1,3 +1,8 @@
+/**
+ * @file Tilesheet picker component: dropdown selector for choosing a tilesheet
+ * from the vanilla catalog, project sheets, or game-sheet references.
+ */
+
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'

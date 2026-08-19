@@ -1,3 +1,5 @@
+//! EditData patch application: entry-level merges, field operations and token resolution for data patches.
+
 use super::super::conditions::evaluate_patch_status;
 use super::super::context::SimulationContext;
 use anyhow::{Context, bail};

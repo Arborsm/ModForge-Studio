@@ -1,3 +1,6 @@
+/**
+ * @file App registry creation and query: validates workbench module invariants and produces an immutable registry.
+ */
 import type { AppRegistry, AppRegistryInput, RegistryItemId, WorkbenchModuleRegistration } from '@shared/contracts'
 
 const NAVIGATION_SECTIONS = new Set(['browse', 'authoring', 'translation', 'tools', 'development'])

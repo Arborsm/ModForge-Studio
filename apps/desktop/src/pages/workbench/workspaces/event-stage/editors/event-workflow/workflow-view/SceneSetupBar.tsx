@@ -1,4 +1,6 @@
-// 顶部场景设置条
+/**
+ * @file Top scene setup bar component.
+ */
 
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import {

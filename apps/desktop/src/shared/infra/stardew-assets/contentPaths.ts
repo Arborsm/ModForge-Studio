@@ -1,3 +1,5 @@
+/** @file Vanilla Stardew Valley content asset path constants and path builder. */
+
 const CONTENT_PREFIX_PATTERN = /^Content\\+/iu
 const XNB_SUFFIX_PATTERN = /\.xnb$/iu
 

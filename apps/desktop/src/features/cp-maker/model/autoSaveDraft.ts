@@ -1,5 +1,11 @@
+/**
+ * @file Auto-save hook that persists workbench drafts after a quiet period and
+ * flushes pending changes on unmount.
+ * @module features/cp-maker
+ */
 import { useEffect, useRef } from 'react'
 
+/** Options controlling auto-save debounce and flush behavior. */
 export type AutoSaveDraftOptions = {
   /** Whether the draft has unsaved changes. */
   isDirty: boolean

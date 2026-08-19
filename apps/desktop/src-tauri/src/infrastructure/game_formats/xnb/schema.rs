@@ -1,3 +1,5 @@
+//! XNB custom type schema registry: object and enum schema definitions for non-primitive types.
+
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 

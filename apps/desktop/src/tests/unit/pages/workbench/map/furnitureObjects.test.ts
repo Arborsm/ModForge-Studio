@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { deriveFurnitureObjects, furnitureTypeToCategory } from '@pages/workbench/workspaces/map/model/furnitureObjects'
 
-// Data/Furniture JSON 片段，行格式对齐真实游戏数据：texture 字段可省略
-// （createFurnitureEntryIndex 兜底 'TileSheets/furniture'），名字型 key 的
-// spriteIndex 走显式字段。覆盖：Oak Chair（-1 尺寸走类型默认）+ 一条显式
-// '2 3' 尺寸 + 一条无 token 的纯名 + 一条未知 texture + 一条 spriteIndex
-// 越界。
+// Data/Furniture JSON snippet; row format aligns with real game data: the texture
+// field may be omitted (createFurnitureEntryIndex falls back to 'TileSheets/furniture'),
+// and spriteIndex for name-keyed entries uses an explicit field. Coverage: Oak Chair
+// (-1 size uses type default) + one explicit '2 3' size + one pure name without a
+// token + one unknown texture + one out-of-bounds spriteIndex.
 const FURNITURE_CONTENT = JSON.stringify({
   'Oak Chair': 'Oak Chair/chair/-1/-1/1/250/-1/[LocalizedText Strings\\Furniture:OakChair]/0',
   Dresser: 'Dresser/dresser/2 3/-1/1/1000/-1/[LocalizedText Strings\\Furniture:Dresser]/10',
@@ -68,7 +68,7 @@ describe('deriveFurnitureObjects', () => {
 
     expect(objects).toHaveLength(3)
 
-    // -1 尺寸走 chair 类型默认 {1,2}；en/zh 均命中字符串表。
+    // -1 size uses the chair type default {1,2}; both en/zh hit the string table.
     expect(byId.get('furniture:oak-chair')).toMatchObject({
       id: 'furniture:oak-chair',
       sheet: 'TileSheets/furniture',
@@ -77,7 +77,7 @@ describe('deriveFurnitureObjects', () => {
       names: { 'zh-CN': '橡木椅子', 'en-US': 'Oak Chair' },
     })
 
-    // 显式 '2 3' 尺寸；zh 表未命中回退 internalName。
+    // Explicit '2 3' size; zh table miss falls back to internalName.
     expect(byId.get('furniture:dresser')).toMatchObject({
       id: 'furniture:dresser',
       sheet: 'TileSheets/furniture',
@@ -86,7 +86,7 @@ describe('deriveFurnitureObjects', () => {
       names: { 'zh-CN': 'Dresser', 'en-US': 'Dresser' },
     })
 
-    // 无 token 的纯名作为两个 locale 的名原样保留。
+    // Pure name without a token is preserved verbatim as the name for both locales.
     expect(byId.get('furniture:mystery-rug')).toMatchObject({
       id: 'furniture:mystery-rug',
       sheet: 'TileSheets/furniture',

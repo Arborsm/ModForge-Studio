@@ -1,5 +1,6 @@
 /**
- * Character validation, expressed as the workbench-wide `AssetIssue` shape.
+ * @file Character validation expressed as the workbench-wide `AssetIssue` shape.
+ * @module entities/character
  *
  * Layered on top of the generic schema rules (required fields, unknown enum
  * values, duplicate entry keys): the rules here need cross-item context the

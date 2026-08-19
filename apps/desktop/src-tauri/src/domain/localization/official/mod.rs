@@ -1,3 +1,5 @@
+//! Official game-content localization corpus index and search.
+
 mod index;
 
 use crate::AppHandle;
@@ -12,6 +14,8 @@ pub(crate) use index::{
     semantic_snapshot,
 };
 
+/// Rebuilds the official localization index, emitting progress events to the
+/// frontend through the provided `AppHandle`.
 pub fn rebuild_with_events(
     app: AppHandle,
     request: RebuildOfficialLocalizationIndexRequest,

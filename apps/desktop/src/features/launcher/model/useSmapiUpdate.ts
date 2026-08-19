@@ -1,3 +1,7 @@
+/**
+ * @file useSmapiUpdate hook: drives the SMAPI update card — version check,
+ * installer scan, GitHub/local install, and post-install runtime refresh.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { TaskCancelledError, useExclusiveMutationTask, useLatestTask, type TaskScope } from '@shared/lib/task-runtime'
@@ -33,6 +37,7 @@ function baseFileName(filePath: string) {
   return separatorIndex === -1 ? normalized : normalized.slice(separatorIndex + 1)
 }
 
+/** Options for {@link useSmapiUpdate}. */
 export type UseSmapiUpdateOptions = {
   gamePath: string | null
   /** Called with fresh runtime info after a successful SMAPI install so env tags update. */

@@ -1,3 +1,5 @@
+/** @file In-memory app UI state snapshot with pluggable persistence adapter and serialized patch queue. */
+
 import type { AppUiState, PatchAppUiStateRequest, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'

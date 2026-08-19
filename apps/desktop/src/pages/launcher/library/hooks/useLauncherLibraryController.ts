@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library controller hook: manages drag, sort, dialog, install, and cover interaction state.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LauncherCopy } from '@locales/model'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'

@@ -1,3 +1,7 @@
+/**
+ * @file Renders one asset entry as collapsible schema groups with unknown-key preservation.
+ * @module entities/asset-schema
+ */
 import { useId, type ReactNode } from 'react'
 import { useAssetAuthoringCopy } from '@locales/provider'
 import { setAssetField, type AssetEntryDraft } from '../model/entryDraft'

@@ -1,8 +1,12 @@
+/**
+ * @file Quit confirmation dialog: lets the user choose to quit, minimize to tray, or remember the choice.
+ */
 import { LogOut, Minimize2 } from 'lucide-react'
 import { useId } from 'react'
 import { useSettingsMenuCopy } from '@locales/provider'
 import { Dialog, DialogHeader, DialogBody, DialogFooter, DialogAction } from '@shared/ui/Dialog'
 
+/** Props for the quit confirmation dialog. */
 export type QuitDialogProps = {
   open: boolean
   onClose: () => void
@@ -12,6 +16,9 @@ export type QuitDialogProps = {
   onRememberChoiceChange: (remember: boolean) => void
 }
 
+/**
+ * Quit confirmation dialog. Lets the user choose between quitting directly and minimizing to tray, with an option to remember the preference.
+ */
 export function QuitDialog({ open, onClose, onQuit, onMinimizeToTray, rememberChoice, onRememberChoiceChange }: QuitDialogProps) {
   const copy = useSettingsMenuCopy()
   const titleId = useId()

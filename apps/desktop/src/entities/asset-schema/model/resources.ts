@@ -1,5 +1,6 @@
 /**
- * Reference data the schema-driven controls offer as suggestions.
+ * @file Reference data the schema-driven controls offer as suggestions.
+ * @module entities/asset-schema
  *
  * Populated from the shared game resource registry by whichever page hosts the
  * canvas. Two shapes are supported per reference kind:

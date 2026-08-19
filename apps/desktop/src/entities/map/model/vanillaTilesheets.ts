@@ -1,3 +1,8 @@
+/**
+ * @file Vanilla tilesheet catalog and registry: predefined Stardew Valley 1.6
+ * tilesheet descriptors with pixel sizes, plus user-authored sheet registration.
+ */
+
 import vanillaCatalogJson from './vanillaTilesheets.json'
 
 /**
@@ -167,7 +172,7 @@ export function vanillaTilesheetSplit(sheet: VanillaTilesheetEntry) {
 
 /** Finds a catalog sheet by content key (`Maps/townInterior`), case-insensitively. */
 export function findTilesheetByKey(key: string) {
-  // 游戏数据里偶发反斜杠与双斜杠（如 `TileSheets\/furniture_3` → `TileSheets//furniture_3`），统一归一。
+  // Game data occasionally contains backslashes and double slashes (e.g. `TileSheets\/furniture_3` → `TileSheets//furniture_3`); normalize them.
   const normalized = key
     .trim()
     .replaceAll('\\', '/')

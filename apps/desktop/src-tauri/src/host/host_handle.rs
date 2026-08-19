@@ -1,3 +1,6 @@
+//! Host handle abstraction: wraps either a Tauri app handle or a sidecar
+//! event sink, providing a unified `emit` API for both transport paths.
+
 use crate::AppRuntime;
 use serde::Serialize;
 use serde_json::Value;

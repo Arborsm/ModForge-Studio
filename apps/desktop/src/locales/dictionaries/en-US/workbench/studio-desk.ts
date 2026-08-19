@@ -1199,6 +1199,9 @@ const studiodesk: StudioDeskCopy = {
       return map[day.trim().toLowerCase()] ?? day
     },
     preconditionGenderName: (gender) => (gender.trim().toLowerCase() === 'male' ? 'male' : gender),
+    friendshipAtLeast: (name, points) => `${name} friendship at least ${points}`,
+    shippedAtLeast: (item, count) => `${item} shipped at least ${count}`,
+    heartUnit: 'h',
     preconditions: {
       gameStateQuery: (query) => `Game state query: ${query}`,
       activeDialogueEvent: (id) => `special dialogue event in progress: ${id}`,

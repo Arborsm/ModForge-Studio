@@ -1,3 +1,5 @@
+/** @file Panel frame with optional header (title, subtitle, action) and scrollable body. */
+
 import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
@@ -12,6 +14,7 @@ type PanelFrameProps = {
   children: ReactNode
 }
 
+/** Panel surface with an optional header (title, subtitle, header action) and a body region. */
 export function PanelFrame({ title, subtitle, headerAction, className, bodyClassName, hideHeader, flat, children }: PanelFrameProps) {
   return (
     <section className={cx(flat ? 'bg-surface-panel rounded-panel' : 'panel-surface', 'h-full', className)}>

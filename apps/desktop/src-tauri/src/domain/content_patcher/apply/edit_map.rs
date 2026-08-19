@@ -1,3 +1,5 @@
+//! EditMap patch application: tile, layer, property and warp modifications on map targets.
+
 use super::super::assets::{LoadedMapAsset, load_map_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};

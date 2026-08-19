@@ -1,3 +1,5 @@
+/** @file Transient zustand store for cross-module "focus this asset" requests into the asset library. */
+
 import { create } from 'zustand'
 
 /**
@@ -16,6 +18,7 @@ type AssetLibraryFocusState = {
   consumeFocus: () => AssetLibraryFocus | null
 }
 
+/** Zustand store that stages and one-shot consumes the asset library focus request. */
 export const useAssetLibraryFocusStore = create<AssetLibraryFocusState>((set, get) => ({
   focus: null,
   setFocus: (focus) => set({ focus }),

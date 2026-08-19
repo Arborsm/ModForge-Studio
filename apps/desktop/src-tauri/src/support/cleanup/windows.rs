@@ -1,9 +1,14 @@
+//! Windows implementation of shared-memory leak cleanup: scans the temp
+//! `shared_memory-rs` directory and removes stale `shmem_*` mapping files.
+
 use crate::support::logging::{LogEvent, targets};
 use std::fs;
 
 const SHMEM_DIR_NAME: &str = "shared_memory-rs";
 const SHMEM_FILE_PREFIX: &str = "shmem_";
 
+/// Removes stale `shmem_*` files from the temp `shared_memory-rs` directory,
+/// logging a summary of deleted, locked, and skipped entries.
 pub(super) fn cleanup_tauri_shared_memory_leaks() {
     if let Err(error) = cleanup_inner() {
         LogEvent::new("cleanup.sharedMemory.failed")

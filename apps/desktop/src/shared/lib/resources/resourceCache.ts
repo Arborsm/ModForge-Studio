@@ -1,3 +1,5 @@
+/** @file LRU-style async resource cache with in-flight deduplication, byte/entry limits, and disposers. */
+
 /** Loader result accepted by resource caches, with optional size and disposer metadata. */
 type CacheLoaderResult<TValue> = {
   value: TValue

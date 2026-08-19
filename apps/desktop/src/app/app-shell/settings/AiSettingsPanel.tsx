@@ -1,3 +1,6 @@
+/**
+ * @file AI settings panel: manages generative AI configuration, machine translation engines, semantic search, and usage sub-tabs.
+ */
 import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { usePlatformPorts } from '@app/providers/usePlatformPorts'
 import { Eraser } from 'lucide-react'

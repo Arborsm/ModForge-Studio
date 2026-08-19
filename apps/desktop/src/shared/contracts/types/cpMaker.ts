@@ -1,5 +1,7 @@
+/** Workspace id identifying a CP-maker authoring surface (mods, map, events, characters, etc.). */
 export type WorkspaceId = 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail'
 
+/** One entry in a Content Patcher `config.json` schema — key, default, allowed values, and UI hints. */
 export interface ConfigSchemaEntry {
   key: string
   defaultValue: unknown
@@ -10,6 +12,7 @@ export interface ConfigSchemaEntry {
   section?: string
 }
 
+/** One Content Patcher patch (EditData/EditImage/EditMap/Load/Include) in a draft. */
 export interface DraftPatch {
   id: string
   workspace: WorkspaceId
@@ -36,6 +39,7 @@ export interface CpMakerDependency {
   isRequired: boolean
 }
 
+/** Full CP-maker draft — project metadata, config schema, patches, virtual assets, tokens, and i18n files. */
 export interface CpMakerDraft {
   draftStorageKey: string
   projectMetadata: {
@@ -65,6 +69,7 @@ export interface CpMakerDraft {
   i18nFiles: Array<{ locale: string; rawJson: string }>
 }
 
+/** One in-memory preview asset (image bytes encoded as base64) used by draft editors without disk writes. */
 export interface VirtualPreviewAsset {
   relativePath: string
   mediaType: string

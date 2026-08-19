@@ -1,5 +1,6 @@
 /**
- * Catalog of the game's `Strings/*` tables, grouped for the text library.
+ * @file Catalog of the game's `Strings/*` tables, grouped for the text
+ * library.
  *
  * Authors writing a data asset almost never want to invent a display string:
  * they want the one the game already ships, referenced as

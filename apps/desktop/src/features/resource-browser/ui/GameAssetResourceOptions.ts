@@ -1,3 +1,8 @@
+/**
+ * @file Builds resource-browser options from game audio, image, and data asset summaries.
+ * @module features/resource-browser
+ */
+
 import type { AudioAssetSummary, GameDataAssetSummary, GameImageAssetSummary } from '@entities/game/api'
 import type { ResourceBrowserOption } from './ResourcePicker'
 

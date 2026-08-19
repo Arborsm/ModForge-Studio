@@ -1,3 +1,8 @@
+/**
+ * @file Event stage lighting: derives the `WorldLightingState` for an event's
+ * map location, season, and time of day for the stage renderer preview.
+ */
+
 import {
   MINE_LIGHTMAP_COLOR,
   buildEventLanternGlow,
@@ -18,7 +23,7 @@ import type { EventScript } from '../types'
 import { deriveEventPreviewTimeOfDay, type StageLanternLight } from './eventStageShared'
 
 /**
- * Event-stage world lighting: reduces the active event (time/season
+ * @file Event-stage world lighting: reduces the active event (time/season
  * preconditions, `ambientLight` command, `addLantern` lights) plus the stage
  * map (indoor/mine detection, `Light`/`WindowLight` properties) to the shared
  * `WorldLightingState` the map viewport bakes into its multiply overlay.

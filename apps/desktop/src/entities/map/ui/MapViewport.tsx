@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport component: the core interactive canvas for editing map
+ * documents — tile painting, object placement, overlay rendering, and pan/zoom.
+ */
+
 import {
   forwardRef,
   useCallback,

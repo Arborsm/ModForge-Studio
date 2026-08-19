@@ -1,3 +1,5 @@
+//! Built-in machine translation provider presets and capability descriptors.
+
 use crate::domain::localization::types::*;
 
 fn capability(
@@ -20,6 +22,7 @@ fn capability(
     }
 }
 
+/// Returns all built-in machine translation presets.
 pub fn presets() -> Vec<MachineTranslationPreset> {
     vec![
         MachineTranslationPreset {
@@ -129,6 +132,7 @@ pub fn presets() -> Vec<MachineTranslationPreset> {
     ]
 }
 
+/// Looks up a single preset by id.
 pub fn preset(id: &str) -> Option<MachineTranslationPreset> {
     presets().into_iter().find(|preset| preset.id == id)
 }

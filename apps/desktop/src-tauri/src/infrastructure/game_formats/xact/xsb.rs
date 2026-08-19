@@ -1,3 +1,6 @@
+//! XACT sound bank (.xsb) parser: cue names, sound entries, and wave-bank
+//! cross-references for cue-to-wave resolution.
+
 use std::collections::HashMap;
 
 use super::io::{read_u16_le, read_u32_le};

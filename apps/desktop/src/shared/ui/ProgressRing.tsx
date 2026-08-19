@@ -1,3 +1,5 @@
+/** @file Circular progress ring with accessible role and configurable size, stroke, and colors. */
+
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
@@ -12,6 +14,7 @@ type ProgressRingProps = {
   children?: ReactNode
 }
 
+/** Circular progress indicator with an accessible progressbar role and optional center content. */
 export function ProgressRing({
   progress,
   label,

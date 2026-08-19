@@ -1,3 +1,7 @@
+/**
+ * @file Text input for token-interpolated values with `{{Token}}` completion.
+ * @module features/cp-maker
+ */
 import { useId } from 'react'
 import { CP_BUILTIN_TOKENS } from '@entities/content-patcher'
 
