@@ -1,4 +1,5 @@
 import { Plus, Search, UserRound } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { CharacterSpriteThumbnail, resolveCharacterSpriteMetrics, type CharacterWorkspaceEntry } from '@entities/character'
 import type { LocaleCode } from '@locales'
 import { useCharacterDataEditorCopy } from '@locales/provider'
@@ -26,34 +27,45 @@ function CharacterCatalogCard({
   const metrics = resolveCharacterSpriteMetrics(character, assetState)
 
   return (
-    <button
-      type="button"
-      className="character-catalog-card"
-      title={copy.sources.openCharacter(row.displayName)}
-      onClick={() => onSelect(row)}
-    >
-      <span className="character-catalog-preview" aria-hidden="true">
-        {character === null ? (
-          <UserRound className="h-8 w-8" />
-        ) : (
-          <CharacterSpriteThumbnail
-            assetState={assetState}
-            metrics={metrics}
-            scale={THUMBNAIL_SCALE}
-            fallbackText={row.displayName.trim().slice(0, 1) || row.key.slice(0, 1)}
-          />
-        )}
-      </span>
-      <span className="character-catalog-card-body">
-        <strong>{row.displayName}</strong>
-        <span>{row.key}</span>
-      </span>
-      {row.inProject ? (
-        <span className={cx('asset-editor-badge', row.vanilla ? 'is-warn' : 'is-ok')}>
-          {row.vanilla ? copy.sources.overrideBadge : copy.sources.newBadge}
-        </span>
-      ) : null}
-    </button>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <button
+          type="button"
+          className="character-catalog-card"
+          title={copy.sources.openCharacter(row.displayName)}
+          onClick={() => onSelect(row)}
+        >
+          <span className="character-catalog-preview" aria-hidden="true">
+            {character === null ? (
+              <UserRound className="h-8 w-8" />
+            ) : (
+              <CharacterSpriteThumbnail
+                assetState={assetState}
+                metrics={metrics}
+                scale={THUMBNAIL_SCALE}
+                fallbackText={row.displayName.trim().slice(0, 1) || row.key.slice(0, 1)}
+              />
+            )}
+          </span>
+          <span className="character-catalog-card-body">
+            <strong>{row.displayName}</strong>
+            <span>{row.key}</span>
+          </span>
+          {row.inProject ? (
+            <span className={cx('asset-editor-badge', row.vanilla ? 'is-warn' : 'is-ok')}>
+              {row.vanilla ? copy.sources.overrideBadge : copy.sources.newBadge}
+            </span>
+          ) : null}
+        </button>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => onSelect(row)}>
+            {copy.sources.openCharacter(row.displayName)}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 

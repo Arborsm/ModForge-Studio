@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowLeft, BadgeCheck, Eraser, FileOutput, MousePointer2, Paintbrush, Plus, Save, SunMoon } from 'lucide-react'
 import {
@@ -12,6 +12,7 @@ import {
   type MapInspectorHighlight,
   type MapTileRect,
   type MapViewportHandle,
+  type TileHoverInfo,
 } from '@entities/map'
 import {
   deriveMapDocumentLighting,
@@ -170,6 +171,8 @@ function MapAssetEditorContent({
   const [hoverPreviewSrc, setHoverPreviewSrc] = useState<string | null>(null)
   /** Gallery selection mode active: shows a constant overlay backdrop on the canvas. */
   const [galleryMode, setGalleryMode] = useState(false)
+  /** Layer id being hovered in the layers panel; when set, the canvas isolates that layer. */
+  const [hoverLayerId, setHoverLayerId] = useState<number | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
   const [leftSplitPercent, setLeftSplitPercent] = useState(57)
   const [isSplitDragging, setIsSplitDragging] = useState(false)
@@ -617,6 +620,7 @@ function MapAssetEditorContent({
                   viewportRef.current?.centerOnWorldPoint(px, py)
                 }
               }}
+              onHoverLayerPreview={setHoverLayerId}
             />
             <div
               className={cx('map-asset-leftcol-divider', isSplitDragging && 'is-active')}
@@ -662,7 +666,9 @@ function MapAssetEditorContent({
                 setZoomState((current) => (current.zoom === zoom && current.mode === mode ? current : { zoom, mode }))
               }
               mapDocument={viewportDocument}
-              visibleLayerIds={document.layers.filter((layer) => layer.visible).map((layer) => layer.id)}
+              visibleLayerIds={
+                hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id)
+              }
               visibleObjectGroupIds={document.objectGroups.filter((group) => group.visible).map((group) => group.id)}
               hideRuleTileDataObjects
               objectDrag={
@@ -892,7 +898,6 @@ function MapAssetEditorContent({
           selectedObject={editor.selectedObject}
           selectedObjectId={editor.selectedObjectId}
           paletteSelection={editor.paletteSelection}
-          tilesetOptions={tilesetOptions}
           isTmxAsset={isTmxAsset}
           tbinIssues={tbinIssues}
           layerNameIssues={layerNameIssues}
@@ -919,7 +924,6 @@ function MapAssetEditorContent({
             const py = (tileY + 0.5) * document.tileHeight
             viewportRef.current?.centerOnWorldPoint(px, py)
           }}
-          onAddTileset={editor.addTileset}
           onAttachGameSheet={editor.attachGameSheet}
           gameRootPath={resources.gameRootPath}
           objectLightIndex={objectLightIndex}
@@ -1082,7 +1086,7 @@ function MapAssetEditorContent({
             ? copy.statusBrush(editor.paletteSelection.tilesetName, editor.paletteSelection.width, editor.paletteSelection.height)
             : '-'}
         </span>
-        <span>{editor.hoverInfo ? `${editor.hoverInfo.tileX}, ${editor.hoverInfo.tileY}` : '-'}</span>
+        <HoverInfoSpan subscribe={editor.subscribeHoverInfo} getSnapshot={editor.getHoverInfo} />
       </footer>
 
       <Dialog
@@ -1118,6 +1122,22 @@ function MapAssetEditorContent({
       </Dialog>
     </div>
   )
+}
+
+/**
+ * Status-bar span that displays the hovered tile coordinates. Subscribes to
+ * the editor's hover-info ref via useSyncExternalStore so pointermove only
+ * re-renders this span, not the entire MapAssetEditor tree.
+ */
+function HoverInfoSpan({
+  subscribe,
+  getSnapshot,
+}: {
+  subscribe: (listener: () => void) => () => void
+  getSnapshot: () => TileHoverInfo | null
+}) {
+  const hoverInfo = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return <span>{hoverInfo ? `${hoverInfo.tileX}, ${hoverInfo.tileY}` : '-'}</span>
 }
 
 export type MapAssetEditorSessionProps = {

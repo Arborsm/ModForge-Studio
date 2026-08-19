@@ -137,6 +137,16 @@ export type ScheduleEditorCopy = {
   saveAction: string
   deleteAction: string
   deleteConfirmAction: string
+  /** Context menu: open the entry in the editor. */
+  selectEntryAction: string
+  /** Context menu: enable a disabled entry. */
+  toggleEnableAction: string
+  /** Context menu: disable an enabled entry. */
+  toggleDisableAction: string
+  /** Context menu delete dialog title. */
+  deleteEntryTitle: string
+  /** Context menu delete dialog body; {key} is the schedule key. */
+  deleteEntryMessage: (key: string) => string
   revertAction: string
   savingStatus: string
   savedStatus: string

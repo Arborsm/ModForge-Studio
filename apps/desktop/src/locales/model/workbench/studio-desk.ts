@@ -7,7 +7,6 @@ export type StudioDeskCopy = {
   projectLobbyControl: string
   projectGrid: string
   projectCount: (count: number) => string
-  projectMoreActions: (name: string) => string
   projectManagerEyebrow: string
   projectManagerSubtitle: string
   projectList: string
@@ -17,7 +16,6 @@ export type StudioDeskCopy = {
   lastExportedLabel: string
   metadataIncomplete: string
   editProjectProperties: string
-  editProjectPropertiesHint: string
   overview: string
   totalProjects: string
   waitingExport: string
@@ -32,7 +30,6 @@ export type StudioDeskCopy = {
   copyProject: string
   deleteProject: string
   selectedProjects: (count: number) => string
-  clearSelection: string
   bulkDelete: string
   deleteProjectTitle: string
   deleteProjectMessage: (name: string) => string
@@ -269,6 +266,8 @@ export type StudioDeskCopy = {
     addProperty: string
     removeProperty: string
     addWarp: string
+    /** Context menu: select a warp entry from the list. */
+    selectWarpAction: string
     removeWarp: string
     noWarps: string
     warpSource: string
@@ -297,6 +296,20 @@ export type StudioDeskCopy = {
     tileId: (id: number) => string
     searchTilesets: string
     recentTilesets: string
+    /** Palette favorites strip: section label for starred selections. */
+    favoritesSection: string
+    /** Palette favorites strip: context menu item to star a selection. */
+    favoriteAdd: string
+    /** Palette favorites strip: context menu item to unstar a selection. */
+    favoriteRemove: string
+    /** Palette favorites strip: export favorites to JSON file. */
+    favoritesExport: string
+    /** Palette favorites strip: import favorites from JSON file. */
+    favoritesImport: string
+    /** Palette favorites tab: count label showing number of favorites. */
+    favoritesCount: (count: number) => string
+    /** Palette favorites tab: empty state hint. */
+    favoritesEmpty: string
     /** Sheet picker: group listing the sheets already attached to the map. */
     sheetPickerAttachedGroup: string
     /** Sheet picker: group listing the predefined vanilla `Content/Maps` sheets. */

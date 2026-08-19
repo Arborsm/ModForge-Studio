@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   ArrowLeft,
   Check,
@@ -1131,40 +1132,55 @@ function ChangeCard({
         ? copy.changeCardStatuses.empty
         : copy.changeCardStatuses.optional
   return (
-    <div className={cx('change-card', expanded && 'is-active', isActive && 'is-focused')} onClick={onActivate}>
-      <div className="change-card-header">
-        <div
-          className="change-card-toggle"
-          onClick={onToggle}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onToggle()
-            }
-          }}
-        >
-          <span className="card-icon">
-            <Icon className="h-4 w-4" />
-          </span>
-          <div className="card-title">
-            <strong>{title}</strong>
-            <small>{subtitle}</small>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <div className={cx('change-card', expanded && 'is-active', isActive && 'is-focused')} onClick={onActivate}>
+          <div className="change-card-header">
+            <div
+              className="change-card-toggle"
+              onClick={onToggle}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onToggle()
+                }
+              }}
+            >
+              <span className="card-icon">
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="card-title">
+                <strong>{title}</strong>
+                <small>{subtitle}</small>
+              </div>
+              <span className={cx('card-status', status === 'optional' && 'is-optional')}>
+                {status === 'configured' && <Check className="h-3 w-3" />}
+                {statusLabel}
+              </span>
+              <ChevronDown className="expand-arrow h-4 w-4" />
+            </div>
+            <div className="card-actions">
+              <button type="button" className="is-delete" title={copy.changeCardActions.delete} onClick={onDelete}>
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           </div>
-          <span className={cx('card-status', status === 'optional' && 'is-optional')}>
-            {status === 'configured' && <Check className="h-3 w-3" />}
-            {statusLabel}
-          </span>
-          <ChevronDown className="expand-arrow h-4 w-4" />
+          {expanded && <div className="change-card-body">{children}</div>}
         </div>
-        <div className="card-actions">
-          <button type="button" className="is-delete" title={copy.changeCardActions.delete} onClick={onDelete}>
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-      {expanded && <div className="change-card-body">{children}</div>}
-    </div>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={onToggle}>
+            {expanded ? copy.changeCardActions.collapse : copy.changeCardActions.expand}
+          </ContextMenu.Item>
+          <ContextMenu.Separator className="context-menu-separator" />
+          <ContextMenu.Item className="context-menu-item is-danger" onSelect={onDelete}>
+            {copy.changeCardActions.delete}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }

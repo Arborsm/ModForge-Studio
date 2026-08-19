@@ -1,4 +1,5 @@
 import { useState, type JSX } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Copy, GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
@@ -105,62 +106,83 @@ function SortablePatchRow({ patch, rowIndex, draftPort, onOpenPatch, onDelete }:
   const style = { transform: CSS.Transform.toString(transform), transition }
 
   return (
-    <li
-      ref={setNodeRef}
-      key={patch.id}
-      className={cx('workspace-patch-row', !enabled && 'is-disabled', isDragging && 'is-dragging')}
-      style={style}
-      onDoubleClick={(event) => {
-        if ((event.target as HTMLElement).closest('button')) return
-        onOpenPatch(patch.id)
-      }}
-    >
-      <button
-        type="button"
-        className="workspace-patch-drag"
-        aria-label={copy.movePatch(title)}
-        title={copy.movePatch(title)}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-      <span className="workspace-patch-order">{rowIndex + 1}</span>
-      <span className="asset-editor-badge">{actionLabels[patch.action]}</span>
-      <button type="button" className="workspace-patch-copy" aria-label={copy.openPatch(title)} onClick={() => onOpenPatch(patch.id)}>
-        <strong>{patch.target}</strong>
-        <span className="workspace-patch-details">
-          {customTitle ? <span className="workspace-patch-detail">{customTitle}</span> : null}
-          {patch.fromFile && patch.fromFile !== title ? (
-            <span className="workspace-patch-detail">
-              {copy.fromFile}: {patch.fromFile}
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <li
+          ref={setNodeRef}
+          key={patch.id}
+          className={cx('workspace-patch-row', !enabled && 'is-disabled', isDragging && 'is-dragging')}
+          style={style}
+          onDoubleClick={(event) => {
+            if ((event.target as HTMLElement).closest('button')) return
+            onOpenPatch(patch.id)
+          }}
+        >
+          <button
+            type="button"
+            className="workspace-patch-drag"
+            aria-label={copy.movePatch(title)}
+            title={copy.movePatch(title)}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <span className="workspace-patch-order">{rowIndex + 1}</span>
+          <span className="asset-editor-badge">{actionLabels[patch.action]}</span>
+          <button type="button" className="workspace-patch-copy" aria-label={copy.openPatch(title)} onClick={() => onOpenPatch(patch.id)}>
+            <strong>{patch.target}</strong>
+            <span className="workspace-patch-details">
+              {customTitle ? <span className="workspace-patch-detail">{customTitle}</span> : null}
+              {patch.fromFile && patch.fromFile !== title ? (
+                <span className="workspace-patch-detail">
+                  {copy.fromFile}: {patch.fromFile}
+                </span>
+              ) : null}
+              {whenSummary ? (
+                <span className="workspace-patch-detail">
+                  {copy.when}: {whenSummary}
+                </span>
+              ) : null}
+              {expertMode && priority !== null ? (
+                <span className="workspace-patch-detail">
+                  {copy.priority}: {priority}
+                </span>
+              ) : null}
             </span>
-          ) : null}
-          {whenSummary ? (
-            <span className="workspace-patch-detail">
-              {copy.when}: {whenSummary}
-            </span>
-          ) : null}
-          {expertMode && priority !== null ? (
-            <span className="workspace-patch-detail">
-              {copy.priority}: {priority}
-            </span>
-          ) : null}
-        </span>
-      </button>
-      <WorkspacePatchEnabledToggle patch={patch} draftPort={draftPort} title={title} />
-      <div className="workspace-patch-row-actions">
-        <button type="button" title={copy.openPatch(title)} aria-label={copy.openPatch(title)} onClick={() => onOpenPatch(patch.id)}>
-          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-        <button type="button" title={copy.duplicate} aria-label={copy.duplicate} onClick={() => draftPort.duplicatePatch(patch.id)}>
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-        <button type="button" title={copy.delete} aria-label={copy.delete} onClick={() => onDelete(patch)}>
-          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </div>
-    </li>
+          </button>
+          <WorkspacePatchEnabledToggle patch={patch} draftPort={draftPort} title={title} />
+          <div className="workspace-patch-row-actions">
+            <button type="button" title={copy.openPatch(title)} aria-label={copy.openPatch(title)} onClick={() => onOpenPatch(patch.id)}>
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <button type="button" title={copy.duplicate} aria-label={copy.duplicate} onClick={() => draftPort.duplicatePatch(patch.id)}>
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <button type="button" title={copy.delete} aria-label={copy.delete} onClick={() => onDelete(patch)}>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        </li>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => onOpenPatch(patch.id)}>
+            {copy.openPatch(title)}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => draftPort.updatePatch(patch.id, { enabled: !enabled })}>
+            {enabled ? copy.toggleDisable(title) : copy.toggleEnable(title)}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => draftPort.duplicatePatch(patch.id)}>
+            {copy.duplicate}
+          </ContextMenu.Item>
+          <ContextMenu.Separator className="context-menu-separator" />
+          <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => onDelete(patch)}>
+            {copy.delete}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 

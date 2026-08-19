@@ -147,6 +147,8 @@ export type DialogueEditorCopy = {
   addPageEndAction: string
   addPageBreakAction: string
   removePageAction: string
+  /** Context menu: select a dialogue page card. */
+  selectPageAction: string
   pagePropsTitle: string
   emotionFieldLabel: string
   emotionNeutral: string

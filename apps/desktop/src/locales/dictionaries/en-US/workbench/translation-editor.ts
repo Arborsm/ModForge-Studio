@@ -126,6 +126,7 @@ const translationEditor: TranslationEditorCopy = {
   browserI18nEntries: (count) => `${count} text ${count === 1 ? 'entry' : 'entries'}`,
   browserOpenFolder: 'Open folder',
   browserImportProject: 'Import archive',
+  browserSelectProjectAction: 'Select project',
   bootstrapTitle: 'No translation files yet',
   bootstrapDescription:
     'This project has no i18n files yet. Scan the content you authored (display names, descriptions, dialogue, mail and more) to extract the text into default-language entries (default.json); the original fields are rewritten to {{i18n:…}} references.',

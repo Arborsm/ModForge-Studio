@@ -627,6 +627,15 @@ export default function App() {
   }, [guideReplayRequest])
 
   useEffect(() => {
+    // Suppress the native browser context menu app-wide. Interactive surfaces
+    // opt into a custom Radix context menu instead; everywhere else the native
+    // menu is meaningless inside the desktop shell and leaks web-platform UX.
+    const handler = (event: MouseEvent) => event.preventDefault()
+    document.addEventListener('contextmenu', handler)
+    return () => document.removeEventListener('contextmenu', handler)
+  }, [])
+
+  useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('mfSettingsMock') !== '1' && params.get('mfLauncherMock') !== '1') return

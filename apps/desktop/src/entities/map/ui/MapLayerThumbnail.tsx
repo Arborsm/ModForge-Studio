@@ -73,6 +73,7 @@ async function renderLayerThumbnail(document: MapDocument, layer: MapLayer, loca
   return canvas.toDataURL('image/png')
 }
 
+/** Max preview dimension for full-resolution layer hover preview (keeps aspect ratio). */
 /**
  * Renders a single tile layer into a small pixelated preview (64×48 CSS px,
  * fit keep-ratio centered) through the shared viewport rasterizer. The source

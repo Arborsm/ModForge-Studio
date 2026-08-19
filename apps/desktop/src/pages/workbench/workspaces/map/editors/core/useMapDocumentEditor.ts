@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   syncLightMapProperty,
   type MapDocument,
@@ -108,7 +108,12 @@ export type MapDocumentEditor = {
   activeLayerId: number
   tool: AssetTool
   selectedTile: { x: number; y: number } | null
-  hoverInfo: TileHoverInfo | null
+  /** Subscribe to hover-info changes (useSyncExternalStore). The hover info
+   * lives in a ref so pointermove never triggers a React re-render of the
+   * editor tree; only components that explicitly subscribe re-render. */
+  subscribeHoverInfo: (listener: () => void) => () => void
+  /** Read the current hover info snapshot (useSyncExternalStore getSnapshot). */
+  getHoverInfo: () => TileHoverInfo | null
   /** Whether the cell-rule overlay mode paints the active layer's rules on the canvas. */
   overlayActive: boolean
   /** Selected paint rule in the overlay rule bar; `walkable` erases rules. */
@@ -220,20 +225,31 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [lockedLayerIds, setLockedLayerIds] = useState<Set<number>>(() => new Set())
   const [tool, setTool] = useState<AssetTool>('inspect')
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
-  const [hoverInfo, setHoverInfoState] = useState<TileHoverInfo | null>(null)
+  // Hover info lives in a ref + listener set so pointermove never triggers a
+  // React re-render of the editor tree. Only the status-bar span subscribes
+  // via useSyncExternalStore and re-renders on tile change.
+  const hoverInfoRef = useRef<TileHoverInfo | null>(null)
+  const hoverInfoListenersRef = useRef(new Set<() => void>())
+  const subscribeHoverInfo = useCallback((listener: () => void) => {
+    hoverInfoListenersRef.current.add(listener)
+    return () => {
+      hoverInfoListenersRef.current.delete(listener)
+    }
+  }, [])
+  const getHoverInfo = useCallback(() => hoverInfoRef.current, [])
   // Hover fires per pointermove with a fresh info object; only the hovered tile
-  // coordinates are displayed, so suppress state updates that keep the same tile
-  // to avoid re-rendering the whole editor tree on every pixel of mouse travel.
+  // coordinates are displayed, so suppress updates that keep the same tile
+  // to avoid notifying subscribers on every pixel of mouse travel.
   // The callback identity must stay stable: MapViewport's reset effect depends
   // on it, and a fresh identity would clear the hover right after every update
   // (visible as flickering coordinates that only appear while moving).
   const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = useCallback((next) => {
-    setHoverInfoState((prev) => {
-      const value = typeof next === 'function' ? next(prev) : next
-      if (prev === null && value === null) return prev
-      if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return prev
-      return value
-    })
+    const value = typeof next === 'function' ? next(hoverInfoRef.current) : next
+    const prev = hoverInfoRef.current
+    if (prev === null && value === null) return
+    if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return
+    hoverInfoRef.current = value
+    hoverInfoListenersRef.current.forEach((l) => l())
   }, [])
   const [paletteSelection, setPaletteSelection] = useState<MapTilesetPaletteSelection | null>(null)
   const [saveState, setSaveState] = useState<MapEditorSaveState>({ status: 'idle', message: '' })
@@ -244,6 +260,12 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [overlayActive, setOverlayActiveState] = useState(false)
   const [overlayRule, setOverlayRule] = useState<CellOverlayRule>('walkable')
   const [overlayPaintPreview, setOverlayPaintPreview] = useState<readonly { tileX: number; tileY: number }[] | null>(null)
+  // rAF-coalesced overlay paint preview: pointermove feeds points at high
+  // frequency (one per new tile entered); coalescing into a single rAF
+  // collapses multiple feeds into one state update per frame so the canvas
+  // redraws at most ~60fps instead of once per tile crossed.
+  const overlayPaintPreviewRef = useRef<readonly { tileX: number; tileY: number }[] | null>(null)
+  const overlayPaintPreviewRafIdRef = useRef<number | null>(null)
   const [projectImageUrls, setProjectImageUrls] = useState<Record<string, string>>({})
   const [undoStack, setUndoStack] = useState<MapHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<MapHistoryEntry[]>([])
@@ -255,6 +277,17 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   // ownership so the workbench draft shortcut stands down while the editor is
   // mounted; otherwise Ctrl+Z would pop both stacks at once.
   useLocalUndoShortcutOwner()
+
+  // Cancel any pending overlay paint preview rAF on unmount.
+  useEffect(
+    () => () => {
+      if (overlayPaintPreviewRafIdRef.current !== null) {
+        cancelAnimationFrame(overlayPaintPreviewRafIdRef.current)
+        overlayPaintPreviewRafIdRef.current = null
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     let active = true
@@ -407,15 +440,30 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     if (!capabilities.cellProperties) return
     setOverlayActiveState((current) => {
       const value = typeof next === 'function' ? next(current) : next
-      if (!value) setOverlayPaintPreview(null)
+      if (!value) clearOverlayPaintPreview()
       return value
     })
+  }
+
+  /** Flushes the coalesced preview ref to state immediately (used by commit/disable). */
+  function clearOverlayPaintPreview() {
+    if (overlayPaintPreviewRafIdRef.current !== null) {
+      cancelAnimationFrame(overlayPaintPreviewRafIdRef.current)
+      overlayPaintPreviewRafIdRef.current = null
+    }
+    overlayPaintPreviewRef.current = null
+    setOverlayPaintPreview(null)
   }
 
   /** Feeds the live canvas preview while an overlay drag is in progress. */
   function previewCellOverlayStroke(points: readonly { tileX: number; tileY: number }[]) {
     if (!capabilities.cellProperties) return
-    setOverlayPaintPreview(points.length > 0 ? points : null)
+    overlayPaintPreviewRef.current = points.length > 0 ? points : null
+    if (overlayPaintPreviewRafIdRef.current !== null) return
+    overlayPaintPreviewRafIdRef.current = requestAnimationFrame(() => {
+      overlayPaintPreviewRafIdRef.current = null
+      setOverlayPaintPreview(overlayPaintPreviewRef.current)
+    })
   }
 
   /**
@@ -427,7 +475,7 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
    * from the tileset definition, the save-state message surfaces that hint.
    */
   function commitCellOverlayStroke(points: readonly { tileX: number; tileY: number }[]) {
-    setOverlayPaintPreview(null)
+    clearOverlayPaintPreview()
     if (!capabilities.cellProperties || !activeLayer || activeLayerLocked || points.length === 0) return
     const { document: painted, skippedTilesetDerived } = setMapAssetCellOverlay(
       mapDocument,
@@ -833,7 +881,8 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     activeLayerId,
     tool,
     selectedTile,
-    hoverInfo,
+    subscribeHoverInfo,
+    getHoverInfo,
     overlayActive,
     overlayRule,
     overlayPaintPreview,

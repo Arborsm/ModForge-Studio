@@ -663,6 +663,34 @@ export function useScheduleWorkspace() {
     setDeleteArmed(false)
   }
 
+  /** Directly stages removal of an entry by key, bypassing the two-step arming. */
+  function deleteEntryByKey(key: string) {
+    if (port === null || assetId === null) {
+      return
+    }
+    const target = entries.find((entry) => entry.key === key)
+    if (!target || target.origin === 'vanilla') {
+      return
+    }
+    port.stageValue(assetId, key, null)
+    if (selectedKey === key) {
+      setSelectedKey(null)
+    }
+    setDeleteArmed(false)
+  }
+
+  /** Toggles the enabled flag of an entry by key without selecting it. */
+  function toggleEntryEnabledByKey(key: string) {
+    if (port === null || assetId === null) {
+      return
+    }
+    const target = entries.find((entry) => entry.key === key)
+    if (!target || target.origin === 'vanilla') {
+      return
+    }
+    port.stageEntryMeta(assetId, key, { enabled: !target.enabled })
+  }
+
   const selectedNpc = npcOptions.find((option) => option.id === selectedNpcId) ?? null
 
   return {
@@ -706,6 +734,8 @@ export function useScheduleWorkspace() {
     appendSegment,
     addTimePoint,
     deleteEntry,
+    deleteEntryByKey,
+    toggleEntryEnabledByKey,
     deleteArmed,
     isDirty: port?.isDirty() ?? false,
     saveState: saveState as WorkbenchDraftSaveState,

@@ -413,14 +413,12 @@ export type MapAssetEditorCopy = {
   furniturePosition: (x: number, y: number, layer: string) => string
   /** Hint shown under the add-marker button while no canvas cell is selected. */
   addTileDataHint: string
-  /** Section header for tilesheet management inside the map tab. */
-  tilesetsTitle: string
   /** Inspector tab label for the map properties view (warps, doors, music, etc.). */
   inspectorTabMap: string
   /** Inspector tab label for the objects & light sources view. */
   inspectorTabObjects: string
-  /** Inspector tab label for the tileset management view. */
-  inspectorTabTilesets: string
+  /** Inspector tab label for the tile animation management view. */
+  inspectorTabAnimations: string
   /** Inspector tab label for the advanced/raw properties & diagnostics view. */
   inspectorTabAdvanced: string
   /** Inspect popover: title showing the cell coordinate. */
@@ -467,11 +465,9 @@ export type MapAssetEditorCopy = {
   replaceTileset: string
   /** History label for removing a tileset from the map. */
   removeTileset: string
-  chooseImage: string
   /** Error when the project's custom tilesheet descriptor JSON fails validation. */
   sheetCatalogInvalid: (message: string) => string
   projectImages: string
-  selectTileset: string
   tilesetProperties: string
   tileDefinitionProperties: (tileId: number) => string
   tileDefinitionPropertiesHint: string
@@ -520,6 +516,50 @@ export type MapAssetEditorCopy = {
   editTileDefinition: string
   /** History label for tileset animation frame edits. */
   editAnimation: string
+  /** Animation list tab: empty-state message when no tileset has animations. */
+  animationListEmpty: string
+  /** Animation list tab: frame count summary for a list entry. */
+  animationFrameCount: (count: number) => string
+  /** Animation dialog: title. */
+  animationDialogTitle: string
+  /** Animation dialog: close button label. */
+  animationDialogClose: string
+  /** Animation dialog: hint shown when no tile is selected. */
+  animationDialogHint: string
+  /** Animation dialog: hint under the sheet grid telling users to click a tile. */
+  animationDialogSheetHint: string
+  /** Animation dialog: label above the list of tiles that have animations. */
+  animationDialogListLabel: string
+  /** Animation dialog: button to create a new animation by drag-selecting on the sheet. */
+  animationDialogNewAnim: string
+  /** Animation dialog: hint when in new-animation drag-select mode. */
+  animationDialogNewAnimHint: string
+  /** Animation dialog: message when no animations exist yet. */
+  animationDialogNoAnims: string
+  /** Animation dialog: locate button tooltip (pan sheet to the tile). */
+  animationDialogLocate: string
+  /** Animation dialog: explanation that animation is bound to the tile and plays when that tile is placed on the map. */
+  animationDialogBindHint: string
+  /** Animation dialog: label for the pending frames count during new-animation mode. */
+  animationDialogPendingFrames: (count: number) => string
+  /** Animation dialog: confirm button to commit pending frame regions as animations. */
+  animationDialogConfirm: string
+  /** Animation dialog: button to select the owner tile in the palette for painting. */
+  animationDialogUseTile: string
+  /** Animation dialog: mode hint when user clicked "add frame" and should pick a tile. */
+  animationDialogPickAddHint: string
+  /** Animation dialog: mode hint when user clicked a frame thumb and should pick a replacement tile. */
+  animationDialogPickReplaceHint: string
+  /** Animation dialog: tooltip on a frame thumbnail button — click to re-pick tile from sheet. */
+  animationDialogPickFrameTile: string
+  /** Animation dialog: label on the add-frame button when already in pick mode (click to cancel). */
+  animationDialogCancelPick: string
+  /** Animation dialog: back-to-gallery button label. */
+  animationDialogBack: string
+  /** Animation dialog: done/close footer button label. */
+  animationDialogDone: string
+  /** Animation dialog: editor stage title showing the selected tileset name. */
+  animationTileEditorTitle: (tilesetName: string) => string
   /** History label for warp entry add/remove. */
   editWarp: string
   /** History label for door entry add/remove. */

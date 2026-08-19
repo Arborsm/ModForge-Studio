@@ -231,13 +231,13 @@
   }
 
   .map-asset-layer-opacity {
-    @apply flex items-center;
+    @apply flex items-center justify-end;
     gap: 0.25rem;
   }
 
   .map-asset-layer-opacity-slider {
     @apply cursor-pointer appearance-none;
-    width: 3.5rem;
+    width: 2.75rem;
     height: 1.25rem;
     background: transparent;
   }
@@ -285,47 +285,12 @@
 
   .map-asset-layer-opacity-value {
     @apply text-text-tertiary flex-none text-center;
-    width: 2rem;
+    width: 1.5rem;
     font-size: 0.625rem;
     font-variant-numeric: tabular-nums;
   }
 
   .map-asset-layer-row.has-error {
     border-color: var(--danger);
-  }
-
-  .map-asset-layer-preview-pop {
-    @apply pointer-events-none absolute;
-    z-index: var(--z-popover);
-    bottom: 3rem;
-    left: 0.5rem;
-    width: 8rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-panel);
-    box-shadow: var(--shadow-float);
-    padding: 0.25rem;
-    transition: opacity 0.12s ease;
-  }
-
-  .map-asset-layer-preview-pop.is-hidden {
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  .map-asset-layer-preview-pop img {
-    @apply block;
-    width: 100%;
-    height: auto;
-    image-rendering: pixelated;
-    border-radius: var(--radius-sm);
-  }
-
-  .map-asset-layer-preview-pop-label {
-    @apply text-caption text-text-secondary block;
-    margin-top: 0.125rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }

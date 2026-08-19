@@ -3,8 +3,6 @@ import {
   CheckSquare,
   Clock,
   CloudRain,
-  Code2,
-  Copy,
   Download,
   Eye,
   FileJson,
@@ -16,9 +14,9 @@ import {
   Plus,
   Search,
   Sun,
-  Trash2,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { DraftPatch } from '@features/cp-maker'
 import type { WorkspaceId } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
@@ -37,9 +35,6 @@ const EventConditionBuilderModal = lazy(() =>
 )
 
 type EventFilter = 'all' | 'withTriggers' | 'withoutTriggers' | 'disabled'
-type ContextMenuState =
-  | { kind: 'patch'; patchId: string; x: number; y: number }
-  | { kind: 'event'; patchId: string; eventKey: string; x: number; y: number }
 
 interface PatchListPageProps {
   patches: DraftPatch[]
@@ -120,17 +115,6 @@ function nextDuplicateEventKey(entries: Record<string, unknown>, eventKey: strin
   return `${baseKey}_${index}`
 }
 
-function clampContextMenuPoint(x: number, y: number) {
-  if (typeof window === 'undefined') {
-    return { x, y }
-  }
-
-  return {
-    x: Math.max(8, Math.min(x, window.innerWidth - 210)),
-    y: Math.max(8, Math.min(y, window.innerHeight - 190)),
-  }
-}
-
 export function PatchListPage({
   patches,
   onEditPatch,
@@ -152,7 +136,6 @@ export function PatchListPage({
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedEventKeys, setSelectedEventKeys] = useState<Set<string>>(() => new Set())
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [conditionBuilder, setConditionBuilder] = useState<{ patchId: string; eventKey: string } | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -340,24 +323,6 @@ export function PatchListPage({
     onEditPatch(activePatch.id, event.key)
   }
 
-  function openPatchContextMenu(pointerEvent: MouseEvent, patch: EventPatchHubPatch) {
-    pointerEvent.preventDefault()
-    const point = clampContextMenuPoint(pointerEvent.clientX, pointerEvent.clientY)
-    setSelectedPatchId(patch.id)
-    setContextMenu({ kind: 'patch', patchId: patch.id, x: point.x, y: point.y })
-  }
-
-  function openEventContextMenu(pointerEvent: MouseEvent, event: EventPatchHubEvent) {
-    pointerEvent.preventDefault()
-    pointerEvent.stopPropagation()
-    if (!activePatch) {
-      return
-    }
-    const point = clampContextMenuPoint(pointerEvent.clientX, pointerEvent.clientY)
-    setSelectedEventKey(event.key)
-    setContextMenu({ kind: 'event', patchId: activePatch.id, eventKey: event.key, x: point.x, y: point.y })
-  }
-
   function duplicateEvent(patch: DraftPatch, event: EventPatchHubEvent) {
     if (!onPatchUpdate) {
       return
@@ -424,12 +389,7 @@ export function PatchListPage({
     }
   }
 
-  function handlePatchMenuAction(action: 'addEvent' | 'deletePatch') {
-    const patch = contextMenu?.kind === 'patch' ? hubPatches.find((item) => item.id === contextMenu.patchId) : null
-    setContextMenu(null)
-    if (!patch) {
-      return
-    }
+  function handlePatchMenuAction(patch: EventPatchHubPatch, action: 'addEvent' | 'deletePatch') {
     if (action === 'addEvent') {
       setSelectedPatchId(patch.id)
       const eventKey = addEventToSourcePatch(patch.sourcePatch)
@@ -442,14 +402,11 @@ export function PatchListPage({
     setSelectedPatchId(null)
   }
 
-  function handleEventMenuAction(action: 'edit' | 'conditionBuilder' | 'duplicate' | 'toggle' | 'delete') {
-    const menu = contextMenu?.kind === 'event' ? contextMenu : null
-    const patch = menu ? (hubPatches.find((item) => item.id === menu.patchId) ?? null) : null
-    const event = patch?.events.find((item) => item.key === menu?.eventKey) ?? null
-    setContextMenu(null)
-    if (!patch || !event) {
-      return
-    }
+  function handleEventMenuAction(
+    patch: EventPatchHubPatch,
+    event: EventPatchHubEvent,
+    action: 'edit' | 'conditionBuilder' | 'duplicate' | 'toggle' | 'delete',
+  ) {
     if (action === 'edit') {
       openEditor(event)
       return
@@ -470,6 +427,37 @@ export function PatchListPage({
       return
     }
     deleteEvent(patch.sourcePatch, event)
+  }
+
+  /** Radix context menu content shared by the tree event rows and the storyboard scene summary. */
+  function renderEventContextMenu(patch: EventPatchHubPatch, event: EventPatchHubEvent) {
+    const isDisabled = event.status === 'disabled'
+    return (
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => handleEventMenuAction(patch, event, 'edit')}>
+            {hub.openEditorAction}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            className="context-menu-item"
+            disabled={!onPatchUpdate}
+            onSelect={() => handleEventMenuAction(patch, event, 'conditionBuilder')}
+          >
+            {hub.conditionBuilderAction}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => handleEventMenuAction(patch, event, 'duplicate')}>
+            {hub.duplicateEventAction}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => handleEventMenuAction(patch, event, 'toggle')}>
+            {isDisabled ? hub.enableEventAction : hub.disableEventAction}
+          </ContextMenu.Item>
+          <ContextMenu.Separator className="context-menu-separator" />
+          <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => handleEventMenuAction(patch, event, 'delete')}>
+            {hub.deleteEventAction}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    )
   }
 
   function applyConditionBuilder(result: EventConditionBuilderResult) {
@@ -538,7 +526,6 @@ export function PatchListPage({
         canvas
         className="event-patch-hub"
         data-workspace={workspaceId}
-        onClick={() => setContextMenu(null)}
         sidebarLabel={hub.navigationLabel}
         sidebar={
           <div className="studio-tree-sidebar">
@@ -577,38 +564,58 @@ export function PatchListPage({
                       const patchActive = patch.id === activePatch?.id
                       return (
                         <div key={patch.id} className="event-patch-tree-block studio-tree-block">
-                          <button
-                            type="button"
-                            className={cx('event-patch-tree-item studio-tree-item', patchActive && 'active')}
-                            onClick={() => handleSelectPatch(patch)}
-                            onContextMenu={(event) => openPatchContextMenu(event, patch)}
-                            aria-expanded={patchActive}
-                            title={`${patch.displayName} · ${hub.eventCount(patch.events.length)}`}
-                          >
-                            <FileJson className="studio-tree-file-icon h-4 w-4" aria-hidden="true" />
-                            <span className="event-patch-tree-copy studio-tree-item-copy">
-                              <strong>{patch.displayName}</strong>
-                            </span>
-                            <span className="event-patch-tree-count studio-tree-count">{patch.events.length}</span>
-                          </button>
+                          <ContextMenu.Root>
+                            <ContextMenu.Trigger asChild>
+                              <button
+                                type="button"
+                                className={cx('event-patch-tree-item studio-tree-item', patchActive && 'active')}
+                                onClick={() => handleSelectPatch(patch)}
+                                aria-expanded={patchActive}
+                                title={`${patch.displayName} · ${hub.eventCount(patch.events.length)}`}
+                              >
+                                <FileJson className="studio-tree-file-icon h-4 w-4" aria-hidden="true" />
+                                <span className="event-patch-tree-copy studio-tree-item-copy">
+                                  <strong>{patch.displayName}</strong>
+                                </span>
+                                <span className="event-patch-tree-count studio-tree-count">{patch.events.length}</span>
+                              </button>
+                            </ContextMenu.Trigger>
+                            <ContextMenu.Portal>
+                              <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                                <ContextMenu.Item className="context-menu-item" onSelect={() => handlePatchMenuAction(patch, 'addEvent')}>
+                                  {hub.addEventLabel}
+                                </ContextMenu.Item>
+                                <ContextMenu.Separator className="context-menu-separator" />
+                                <ContextMenu.Item
+                                  className="context-menu-item is-danger"
+                                  onSelect={() => handlePatchMenuAction(patch, 'deletePatch')}
+                                >
+                                  {hub.deletePatchAction}
+                                </ContextMenu.Item>
+                              </ContextMenu.Content>
+                            </ContextMenu.Portal>
+                          </ContextMenu.Root>
 
                           {patchActive ? (
                             <div className="event-patch-tree-events studio-tree-child-list">
                               {patch.events.map((event, index) => (
-                                <button
-                                  key={event.key}
-                                  type="button"
-                                  className={cx(
-                                    'event-patch-tree-event studio-tree-child-item',
-                                    event.key === activeEvent?.key && 'active',
-                                    event.status === 'disabled' && 'disabled',
-                                  )}
-                                  onClick={() => handleSelectEvent(event)}
-                                  onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
-                                >
-                                  <span>#{formatStepIndex(index + 1)}</span>
-                                  <strong>{event.title}</strong>
-                                </button>
+                                <ContextMenu.Root key={event.key}>
+                                  <ContextMenu.Trigger asChild>
+                                    <button
+                                      type="button"
+                                      className={cx(
+                                        'event-patch-tree-event studio-tree-child-item',
+                                        event.key === activeEvent?.key && 'active',
+                                        event.status === 'disabled' && 'disabled',
+                                      )}
+                                      onClick={() => handleSelectEvent(event)}
+                                    >
+                                      <span>#{formatStepIndex(index + 1)}</span>
+                                      <strong>{event.title}</strong>
+                                    </button>
+                                  </ContextMenu.Trigger>
+                                  {renderEventContextMenu(patch, event)}
+                                </ContextMenu.Root>
                               ))}
                             </div>
                           ) : null}
@@ -714,64 +721,67 @@ export function PatchListPage({
                             selected && 'selected',
                           )}
                         >
-                          <div
-                            className="event-scene-summary"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleSelectEvent(event)}
-                            onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
-                            onKeyDown={(keyboardEvent) => {
-                              if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-                                keyboardEvent.preventDefault()
-                                handleSelectEvent(event)
-                              }
-                            }}
-                            aria-expanded={expanded}
-                          >
-                            {multiSelect ? (
-                              <button
-                                type="button"
-                                className={cx('event-scene-select', selected && 'selected')}
-                                aria-label={hub.selectEventAriaLabel(event.key)}
-                                aria-pressed={selected}
-                                onClick={(clickEvent) => {
-                                  clickEvent.stopPropagation()
-                                  handleSelectEvent(event)
+                          <ContextMenu.Root>
+                            <ContextMenu.Trigger asChild>
+                              <div
+                                className="event-scene-summary"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => handleSelectEvent(event)}
+                                onKeyDown={(keyboardEvent) => {
+                                  if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                                    keyboardEvent.preventDefault()
+                                    handleSelectEvent(event)
+                                  }
                                 }}
+                                aria-expanded={expanded}
                               >
-                                <CheckSquare className="h-3.5 w-3.5" aria-hidden="true" />
-                              </button>
-                            ) : null}
-                            <span className="event-scene-drag-handle" aria-hidden="true">
-                              <GripVertical className="h-4 w-4" />
-                            </span>
-                            <span className="event-scene-index">#{formatStepIndex(index + 1)}</span>
-                            <span className="event-scene-title">
-                              <strong>{event.title}</strong>
-                              {event.status === 'disabled' ? <span className="event-disabled-badge">{catalog.disabled}</span> : null}
-                            </span>
-                            <span className="event-scene-spacer" />
-                            <span className="event-scene-actors" aria-label={hub.actorsLabel}>
-                              {event.actors.slice(0, 3).map((actor) => (
-                                <i key={`${event.key}:${actor.name}`} title={actor.name}>
-                                  {formatActorAvatar(actor.name)}
-                                </i>
-                              ))}
-                            </span>
-                            <button
-                              type="button"
-                              className="control-button event-scene-edit-button"
-                              aria-label={`${hub.enterEditorLabel} ${event.key}`}
-                              onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
-                              onClick={(clickEvent) => {
-                                clickEvent.stopPropagation()
-                                openEditor(event)
-                              }}
-                            >
-                              <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>{hub.enterEditorLabel}</span>
-                            </button>
-                          </div>
+                                {multiSelect ? (
+                                  <button
+                                    type="button"
+                                    className={cx('event-scene-select', selected && 'selected')}
+                                    aria-label={hub.selectEventAriaLabel(event.key)}
+                                    aria-pressed={selected}
+                                    onClick={(clickEvent) => {
+                                      clickEvent.stopPropagation()
+                                      handleSelectEvent(event)
+                                    }}
+                                  >
+                                    <CheckSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </button>
+                                ) : null}
+                                <span className="event-scene-drag-handle" aria-hidden="true">
+                                  <GripVertical className="h-4 w-4" />
+                                </span>
+                                <span className="event-scene-index">#{formatStepIndex(index + 1)}</span>
+                                <span className="event-scene-title">
+                                  <strong>{event.title}</strong>
+                                  {event.status === 'disabled' ? <span className="event-disabled-badge">{catalog.disabled}</span> : null}
+                                </span>
+                                <span className="event-scene-spacer" />
+                                <span className="event-scene-actors" aria-label={hub.actorsLabel}>
+                                  {event.actors.slice(0, 3).map((actor) => (
+                                    <i key={`${event.key}:${actor.name}`} title={actor.name}>
+                                      {formatActorAvatar(actor.name)}
+                                    </i>
+                                  ))}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="control-button event-scene-edit-button"
+                                  aria-label={`${hub.enterEditorLabel} ${event.key}`}
+                                  onClick={(clickEvent) => {
+                                    clickEvent.stopPropagation()
+                                    openEditor(event)
+                                  }}
+                                >
+                                  <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
+                                  <span>{hub.enterEditorLabel}</span>
+                                </button>
+                              </div>
+                            </ContextMenu.Trigger>
+                            {renderEventContextMenu(activePatch, event)}
+                          </ContextMenu.Root>
 
                           {expanded ? (
                             <div className="event-scene-panel-shell" aria-hidden={!expanded}>
@@ -825,62 +835,6 @@ export function PatchListPage({
               </div>
             </div>
 
-            {contextMenu ? (
-              <div
-                className="event-patch-context-menu"
-                role="menu"
-                aria-label={hub.contextMenuLabel}
-                style={{ left: contextMenu.x, top: contextMenu.y }}
-                onClick={(event) => event.stopPropagation()}
-              >
-                {contextMenu.kind === 'patch' ? (
-                  <>
-                    <button type="button" role="menuitem" onClick={() => handlePatchMenuAction('addEvent')}>
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.addEventLabel}</span>
-                    </button>
-                    <button type="button" role="menuitem" className="danger" onClick={() => handlePatchMenuAction('deletePatch')}>
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.deletePatchAction}</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('edit')}>
-                      <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.openEditorAction}</span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => handleEventMenuAction('conditionBuilder')}
-                      disabled={!onPatchUpdate}
-                    >
-                      <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.conditionBuilderAction}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('duplicate')}>
-                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.duplicateEventAction}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => handleEventMenuAction('toggle')}>
-                      <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>
-                        {hubPatches
-                          .find((patch) => patch.id === contextMenu.patchId)
-                          ?.events.find((event) => event.key === contextMenu.eventKey)?.status === 'disabled'
-                          ? hub.enableEventAction
-                          : hub.disableEventAction}
-                      </span>
-                    </button>
-                    <button type="button" role="menuitem" className="danger" onClick={() => handleEventMenuAction('delete')}>
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{hub.deleteEventAction}</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : null}
             {conditionBuilderEvent && conditionBuilderPatch ? (
               <Suspense fallback={null}>
                 <EventConditionBuilderModal

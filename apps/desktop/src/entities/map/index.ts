@@ -61,6 +61,13 @@ export {
   type CellOverlayRule,
 } from './lib/cellProperties'
 export { hasMixedFrameDurations, planCellAnimationHoist, setCellAnimation, type CellAnimationHoistPlan } from './lib/cellAnimations'
+export {
+  extractAnimationGroups,
+  expandAnimationGroup,
+  removeAnimationGroupAnimations,
+  type AnimationGroup,
+  type TileRegion,
+} from './lib/animationGroups'
 export { deriveCellOverlayView, type CellOverlayCell } from './lib/cellOverlayView'
 export { paintCellOverlayObjects, writeCellPropertyObjects, type CellPropertyWriteStats } from './lib/cellOverlayObjects'
 export {
@@ -83,8 +90,12 @@ export {
 export { findTilesetForGid } from './lib/tilesets'
 export {
   cellFromSheetPointer,
+  isFavoriteSelection,
+  mergeFavoriteSelections,
   normalizeSelectionRect,
+  pushFavoriteSelection,
   pushRecentSelection,
+  removeFavoriteSelection,
   removeRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
@@ -151,6 +162,8 @@ export {
 export { MapViewport } from './ui/MapViewport'
 export { MapTilesetPalette } from './ui/MapTilesetPalette'
 export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
+export { SheetGridCanvas } from './ui/SheetGridCanvas'
+export type { SheetGridZoomState, SheetGridCanvasHandle } from './ui/SheetGridCanvas'
 export { MapTilesheetPicker } from './ui/MapTilesheetPicker'
 export type { MapTilesheetPickerProjectOption, MapTilesheetPickerProps } from './ui/MapTilesheetPicker'
 export { MapTilesheetGallery } from './ui/MapTilesheetGallery'

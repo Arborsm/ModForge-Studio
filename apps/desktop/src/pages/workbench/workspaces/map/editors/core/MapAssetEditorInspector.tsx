@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Crosshair, FileOutput, Plus, Trash2 } from 'lucide-react'
+import { Crosshair, FileOutput, Film, Paintbrush, Plus, Trash2 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   asMapPropertyString,
@@ -8,7 +8,6 @@ import {
   isLightMarkerObject,
   listPlacedLightItemOptions,
   mapObjectDisplayName,
-  MapTilesheetPicker,
   MapTilesetPalette,
   resolveMapObjectItemReference,
   resolveMapObjectLightIsOn,
@@ -16,6 +15,7 @@ import {
   resolvePlacedObjectDisplayName,
   stripTileGidFlags,
   subscribeMapObjects,
+  extractAnimationGroups,
   type MapDocument,
   type MapInspectorHighlight,
   type MapLayer,
@@ -27,7 +27,7 @@ import {
   type ObjectLightItemIndex,
   type VanillaTilesheetEntry,
 } from '@entities/map'
-import { type ResourceBrowserOption, ResourcePicker } from '@features/resource-browser'
+
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -37,6 +37,9 @@ import { propertyEditMergeKey } from '../../model/mapHistoryStack'
 import { matchTileToCatalogObject, scanPlacedFurniture, placedFurnitureLabel } from '../../model/mapObjectPick'
 import { MapAssetMapCards } from './MapAssetMapCards'
 import { AnimationFrameEditor } from './AnimationFrameEditor'
+import { MapAnimationDialog } from './MapAnimationDialog'
+import { MapTilePropertiesDialog } from './MapTilePropertiesDialog'
+import { AnimatedTilePreview } from './AnimatedTilePreview'
 import type { WarpDialogMapOption } from './WarpDialog'
 import type { MapAssetLayerNameIssue, MapAssetTbinIssue } from '../../model/mapAssetReducer'
 import { defaultTsxSourceForTileset, isValidTsxSource } from '../../model/mapTilesetSource'
@@ -54,7 +57,6 @@ export type MapAssetEditorInspectorProps = {
   selectedObject: MapObject | null
   selectedObjectId: number | null
   paletteSelection: MapTilesetPaletteSelection | null
-  tilesetOptions: ResourceBrowserOption[]
   isTmxAsset: boolean
   tbinIssues: readonly MapAssetTbinIssue[]
   layerNameIssues: readonly MapAssetLayerNameIssue[]
@@ -76,7 +78,6 @@ export type MapAssetEditorInspectorProps = {
   onLocateObject?: (object: MapObject) => void
   /** Centers the canvas viewport on a tile coordinate. Omitted in session modes without tile locate. */
   onLocateTile?: (tileX: number, tileY: number) => void
-  onAddTileset: (relativePath: string, replaceName?: string) => Promise<void>
   /** Attaches a vanilla game sheet as a dynamic reference; omitted in session modes. */
   onAttachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
   /** Game root used to resolve dynamically referenced vanilla sheets; null disables game-sheet entries. */
@@ -137,7 +138,6 @@ export function MapAssetEditorInspector({
   selectedObject,
   selectedObjectId,
   paletteSelection,
-  tilesetOptions,
   isTmxAsset,
   tbinIssues,
   layerNameIssues,
@@ -154,7 +154,6 @@ export function MapAssetEditorInspector({
   onAddTileDataObject,
   onLocateObject,
   onLocateTile,
-  onAddTileset,
   onAttachGameSheet,
   gameRootPath = null,
   objectLightIndex = null,
@@ -181,22 +180,16 @@ export function MapAssetEditorInspector({
   /** Inspector tab: auto-switches to 'objects' when an object is selected and
    *  to 'tilesets' when a tileset is selected, but never overrides a manual
    *  switch away from those tabs. */
-  const [inspectorTab, setInspectorTab] = useState<'palette' | 'map' | 'objects' | 'tilesets' | 'advanced'>('palette')
+  const [inspectorTab, setInspectorTab] = useState<'palette' | 'map' | 'objects' | 'animations' | 'advanced'>('palette')
+  const [animationDialogOpen, setAnimationDialogOpen] = useState(false)
+  const [tilePropsDialogOpen, setTilePropsDialogOpen] = useState(false)
   const lastSelectedObjectIdRef = useRef<number | null>(null)
-  const lastSelectedTilesetRef = useRef<string | null>(null)
   useEffect(() => {
     if (selectedObjectId != null && selectedObjectId !== lastSelectedObjectIdRef.current) {
       lastSelectedObjectIdRef.current = selectedObjectId
       setInspectorTab('objects')
     }
   }, [selectedObjectId])
-  useEffect(() => {
-    const tilesetName = selectedTileset?.name ?? null
-    if (tilesetName != null && tilesetName !== lastSelectedTilesetRef.current) {
-      lastSelectedTilesetRef.current = tilesetName
-      setInspectorTab('tilesets')
-    }
-  }, [selectedTileset?.name])
 
   const markerItemOptions = listPlacedLightItemOptions(objectLightIndex)
   const allObjectEntries = document.objectGroups.flatMap((group) => group.objects.map((object) => ({ group, object })))
@@ -273,7 +266,7 @@ export function MapAssetEditorInspector({
       visible: capabilities.objectGroups || capabilities.cellProperties,
       hasBadge: selectedObjectId != null,
     },
-    { id: 'tilesets', label: copy.inspectorTabTilesets, visible: capabilities.tilesetManagement, hasBadge: selectedTileset != null },
+    { id: 'animations', label: copy.inspectorTabAnimations, visible: capabilities.tilesetManagement, hasBadge: false },
     { id: 'advanced', label: copy.inspectorTabAdvanced, visible: true, hasBadge: false },
   ]
   const visibleTabs = inspectorTabs.filter((tab) => tab.visible)
@@ -299,21 +292,30 @@ export function MapAssetEditorInspector({
       </div>
       <div className="map-asset-inspector-content">
         {effectiveTab === 'palette' && onPaletteSelectionChange ? (
-          <MapTilesetPalette
-            document={renderDocument}
-            locale={locale ?? 'en-US'}
-            selection={paletteSelectionForPicker}
-            onSelectionChange={onPaletteSelectionChange}
-            gameRootPath={gameRootPath}
-            onAttachGameSheet={onAttachGameSheet}
-            projectImageOptions={paletteProjectImageOptions}
-            onAddProjectImage={onPaletteAddProjectImage}
-            onRemoveTileset={onPaletteRemoveTileset}
-            onReplaceTilesetImage={onPaletteReplaceTilesetImage}
-            onEditTilesetInInspector={onPaletteEditTilesetInInspector}
-            onHoverTileset={onHoverTileset}
-            onGalleryModeChange={onGalleryModeChange}
-          />
+          <div className="map-asset-palette-tab">
+            <MapTilesetPalette
+              document={renderDocument}
+              locale={locale ?? 'en-US'}
+              selection={paletteSelectionForPicker}
+              onSelectionChange={onPaletteSelectionChange}
+              gameRootPath={gameRootPath}
+              onAttachGameSheet={onAttachGameSheet}
+              projectImageOptions={paletteProjectImageOptions}
+              onAddProjectImage={onPaletteAddProjectImage}
+              onRemoveTileset={onPaletteRemoveTileset}
+              onReplaceTilesetImage={onPaletteReplaceTilesetImage}
+              onEditTilesetInInspector={onPaletteEditTilesetInInspector}
+              onHoverTileset={onHoverTileset}
+              onGalleryModeChange={onGalleryModeChange}
+            />
+            {capabilities.tilesetManagement && paletteSelection && selectedTileset ? (
+              <div className="map-asset-palette-tile-editor">
+                <button type="button" className="control-button" onClick={() => setTilePropsDialogOpen(true)}>
+                  {copy.tileDefinitionProperties(paletteSelection.startIndex)}
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : effectiveTab === 'map' ? (
           <>
             {capabilities.mapProperties && mapOptions && loadTargetDocument && locale && theme && accentColor ? (
@@ -643,39 +645,76 @@ export function MapAssetEditorInspector({
             ) : null}
           </>
         ) : null}
-        {effectiveTab === 'tilesets' && capabilities.tilesetManagement ? (
+        {effectiveTab === 'animations' && capabilities.tilesetManagement ? (
           <>
-            <header>
-              <strong>{copy.tilesetsTitle}</strong>
-            </header>
-            <MapTilesheetPicker
-              attachedTilesets={document.tilesets}
-              projectImageOptions={tilesetOptions.map((option) => ({ value: option.value, label: option.label }))}
-              gameSheetsEnabled={gameRootPath !== null}
-              onPickGameSheet={onAttachGameSheet ?? undefined}
-              onPickProjectImage={(relativePath) => void onAddTileset(relativePath)}
-              triggerLabel={
-                <>
-                  <Plus className="h-3.5 w-3.5" />
-                  {copy.addTileset}
-                </>
+            <div className="map-asset-animation-tab-entry">
+              <button type="button" className="control-button control-button-primary" onClick={() => setAnimationDialogOpen(true)}>
+                <Film className="h-3.5 w-3.5" />
+                {copy.animationDialogTitle}
+              </button>
+            </div>
+            <AnimationGroupList
+              document={document}
+              renderDocument={renderDocument}
+              copy={copy}
+              locale={locale ?? 'en-US'}
+              gameRootPath={gameRootPath}
+              onUseTile={
+                onPaletteSelectionChange
+                  ? (tilesetName, tileId, width, height) => {
+                      onPaletteSelectionChange({
+                        tilesetName,
+                        startIndex: tileId,
+                        width,
+                        height,
+                      })
+                      setInspectorTab('palette')
+                    }
+                  : undefined
               }
-              triggerTitle={copy.addTileset}
-              triggerClassName="control-button"
             />
-            {selectedTileset ? (
+            <MapAnimationDialog
+              open={animationDialogOpen}
+              onClose={() => setAnimationDialogOpen(false)}
+              document={document}
+              renderDocument={renderDocument}
+              locale={locale ?? 'en-US'}
+              gameRootPath={gameRootPath}
+              onUpdateTileset={(name, updater) => {
+                const target = document.tilesets.find((tileset) => tileset.name === name)
+                if (!target) return
+                const next = updater(target)
+                onUpdateDocument(
+                  {
+                    ...document,
+                    tilesets: document.tilesets.map((tileset) => (tileset.name === name ? next : tileset)),
+                  },
+                  `map-tileset:${name}:animation`,
+                  copy.editAnimation,
+                )
+              }}
+            />
+          </>
+        ) : null}
+        {effectiveTab === 'advanced' ? (
+          <>
+            {activeLayer ? (
+              <section className="map-asset-layer-details">
+                <strong>{copy.layerDetails}</strong>
+                <label>
+                  <span>{copy.layerName}</span>
+                  <input value={activeLayer.name} onChange={(event) => onUpdateActiveLayer({ name: event.target.value })} />
+                </label>
+                <MapPropertiesEditor
+                  properties={activeLayer.properties}
+                  description={copy.layerPropertiesHint}
+                  onChange={(properties) => onUpdateActiveLayer({ properties: properties as Record<string, MapPropertyValue> })}
+                />
+              </section>
+            ) : null}
+            {capabilities.tilesetManagement && selectedTileset ? (
               <section className="map-asset-tileset-details">
                 <strong>{selectedTileset.name}</strong>
-                <ResourcePicker
-                  value=""
-                  label={copy.replaceTileset}
-                  placeholder={copy.chooseImage}
-                  options={tilesetOptions}
-                  selectionMode="confirm"
-                  triggerClassName="control-button"
-                  triggerContent={copy.replaceTileset}
-                  onSelect={(value) => void onAddTileset(value, selectedTileset.name)}
-                />
                 <details className="map-asset-raw-toggle">
                   <summary>{copy.mapCards.advancedTilesetToggle}</summary>
                   {isTmxAsset ? (
@@ -718,68 +757,6 @@ export function MapAssetEditorInspector({
                     }
                   />
                 </details>
-                {paletteSelection ? (
-                  <>
-                    <strong>{copy.tileDefinitionProperties(paletteSelection.startIndex)}</strong>
-                    <MapPropertiesEditor
-                      properties={selectedTileDefinitionProperties}
-                      description={copy.tileDefinitionPropertiesHint}
-                      onChange={(properties) =>
-                        onUpdateSelectedTileset((tileset) => {
-                          const tileProperties = { ...tileset.tileProperties }
-                          if (Object.keys(properties).length === 0) delete tileProperties[paletteSelection.startIndex]
-                          else tileProperties[paletteSelection.startIndex] = properties as Record<string, MapPropertyValue>
-                          return { ...tileset, tileProperties }
-                        })
-                      }
-                    />
-                  </>
-                ) : null}
-                {paletteSelection ? (
-                  <AnimationFrameEditor
-                    renderDocument={renderDocument}
-                    tileset={selectedTileset}
-                    tileId={paletteSelection.startIndex}
-                    frames={selectedTileset.animations[paletteSelection.startIndex] ?? []}
-                    locale={locale ?? 'en-US'}
-                    gameRootPath={gameRootPath}
-                    onChange={(nextFrames) => {
-                      const animations = { ...selectedTileset.animations }
-                      if (nextFrames.length) animations[paletteSelection.startIndex] = nextFrames
-                      else delete animations[paletteSelection.startIndex]
-                      onUpdateDocument(
-                        {
-                          ...document,
-                          tilesets: document.tilesets.map((candidate) =>
-                            candidate.name === selectedTileset.name ? { ...candidate, animations } : candidate,
-                          ),
-                        },
-                        `map-tileset:${selectedTileset.name}:animation:${paletteSelection.startIndex}`,
-                        copy.editAnimation,
-                      )
-                    }}
-                  />
-                ) : null}
-              </section>
-            ) : (
-              <p>{copy.selectTileset}</p>
-            )}
-          </>
-        ) : null}
-        {effectiveTab === 'advanced' ? (
-          <>
-            {activeLayer ? (
-              <section className="map-asset-layer-details">
-                <strong>{copy.layerDetails}</strong>
-                <label>
-                  <span>{copy.layerName}</span>
-                  <input value={activeLayer.name} onChange={(event) => onUpdateActiveLayer({ name: event.target.value })} />
-                </label>
-                <MapPropertiesEditor
-                  properties={activeLayer.properties}
-                  description={copy.layerPropertiesHint}
-                  onChange={(properties) => onUpdateActiveLayer({ properties: properties as Record<string, MapPropertyValue> })}
-                />
               </section>
             ) : null}
             <section id="map-asset-diagnostics" className="map-asset-diagnostics">
@@ -842,6 +819,24 @@ export function MapAssetEditorInspector({
           </>
         ) : null}
       </div>
+      {capabilities.tilesetManagement && paletteSelection && selectedTileset ? (
+        <MapTilePropertiesDialog
+          open={tilePropsDialogOpen}
+          onClose={() => setTilePropsDialogOpen(false)}
+          tileId={paletteSelection.startIndex}
+          tilesetName={selectedTileset.name}
+          properties={selectedTileDefinitionProperties}
+          description={copy.tileDefinitionPropertiesHint}
+          onChange={(properties) =>
+            onUpdateSelectedTileset((tileset) => {
+              const tileProperties = { ...tileset.tileProperties }
+              if (Object.keys(properties).length === 0) delete tileProperties[paletteSelection.startIndex]
+              else tileProperties[paletteSelection.startIndex] = properties as Record<string, MapPropertyValue>
+              return { ...tileset, tileProperties }
+            })
+          }
+        />
+      ) : null}
     </aside>
   )
 }
@@ -881,5 +876,79 @@ function ObjectCatalogMatch({
         </p>
       ) : null}
     </>
+  )
+}
+
+/** Lists all animation groups across all tilesets with live animated previews. */
+function AnimationGroupList({
+  document,
+  renderDocument,
+  copy,
+  locale,
+  gameRootPath,
+  onUseTile,
+}: {
+  document: MapDocument
+  renderDocument: MapDocument
+  copy: ReturnType<typeof useMapAuthoringCopy>['assetEditor']
+  locale: LocaleCode
+  gameRootPath: string | null
+  onUseTile?: (tilesetName: string, tileId: number, width: number, height: number) => void
+}) {
+  const tilesetGroups = useMemo(() => {
+    return document.tilesets
+      .map((tileset) => ({
+        tileset,
+        groups: extractAnimationGroups(tileset),
+      }))
+      .filter((entry) => entry.groups.length > 0)
+  }, [document.tilesets])
+
+  if (tilesetGroups.length === 0) {
+    return <p className="map-asset-animation-tab-hint">{copy.animationListEmpty}</p>
+  }
+
+  return (
+    <div className="map-asset-animation-list">
+      {tilesetGroups.map(({ tileset, groups }) => (
+        <div key={tileset.name} className="map-asset-animation-list-group">
+          <div className="map-asset-animation-list-group-header">
+            <strong className="map-asset-animation-list-group-title">{tileset.name}</strong>
+            <span className="map-asset-animation-list-group-count">{copy.animationFrameCount(groups.length)}</span>
+          </div>
+          <div className="map-asset-animation-list-items">
+            {groups.map((group, index) => (
+              <div key={index} className="map-asset-animation-list-item">
+                <AnimatedTilePreview
+                  document={renderDocument}
+                  tileset={tileset}
+                  group={group}
+                  locale={locale}
+                  gameRootPath={gameRootPath}
+                  scale={2}
+                />
+                <div className="map-asset-animation-list-item-body">
+                  <span className="map-asset-animation-list-item-id">#{group.ownerTileId}</span>
+                  <span className="map-asset-animation-list-item-meta">
+                    {group.width}x{group.height} · {group.frameCount}f · {group.duration}ms
+                  </span>
+                </div>
+                {onUseTile ? (
+                  <button
+                    type="button"
+                    className="control-button map-asset-animation-list-item-use"
+                    onClick={() => onUseTile(tileset.name, group.ownerTileId, group.width, group.height)}
+                    title={copy.animationDialogUseTile}
+                  >
+                    <Paintbrush className="h-3 w-3" />
+                    {copy.animationDialogUseTile}
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

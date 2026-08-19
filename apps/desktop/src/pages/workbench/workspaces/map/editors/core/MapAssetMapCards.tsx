@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { DoorOpen, MapPin, Pencil, Plus, SunMoon, Trash2 } from 'lucide-react'
 import {
   DAY_TILES_PROPERTY_KEY,
@@ -194,39 +195,54 @@ function CollapsibleEntryList({
   return (
     <div className="map-asset-card-list">
       {visibleCards.map((card, index) => (
-        <div
-          key={index}
-          className="map-asset-entry-card"
-          onPointerEnter={onHighlightEntry ? () => onHighlightEntry(index) : undefined}
-          onPointerLeave={onClearHighlight}
-        >
-          <span className="map-asset-entry-icon" aria-hidden="true">
-            {icon}
-          </span>
-          <div className="map-asset-entry-card-body">{card}</div>
-          <div className="map-asset-entry-card-actions">
-            {onEdit ? (
-              <button
-                type="button"
-                className="icon-button map-asset-entry-card-action"
-                aria-label={editLabel}
-                title={editLabel}
-                onClick={() => onEdit(index)}
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="icon-button is-danger map-asset-entry-card-action"
-              aria-label={deleteLabel}
-              title={deleteLabel}
-              onClick={() => onDelete(index)}
+        <ContextMenu.Root key={index}>
+          <ContextMenu.Trigger asChild>
+            <div
+              className="map-asset-entry-card"
+              onPointerEnter={onHighlightEntry ? () => onHighlightEntry(index) : undefined}
+              onPointerLeave={onClearHighlight}
             >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+              <span className="map-asset-entry-icon" aria-hidden="true">
+                {icon}
+              </span>
+              <div className="map-asset-entry-card-body">{card}</div>
+              <div className="map-asset-entry-card-actions">
+                {onEdit ? (
+                  <button
+                    type="button"
+                    className="icon-button map-asset-entry-card-action"
+                    aria-label={editLabel}
+                    title={editLabel}
+                    onClick={() => onEdit(index)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="icon-button is-danger map-asset-entry-card-action"
+                  aria-label={deleteLabel}
+                  title={deleteLabel}
+                  onClick={() => onDelete(index)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </ContextMenu.Trigger>
+          <ContextMenu.Portal>
+            <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+              {onEdit ? (
+                <ContextMenu.Item className="context-menu-item" onSelect={() => onEdit(index)}>
+                  {editLabel}
+                </ContextMenu.Item>
+              ) : null}
+              <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => onDelete(index)}>
+                {deleteLabel}
+              </ContextMenu.Item>
+            </ContextMenu.Content>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
       ))}
       {cards.length > threshold ? (
         <button type="button" className="map-asset-more-link" onClick={() => setExpanded((current) => !current)}>

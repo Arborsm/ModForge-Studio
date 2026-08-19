@@ -1,49 +1,11 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { ArrowDown, ArrowUp, CopyPlus, Eye, EyeOff, Grid3X3, Lock, Plus, Trash2, Unlock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowDown, ArrowUp, CopyPlus, Eye, EyeOff, Lock, Plus, Trash2, Unlock } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { MapLayerThumbnail, type MapDocument, type MapLayer } from '@entities/map'
 import type { LocaleCode } from '@locales/api'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { MapEditorCapabilities } from './useMapDocumentEditor'
-
-/**
- * Reads the already-rendered inline thumbnail <img> src for the hovered layer
- * row and mirrors it in the popover. This avoids re-mounting MapLayerThumbnail
- * (which would re-load tileset images asynchronously) — the popover shows
- * instantly because the inline thumbnail is already rasterized. A
- * MutationObserver watches the row for the img element to appear (the inline
- * thumbnail loads asynchronously), so the popover syncs once it's ready.
- */
-function HoverPreviewImage({ containerRef, layerId }: { containerRef: RefObject<HTMLDivElement | null>; layerId: number | null }) {
-  const [src, setSrc] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (layerId === null) {
-      setSrc(null)
-      return
-    }
-    const container = containerRef.current
-    if (!container) return
-
-    function readImg() {
-      const row = container!.querySelector<HTMLDivElement>(`[data-layer-id="${layerId}"]`)
-      const img = row?.querySelector<HTMLImageElement>('img.map-asset-layer-thumbnail')
-      setSrc(img?.src ?? null)
-    }
-
-    readImg()
-    const observer = new MutationObserver(readImg)
-    const row = container.querySelector<HTMLDivElement>(`[data-layer-id="${layerId}"]`)
-    if (row) observer.observe(row, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] })
-    return () => observer.disconnect()
-  }, [containerRef, layerId])
-
-  if (src) {
-    return <img className="map-asset-layer-thumbnail" src={src} alt="" draggable={false} />
-  }
-  return <Grid3X3 className="h-3.5 w-3.5" />
-}
 
 /**
  * Layer list for the map editor. Rows support inline rename (double-click),
@@ -67,6 +29,7 @@ export function MapAssetEditorLayersPanel({
   onRequestDeleteLayer,
   onMoveLayer,
   onLocateLayer,
+  onHoverLayerPreview,
 }: {
   /** Raw document backing every mutation; layers/objects are read from it. */
   document: MapDocument
@@ -89,6 +52,8 @@ export function MapAssetEditorLayersPanel({
   onMoveLayer?: (layerId: number, offset: -1 | 1) => void
   /** Centers the canvas on the active layer's selected tile; optional. */
   onLocateLayer?: (layerId: number) => void
+  /** Notifies the host of the hovered layer id for canvas isolation preview; null clears. */
+  onHoverLayerPreview?: (layerId: number | null) => void
 }) {
   const copy = useMapAuthoringCopy().assetEditor
   const [editingLayerId, setEditingLayerId] = useState<number | null>(null)
@@ -96,6 +61,11 @@ export function MapAssetEditorLayersPanel({
   const [hoverPreviewId, setHoverPreviewId] = useState<number | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
+
+  // Forward hover layer id to host for canvas isolation preview.
+  useEffect(() => {
+    onHoverLayerPreview?.(hoverPreviewId)
+  }, [hoverPreviewId, onHoverLayerPreview])
 
   useEffect(() => {
     if (editingLayerId !== null) {
@@ -362,30 +332,6 @@ export function MapAssetEditorLayersPanel({
           </button>
         </footer>
       ) : null}
-      {/* Hover preview popover: mirrors the hovered row's already-rendered
-          inline thumbnail img so there is no async re-load on hover. The
-          popover reads the src from the row's <img> element via a ref scan,
-          falling back to the placeholder icon when the thumbnail hasn't
-          rasterized yet. */}
-      {(() => {
-        const hoverLayer = hoverPreviewId !== null ? (document.layers.find((layer) => layer.id === hoverPreviewId) ?? null) : null
-        const visible = hoverLayer !== null && hoverLayer.nonEmptyTiles > 0
-        return (
-          <div
-            className={cx('map-asset-layer-preview-pop', !visible && 'is-hidden')}
-            role="img"
-            aria-label={hoverLayer?.name ?? ''}
-            aria-hidden={!visible}
-          >
-            {visible ? (
-              <>
-                <HoverPreviewImage containerRef={listRef} layerId={hoverPreviewId} />
-                <span className="map-asset-layer-preview-pop-label">{hoverLayer!.name}</span>
-              </>
-            ) : null}
-          </div>
-        )
-      })()}
     </aside>
   )
 }

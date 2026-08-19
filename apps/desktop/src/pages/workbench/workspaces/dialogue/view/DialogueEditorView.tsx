@@ -14,6 +14,7 @@ import {
   Terminal,
   Trash2,
 } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useDialogueEditorCopy } from '@locales/provider'
 import { cx, formatCopyTemplate } from '@shared/lib/helper'
 import {
@@ -112,97 +113,118 @@ function DialoguePageCard({
   const previewText = page.kind === 'raw' ? page.raw : page.text || page.question?.prompt || ''
 
   return (
-    <article
-      className={cx('dialogue-editor-page-card', selected && 'dialogue-editor-page-card-selected')}
-      onClick={() => workspace.selectNode(page.id)}
-    >
-      <header className="dialogue-editor-page-card-head">
-        <span className="dialogue-editor-page-card-title">{formatCopyTemplate(copy.pageCardTitleTemplate, { index: page.index + 1 })}</span>
-        {page.separatorBefore ? (
-          <span className="dialogue-editor-page-card-separator" data-separator={page.separatorBefore === '#$b#' ? 'break' : 'end'}>
-            {page.separatorBefore === '#$b#' ? copy.separatorBreakBadge : copy.separatorEndBadge}
-          </span>
-        ) : null}
-        {page.kind === 'question' ? (
-          <span className="dialogue-editor-page-card-flag" data-flag="question">
-            <CircleHelp className="dialogue-editor-flag-icon" />
-            {copy.questionBadge}
-          </span>
-        ) : null}
-        {page.kind === 'command' ? (
-          <span className="dialogue-editor-page-card-flag" data-flag="command">
-            <Terminal className="dialogue-editor-flag-icon" />
-            {copy.commands.commandBadge}
-          </span>
-        ) : null}
-        {page.kind === 'raw' ? (
-          <span className="dialogue-editor-page-card-flag" data-flag="raw">
-            <Terminal className="dialogue-editor-flag-icon" />
-            {copy.rawPageBadge}
-          </span>
-        ) : null}
-        {warningCount > 0 ? (
-          <span className="dialogue-editor-page-card-flag" data-flag="warning">
-            <AlertTriangle className="dialogue-editor-flag-icon" />
-            {warningCount}
-          </span>
-        ) : null}
-        {canRemove ? (
-          <button
-            type="button"
-            className="icon-button dialogue-editor-page-card-remove"
-            aria-label={copy.removePageAction}
-            title={copy.removePageAction}
-            onClick={(event) => {
-              event.stopPropagation()
-              workspace.deletePage(page.id)
-            }}
-          >
-            <Trash2 className="dialogue-editor-action-icon" />
-          </button>
-        ) : null}
-      </header>
-      {page.kind === 'command' ? (
-        <div className="dialogue-editor-page-card-segments">
-          {page.segments.map((segment) =>
-            segment.kind === 'command' ? (
-              <CommandSegmentRow key={segment.id} segment={segment} />
-            ) : (
-              <SpeechSegmentRow key={segment.id} segment={segment} workspace={workspace} />
-            ),
-          )}
-        </div>
-      ) : (
-        <div className="dialogue-editor-page-card-body">
-          {workspace.portrait.url ? (
-            <DialoguePortraitFrame
-              portrait={workspace.portrait}
-              frameIndex={getPortraitFrameIndex(page.portrait)}
-              scale={1}
-              className="dialogue-editor-page-card-portrait"
-            />
-          ) : null}
-          <p className={cx('dialogue-editor-page-card-text', !previewText && 'dialogue-editor-page-card-text-empty')}>
-            {previewText ? <DialogueScriptTokens script={previewText} /> : copy.textPlaceholder}
-          </p>
-        </div>
-      )}
-      {page.question ? (
-        <footer className="dialogue-editor-page-card-branches">
-          {page.question.responses.map((response, index) => (
-            <div key={response.id} className="dialogue-editor-page-card-branch">
-              <span className="dialogue-editor-page-card-branch-title">
-                {formatCopyTemplate(copy.commands.branchTitleTemplate, { index: index + 1 })}
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <article
+          className={cx('dialogue-editor-page-card', selected && 'dialogue-editor-page-card-selected')}
+          onClick={() => workspace.selectNode(page.id)}
+        >
+          <header className="dialogue-editor-page-card-head">
+            <span className="dialogue-editor-page-card-title">
+              {formatCopyTemplate(copy.pageCardTitleTemplate, { index: page.index + 1 })}
+            </span>
+            {page.separatorBefore ? (
+              <span className="dialogue-editor-page-card-separator" data-separator={page.separatorBefore === '#$b#' ? 'break' : 'end'}>
+                {page.separatorBefore === '#$b#' ? copy.separatorBreakBadge : copy.separatorEndBadge}
               </span>
-              <span className="dialogue-editor-page-card-branch-text">
-                {response.text ? <DialogueScriptTokens script={response.text} /> : copy.responseTextPlaceholder}
+            ) : null}
+            {page.kind === 'question' ? (
+              <span className="dialogue-editor-page-card-flag" data-flag="question">
+                <CircleHelp className="dialogue-editor-flag-icon" />
+                {copy.questionBadge}
               </span>
-              {response.resultKey ? <span className="dialogue-editor-page-card-branch-key">{response.resultKey}</span> : null}
+            ) : null}
+            {page.kind === 'command' ? (
+              <span className="dialogue-editor-page-card-flag" data-flag="command">
+                <Terminal className="dialogue-editor-flag-icon" />
+                {copy.commands.commandBadge}
+              </span>
+            ) : null}
+            {page.kind === 'raw' ? (
+              <span className="dialogue-editor-page-card-flag" data-flag="raw">
+                <Terminal className="dialogue-editor-flag-icon" />
+                {copy.rawPageBadge}
+              </span>
+            ) : null}
+            {warningCount > 0 ? (
+              <span className="dialogue-editor-page-card-flag" data-flag="warning">
+                <AlertTriangle className="dialogue-editor-flag-icon" />
+                {warningCount}
+              </span>
+            ) : null}
+            {canRemove ? (
+              <button
+                type="button"
+                className="icon-button dialogue-editor-page-card-remove"
+                aria-label={copy.removePageAction}
+                title={copy.removePageAction}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  workspace.deletePage(page.id)
+                }}
+              >
+                <Trash2 className="dialogue-editor-action-icon" />
+              </button>
+            ) : null}
+          </header>
+          {page.kind === 'command' ? (
+            <div className="dialogue-editor-page-card-segments">
+              {page.segments.map((segment) =>
+                segment.kind === 'command' ? (
+                  <CommandSegmentRow key={segment.id} segment={segment} />
+                ) : (
+                  <SpeechSegmentRow key={segment.id} segment={segment} workspace={workspace} />
+                ),
+              )}
             </div>
-          ))}
-        </footer>
-      ) : null}
-    </article>
+          ) : (
+            <div className="dialogue-editor-page-card-body">
+              {workspace.portrait.url ? (
+                <DialoguePortraitFrame
+                  portrait={workspace.portrait}
+                  frameIndex={getPortraitFrameIndex(page.portrait)}
+                  scale={1}
+                  className="dialogue-editor-page-card-portrait"
+                />
+              ) : null}
+              <p className={cx('dialogue-editor-page-card-text', !previewText && 'dialogue-editor-page-card-text-empty')}>
+                {previewText ? <DialogueScriptTokens script={previewText} /> : copy.textPlaceholder}
+              </p>
+            </div>
+          )}
+          {page.question ? (
+            <footer className="dialogue-editor-page-card-branches">
+              {page.question.responses.map((response, index) => (
+                <div key={response.id} className="dialogue-editor-page-card-branch">
+                  <span className="dialogue-editor-page-card-branch-title">
+                    {formatCopyTemplate(copy.commands.branchTitleTemplate, { index: index + 1 })}
+                  </span>
+                  <span className="dialogue-editor-page-card-branch-text">
+                    {response.text ? <DialogueScriptTokens script={response.text} /> : copy.responseTextPlaceholder}
+                  </span>
+                  {response.resultKey ? <span className="dialogue-editor-page-card-branch-key">{response.resultKey}</span> : null}
+                </div>
+              ))}
+            </footer>
+          ) : null}
+        </article>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => workspace.selectNode(page.id)}>
+            {copy.selectPageAction}
+          </ContextMenu.Item>
+          {canRemove ? (
+            <>
+              <ContextMenu.Separator className="context-menu-separator" />
+              <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => workspace.deletePage(page.id)}>
+                {copy.removePageAction}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 

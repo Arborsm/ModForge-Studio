@@ -123,6 +123,7 @@ const translationEditor: TranslationEditorCopy = {
   browserI18nEntries: (count) => `${count} 条文本`,
   browserOpenFolder: '打开目录',
   browserImportProject: '导入压缩包',
+  browserSelectProjectAction: '选择项目',
   bootstrapTitle: '还没有翻译文件',
   bootstrapDescription:
     '项目里还没有任何 i18n 文件。可以扫描已创作的内容（显示名称、描述、对话、信件等），把文本抽成默认语言条目（default.json），原文会自动改写为 {{i18n:…}} 引用。',

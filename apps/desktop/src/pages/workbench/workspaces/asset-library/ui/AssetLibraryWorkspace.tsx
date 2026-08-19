@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type HTMLAttributes } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import {
   AlertCircle,
@@ -758,72 +759,103 @@ export function AssetLibraryWorkspace() {
       })
     }
     return (
-      <div
-        key={asset.relativePath}
-        data-asset-path={asset.relativePath}
-        className={cx('asset-library-asset', active && 'is-selected', multiSelected && 'is-multi-selected')}
-      >
-        <button
-          type="button"
-          className="asset-library-asset-main"
-          aria-pressed={active}
-          onClick={(event) => {
-            // Ctrl/Cmd+click toggles multi-selection without leaving the detail view.
-            if (event.ctrlKey || event.metaKey) {
-              toggleMultiSelect()
-              return
-            }
-            setSelectedPath(asset.relativePath)
-          }}
-        >
-          <span className="asset-library-thumb">
-            {isProjectMapAssetPath(asset.relativePath) ? (
-              <AssetMapThumbnail
-                assetPath={asset.relativePath}
-                sha256={asset.sha256}
-                width={480}
-                height={352}
-                fallback={<AssetGlyph kind={kind} />}
-              />
-            ) : kind === 'image' ? (
-              <AssetImageThumbnail
-                assetPath={asset.relativePath}
-                sha256={asset.sha256}
-                mediaType={asset.mediaType}
-                fallback={<AssetGlyph kind={kind} />}
-              />
-            ) : (
-              <AssetGlyph kind={kind} />
-            )}
-            {missingByAsset.has(asset.relativePath) ? (
-              <span
-                className="asset-library-missing-badge"
-                title={copy.missingDependenciesBadge}
-                aria-label={copy.missingDependenciesBadge}
-              >
-                {copy.missingDependenciesBadge}
+      <ContextMenu.Root key={asset.relativePath}>
+        <ContextMenu.Trigger asChild>
+          <div
+            data-asset-path={asset.relativePath}
+            className={cx('asset-library-asset', active && 'is-selected', multiSelected && 'is-multi-selected')}
+          >
+            <button
+              type="button"
+              className="asset-library-asset-main"
+              aria-pressed={active}
+              onClick={(event) => {
+                // Ctrl/Cmd+click toggles multi-selection without leaving the detail view.
+                if (event.ctrlKey || event.metaKey) {
+                  toggleMultiSelect()
+                  return
+                }
+                setSelectedPath(asset.relativePath)
+              }}
+            >
+              <span className="asset-library-thumb">
+                {isProjectMapAssetPath(asset.relativePath) ? (
+                  <AssetMapThumbnail
+                    assetPath={asset.relativePath}
+                    sha256={asset.sha256}
+                    width={480}
+                    height={352}
+                    fallback={<AssetGlyph kind={kind} />}
+                  />
+                ) : kind === 'image' ? (
+                  <AssetImageThumbnail
+                    assetPath={asset.relativePath}
+                    sha256={asset.sha256}
+                    mediaType={asset.mediaType}
+                    fallback={<AssetGlyph kind={kind} />}
+                  />
+                ) : (
+                  <AssetGlyph kind={kind} />
+                )}
+                {missingByAsset.has(asset.relativePath) ? (
+                  <span
+                    className="asset-library-missing-badge"
+                    title={copy.missingDependenciesBadge}
+                    aria-label={copy.missingDependenciesBadge}
+                  >
+                    {copy.missingDependenciesBadge}
+                  </span>
+                ) : null}
               </span>
+              <span className="asset-library-asset-copy" title={asset.relativePath}>
+                <strong>{asset.relativePath.split('/').at(-1)}</strong>
+                <span>{asset.relativePath}</span>
+              </span>
+              <span className="asset-library-asset-meta">
+                {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={cx('asset-library-asset-check', multiSelected && 'is-checked')}
+              aria-label={copy.selectAsset(asset.relativePath)}
+              title={copy.selectAsset(asset.relativePath)}
+              aria-pressed={multiSelected}
+              onClick={toggleMultiSelect}
+            >
+              <Check className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+            <ContextMenu.Item className="context-menu-item" onSelect={() => setSelectedPath(asset.relativePath)}>
+              {copy.selectAsset(asset.relativePath)}
+            </ContextMenu.Item>
+            {isProjectMapAssetPath(asset.relativePath) ? (
+              <ContextMenu.Item className="context-menu-item" onSelect={() => void openMapAsset(asset.relativePath)}>
+                {copy.editInMapEditorAction}
+              </ContextMenu.Item>
             ) : null}
-          </span>
-          <span className="asset-library-asset-copy" title={asset.relativePath}>
-            <strong>{asset.relativePath.split('/').at(-1)}</strong>
-            <span>{asset.relativePath}</span>
-          </span>
-          <span className="asset-library-asset-meta">
-            {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
-          </span>
-        </button>
-        <button
-          type="button"
-          className={cx('asset-library-asset-check', multiSelected && 'is-checked')}
-          aria-label={copy.selectAsset(asset.relativePath)}
-          title={copy.selectAsset(asset.relativePath)}
-          aria-pressed={multiSelected}
-          onClick={toggleMultiSelect}
-        >
-          <Check className="h-3 w-3" aria-hidden="true" />
-        </button>
-      </div>
+            <ContextMenu.Item className="context-menu-item" onSelect={() => createLoadBindingForAsset(asset.relativePath)}>
+              {copy.replaceGameResourceAction}
+            </ContextMenu.Item>
+            <ContextMenu.Separator className="context-menu-separator" />
+            <ContextMenu.Item
+              className="context-menu-item"
+              onSelect={() => {
+                setRenamePath(asset.relativePath)
+                setRenameDraft(asset.relativePath)
+              }}
+            >
+              {copy.renameAction}
+            </ContextMenu.Item>
+            <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => setDeletePath(asset.relativePath)}>
+              {copy.deleteAction}
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
     )
   }
 

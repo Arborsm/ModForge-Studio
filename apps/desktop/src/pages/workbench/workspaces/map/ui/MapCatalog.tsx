@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { AlertCircle, FileEdit, Loader2, Map as MapIcon, Plus, Search } from 'lucide-react'
 import { loadMapAsset } from '@entities/game/api'
@@ -146,58 +147,72 @@ function MapCatalogCard({
   const format = entry.asset.format.toUpperCase()
   const size = formatBytes(entry.asset.sizeBytes)
   return (
-    <article
-      className="map-catalog-card"
-      data-guide="map-catalog-card"
-      role="button"
-      tabIndex={0}
-      aria-label={copy.patchGameMap(entry.name)}
-      title={copy.cardEntryHint}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen()
-        }
-      }}
-    >
-      <MapCatalogPreview entry={entry} resources={resources} />
-      <div className="map-catalog-card-copy">
-        <strong>{entry.name}</strong>
-        <span>{entry.target}</span>
-      </div>
-      <div className="map-catalog-card-meta">
-        <span>{copy.formatValue(format, size)}</span>
-      </div>
-      <div className="map-catalog-card-actions">
-        <button
-          type="button"
-          className="control-button control-button-primary map-catalog-card-action-primary"
-          onClick={(event) => {
-            event.stopPropagation()
-            onOpen()
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <article
+          className="map-catalog-card"
+          data-guide="map-catalog-card"
+          role="button"
+          tabIndex={0}
+          aria-label={copy.patchGameMap(entry.name)}
+          title={copy.cardEntryHint}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              onOpen()
+            }
           }}
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-          {copy.createPatchAction}
-        </button>
-        <button
-          type="button"
-          className="control-button map-catalog-card-action-secondary"
-          disabled={importing || importDisabled}
-          title={importDisabled ? importDisabledTitle : copy.importAndEditAction}
-          aria-label={copy.importAndEditAction}
-          onClick={(event) => {
-            event.stopPropagation()
-            onImportAndEdit()
-          }}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileEdit className="h-3.5 w-3.5" aria-hidden="true" />}
-          {importing ? copy.importing : copy.importAndEditAction}
-        </button>
-      </div>
-    </article>
+          <MapCatalogPreview entry={entry} resources={resources} />
+          <div className="map-catalog-card-copy">
+            <strong>{entry.name}</strong>
+            <span>{entry.target}</span>
+          </div>
+          <div className="map-catalog-card-meta">
+            <span>{copy.formatValue(format, size)}</span>
+          </div>
+          <div className="map-catalog-card-actions">
+            <button
+              type="button"
+              className="control-button control-button-primary map-catalog-card-action-primary"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpen()
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              {copy.createPatchAction}
+            </button>
+            <button
+              type="button"
+              className="control-button map-catalog-card-action-secondary"
+              disabled={importing || importDisabled}
+              title={importDisabled ? importDisabledTitle : copy.importAndEditAction}
+              aria-label={copy.importAndEditAction}
+              onClick={(event) => {
+                event.stopPropagation()
+                onImportAndEdit()
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileEdit className="h-3.5 w-3.5" aria-hidden="true" />}
+              {importing ? copy.importing : copy.importAndEditAction}
+            </button>
+          </div>
+        </article>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={onOpen}>
+            {copy.createPatchAction}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" disabled={importing || importDisabled} onSelect={onImportAndEdit}>
+            {copy.importAndEditAction}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 

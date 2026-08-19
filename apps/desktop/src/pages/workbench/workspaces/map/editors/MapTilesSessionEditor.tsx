@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Redo2, Undo2 } from 'lucide-react'
-import { MapViewport, type MapDocument, type MapTileRect } from '@entities/map'
+import { MapViewport, type MapDocument, type MapTileRect, type TileHoverInfo } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import type { EditorResources } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
@@ -63,6 +63,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
   const assetPath = `Maps/${mapName}.tmx`
   const [hoverPreviewSrc, setHoverPreviewSrc] = useState<string | null>(null)
   const [galleryMode, setGalleryMode] = useState(false)
+  const [hoverLayerId, setHoverLayerId] = useState<number | null>(null)
 
   const editor = useMapDocumentEditor({
     document,
@@ -178,6 +179,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           onActivateLayer={(layerId) => {
             editor.setActiveLayerId(layerId)
           }}
+          onHoverLayerPreview={setHoverLayerId}
         />
 
         <main className="map-asset-canvas" data-guide="map-canvas">
@@ -193,7 +195,9 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
             <MapViewport
               locale={resources.locale}
               mapDocument={editor.renderDocument}
-              visibleLayerIds={document.layers.filter((layer) => layer.visible).map((layer) => layer.id)}
+              visibleLayerIds={
+                hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id)
+              }
               visibleObjectGroupIds={document.objectGroups.filter((group) => group.visible).map((group) => group.id)}
               hideRuleTileDataObjects
               includeHiddenLayers={document.layers.every((layer) => !layer.visible)}
@@ -276,7 +280,6 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           selectedObject={null}
           selectedObjectId={null}
           paletteSelection={editor.paletteSelection}
-          tilesetOptions={[]}
           isTmxAsset
           tbinIssues={[]}
           layerNameIssues={[]}
@@ -294,7 +297,6 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           onUpdateSelectedObject={editor.updateSelectedObject}
           onDeleteSelectedObject={editor.deleteSelectedObject}
           onAddTileDataObject={editor.addTileDataObject}
-          onAddTileset={editor.addTileset}
           paletteSelectionForPicker={editor.paletteSelection}
           onPaletteSelectionChange={(selection) => {
             if (!selection) return
@@ -315,8 +317,24 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
         </span>
         <span>{editor.activeLayer?.name ?? '-'}</span>
         <span />
-        <span>{editor.hoverInfo ? `${editor.hoverInfo.tileX}, ${editor.hoverInfo.tileY}` : '-'}</span>
+        <HoverInfoSpan subscribe={editor.subscribeHoverInfo} getSnapshot={editor.getHoverInfo} />
       </footer>
     </div>
   )
+}
+
+/**
+ * Status-bar span that displays the hovered tile coordinates. Subscribes to
+ * the editor's hover-info ref via useSyncExternalStore so pointermove only
+ * re-renders this span, not the entire editor tree.
+ */
+function HoverInfoSpan({
+  subscribe,
+  getSnapshot,
+}: {
+  subscribe: (listener: () => void) => () => void
+  getSnapshot: () => TileHoverInfo | null
+}) {
+  const hoverInfo = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return <span>{hoverInfo ? `${hoverInfo.tileX}, ${hoverInfo.tileY}` : '-'}</span>
 }

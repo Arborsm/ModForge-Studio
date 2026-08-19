@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Grid2x2, List } from 'lucide-react'
-import { useCallback, useMemo, useRef, type WheelEvent } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import { forwardRef, useCallback, useMemo, useRef, type WheelEvent } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
@@ -73,25 +74,23 @@ function CatalogViewToggle({
   )
 }
 
-function CatalogListRow({
-  entry,
-  textureState,
-  isActive,
-  copy,
-  onSelect,
-}: {
-  entry: ItemWorkspaceEntry
-  textureState: ItemTextureAssetState | null
-  isActive: boolean
-  copy: ReturnType<typeof useItemsCopy>
-  onSelect: () => void
-}) {
+const CatalogListRow = forwardRef<
+  HTMLButtonElement,
+  {
+    entry: ItemWorkspaceEntry
+    textureState: ItemTextureAssetState | null
+    isActive: boolean
+    copy: ReturnType<typeof useItemsCopy>
+    onSelect: () => void
+  }
+>(function CatalogListRow({ entry, textureState, isActive, copy, onSelect, ...triggerProps }, ref) {
   const spriteFrame = getContainedItemSpriteFrame(entry, 32, 2, 3)
   const typeLabel = entry.kindMetaLabel ?? copy.kindLabels[entry.kind]
   const sourceLabel = formatListSource(entry, copy)
 
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={isActive}
       className={cx(
@@ -100,6 +99,7 @@ function CatalogListRow({
       )}
       data-catalog-item
       onClick={onSelect}
+      {...triggerProps}
     >
       <div className="bg-surface-panel-muted rounded-field flex h-9 w-9 items-center justify-center shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_70%,transparent)]">
         <ItemSprite
@@ -120,7 +120,7 @@ function CatalogListRow({
       <p className="text-text-secondary text-body-px truncate text-right">{sourceLabel}</p>
     </button>
   )
-}
+})
 
 export function CatalogPane({
   text,
@@ -279,14 +279,30 @@ export function CatalogPane({
                     const isActive = entry.key === activeItemId
 
                     return (
-                      <CatalogListRow
-                        key={entry.key}
-                        entry={entry}
-                        textureState={textureState}
-                        isActive={isActive}
-                        copy={copy}
-                        onSelect={() => onSelectItem(entry.key, 'info')}
-                      />
+                      <ContextMenu.Root key={entry.key}>
+                        <ContextMenu.Trigger asChild>
+                          <CatalogListRow
+                            entry={entry}
+                            textureState={textureState}
+                            isActive={isActive}
+                            copy={copy}
+                            onSelect={() => onSelectItem(entry.key, 'info')}
+                          />
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Portal>
+                          <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                            <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'info')}>
+                              {text.infoTab}
+                            </ContextMenu.Item>
+                            <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'relations')}>
+                              {text.relationsTab}
+                            </ContextMenu.Item>
+                            <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'resources')}>
+                              {text.resourcesTab}
+                            </ContextMenu.Item>
+                          </ContextMenu.Content>
+                        </ContextMenu.Portal>
+                      </ContextMenu.Root>
                     )
                   })}
                 </div>
@@ -306,39 +322,53 @@ export function CatalogPane({
                 const spriteFrame = getContainedItemSpriteFrame(entry, 48, 3, 4)
 
                 return (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    aria-pressed={isActive}
-                    className={cx(
-                      'group flex aspect-[1/1.05] w-full flex-col items-center justify-center rounded-lg border p-2 text-center transition-all duration-150',
-                      isActive
-                        ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_70%,var(--bg-panel-muted))] shadow-[0_0_0_0.125rem_var(--accent-soft),var(--shadow-panel)]'
-                        : 'border-[color-mix(in_srgb,var(--border-color)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_90%,var(--bg-panel)_10%)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-surface-panel hover:shadow-float hover:-translate-y-px',
-                    )}
-                    data-catalog-item
-                    onClick={() => onSelectItem(entry.key, 'info')}
-                    onContextMenu={(event) => {
-                      event.preventDefault()
-                      onSelectItem(entry.key, 'relations')
-                    }}
-                    aria-label={`${entry.displayName} ${entry.qualifiedItemId}`}
-                  >
-                    <div className="bg-surface-panel rounded-field flex h-12 w-12 shrink-0 items-center justify-center shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_70%,transparent)]">
-                      <ItemSprite
-                        item={entry}
-                        textureState={textureState}
-                        scale={spriteFrame.scale}
-                        fallbackClassName="text-[28px]"
-                        className="bg-transparent"
-                        style={{ width: `${spriteFrame.width}px`, height: `${spriteFrame.height}px` }}
-                      />
-                    </div>
-                    <div className="mt-2 flex min-w-0 flex-col items-center">
-                      <span className="text-text-primary text-body-px line-clamp-2 leading-tight font-bold">{entry.displayName}</span>
-                      <span className="text-text-tertiary text-caption-px mt-0.5 line-clamp-1 leading-none">{entry.qualifiedItemId}</span>
-                    </div>
-                  </button>
+                  <ContextMenu.Root key={entry.key}>
+                    <ContextMenu.Trigger asChild>
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        className={cx(
+                          'group flex aspect-[1/1.05] w-full flex-col items-center justify-center rounded-lg border p-2 text-center transition-all duration-150',
+                          isActive
+                            ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_70%,var(--bg-panel-muted))] shadow-[0_0_0_0.125rem_var(--accent-soft),var(--shadow-panel)]'
+                            : 'border-[color-mix(in_srgb,var(--border-color)_82%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_90%,var(--bg-panel)_10%)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] hover:bg-surface-panel hover:shadow-float hover:-translate-y-px',
+                        )}
+                        data-catalog-item
+                        onClick={() => onSelectItem(entry.key, 'info')}
+                        aria-label={`${entry.displayName} ${entry.qualifiedItemId}`}
+                      >
+                        <div className="bg-surface-panel rounded-field flex h-12 w-12 shrink-0 items-center justify-center shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_70%,transparent)]">
+                          <ItemSprite
+                            item={entry}
+                            textureState={textureState}
+                            scale={spriteFrame.scale}
+                            fallbackClassName="text-[28px]"
+                            className="bg-transparent"
+                            style={{ width: `${spriteFrame.width}px`, height: `${spriteFrame.height}px` }}
+                          />
+                        </div>
+                        <div className="mt-2 flex min-w-0 flex-col items-center">
+                          <span className="text-text-primary text-body-px line-clamp-2 leading-tight font-bold">{entry.displayName}</span>
+                          <span className="text-text-tertiary text-caption-px mt-0.5 line-clamp-1 leading-none">
+                            {entry.qualifiedItemId}
+                          </span>
+                        </div>
+                      </button>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'info')}>
+                          {text.infoTab}
+                        </ContextMenu.Item>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'relations')}>
+                          {text.relationsTab}
+                        </ContextMenu.Item>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectItem(entry.key, 'resources')}>
+                          {text.resourcesTab}
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
                 )
               })}
             </div>

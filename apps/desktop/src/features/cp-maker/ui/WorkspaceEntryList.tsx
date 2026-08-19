@@ -1,4 +1,5 @@
 import { useState, type JSX } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -49,41 +50,61 @@ export function WorkspaceEntryList({ rows, onOpen, onDelete, onToggleEnabled, ti
             const enabled = row.enabled
             const name = row.displayName || row.key
             return (
-              <li key={row.key} className={cx('workspace-patch-row', !enabled && 'is-disabled')} onDoubleClick={() => onOpen(row.key)}>
-                <span className="workspace-patch-order">{rowIndex + 1}</span>
-                {row.badge ? (
-                  <span className={cx('asset-editor-badge', row.badge.tone === 'warn' && 'is-warn', row.badge.tone === 'ok' && 'is-ok')}>
-                    {row.badge.label}
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  className="workspace-patch-copy"
-                  aria-label={copy.openEntry(name)}
-                  onDoubleClick={() => onOpen(row.key)}
-                >
-                  <strong>{name}</strong>
-                  <span className="workspace-patch-details">
-                    <span className="workspace-patch-detail">{row.key}</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={enabled}
-                  aria-label={enabled ? copy.toggleDisable(name) : copy.toggleEnable(name)}
-                  className={cx('workspace-patch-toggle', enabled && 'is-on')}
-                  onClick={() => onToggleEnabled(row.key, !enabled)}
-                />
-                <div className="workspace-patch-row-actions">
-                  <button type="button" title={copy.openEntry(name)} aria-label={copy.openEntry(name)} onClick={() => onOpen(row.key)}>
-                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                  <button type="button" title={copy.delete} aria-label={copy.delete} onClick={() => setDeleteTarget(row)}>
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </div>
-              </li>
+              <ContextMenu.Root key={row.key}>
+                <ContextMenu.Trigger asChild>
+                  <li className={cx('workspace-patch-row', !enabled && 'is-disabled')} onDoubleClick={() => onOpen(row.key)}>
+                    <span className="workspace-patch-order">{rowIndex + 1}</span>
+                    {row.badge ? (
+                      <span
+                        className={cx('asset-editor-badge', row.badge.tone === 'warn' && 'is-warn', row.badge.tone === 'ok' && 'is-ok')}
+                      >
+                        {row.badge.label}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="workspace-patch-copy"
+                      aria-label={copy.openEntry(name)}
+                      onDoubleClick={() => onOpen(row.key)}
+                    >
+                      <strong>{name}</strong>
+                      <span className="workspace-patch-details">
+                        <span className="workspace-patch-detail">{row.key}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-label={enabled ? copy.toggleDisable(name) : copy.toggleEnable(name)}
+                      className={cx('workspace-patch-toggle', enabled && 'is-on')}
+                      onClick={() => onToggleEnabled(row.key, !enabled)}
+                    />
+                    <div className="workspace-patch-row-actions">
+                      <button type="button" title={copy.openEntry(name)} aria-label={copy.openEntry(name)} onClick={() => onOpen(row.key)}>
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <button type="button" title={copy.delete} aria-label={copy.delete} onClick={() => setDeleteTarget(row)}>
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </li>
+                </ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                    <ContextMenu.Item className="context-menu-item" onSelect={() => onOpen(row.key)}>
+                      {copy.openEntry(name)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item className="context-menu-item" onSelect={() => onToggleEnabled(row.key, !enabled)}>
+                      {enabled ? copy.toggleDisable(name) : copy.toggleEnable(name)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => setDeleteTarget(row)}>
+                      {copy.delete}
+                    </ContextMenu.Item>
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
             )
           })}
         </ol>

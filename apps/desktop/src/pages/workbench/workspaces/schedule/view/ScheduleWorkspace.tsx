@@ -111,6 +111,9 @@ export function ScheduleWorkspace() {
               priorityGroups={workspace.priorityGroups}
               selectedKey={workspace.selectedKey}
               onSelectEntry={workspace.selectEntry}
+              onOverrideVanillaEntry={workspace.overrideVanillaEntry}
+              onToggleEntryEnabled={workspace.toggleEntryEnabledByKey}
+              onDeleteEntry={workspace.deleteEntryByKey}
               onAddEntry={() => setAddOpen(true)}
               onRetrySchedule={workspace.retrySchedule}
             />

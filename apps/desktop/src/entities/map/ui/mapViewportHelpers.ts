@@ -11,7 +11,15 @@ import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePro
 import { clampPanZoomZoom } from '@shared/lib/viewports'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { HoverObjectInfo, TileHoverInfo } from '@entities/map'
-import type { MapAtlasPoint, MapAtlasPortal, MapAtlasWarpRoute, MapDocument, MapObject, MapTileset } from '@entities/map'
+import type {
+  MapAtlasPoint,
+  MapAtlasPortal,
+  MapAtlasWarpRoute,
+  MapDocument,
+  MapObject,
+  MapTileset,
+  MapTilesetAnimationFrame,
+} from '@entities/map'
 import type { LoadedTilesetImage } from './mapViewportTypes'
 import type { MapContentBounds } from '../lib/mapContentBounds'
 
@@ -638,6 +646,19 @@ export function buildHoverInfo(
   } satisfies TileHoverInfo
 }
 
+/** Picks the current animation frame tileId for a given elapsed time. */
+function resolveAnimationFrame(frames: MapTilesetAnimationFrame[], time: number): number {
+  if (frames.length === 1) return frames[0]!.tileId
+  const totalDuration = frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0)
+  let elapsed = time % totalDuration
+  for (const frame of frames) {
+    const duration = Math.max(1, frame.duration)
+    if (elapsed < duration) return frame.tileId
+    elapsed -= duration
+  }
+  return frames[frames.length - 1]!.tileId
+}
+
 export function rasterizeTileLayers(
   targetCanvas: HTMLCanvasElement,
   mapDocument: MapDocument,
@@ -648,6 +669,8 @@ export function rasterizeTileLayers(
     sourceBounds?: MapContentBounds
     targetWidth?: number
     targetHeight?: number
+    /** Current animation clock in milliseconds; used to pick the current frame of animated tiles. */
+    animationTime?: number
   } = {},
 ) {
   const rasterContext = targetCanvas.getContext('2d')
@@ -692,8 +715,12 @@ export function rasterizeTileLayers(
       }
 
       const tileId = gid - tileset.firstGid
-      const sourceX = (tileId % tileset.columns) * tileset.tileWidth
-      const sourceY = Math.floor(tileId / tileset.columns) * tileset.tileHeight
+      // Resolve animated tile: pick the current frame based on the animation clock.
+      const frames = tileset.animations[tileId]
+      const effectiveTileId =
+        frames && frames.length > 0 && options.animationTime != null ? resolveAnimationFrame(frames, options.animationTime) : tileId
+      const sourceX = (effectiveTileId % tileset.columns) * tileset.tileWidth
+      const sourceY = Math.floor(effectiveTileId / tileset.columns) * tileset.tileHeight
       const destinationX = (index % layer.width) * mapDocument.tileWidth + layer.offsetX
       const destinationY = Math.floor(index / layer.width) * mapDocument.tileHeight + layer.offsetY
 

@@ -1,4 +1,9 @@
-import { PALETTE_RECENT_LIMIT, type PaletteRecentSelection, type PaletteTilesetSelection } from '@shared/lib/app-state'
+import {
+  PALETTE_FAVORITE_LIMIT,
+  PALETTE_RECENT_LIMIT,
+  type PaletteRecentSelection,
+  type PaletteTilesetSelection,
+} from '@shared/lib/app-state'
 
 /** A rectangular drag selection over tileset tile coordinates. */
 export type TilesetSelectionRect = {
@@ -116,4 +121,47 @@ export function rememberTilesetSelection(
   selection: PaletteTilesetSelection,
 ): Record<string, PaletteTilesetSelection> {
   return { ...remembered, [tilesetName]: selection }
+}
+
+/** Checks whether an entry exists in a list by identity (tileset + selection rect). */
+function entryIdentityMatch(a: PaletteRecentSelection, b: PaletteRecentSelection): boolean {
+  return a.tilesetName === b.tilesetName && a.startIndex === b.startIndex && a.width === b.width && a.height === b.height
+}
+
+/** Adds a favorite entry if not already present, capping at PALETTE_FAVORITE_LIMIT. */
+export function pushFavoriteSelection(
+  favorites: readonly PaletteRecentSelection[],
+  entry: PaletteRecentSelection,
+  limit = PALETTE_FAVORITE_LIMIT,
+): PaletteRecentSelection[] {
+  if (favorites.some((fav) => entryIdentityMatch(fav, entry))) return [...favorites]
+  return [entry, ...favorites].slice(0, limit)
+}
+
+/** Removes a favorite entry by identity. */
+export function removeFavoriteSelection(
+  favorites: readonly PaletteRecentSelection[],
+  entry: PaletteRecentSelection,
+): PaletteRecentSelection[] {
+  return favorites.filter((fav) => !entryIdentityMatch(fav, entry))
+}
+
+/** Returns true if the entry is in the favorites list. */
+export function isFavoriteSelection(favorites: readonly PaletteRecentSelection[], entry: PaletteRecentSelection): boolean {
+  return favorites.some((fav) => entryIdentityMatch(fav, entry))
+}
+
+/** Merges imported favorites into existing ones, de-duplicating and capping. */
+export function mergeFavoriteSelections(
+  existing: readonly PaletteRecentSelection[],
+  imported: readonly PaletteRecentSelection[],
+  limit = PALETTE_FAVORITE_LIMIT,
+): PaletteRecentSelection[] {
+  const result = [...existing]
+  for (const entry of imported) {
+    if (result.some((fav) => entryIdentityMatch(fav, entry))) continue
+    result.push(entry)
+    if (result.length >= limit) break
+  }
+  return result.slice(0, limit)
 }
