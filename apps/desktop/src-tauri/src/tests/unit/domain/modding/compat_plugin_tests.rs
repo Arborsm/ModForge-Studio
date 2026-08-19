@@ -814,3 +814,138 @@ fn write_then_read_roundtrip_preserves_data() {
     let result = read_directory_pack_entry(read_request).unwrap();
     assert_eq!(result.content, content);
 }
+
+// ── resolve_plugin_protocol_path (stage 3) ──────────────────────────────────
+
+/// Creates a temp plugin root containing a single plugin directory named `id`
+/// with the given relative file already written to disk, returning the root.
+fn create_protocol_plugin_root(id: &str, relative_file: &str, content: &str) -> PathBuf {
+    let root = create_temp_dir("compat-protocol");
+    let plugin_dir = root.join(id);
+    let file_path = plugin_dir.join(relative_file);
+    fs::create_dir_all(file_path.parent().unwrap()).unwrap();
+    fs::write(&file_path, content).unwrap();
+    root
+}
+
+#[test]
+fn resolve_plugin_protocol_path_resolves_normal_path() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+    let plugin_dir = root.join("arborsm.test");
+
+    let resolved =
+        super::resolve_plugin_protocol_path_in_roots(&[root.clone()], "arborsm.test", "index.js");
+    assert_eq!(resolved, Some(plugin_dir.join("index.js")));
+}
+
+#[test]
+fn resolve_plugin_protocol_path_resolves_nested_subdirectory() {
+    let root = create_protocol_plugin_root("arborsm.test", "assets/icon.png", "png-bytes");
+    let plugin_dir = root.join("arborsm.test");
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.test",
+        "assets/icon.png",
+    );
+    assert_eq!(resolved, Some(plugin_dir.join("assets").join("icon.png")));
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_traversal_escape() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.test",
+        "../secret.js",
+    );
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_deep_traversal_escape() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+
+    // `foo/../../bar.js` escapes the plugin dir after the second `..`.
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.test",
+        "foo/../../bar.js",
+    );
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_allows_traversal_within_plugin_dir() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+    // `sub/../index.js` stays inside the plugin dir and should resolve.
+    let plugin_dir = root.join("arborsm.test");
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.test",
+        "sub/../index.js",
+    );
+    assert_eq!(resolved, Some(plugin_dir.join("index.js")));
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_absolute_path() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.test",
+        "/etc/passwd.js",
+    );
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_non_whitelisted_extension() {
+    let root = create_protocol_plugin_root("arborsm.test", "readme.txt", "hello");
+
+    let resolved =
+        super::resolve_plugin_protocol_path_in_roots(&[root.clone()], "arborsm.test", "readme.txt");
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_missing_extension() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+    fs::write(root.join("arborsm.test").join("README"), "hello").unwrap();
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(&[root], "arborsm.test", "README");
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_rejects_unknown_plugin_id() {
+    let root = create_protocol_plugin_root("arborsm.test", "index.js", "export {};");
+
+    let resolved = super::resolve_plugin_protocol_path_in_roots(
+        &[root.clone()],
+        "arborsm.nonexistent",
+        "index.js",
+    );
+    assert!(resolved.is_none());
+}
+
+#[test]
+fn resolve_plugin_protocol_path_accepts_all_whitelisted_extensions() {
+    let root = create_temp_dir("compat-protocol-all-exts");
+    let plugin_dir = root.join("arborsm.test");
+    fs::create_dir_all(&plugin_dir).unwrap();
+
+    for ext in ["js", "json", "png", "jpg", "webp", "svg", "css"] {
+        let file_name = format!("asset.{ext}");
+        fs::write(plugin_dir.join(&file_name), "content").unwrap();
+        let resolved = super::resolve_plugin_protocol_path_in_roots(
+            &[root.clone()],
+            "arborsm.test",
+            &file_name,
+        );
+        assert!(resolved.is_some(), "extension .{ext} should be whitelisted");
+    }
+}

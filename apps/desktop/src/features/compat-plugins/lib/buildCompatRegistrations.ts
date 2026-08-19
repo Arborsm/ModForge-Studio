@@ -34,19 +34,19 @@ const VALID_ICONS = new Set<WorkbenchNavigationIcon>([
 const VALID_PRESENTATIONS = new Set(['browser', 'authoring', 'standalone'])
 const VALID_PROJECT_ACCESS = new Set(['none', 'read', 'write'])
 
-function clampSection(section: string): WorkbenchNavigationSection {
+export function clampSection(section: string): WorkbenchNavigationSection {
   return VALID_SECTIONS.has(section as WorkbenchNavigationSection) ? (section as WorkbenchNavigationSection) : 'tools'
 }
 
-function clampIcon(icon: string): WorkbenchNavigationIcon {
+export function clampIcon(icon: string): WorkbenchNavigationIcon {
   return VALID_ICONS.has(icon as WorkbenchNavigationIcon) ? (icon as WorkbenchNavigationIcon) : 'package'
 }
 
-function clampPresentation(value: string): 'browser' | 'authoring' | 'standalone' {
+export function clampPresentation(value: string): 'browser' | 'authoring' | 'standalone' {
   return VALID_PRESENTATIONS.has(value) ? (value as 'browser' | 'authoring' | 'standalone') : 'standalone'
 }
 
-function clampProjectAccess(value: string): 'none' | 'read' | 'write' {
+export function clampProjectAccess(value: string): 'none' | 'read' | 'write' {
   return VALID_PROJECT_ACCESS.has(value) ? (value as 'none' | 'read' | 'write') : 'none'
 }
 

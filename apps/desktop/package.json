@@ -148,6 +148,7 @@
     "@bbob/plugin-helper": "^4.4.1",
     "@bbob/preset": "^4.4.1",
     "@bbob/react": "^4.4.1",
+    "@modforge/plugin-sdk": "workspace:^",
     "json5": "^2.2.3",
     "jszip": "^3.10.1"
   }

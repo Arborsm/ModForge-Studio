@@ -38,6 +38,9 @@ importers:
       '@bbob/react':
         specifier: ^4.4.1
         version: 4.4.1(react@19.2.8)
+      '@modforge/plugin-sdk':
+        specifier: workspace:^
+        version: link:../../packages/plugin-sdk
       json5:
         specifier: ^2.2.3
         version: 2.2.3
@@ -212,6 +215,12 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.4(@types/node@26.1.2)(esbuild@0.28.0)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(typescript@7.0.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.0)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+
+  packages/plugin-sdk:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
 
 packages:
 

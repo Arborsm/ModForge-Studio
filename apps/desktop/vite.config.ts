@@ -61,6 +61,44 @@ export function reactDevtoolsStandaloneHtmlPlugin(env = process.env): Plugin {
   }
 }
 
+/**
+ * Injects an import map into the HTML head so that code-package plugins loaded
+ * via `plugin://` can import react, react-dom, jsx-runtime and the plugin SDK
+ * as ESM singletons (matching the host's React instance). The import map URLs
+ * point to the fixed-name vendor chunks produced by the chunk groups above.
+ *
+ * In dev mode, the vendor chunks are served by Vite's dev server; in production
+ * they are emitted as fixed-name assets. If the webview does not support import
+ * maps, code-package plugins are rejected by the loader (data-pack plugins are
+ * unaffected).
+ */
+function pluginImportMapHtmlPlugin(): Plugin {
+  return {
+    name: 'modforge:plugin-import-map',
+    transformIndexHtml() {
+      const reactUrl = './assets/react-vendor.js'
+      const jsxRuntimeUrl = './assets/react-jsx-runtime.js'
+      const sdkUrl = './assets/plugin-sdk.js'
+      const importMap = {
+        imports: {
+          react: reactUrl,
+          'react-dom': reactUrl,
+          'react/jsx-runtime': jsxRuntimeUrl,
+          '@modforge/plugin-sdk': sdkUrl,
+        },
+      }
+      return [
+        {
+          tag: 'script',
+          attrs: { type: 'importmap' },
+          children: JSON.stringify(importMap),
+          injectTo: 'head-prepend',
+        },
+      ]
+    },
+  }
+}
+
 function reactCompilerRuntimeInteropPlugin() {
   return {
     name: 'modforge:react-compiler-runtime-interop',
@@ -104,6 +142,16 @@ const namedChunkGroups: NamedChunkGroup[] = [
     name: 'react-vendor',
     priority: 100,
     test: (id) => id.includes('/node_modules/react/') || id.includes('/node_modules/react-dom/'),
+  },
+  {
+    name: 'react-jsx-runtime',
+    priority: 99,
+    test: (id) => id.includes('/node_modules/react/jsx-runtime'),
+  },
+  {
+    name: 'plugin-sdk',
+    priority: 98,
+    test: (id) => id.includes('/packages/plugin-sdk/'),
   },
   {
     name: 'desktop-host-vendor',
@@ -289,6 +337,7 @@ export default defineConfig({
   clearScreen: false,
   plugins: [
     reactDevtoolsStandaloneHtmlPlugin(),
+    pluginImportMapHtmlPlugin(),
     reactCompilerRuntimeInteropPlugin(),
     react(),
     babel({ presets: [reactCompilerPreset()] }) as unknown as Plugin,
