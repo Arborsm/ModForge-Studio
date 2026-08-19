@@ -136,6 +136,27 @@ pub fn run() {
                 .unwrap_or(false);
             domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host, force_offline);
 
+            // Resolve packaged compat-plugin roots (resource_dir + app_data_dir)
+            // and register them process-wide so domain code without an AppHandle
+            // (e.g. load_attached_api_registry) can locate plugins in packaged
+            // builds. The dev-build anchor is added by resolve_plugin_roots.
+            let mut packaged_roots: Vec<std::path::PathBuf> = Vec::new();
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                let plugin_dir = resource_dir.join("compat-plugins");
+                if plugin_dir.is_dir() && !packaged_roots.contains(&plugin_dir) {
+                    packaged_roots.push(plugin_dir);
+                }
+            }
+            if let Ok(app_data_dir) = app.path().app_data_dir() {
+                let plugin_dir = app_data_dir.join("compat-plugins");
+                if plugin_dir.is_dir() && !packaged_roots.contains(&plugin_dir) {
+                    packaged_roots.push(plugin_dir);
+                }
+            }
+            if !packaged_roots.is_empty() {
+                domain::modding::compat_plugin::set_plugin_roots(packaged_roots);
+            }
+
             let tray_menu = Menu::with_items(
                 app,
                 &[
@@ -363,7 +384,10 @@ pub fn run() {
             domain::localization::machine_translation::commands::test_machine_translation_profile,
             domain::localization::machine_translation::commands::translate_machine_translation_batch,
             // domain::modding::commands
+            domain::modding::commands::list_compat_plugin_entries,
             domain::modding::commands::list_compat_plugins,
+            domain::modding::commands::read_compat_plugin_entry,
+            domain::modding::commands::write_compat_plugin_entry,
             // domain::mods::commands
             domain::mods::commands::inspect_mod_archive,
             domain::mods::commands::load_mod_project,

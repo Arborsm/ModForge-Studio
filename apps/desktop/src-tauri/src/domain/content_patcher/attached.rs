@@ -6,14 +6,28 @@
 //! `apps/desktop/compat-plugins/arborsm.scaleup-unofficial/manifest.json`; the
 //! aggregated registry is behaviour-equivalent.
 
+use std::sync::OnceLock;
+
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::domain::modding::compat_plugin::{load_plugin_manifests, resolve_plugin_roots};
+
+/// Process-level cache of the attached API registry. Built once from the
+/// resolved plugin roots and reused for the process lifetime — plugin manifests
+/// are static for a given run. This mirrors the `list_summaries` cache and
+/// avoids re-reading `manifest.json` on every mod scan / CP operation.
+static CACHED_REGISTRY: OnceLock<AttachedApiRegistry> = OnceLock::new();
 
 /// Loads the attached API registry from compat plugin manifests on disk.
 ///
 /// `plugin_root_override` is `Some(path)` only in tests / dev debug; in normal
 /// operation it is `None` and the plugin roots are resolved from the build
-/// configuration (dev directory or packaged resource/data directories).
+/// configuration (dev directory or packaged resource/data directories set at
+/// startup via `set_plugin_roots`).
+///
+/// When `plugin_root_override` is `None`, the result is cached for the process
+/// lifetime via a `OnceLock` — the first call loads from disk, subsequent calls
+/// return the cached registry. This matches the previous hardcoded descriptor's
+/// zero-cost repeated access. Override calls (tests) always re-read from disk.
 ///
 /// Load errors for individual plugins are logged via `support::logging` and do
 /// not abort the registry build — a bad plugin simply contributes no
@@ -21,6 +35,17 @@ use crate::domain::modding::compat_plugin::{load_plugin_manifests, resolve_plugi
 pub(crate) fn load_attached_api_registry(
     plugin_root_override: Option<&str>,
 ) -> AttachedApiRegistry {
+    if plugin_root_override.is_none() {
+        return CACHED_REGISTRY
+            .get_or_init(|| build_registry(plugin_root_override))
+            .clone();
+    }
+    build_registry(plugin_root_override)
+}
+
+/// Builds the registry from disk. Extracted so the cached and uncached paths
+/// share one implementation.
+fn build_registry(plugin_root_override: Option<&str>) -> AttachedApiRegistry {
     let roots = resolve_plugin_roots(plugin_root_override);
     let report = load_plugin_manifests(&roots);
     for error in &report.errors {

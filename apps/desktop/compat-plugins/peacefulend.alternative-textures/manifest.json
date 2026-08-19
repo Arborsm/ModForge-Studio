@@ -1,0 +1,118 @@
+{
+  "format": 1,
+  "id": "peacefulend.alternative-textures",
+  "name": "Alternative Textures 兼容",
+  "targets": ["PeacefulAlternativeTextures.AlternativeTextures"],
+  "contributions": {
+    "pages": [
+      {
+        "id": "at-texture-editor",
+        "navigation": { "section": "tools", "order": 900, "icon": "images" },
+        "titleKey": "at.page.title",
+        "presentation": "standalone",
+        "projectAccess": "none",
+        "source": {
+          "kind": "directory-pack",
+          "params": {
+            "entryFile": "texture.json",
+            "entryImage": "texture.png",
+            "rootSubdir": "Textures"
+          }
+        },
+        "layout": "two-column",
+        "sections": [
+          {
+            "titleKey": "at.section.identity",
+            "fields": [
+              {
+                "id": "itemName",
+                "path": "ItemName",
+                "type": "text",
+                "labelKey": "at.field.itemName",
+                "required": true
+              },
+              {
+                "id": "type",
+                "path": "Type",
+                "type": "choice",
+                "allowValues": ["Crop", "Craftable", "Building", "FruitTree", "Grass"],
+                "labelKey": "at.field.type",
+                "required": true
+              },
+              {
+                "id": "variations",
+                "path": "Variations",
+                "type": "number",
+                "min": 1,
+                "max": 64,
+                "interval": 1,
+                "labelKey": "at.field.variations"
+              },
+              {
+                "id": "textureWidth",
+                "path": "TextureWidth",
+                "type": "number",
+                "min": 16,
+                "max": 2048,
+                "interval": 1,
+                "labelKey": "at.field.textureWidth"
+              },
+              {
+                "id": "textureHeight",
+                "path": "TextureHeight",
+                "type": "number",
+                "min": 16,
+                "max": 2048,
+                "interval": 1,
+                "labelKey": "at.field.textureHeight"
+              }
+            ]
+          },
+          {
+            "titleKey": "at.section.appearance",
+            "fields": [
+              {
+                "id": "seasons",
+                "path": "Seasons",
+                "type": "string-list",
+                "labelKey": "at.field.seasons"
+              },
+              {
+                "id": "chanceWeight",
+                "path": "ChanceWeight",
+                "type": "number",
+                "min": 0,
+                "max": 1,
+                "interval": 0.01,
+                "labelKey": "at.field.chanceWeight"
+              },
+              {
+                "id": "manualVariations",
+                "path": "ManualVariations",
+                "type": "record-list",
+                "labelKey": "at.field.manualVariations",
+                "fields": [
+                  {
+                    "id": "keywords",
+                    "path": "Keywords",
+                    "type": "string-list",
+                    "labelKey": "at.field.manualVariationKeywords"
+                  },
+                  {
+                    "id": "chanceWeight",
+                    "path": "ChanceWeight",
+                    "type": "number",
+                    "min": 0,
+                    "max": 1,
+                    "interval": 0.01,
+                    "labelKey": "at.field.manualVariationChanceWeight"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

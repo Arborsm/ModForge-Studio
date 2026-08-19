@@ -4,7 +4,16 @@
  * @module features/compat-plugins
  */
 export { listCompatPlugins } from './api/listCompatPlugins'
-export type { CompatPluginSummary, CompatPluginPageSummary, PluginI18nBundle } from './api/types'
+export type {
+  CompatPluginSummary,
+  CompatPluginPageSummary,
+  CompatPluginSection,
+  CompatPluginField,
+  CompatPluginPageSource,
+  PluginI18nBundle,
+} from './api/types'
+export { listCompatPluginEntries, readCompatPluginEntry, writeCompatPluginEntry } from './api/directoryPackApi'
+export type { CompatPluginEntrySummary, ReadCompatPluginEntryResult } from './api/directoryPackApi'
 export { buildCompatRegistrations } from './lib/buildCompatRegistrations'
 export { resolveModuleLabel } from './lib/resolveModuleLabel'
 export { useCompatPluginStore } from './model/compatPluginStore'

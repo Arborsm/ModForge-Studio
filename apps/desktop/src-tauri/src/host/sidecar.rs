@@ -561,8 +561,17 @@ pub(crate) fn resolve_command(
             crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
         >(ctx, id, args),
         // domain::modding::commands
+        crate::host_command_wire!(list_compat_plugin_entries) => resolve_typed::<
+            crate::domain::modding::commands::ListCompatPluginEntriesParams,
+        >(ctx, id, args),
         crate::host_command_wire!(list_compat_plugins) => resolve_typed::<
             crate::domain::modding::commands::ListCompatPluginsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(read_compat_plugin_entry) => resolve_typed::<
+            crate::domain::modding::commands::ReadCompatPluginEntryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_compat_plugin_entry) => resolve_typed::<
+            crate::domain::modding::commands::WriteCompatPluginEntryParams,
         >(ctx, id, args),
         // domain::mods::commands
         crate::host_command_wire!(inspect_mod_archive) => resolve_typed::<
@@ -660,6 +669,18 @@ pub fn run_stdio() -> Result<(), String> {
         .map(|state| state.launcher.force_offline)
         .unwrap_or(false);
     domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&app, force_offline);
+
+    // Resolve packaged compat-plugin roots relative to the sidecar's working
+    // directory. The Electron host spawns the sidecar with cwd set to
+    // process.resourcesPath (packaged) or the repo root (dev), so
+    // compat-plugins live at <cwd>/compat-plugins. The dev anchor is also
+    // checked by resolve_plugin_roots, but registering the cwd-relative path
+    // here ensures packaged builds find bundled plugins.
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let cwd_plugins = cwd.join("compat-plugins");
+    if cwd_plugins.is_dir() {
+        crate::domain::modding::compat_plugin::set_plugin_roots(vec![cwd_plugins]);
+    }
 
     let ctx = DispatchContext {
         app,

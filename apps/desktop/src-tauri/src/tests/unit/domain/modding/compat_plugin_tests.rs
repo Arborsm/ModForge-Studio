@@ -587,3 +587,230 @@ fn build_summaries_handles_multiple_plugins() {
     assert!(ids.contains(&"arborsm.plugin-a"));
     assert!(ids.contains(&"arborsm.plugin-b"));
 }
+
+// ── resolve_plugin_roots: override, packaged and dev paths ───────────────────
+
+#[test]
+fn resolve_plugin_roots_override_takes_precedence() {
+    let roots =
+        crate::domain::modding::compat_plugin::resolve_plugin_roots(Some("/nonexistent/override"));
+    assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0], std::path::PathBuf::from("/nonexistent/override"));
+}
+
+/// Verifies that `resolve_plugin_roots(None)` returns a non-empty set in the
+/// dev build (anchored on CARGO_MANIFEST_DIR/../compat-plugins) or when
+/// packaged roots have been set via `set_plugin_roots`. This is the production
+/// path — an empty result would mean the attached API registry is silently
+/// empty, breaking mod compatibility analysis.
+#[test]
+fn resolve_plugin_roots_none_returns_non_empty_in_dev_build() {
+    let roots = crate::domain::modding::compat_plugin::resolve_plugin_roots(None);
+    // In the dev build the compat-plugins directory exists under
+    // apps/desktop/compat-plugins. In a packaged build, set_plugin_roots would
+    // have been called at startup. Either way, the result must be non-empty
+    // for the ScaleUp plugin to be discoverable.
+    assert!(
+        !roots.is_empty(),
+        "resolve_plugin_roots(None) returned empty — packaged builds would silently lose the attached API registry"
+    );
+}
+
+// ── directory-pack entry I/O (stage 2) ──────────────────────────────────────
+
+use crate::domain::modding::commands::ListCompatPluginEntriesRequest;
+use crate::domain::modding::compat_plugin::{
+    ReadCompatPluginEntryRequest, WriteCompatPluginEntryRequest, list_directory_pack_entries,
+    read_directory_pack_entry, write_directory_pack_entry,
+};
+
+/// Creates a temp mod root with a `Textures/<entry_id>/texture.json` structure
+/// mimicking Alternative Textures' directory layout.
+fn create_at_mod_root(entry_id: &str, json_content: &str) -> PathBuf {
+    let root = create_temp_dir("compat-directory-pack");
+    let textures_dir = root.join("Textures").join(entry_id);
+    fs::create_dir_all(&textures_dir).unwrap();
+    fs::write(textures_dir.join("texture.json"), json_content).unwrap();
+    root
+}
+
+#[test]
+fn list_directory_pack_entries_finds_entries_with_entry_file() {
+    let root = create_temp_dir("compat-list-entries");
+    let textures = root.join("Textures");
+    fs::create_dir_all(textures.join("crop_a")).unwrap();
+    fs::write(textures.join("crop_a").join("texture.json"), "{}").unwrap();
+    fs::create_dir_all(textures.join("crop_b")).unwrap();
+    fs::write(textures.join("crop_b").join("texture.json"), "{}").unwrap();
+    // Directory without entry file should be skipped
+    fs::create_dir_all(textures.join("empty_dir")).unwrap();
+    // Non-directory file should be skipped
+    fs::write(textures.join("readme.txt"), "hello").unwrap();
+
+    let request = ListCompatPluginEntriesRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_file: "texture.json".to_string(),
+        entry_image: None,
+    };
+    let entries = list_directory_pack_entries(&request);
+    let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    assert!(ids.contains(&"crop_a"));
+    assert!(ids.contains(&"crop_b"));
+    assert!(!ids.contains(&"empty_dir"));
+    assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn list_directory_pack_entries_returns_empty_for_missing_subdir() {
+    let root = create_temp_dir("compat-list-missing-subdir");
+    let request = ListCompatPluginEntriesRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Nonexistent".to_string(),
+        entry_file: "texture.json".to_string(),
+        entry_image: None,
+    };
+    let entries = list_directory_pack_entries(&request);
+    assert!(entries.is_empty());
+}
+
+#[test]
+fn list_directory_pack_entries_detects_companion_image() {
+    let root = create_temp_dir("compat-list-with-image");
+    let textures = root.join("Textures");
+    let entry_dir = textures.join("crop_a");
+    fs::create_dir_all(&entry_dir).unwrap();
+    fs::write(entry_dir.join("texture.json"), "{}").unwrap();
+    fs::write(entry_dir.join("texture.png"), b"\x89PNG").unwrap();
+
+    let request = ListCompatPluginEntriesRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_file: "texture.json".to_string(),
+        entry_image: Some("texture.png".to_string()),
+    };
+    let entries = list_directory_pack_entries(&request);
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].entry_image_path.is_some());
+}
+
+#[test]
+fn read_directory_pack_entry_returns_parsed_json() {
+    let root = create_at_mod_root("crop_a", r#"{"ItemName": "Parsnip", "Type": "Crop"}"#);
+    let request = ReadCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "crop_a".to_string(),
+        entry_file: "texture.json".to_string(),
+    };
+    let result = read_directory_pack_entry(request).unwrap();
+    assert_eq!(result.content["ItemName"], "Parsnip");
+    assert_eq!(result.content["Type"], "Crop");
+}
+
+#[test]
+fn read_directory_pack_entry_rejects_path_traversal() {
+    let root = create_at_mod_root("crop_a", "{}");
+    let request = ReadCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "..".to_string(),
+        entry_file: "texture.json".to_string(),
+    };
+    let result = read_directory_pack_entry(request);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Invalid entry id"));
+}
+
+#[test]
+fn read_directory_pack_entry_rejects_absolute_entry_id() {
+    let root = create_at_mod_root("crop_a", "{}");
+    let request = ReadCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "/etc/passwd".to_string(),
+        entry_file: "texture.json".to_string(),
+    };
+    let result = read_directory_pack_entry(request);
+    assert!(result.is_err());
+}
+
+#[test]
+fn write_directory_pack_entry_creates_new_entry() {
+    let root = create_temp_dir("compat-write-new");
+    let content = serde_json::json!({"ItemName": "Cauliflower", "Type": "Crop"});
+    let request = WriteCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "new_crop".to_string(),
+        entry_file: "texture.json".to_string(),
+        content: content.clone(),
+    };
+    write_directory_pack_entry(request).unwrap();
+
+    let written =
+        fs::read_to_string(root.join("Textures").join("new_crop").join("texture.json")).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&written).unwrap();
+    assert_eq!(parsed["ItemName"], "Cauliflower");
+}
+
+#[test]
+fn write_directory_pack_entry_overwrites_existing() {
+    let root = create_at_mod_root("crop_a", r#"{"ItemName": "Old"}"#);
+    let request = WriteCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "crop_a".to_string(),
+        entry_file: "texture.json".to_string(),
+        content: serde_json::json!({"ItemName": "New"}),
+    };
+    write_directory_pack_entry(request).unwrap();
+
+    let written =
+        fs::read_to_string(root.join("Textures").join("crop_a").join("texture.json")).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&written).unwrap();
+    assert_eq!(parsed["ItemName"], "New");
+}
+
+#[test]
+fn write_directory_pack_entry_rejects_path_traversal() {
+    let root = create_temp_dir("compat-write-traversal");
+    let request = WriteCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "..".to_string(),
+        entry_file: "texture.json".to_string(),
+        content: serde_json::json!({}),
+    };
+    let result = write_directory_pack_entry(request);
+    assert!(result.is_err());
+}
+
+#[test]
+fn write_then_read_roundtrip_preserves_data() {
+    let root = create_temp_dir("compat-write-read-roundtrip");
+    let content = serde_json::json!({
+        "ItemName": "Melon",
+        "Type": "Crop",
+        "Variations": 4,
+        "Seasons": ["summer"],
+        "ChanceWeight": 0.5
+    });
+    let write_request = WriteCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "melon".to_string(),
+        entry_file: "texture.json".to_string(),
+        content: content.clone(),
+    };
+    write_directory_pack_entry(write_request).unwrap();
+
+    let read_request = ReadCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "melon".to_string(),
+        entry_file: "texture.json".to_string(),
+    };
+    let result = read_directory_pack_entry(read_request).unwrap();
+    assert_eq!(result.content, content);
+}

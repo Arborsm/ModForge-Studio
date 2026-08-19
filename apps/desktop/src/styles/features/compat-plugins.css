@@ -1,0 +1,128 @@
+/* Compat plugin page runtime: entry list, form fields and editor actions. */
+
+.compat-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+}
+
+.compat-entry-list-empty {
+  margin: 0;
+  padding: 1rem 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.compat-entry-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.compat-entry-list-item {
+  display: block;
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  border: none;
+  border-radius: var(--radius-sm, 0.375rem);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.compat-entry-list-item:hover {
+  background: var(--bg-hover, color-mix(in srgb, var(--bg-active) 55%, transparent));
+}
+
+.compat-entry-list-item.is-active {
+  background: var(--bg-active);
+  color: var(--text-on-active, var(--text-primary));
+  font-weight: 600;
+}
+
+.compat-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compat-editor-unsaved {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.compat-editor-saved {
+  color: var(--color-success, var(--text-secondary));
+  font-size: 0.8rem;
+}
+
+.compat-editor-error {
+  color: var(--color-danger, var(--text-primary));
+  font-size: 0.8rem;
+}
+
+.compat-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.compat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.compat-field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.compat-field-bool {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.compat-field-bool input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.compat-field-string-list-input,
+.compat-field-keybind-list textarea {
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.compat-field-record-list,
+.compat-field-object {
+  padding: 0.625rem;
+  border-radius: var(--radius-sm, 0.375rem);
+  background: var(--bg-panel);
+}
+
+.compat-field-record-list-summary,
+.compat-field-object-summary {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.compat-field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-danger, var(--text-primary));
+}

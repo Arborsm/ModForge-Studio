@@ -2,10 +2,11 @@
  * @file Builds WorkbenchModuleRegistration[] from compat plugin summaries.
  * @module features/compat-plugins
  */
-import { lazy } from 'react'
+import { createElement, lazy } from 'react'
 import type { ComponentType, LazyExoticComponent } from 'react'
 import type { WorkbenchModuleRegistration, WorkbenchNavigationIcon, WorkbenchNavigationSection } from '@shared/contracts'
 import type { CompatPluginSummary } from '../api/types'
+import { usePageDescriptorStore } from '../model/pageDescriptorStore'
 
 const VALID_SECTIONS = new Set<WorkbenchNavigationSection>(['browse', 'authoring', 'translation', 'tools', 'development'])
 
@@ -50,18 +51,19 @@ function clampProjectAccess(value: string): 'none' | 'read' | 'write' {
 }
 
 /**
- * Placeholder runtime for plugin pages. Stage 2 replaces this with the real
- * schema-rendering `CompatModuleRuntime`; stage 3 replaces it with the code
- * package's own component. In stage 1 no plugins declare pages, so this is
- * never rendered — it exists only to satisfy the `createRuntime` contract.
+ * Creates the lazy runtime for a compat plugin page. The runtime is the
+ * schema-rendering `CompatModuleRuntime` for data-pack pages (stage 2); stage 3
+ * will replace this with the code package's own component for code-entry pages.
+ * The runtime receives the module id via a closure wrapper since
+ * `WorkbenchViewHost` calls `createRuntime()` without passing props.
  */
-function createPlaceholderRuntime(): LazyExoticComponent<ComponentType> {
+function createCompatRuntime(moduleId: string): LazyExoticComponent<ComponentType> {
   return lazy(() =>
-    Promise.resolve({
-      default: function CompatPluginPlaceholder() {
-        return null
+    import('../runtime/CompatModuleRuntime').then((module) => ({
+      default: function CompatRuntimeBound() {
+        return createElement(module.CompatModuleRuntime, { moduleId })
       },
-    }),
+    })),
   )
 }
 
@@ -75,6 +77,12 @@ function createPlaceholderRuntime(): LazyExoticComponent<ComponentType> {
  * - Duplicate ids are rejected by `validateWorkbenchModules`.
  */
 export function buildCompatRegistrations(plugins: readonly CompatPluginSummary[]): WorkbenchModuleRegistration[] {
+  // Register page descriptors so the runtime can look them up by module id.
+  const descriptorStore = usePageDescriptorStore.getState()
+  for (const plugin of plugins) {
+    descriptorStore.registerPages(plugin.id, plugin.pages, plugin.targets)
+  }
+
   const registrations: WorkbenchModuleRegistration[] = []
   for (const plugin of plugins) {
     for (const page of plugin.pages) {
@@ -89,7 +97,7 @@ export function buildCompatRegistrations(plugins: readonly CompatPluginSummary[]
         },
         presentation: clampPresentation(page.presentation),
         projectAccess: clampProjectAccess(page.projectAccess),
-        createRuntime: createPlaceholderRuntime,
+        createRuntime: () => createCompatRuntime(moduleId),
         persistenceKey: moduleId,
       })
     }

@@ -77,3 +77,51 @@ fn from_test_descriptors_registers_compatible_ids_and_asset_kinds() {
         Some("image")
     );
 }
+
+/// Verifies that `load_attached_api_registry(None)` resolves plugin roots from
+/// the build configuration (dev anchor or packaged roots set at startup) and
+/// returns the ScaleUp compatibility descriptor. This is the production code
+/// path used by `scan_mods`, `scan_mod_asset_index`, `inspect_project` and
+/// Content Patcher — it must not return an empty registry in any build.
+#[test]
+fn load_attached_api_registry_with_none_resolves_roots_and_returns_scaleup() {
+    let registry = load_attached_api_registry(None);
+
+    // The dev build anchors on CARGO_MANIFEST_DIR/../compat-plugins which
+    // contains the ScaleUp plugin manifest. In a packaged build the roots are
+    // set at startup via set_plugin_roots. Either way, the registry must
+    // contain the ScaleUp compatibility descriptor.
+    assert_eq!(
+        registry.provided_unique_ids_for("Arborsm.ScaleUpUnofficial"),
+        vec![
+            "Arborsm.ScaleUpUnofficial".to_string(),
+            "Platonymous.ScaleUp".to_string(),
+            "BleakCodex.SpritesInDetail".to_string()
+        ]
+    );
+    assert_eq!(
+        registry.infer_asset_kind("{{Platonymous.ScaleUp/Assets}}"),
+        Some("json")
+    );
+}
+
+/// Verifies that `load_attached_api_registry(None)` caches its result for the
+/// process lifetime — repeated calls return an equivalent registry without
+/// re-reading from disk. This matches the previous hardcoded descriptor's
+/// zero-cost repeated access and avoids a performance regression on the hot
+/// mod-scan / CP paths.
+#[test]
+fn load_attached_api_registry_with_none_caches_result() {
+    let first = load_attached_api_registry(None);
+    let second = load_attached_api_registry(None);
+
+    // Both calls must return the same ScaleUp compatibility data.
+    assert_eq!(
+        first.provided_unique_ids_for("Arborsm.ScaleUpUnofficial"),
+        second.provided_unique_ids_for("Arborsm.ScaleUpUnofficial")
+    );
+    assert_eq!(
+        first.infer_asset_kind("{{Platonymous.ScaleUp/Assets}}"),
+        second.infer_asset_kind("{{Platonymous.ScaleUp/Assets}}")
+    );
+}

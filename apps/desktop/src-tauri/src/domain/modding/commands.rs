@@ -1,34 +1,73 @@
-//! Host command bindings for the modding domain (compat plugin listing).
+//! Host command bindings for the modding domain (compat plugin listing and
+//! directory-pack entry I/O for stage 2 schema-rendered pages).
 
 use crate::AppHandle;
 use crate::domain;
-use crate::domain::modding::compat_plugin::{CompatPluginSummary, resolve_plugin_roots};
+use crate::domain::modding::compat_plugin::{
+    CompatPluginEntrySummary, CompatPluginSummary, ReadCompatPluginEntryRequest,
+    ReadCompatPluginEntryResult, WriteCompatPluginEntryRequest,
+};
 use host_command_macros::host_command;
-use tauri::Manager;
 
 /// Lists installed compat plugins with inline i18n bundles and page ids.
 ///
-/// Plugin roots are resolved from the build configuration: dev build uses the
-/// source-tree `compat-plugins/` directory; packaged build also scans the
-/// bundled resource directory and the user app-data directory. Results are
-/// cached for the process lifetime.
+/// Plugin roots are resolved from the process-level root set initialized at
+/// startup (Tauri `setup` for macOS/Windows, sidecar entry for Linux). Results
+/// are cached for the process lifetime.
 #[host_command(io)]
 pub async fn list_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSummary>, String> {
-    let mut roots = resolve_plugin_roots(None);
-    // Packaged build: also scan resource_dir and app_data_dir for compat-plugins.
-    if let Some(tauri_app) = app.as_tauri() {
-        if let Ok(resource_dir) = tauri_app.path().resource_dir() {
-            let plugin_dir = resource_dir.join("compat-plugins");
-            if plugin_dir.is_dir() && !roots.contains(&plugin_dir) {
-                roots.push(plugin_dir);
-            }
-        }
-        if let Ok(app_data_dir) = tauri_app.path().app_data_dir() {
-            let plugin_dir = app_data_dir.join("compat-plugins");
-            if plugin_dir.is_dir() && !roots.contains(&plugin_dir) {
-                roots.push(plugin_dir);
-            }
-        }
-    }
-    Ok::<Vec<CompatPluginSummary>, String>(domain::modding::compat_plugin::list_summaries(&roots))
+    Ok::<Vec<CompatPluginSummary>, String>(
+        domain::modding::compat_plugin::list_summaries_from_resolved_roots(),
+    )
+}
+
+/// Lists pack entries under a directory-pack source. Scans `<mod_root>/<root_subdir>`
+/// for subdirectories containing the declared entry file, returning one summary
+/// per entry. Used by stage 2 `directory-pack` source adapters.
+#[host_command(io)]
+pub async fn list_compat_plugin_entries(
+    app: AppHandle,
+    request: ListCompatPluginEntriesRequest,
+) -> Result<Vec<CompatPluginEntrySummary>, String> {
+    Ok::<Vec<CompatPluginEntrySummary>, String>(
+        domain::modding::compat_plugin::list_directory_pack_entries(&request),
+    )
+}
+
+/// Reads one pack entry's JSON content from a directory-pack source. The path
+/// is resolved as `<mod_root>/<root_subdir>/<entry_id>/<entry_file>` with path
+/// traversal protection (no `..` escape, no absolute paths).
+#[host_command(io)]
+pub async fn read_compat_plugin_entry(
+    app: AppHandle,
+    request: ReadCompatPluginEntryRequest,
+) -> Result<ReadCompatPluginEntryResult, String> {
+    domain::modding::compat_plugin::read_directory_pack_entry(request)
+}
+
+/// Writes one pack entry's JSON content to a directory-pack source. The path
+/// is resolved as `<mod_root>/<root_subdir>/<entry_id>/<entry_file>` with path
+/// traversal protection. The write is atomic (write to temp then rename).
+#[host_command(mutation, resources(CompatPluginEntry))]
+pub async fn write_compat_plugin_entry(
+    app: AppHandle,
+    request: WriteCompatPluginEntryRequest,
+) -> Result<(), String> {
+    Ok::<(), String>(domain::modding::compat_plugin::write_directory_pack_entry(
+        request,
+    )?)
+}
+
+/// Request payload for `list_compat_plugin_entries`.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListCompatPluginEntriesRequest {
+    /// Absolute path to the target mod's root directory (from `scan_mod_projects`).
+    pub mod_root: String,
+    /// Subdirectory within the mod root containing entries (e.g. "Textures").
+    pub root_subdir: String,
+    /// Entry file name to look for in each subdirectory (e.g. "texture.json").
+    pub entry_file: String,
+    /// Optional companion image file name (e.g. "texture.png").
+    pub entry_image: Option<String>,
 }

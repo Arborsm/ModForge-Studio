@@ -1,0 +1,301 @@
+/**
+ * @file Schema-rendering runtime for compat plugin data-pack pages. Looks up
+ * the page descriptor by module id, resolves the target mod root via existing
+ * entities-layer commands, lists pack entries, and renders a schema-driven
+ * form for editing entry fields.
+ * @module features/compat-plugins
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Images } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { useLocale } from '@locales/provider'
+import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
+import { PanelFrame } from '@shared/ui/PanelFrame'
+import { PanelSection } from '@shared/ui/PanelSection'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
+import { usePluginLocaleStore } from '../model/pluginLocaleStore'
+import { getPageDescriptorEntryByModuleId } from '../model/pageDescriptorStore'
+import { resolveTargetModRoot } from '../lib/resolveTargetModRoot'
+import { resolveSourceAdapter } from '../adapters/types'
+import type { CompatPluginField, CompatPluginSection } from '../api/types'
+import type { CompatEntrySummary, CompatPageContext } from '../adapters/types'
+import { evaluateVisibleWhen, fillDefaults, validateFields, type FieldValidationError } from '../lib/schemaEvaluator'
+import { CompatFieldRenderer } from './CompatFieldRenderer'
+
+type CompatModuleRuntimeProps = {
+  moduleId: string
+}
+
+type LoadState = 'loading' | 'loaded' | 'error' | 'empty'
+
+/** Schema-rendering runtime for compat plugin data-pack pages. */
+export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = function CompatModuleRuntime({
+  moduleId,
+}: CompatModuleRuntimeProps) {
+  const locale = useLocale()
+  const pluginBundles = usePluginLocaleStore((state) => state.bundles)
+
+  const descriptorEntry = useMemo(() => getPageDescriptorEntryByModuleId(moduleId), [moduleId])
+  const pageDescriptor = descriptorEntry?.page ?? null
+  const targets = descriptorEntry?.targets ?? []
+
+  const pluginId = useMemo(() => {
+    const rest = moduleId.replace(/^compat-/, '')
+    const colonIndex = rest.lastIndexOf(':')
+    return colonIndex >= 0 ? rest.slice(0, colonIndex) : null
+  }, [moduleId])
+
+  const t = useCallback(
+    (key: string): string => {
+      if (!pluginId) return key
+      const bundle = pluginBundles[pluginId]
+      if (!bundle) return key
+      const entries = bundle[locale]
+      if (!entries) return key
+      return entries[key] ?? key
+    },
+    [pluginBundles, locale, pluginId],
+  )
+
+  const [targetModRoot, setTargetModRoot] = useState<string | null>(null)
+  const [entries, setEntries] = useState<CompatEntrySummary[]>([])
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  const [entryValues, setEntryValues] = useState<Record<string, unknown>>({})
+  const [originalValues, setOriginalValues] = useState<Record<string, unknown>>({})
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [entryLoadState, setEntryLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [validationErrors, setValidationErrors] = useState<FieldValidationError[]>([])
+  const loadGenerationRef = useRef(0)
+
+  // Resolve target mod root and list entries.
+  useEffect(() => {
+    const source = pageDescriptor?.source
+    if (!source) {
+      setLoadState('empty')
+      return
+    }
+    const targetUniqueId = targets[0]
+    if (!targetUniqueId) {
+      setLoadState('empty')
+      return
+    }
+    let cancelled = false
+    const generation = ++loadGenerationRef.current
+    void (async () => {
+      setLoadState('loading')
+      try {
+        const modRoot = await resolveTargetModRoot(targetUniqueId)
+        if (cancelled || generation !== loadGenerationRef.current) return
+        if (!modRoot) {
+          setTargetModRoot(null)
+          setEntries([])
+          setLoadState('empty')
+          return
+        }
+        setTargetModRoot(modRoot)
+        const adapter = await resolveSourceAdapter(source.kind)
+        if (!adapter) {
+          setLoadState('error')
+          return
+        }
+        const context: CompatPageContext = {
+          targetModUniqueId: targetUniqueId,
+          targetModRoot: modRoot,
+          projectRoot: null,
+        }
+        const entryList = await adapter.listEntries(source, context)
+        if (cancelled || generation !== loadGenerationRef.current) return
+        setEntries(entryList)
+        setLoadState('loaded')
+      } catch {
+        if (!cancelled && generation === loadGenerationRef.current) {
+          setLoadState('error')
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pageDescriptor, targets])
+
+  // Load selected entry content.
+  useEffect(() => {
+    const source = pageDescriptor?.source
+    if (!source || !targetModRoot || !selectedEntryId) {
+      setEntryLoadState('idle')
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      setEntryLoadState('loading')
+      try {
+        const adapter = await resolveSourceAdapter(source.kind)
+        if (!adapter) return
+        const context: CompatPageContext = {
+          targetModUniqueId: targets[0] ?? '',
+          targetModRoot,
+          projectRoot: null,
+        }
+        const content = await adapter.loadEntry(source, context, selectedEntryId)
+        if (cancelled) return
+        const allFields = pageDescriptor.sections.flatMap((section) => section.fields)
+        const filled = fillDefaults(allFields, content)
+        setEntryValues(filled)
+        setOriginalValues(filled)
+        setEntryLoadState('loaded')
+        setSaveState('idle')
+        setValidationErrors([])
+      } catch {
+        if (!cancelled) setEntryLoadState('error')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pageDescriptor, targetModRoot, selectedEntryId, targets])
+
+  if (!pageDescriptor) {
+    return (
+      <div className="empty-state-card-fill">
+        <EmptyStateCard title={t('at.empty.title')} detail={t('at.empty.detail')} density="compact" />
+      </div>
+    )
+  }
+
+  if (loadState === 'loading') {
+    return (
+      <div className="empty-state-card-fill">
+        <EmptyStateCard title={t('at.empty.title')} detail={t('at.empty.detail')} density="compact" />
+      </div>
+    )
+  }
+
+  if (loadState === 'empty' || entries.length === 0) {
+    return (
+      <div className="empty-state-card-fill">
+        <EmptyStateCard
+          title={t('at.empty.title')}
+          detail={t('at.empty.detail')}
+          illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
+          density="compact"
+        />
+      </div>
+    )
+  }
+
+  const hasUnsavedChanges = JSON.stringify(entryValues) !== JSON.stringify(originalValues)
+
+  const handleFieldChange = (field: CompatPluginField, value: unknown) => {
+    setEntryValues((prev) => ({ ...prev, [field.path]: value }))
+    setSaveState('idle')
+  }
+
+  const handleSave = async () => {
+    const source = pageDescriptor.source
+    if (!source || !targetModRoot || !selectedEntryId) return
+    const allFields = pageDescriptor.sections.flatMap((section) => section.fields)
+    const errors = validateFields(allFields, entryValues)
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors([])
+    setSaveState('saving')
+    try {
+      const adapter = await resolveSourceAdapter(source.kind)
+      if (!adapter) throw new Error(`Unsupported source kind: ${source.kind}`)
+      const context: CompatPageContext = {
+        targetModUniqueId: targets[0] ?? '',
+        targetModRoot,
+        projectRoot: null,
+      }
+      await adapter.saveEntry(source, context, selectedEntryId, entryValues)
+      setOriginalValues({ ...entryValues })
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    }
+  }
+
+  const visibleSections: CompatPluginSection[] = pageDescriptor.sections.map((section) => ({
+    titleKey: section.titleKey,
+    fields: section.fields.filter((field) => evaluateVisibleWhen(field.visibleWhen, entryValues)),
+  }))
+
+  return (
+    <WorkspaceSplitView
+      sidebar={
+        <PanelFrame title={t('at.entryList.title')} flat>
+          <div className="compat-entry-list">
+            {entries.length === 0 ? (
+              <p className="compat-entry-list-empty">{t('at.entryList.empty')}</p>
+            ) : (
+              <ul className="compat-entry-list-items">
+                {entries.map((entry) => (
+                  <li key={entry.id}>
+                    <button
+                      type="button"
+                      className={cx('compat-entry-list-item', entry.id === selectedEntryId && 'is-active')}
+                      onClick={() => setSelectedEntryId(entry.id)}
+                    >
+                      {entry.id}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </PanelFrame>
+      }
+    >
+      {selectedEntryId && entryLoadState === 'loaded' ? (
+        <PanelFrame
+          title={t(pageDescriptor.titleKey)}
+          headerAction={
+            <div className="compat-editor-actions">
+              {hasUnsavedChanges && <span className="compat-editor-unsaved">{t('at.editor.unsavedChanges')}</span>}
+              {saveState === 'saved' && <span className="compat-editor-saved">{t('at.editor.saveSuccess')}</span>}
+              {saveState === 'error' && <span className="compat-editor-error">{t('at.editor.saveError')}</span>}
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                disabled={!hasUnsavedChanges || saveState === 'saving'}
+                onClick={handleSave}
+              >
+                {t('at.editor.save')}
+              </button>
+            </div>
+          }
+        >
+          {visibleSections.map((section) => (
+            <PanelSection key={section.titleKey} title={t(section.titleKey)}>
+              <div className="compat-form-fields">
+                {section.fields.map((field) => (
+                  <CompatFieldRenderer
+                    key={field.id}
+                    field={field}
+                    value={entryValues[field.path]}
+                    onChange={(value) => handleFieldChange(field, value)}
+                    label={t(field.labelKey ?? field.id)}
+                    error={validationErrors.find((error) => error.fieldId === field.id)}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </PanelSection>
+          ))}
+        </PanelFrame>
+      ) : (
+        <div className="empty-state-card-fill">
+          <EmptyStateCard title={t('at.editor.noSelection')} detail="" density="compact" />
+        </div>
+      )}
+    </WorkspaceSplitView>
+  )
+}
+
+/** Minimal class name combiner (avoids importing cx utility for this runtime). */
+function cx(...classes: (string | false | undefined | null)[]): string {
+  return classes.filter(Boolean).join(' ')
+}
