@@ -3,7 +3,7 @@
  * visibility, validation, default value filling and value extraction.
  * @module features/compat-plugins
  */
-import type { CompatPluginField, CompatPluginFieldVisibleWhen } from '../api/types'
+import type { CompatPluginField, CompatPluginFieldVisibleWhen, CompatPluginValidation } from '../api/types'
 
 /** Result of evaluating a field's visibility condition. */
 export function evaluateVisibleWhen(condition: CompatPluginFieldVisibleWhen | undefined, values: Record<string, unknown>): boolean {
@@ -110,6 +110,37 @@ export function validateFields(fields: readonly CompatPluginField[], values: Rec
     errors.push(...validateField(field, value))
   }
   return errors
+}
+
+/** Checks if a value is non-empty (not undefined, null, empty string, or empty array). */
+function isNonEmpty(value: unknown): boolean {
+  if (value === undefined || value === null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  return true
+}
+
+/** Validates cross-field rules (e.g. require-one-of). Returns errors (empty = valid). */
+export function validateCrossField(rules: readonly CompatPluginValidation[], values: Record<string, unknown>): FieldValidationError[] {
+  const errors: FieldValidationError[] = []
+  for (const rule of rules) {
+    if (rule.kind === 'require-one-of') {
+      const hasAtLeastOne = rule.paths.some((path) => isNonEmpty(values[path]))
+      if (!hasAtLeastOne) {
+        errors.push({ fieldId: rule.paths[0] ?? '', path: rule.paths.join('|'), message: rule.messageKey })
+      }
+    }
+  }
+  return errors
+}
+
+/** Validates fields and cross-field rules together. Returns all errors (empty = valid). */
+export function validateAll(
+  fields: readonly CompatPluginField[],
+  rules: readonly CompatPluginValidation[],
+  values: Record<string, unknown>,
+): FieldValidationError[] {
+  return [...validateFields(fields, values), ...validateCrossField(rules, values)]
 }
 
 /** Returns the default value for a field type (used when a field is missing from loaded data). */

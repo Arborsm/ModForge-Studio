@@ -3,6 +3,9 @@
   "at.section.identity": "Identity",
   "at.section.appearance": "Appearance",
   "at.field.itemName": "Item Name",
+  "at.field.itemId": "Item ID",
+  "at.field.collectiveNames": "Collective Names",
+  "at.field.collectiveIds": "Collective IDs",
   "at.field.type": "Type",
   "at.field.variations": "Variations",
   "at.field.textureWidth": "Texture Width",
@@ -24,5 +27,16 @@
   "at.editor.discard": "Discard changes",
   "at.field.required": "Required",
   "at.field.invalid": "Invalid value",
-  "at.field.outOfRange": "Value out of range"
+  "at.field.outOfRange": "Value out of range",
+  "at.section.advanced": "Advanced",
+  "at.field.enableAnimation": "Enable Animation",
+  "at.field.animation": "Animation",
+  "at.field.animationFrameDuration": "Frame Duration (ms)",
+  "at.field.animationFrameCount": "Frame Count",
+  "at.field.enableTints": "Enable Tints",
+  "at.field.tints": "Tints",
+  "at.field.tintRed": "Red",
+  "at.field.tintGreen": "Green",
+  "at.field.tintBlue": "Blue",
+  "at.validation.requireOneIdentifier": "At least one identifier field is required (Item Name, Item ID, Collective Names, or Collective IDs)"
 }

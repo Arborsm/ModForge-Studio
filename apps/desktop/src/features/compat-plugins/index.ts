@@ -10,6 +10,8 @@ export type {
   CompatPluginSection,
   CompatPluginField,
   CompatPluginPageSource,
+  CompatPluginValidation,
+  CompatPluginRequireOneOf,
   PluginI18nBundle,
   AssetSchemaContribution,
   AssetSchemaField,

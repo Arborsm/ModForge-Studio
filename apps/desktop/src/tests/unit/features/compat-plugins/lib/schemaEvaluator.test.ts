@@ -3,10 +3,12 @@ import {
   defaultFieldValue,
   evaluateVisibleWhen,
   fillDefaults,
+  validateAll,
+  validateCrossField,
   validateField,
   validateFields,
 } from '@features/compat-plugins/lib/schemaEvaluator'
-import type { CompatPluginField } from '@features/compat-plugins'
+import type { CompatPluginField, CompatPluginValidation } from '@features/compat-plugins'
 
 function field(overrides: Partial<CompatPluginField> = {}): CompatPluginField {
   return {
@@ -164,5 +166,71 @@ describe('fillDefaults', () => {
     const fields = [field({ id: 'a', path: 'A', type: 'text' })]
     const result = fillDefaults(fields, { A: 'existing' })
     expect(result.A).toBe('existing')
+  })
+})
+
+describe('validateCrossField', () => {
+  const requireOneOf: CompatPluginValidation = {
+    kind: 'require-one-of',
+    paths: ['ItemName', 'ItemId', 'CollectiveNames', 'CollectiveIds'],
+    messageKey: 'at.validation.requireOneIdentifier',
+  }
+
+  test('returns no errors when at least one path has a non-empty value', () => {
+    expect(validateCrossField([requireOneOf], { ItemName: 'Parsnip' })).toEqual([])
+    expect(validateCrossField([requireOneOf], { ItemId: 'ParsnipSeed' })).toEqual([])
+    expect(validateCrossField([requireOneOf], { CollectiveNames: ['Spring Crops'] })).toEqual([])
+    expect(validateCrossField([requireOneOf], { CollectiveIds: ['spring_crops'] })).toEqual([])
+  })
+
+  test('returns error when all paths are empty', () => {
+    const errors = validateCrossField([requireOneOf], {})
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toBe('at.validation.requireOneIdentifier')
+  })
+
+  test('returns error when all paths are empty strings or empty arrays', () => {
+    const errors = validateCrossField([requireOneOf], {
+      ItemName: '',
+      ItemId: '',
+      CollectiveNames: [],
+      CollectiveIds: [],
+    })
+    expect(errors).toHaveLength(1)
+  })
+
+  test('returns error when paths are null or undefined', () => {
+    const errors = validateCrossField([requireOneOf], {
+      ItemName: null,
+      ItemId: undefined,
+    })
+    expect(errors).toHaveLength(1)
+  })
+
+  test('returns no errors for empty rules array', () => {
+    expect(validateCrossField([], { ItemName: 'Parsnip' })).toEqual([])
+  })
+
+  test('trims string values before checking emptiness', () => {
+    const errors = validateCrossField([requireOneOf], { ItemName: '   ' })
+    expect(errors).toHaveLength(1)
+  })
+})
+
+describe('validateAll', () => {
+  test('combines field-level and cross-field errors', () => {
+    const fields: CompatPluginField[] = [field({ id: 'type', path: 'Type', type: 'choice', allowValues: ['Crop'], required: true })]
+    const rules: CompatPluginValidation[] = [{ kind: 'require-one-of', paths: ['ItemName', 'ItemId'], messageKey: 'requireOne' }]
+    const errors = validateAll(fields, rules, {})
+    expect(errors).toHaveLength(2)
+    expect(errors.some((e) => e.fieldId === 'type')).toBe(true)
+    expect(errors.some((e) => e.message === 'requireOne')).toBe(true)
+  })
+
+  test('returns no errors when both field and cross-field validations pass', () => {
+    const fields: CompatPluginField[] = [field({ id: 'type', path: 'Type', type: 'choice', allowValues: ['Crop'], required: true })]
+    const rules: CompatPluginValidation[] = [{ kind: 'require-one-of', paths: ['ItemName', 'ItemId'], messageKey: 'requireOne' }]
+    const errors = validateAll(fields, rules, { Type: 'Crop', ItemName: 'Parsnip' })
+    expect(errors).toEqual([])
   })
 })

@@ -3,6 +3,9 @@
   "at.section.identity": "标识",
   "at.section.appearance": "外观",
   "at.field.itemName": "物品名称",
+  "at.field.itemId": "物品 ID",
+  "at.field.collectiveNames": "集合名称",
+  "at.field.collectiveIds": "集合 ID",
   "at.field.type": "类型",
   "at.field.variations": "变体数",
   "at.field.textureWidth": "纹理宽度",
@@ -24,5 +27,16 @@
   "at.editor.discard": "放弃更改",
   "at.field.required": "必填",
   "at.field.invalid": "无效值",
-  "at.field.outOfRange": "值超出范围"
+  "at.field.outOfRange": "值超出范围",
+  "at.section.advanced": "高级",
+  "at.field.enableAnimation": "启用动画",
+  "at.field.animation": "动画",
+  "at.field.animationFrameDuration": "帧持续时间(ms)",
+  "at.field.animationFrameCount": "帧数",
+  "at.field.enableTints": "启用着色",
+  "at.field.tints": "着色",
+  "at.field.tintRed": "红色",
+  "at.field.tintGreen": "绿色",
+  "at.field.tintBlue": "蓝色",
+  "at.validation.requireOneIdentifier": "至少需要填写一个标识字段（物品名称、物品 ID、集合名称或集合 ID）"
 }

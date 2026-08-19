@@ -541,7 +541,14 @@ fn build_summaries_extracts_page_descriptors() {
         "navigation": {"section": "tools", "order": 50, "icon": "images"},
         "titleKey": "page.title",
         "presentation": "standalone",
-        "projectAccess": "read"
+        "projectAccess": "read",
+        "validations": [
+          {
+            "kind": "require-one-of",
+            "paths": ["fields.id", "fields.name"],
+            "messageKey": "validation.requireOneOf.idOrName"
+          }
+        ]
       }
     ]
   }
@@ -563,6 +570,19 @@ fn build_summaries_extracts_page_descriptors() {
     assert_eq!(page.title_key, "page.title");
     assert_eq!(page.presentation, "standalone");
     assert_eq!(page.project_access, "read");
+    assert_eq!(page.validations.len(), 1);
+    match &page.validations[0] {
+        crate::domain::modding::compat_plugin::CompatPluginValidationWire::RequireOneOf {
+            paths,
+            message_key,
+        } => {
+            assert_eq!(
+                paths,
+                &vec!["fields.id".to_string(), "fields.name".to_string()]
+            );
+            assert_eq!(message_key, "validation.requireOneOf.idOrName");
+        }
+    }
 }
 
 #[test]

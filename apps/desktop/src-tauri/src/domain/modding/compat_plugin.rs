@@ -160,6 +160,11 @@ pub(crate) struct PageContribution {
     /// Stage 2: grouped field descriptors.
     #[serde(default)]
     pub sections: Vec<PageSectionDecl>,
+    /// Cross-field validation rules (e.g. `require-one-of` for identifier
+    /// fields). Declared at the page level; forwarded to the frontend via
+    /// `CompatPluginPageSummary`.
+    #[serde(default)]
+    pub validations: Vec<PageValidationDecl>,
 }
 
 /// `contributions.pages[].source` — declares where pack entries live.
@@ -240,6 +245,20 @@ pub(crate) struct PageFieldVisibleWhenDecl {
     pub values: Option<Vec<serde_json::Value>>,
 }
 
+/// Cross-field validation rule declaration (e.g. `require-one-of` for
+/// identifier fields). Declared at the page level so the frontend can enforce
+/// rules that span multiple fields within the same page.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub(crate) enum PageValidationDecl {
+    #[serde(rename = "require-one-of")]
+    RequireOneOf {
+        paths: Vec<String>,
+        #[serde(rename = "messageKey")]
+        message_key: String,
+    },
+}
+
 fn default_presentation() -> String {
     "standalone".to_string()
 }
@@ -314,6 +333,24 @@ pub(crate) struct CompatPluginPageSummary {
     pub layout: Option<String>,
     /// Stage 2: grouped field descriptors.
     pub sections: Vec<PageSectionWire>,
+    /// Cross-field validation rules (e.g. require-one-of for identifier
+    /// fields).
+    #[serde(default)]
+    pub validations: Vec<CompatPluginValidationWire>,
+}
+
+/// Wire form of a cross-field validation rule (e.g. `require-one-of` for
+/// identifier fields). Tagged by `kind` so the frontend can pattern-match on
+/// the rule type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub(crate) enum CompatPluginValidationWire {
+    #[serde(rename = "require-one-of")]
+    RequireOneOf {
+        paths: Vec<String>,
+        #[serde(rename = "messageKey")]
+        message_key: String,
+    },
 }
 
 /// Wire form of `PageSourceDecl` (Serialize + Deserialize, since the decl only
@@ -815,6 +852,11 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                     source: page.source.as_ref().map(page_source_to_wire),
                     layout: page.layout.clone(),
                     sections: page.sections.iter().map(page_section_to_wire).collect(),
+                    validations: page
+                        .validations
+                        .iter()
+                        .map(page_validation_to_wire)
+                        .collect(),
                 })
                 .collect();
             let page_ids = pages.iter().map(|page| page.id.clone()).collect();
@@ -866,6 +908,18 @@ fn page_section_to_wire(section: &PageSectionDecl) -> PageSectionWire {
     PageSectionWire {
         title_key: section.title_key.clone(),
         fields: section.fields.iter().map(page_field_to_wire).collect(),
+    }
+}
+
+/// Converts a `PageValidationDecl` into its serializable wire form.
+fn page_validation_to_wire(validation: &PageValidationDecl) -> CompatPluginValidationWire {
+    match validation {
+        PageValidationDecl::RequireOneOf { paths, message_key } => {
+            CompatPluginValidationWire::RequireOneOf {
+                paths: paths.clone(),
+                message_key: message_key.clone(),
+            }
+        }
     }
 }
 

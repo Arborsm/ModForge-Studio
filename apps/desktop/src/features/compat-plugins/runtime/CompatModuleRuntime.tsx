@@ -20,7 +20,7 @@ import { resolveTargetModRoot } from '../lib/resolveTargetModRoot'
 import { resolveSourceAdapter } from '../adapters/types'
 import type { CompatPluginField, CompatPluginSection } from '../api/types'
 import type { CompatEntrySummary, CompatPageContext } from '../adapters/types'
-import { evaluateVisibleWhen, fillDefaults, validateFields, type FieldValidationError } from '../lib/schemaEvaluator'
+import { evaluateVisibleWhen, fillDefaults, validateAll, type FieldValidationError } from '../lib/schemaEvaluator'
 import { CompatFieldRenderer } from './CompatFieldRenderer'
 
 type CompatModuleRuntimeProps = {
@@ -205,7 +205,7 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
     const source = pageDescriptor.source
     if (!source || !targetModRoot || !selectedEntryId) return
     const allFields = pageDescriptor.sections.flatMap((section) => section.fields)
-    const errors = validateFields(allFields, entryValues)
+    const errors = validateAll(allFields, pageDescriptor.validations ?? [], entryValues)
     if (errors.length > 0) {
       setValidationErrors(errors)
       return

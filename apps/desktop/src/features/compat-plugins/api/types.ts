@@ -57,6 +57,18 @@ export type CompatPluginSection = {
 }
 
 /** Page descriptor carried in `CompatPluginSummary`. */
+/** Cross-field validation rule: at least one of the listed field paths must have a non-empty value. */
+export type CompatPluginRequireOneOf = {
+  kind: 'require-one-of'
+  /** Field paths that are mutually exclusive identifiers — at least one must be non-empty. */
+  paths: string[]
+  /** i18n key for the validation error message. */
+  messageKey: string
+}
+
+/** Cross-field validation rule declared at the page level. */
+export type CompatPluginValidation = CompatPluginRequireOneOf
+
 export type CompatPluginPageSummary = {
   id: string
   section: string
@@ -71,6 +83,8 @@ export type CompatPluginPageSummary = {
   layout: string | null
   /** Stage 2: grouped field descriptors. */
   sections: CompatPluginSection[]
+  /** B-batch: cross-field validation rules (e.g. require-one-of for identifier fields). */
+  validations: CompatPluginValidation[]
 }
 
 /** Asset schema field declaration from a plugin's assetSchema contribution. */

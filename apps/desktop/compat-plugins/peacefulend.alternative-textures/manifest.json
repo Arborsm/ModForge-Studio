@@ -20,6 +20,13 @@
           }
         },
         "layout": "two-column",
+        "validations": [
+          {
+            "kind": "require-one-of",
+            "paths": ["ItemName", "ItemId", "CollectiveNames", "CollectiveIds"],
+            "messageKey": "at.validation.requireOneIdentifier"
+          }
+        ],
         "sections": [
           {
             "titleKey": "at.section.identity",
@@ -28,8 +35,25 @@
                 "id": "itemName",
                 "path": "ItemName",
                 "type": "text",
-                "labelKey": "at.field.itemName",
-                "required": true
+                "labelKey": "at.field.itemName"
+              },
+              {
+                "id": "itemId",
+                "path": "ItemId",
+                "type": "text",
+                "labelKey": "at.field.itemId"
+              },
+              {
+                "id": "collectiveNames",
+                "path": "CollectiveNames",
+                "type": "string-list",
+                "labelKey": "at.field.collectiveNames"
+              },
+              {
+                "id": "collectiveIds",
+                "path": "CollectiveIds",
+                "type": "string-list",
+                "labelKey": "at.field.collectiveIds"
               },
               {
                 "id": "type",
@@ -106,6 +130,86 @@
                     "max": 1,
                     "interval": 0.01,
                     "labelKey": "at.field.manualVariationChanceWeight"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "titleKey": "at.section.advanced",
+            "fields": [
+              {
+                "id": "enableAnimation",
+                "path": "EnableAnimation",
+                "type": "bool",
+                "labelKey": "at.field.enableAnimation"
+              },
+              {
+                "id": "animation",
+                "path": "Animation",
+                "type": "object",
+                "labelKey": "at.field.animation",
+                "visibleWhen": { "kind": "field-eq", "field": "EnableAnimation", "value": true },
+                "fields": [
+                  {
+                    "id": "frameDuration",
+                    "path": "FrameDuration",
+                    "type": "number",
+                    "min": 1,
+                    "max": 10000,
+                    "interval": 1,
+                    "labelKey": "at.field.animationFrameDuration"
+                  },
+                  {
+                    "id": "frameCount",
+                    "path": "FrameCount",
+                    "type": "number",
+                    "min": 1,
+                    "max": 256,
+                    "interval": 1,
+                    "labelKey": "at.field.animationFrameCount"
+                  }
+                ]
+              },
+              {
+                "id": "enableTints",
+                "path": "EnableTints",
+                "type": "bool",
+                "labelKey": "at.field.enableTints"
+              },
+              {
+                "id": "tints",
+                "path": "Tints",
+                "type": "object",
+                "labelKey": "at.field.tints",
+                "visibleWhen": { "kind": "field-eq", "field": "EnableTints", "value": true },
+                "fields": [
+                  {
+                    "id": "redTint",
+                    "path": "RedTint",
+                    "type": "number",
+                    "min": 0,
+                    "max": 255,
+                    "interval": 1,
+                    "labelKey": "at.field.tintRed"
+                  },
+                  {
+                    "id": "greenTint",
+                    "path": "GreenTint",
+                    "type": "number",
+                    "min": 0,
+                    "max": 255,
+                    "interval": 1,
+                    "labelKey": "at.field.tintGreen"
+                  },
+                  {
+                    "id": "blueTint",
+                    "path": "BlueTint",
+                    "type": "number",
+                    "min": 0,
+                    "max": 255,
+                    "interval": 1,
+                    "labelKey": "at.field.tintBlue"
                   }
                 ]
               }
