@@ -1,5 +1,10 @@
+/** @file Map editor palette preference types and normalization (zoom, per-tileset selections, recents, favorites). */
+
 /** Maximum number of recently used palette selections kept in preferences. */
 export const PALETTE_RECENT_LIMIT = 8
+
+/** Maximum number of starred favorite selections kept in preferences. */
+export const PALETTE_FAVORITE_LIMIT = 64
 
 /** A rectangular stamp selection inside one tileset, expressed in tileset tile coordinates. */
 export type PaletteTilesetSelection = {
@@ -15,21 +20,22 @@ export type PaletteRecentSelection = PaletteTilesetSelection & {
 
 /**
  * Persisted map-editor palette preferences. All palette-wide user preferences
- * live in this single slice: open state, zoom, per-tileset remembered
- * selections, and the recent-use queue. Stored under `workspace.modules['map-editor/palette']`.
+ * live in this single slice: zoom, per-tileset remembered selections, the
+ * recent-use queue, and starred favorites. Stored under
+ * `workspace.modules['map-editor/palette']`.
  */
 export type MapEditorPalettePreferences = {
-  paletteOpen: boolean
   zoom: number
   perTilesetSelections: Record<string, PaletteTilesetSelection>
   recents: PaletteRecentSelection[]
+  favorites: PaletteRecentSelection[]
 }
 
 export const DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES: MapEditorPalettePreferences = {
-  paletteOpen: true,
   zoom: 1,
   perTilesetSelections: {},
   recents: [],
+  favorites: [],
 }
 
 const PALETTE_ZOOM_MIN = 0.5
@@ -93,12 +99,25 @@ export function normalizeMapEditorPalettePreferences(value: unknown): MapEditorP
         .slice(0, PALETTE_RECENT_LIMIT)
     : []
 
+  const favorites: PaletteRecentSelection[] = Array.isArray(value.favorites)
+    ? value.favorites
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry.tilesetName !== 'string' || !entry.tilesetName.trim()) {
+            return null
+          }
+          const selection = normalizeTilesetSelection(entry)
+          return selection ? { tilesetName: entry.tilesetName, ...selection } : null
+        })
+        .filter((entry): entry is PaletteRecentSelection => entry !== null)
+        .slice(0, PALETTE_FAVORITE_LIMIT)
+    : []
+
   const zoom = typeof value.zoom === 'number' && Number.isFinite(value.zoom) ? value.zoom : DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES.zoom
 
   return {
-    paletteOpen: typeof value.paletteOpen === 'boolean' ? value.paletteOpen : DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES.paletteOpen,
     zoom: Math.min(PALETTE_ZOOM_MAX, Math.max(PALETTE_ZOOM_MIN, zoom)),
     perTilesetSelections,
     recents,
+    favorites,
   }
 }

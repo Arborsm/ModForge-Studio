@@ -1,3 +1,8 @@
+/**
+ * @file Declares how each authoring workspace presents its content entry point
+ * in the workspace shell.
+ * @module features/cp-maker
+ */
 import type { DraftPatch, WorkspaceId } from './types'
 
 /**
@@ -25,6 +30,7 @@ export type WorkspaceContentEntry =
   | { kind: 'mapTargets' }
   | { kind: 'standalone' }
 
+/** Content entry mode for every workspace, keyed by workspace id. */
 export const WORKSPACE_CONTENT_ENTRY: Record<WorkspaceId, WorkspaceContentEntry> = {
   mods: { kind: 'expert' },
   map: { kind: 'mapTargets' },

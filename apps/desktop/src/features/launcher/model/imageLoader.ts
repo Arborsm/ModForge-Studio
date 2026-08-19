@@ -1,3 +1,6 @@
+/**
+ * @file Launcher cover image loading hook and shared resource cache.
+ */
 import { useEffect, useState } from 'react'
 import { createResourceCache } from '@shared/lib/resources'
 import { useLauncherPort } from './launcherPortContext'
@@ -7,6 +10,7 @@ const launcherImageCache = createResourceCache<string>({
   maxEntries: 96,
 })
 
+/** Loads a launcher image URL into the shared cache, hitting the disk cache first when not refreshing. */
 export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPort, refresh = false, modKey: string | null = null) {
   if (refresh) {
     launcherImageCache.invalidate(url)
@@ -38,6 +42,7 @@ function getCachedLauncherImageUrl(url: string | null) {
   return launcherImageCache.get(url)
 }
 
+/** Resolves a remote launcher cover image to a desktop asset URL, with loading/error state. */
 export function useLauncherImage(url: string | null, modKey: string | null = null) {
   const launcherPort = useLauncherPort()
   const cachedImageUrl = getCachedLauncherImageUrl(url)

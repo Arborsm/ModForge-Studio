@@ -1,3 +1,5 @@
+//! Host command bindings for the app UI domain (load and patch UI state).
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::app_ui::{AppUiState, AppUiStatePatch};

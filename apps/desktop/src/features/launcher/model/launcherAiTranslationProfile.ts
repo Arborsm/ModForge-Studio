@@ -1,9 +1,14 @@
+/**
+ * @file Resolves the AI translation profile id for launcher mod-detail batch
+ * translation, falling back to the default generative-ai engine profile.
+ */
 import type { LocalizationEngineRef } from '@shared/contracts'
 
 /**
- * 为 launcher mod detail 的 AI 批次翻译选择 profile：
- * 优先 AI 设置里的默认 profile；未配置时回退到统一默认翻译引擎，
- * 仅当其为 generative-ai 且带有 profileId 时使用，否则返回 null（维持 not-configured）。
+ * Selects the AI profile for launcher mod detail batch translation:
+ * prefers the default profile from AI settings; when unconfigured, falls back
+ * to the unified default translation engine, used only when it is generative-ai
+ * with a profileId; otherwise returns null (stays not-configured).
  */
 export function resolveLauncherAiTranslationProfileId(
   aiDefaultProfileId: string | null | undefined,

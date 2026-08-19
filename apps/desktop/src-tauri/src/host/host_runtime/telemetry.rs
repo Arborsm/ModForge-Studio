@@ -1,3 +1,7 @@
+//! Host Runtime telemetry: per-pool counters, recent event sampling, and
+//! diagnostics summary rendering for the `print_host_runtime_diagnostics`
+//! command.
+
 use crate::support::logging::{DebugLoggingState, LogEvent, targets};
 use std::collections::VecDeque;
 use std::fmt::Write as _;

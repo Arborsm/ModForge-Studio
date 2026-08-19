@@ -1,3 +1,6 @@
+/**
+ * @file Dialogue workspace state hook: manages NPC catalog loading, vanilla dialogue entry reading, edit drafts, and persistence commits.
+ */
 import { useEffect, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { loadImageDataUrl, loadTextAsset } from '@entities/game/api'
@@ -242,7 +245,7 @@ export function useDialogueWorkspace({ directoryInfo, locale, project }: UseDial
   // form claiming to be saved.
   const { port, saveState } = useWorkbenchAssetDraftPort('dialogue', { shortcutsEnabled: draft === null })
 
-  // ── NPC catalog ──
+  // NPC catalog
 
   useEffect(() => {
     if (!rootPath) {
@@ -285,7 +288,7 @@ export function useDialogueWorkspace({ directoryInfo, locale, project }: UseDial
   const activeNpc = npcs.find((npc) => npc.id === selectedNpcId) ?? filteredNpcs[0] ?? npcs[0] ?? null
   const activeNpcId = activeNpc?.id ?? null
 
-  // ── Vanilla entries for the active NPC ──
+  // Vanilla entries for the active NPC
 
   useEffect(() => {
     if (!rootPath || !activeNpcId) {
@@ -328,7 +331,7 @@ export function useDialogueWorkspace({ directoryInfo, locale, project }: UseDial
   const describeOptions = { marriageAsset: activeNpcId ? isMarriageDialogueAsset(activeNpcId) : false }
   const entryTree = buildDialoguePriorityTree(entries, describeOptions)
 
-  // ── Editor draft ──
+  // Editor draft
 
   const draftKey = draft ? buildDialogueKey(draft.keyBuild) : ''
   const draftAst = draft ? parseDialogueScript(draft.script) : null
@@ -515,7 +518,7 @@ export function useDialogueWorkspace({ directoryInfo, locale, project }: UseDial
     }
   }
 
-  // ── Persistence ──
+  // Persistence
 
   // Replays a commit whose freshly added patch has reached the port.
   useEffect(() => {
@@ -645,7 +648,7 @@ export function useDialogueWorkspace({ directoryInfo, locale, project }: UseDial
     return true
   }
 
-  // ── Portrait sheet for the draft NPC ──
+  // Portrait sheet for the draft NPC
 
   const draftNpcId = draft?.npcId ?? null
 

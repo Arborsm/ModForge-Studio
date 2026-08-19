@@ -1,3 +1,7 @@
+/**
+ * @file Splits translation items into backend-safe batches with placeholder sentinel management and layered mismatch degradation.
+ * @module entities/ai
+ */
 import type { AiTranslateBatchRequest, AiTranslationItem, AiTranslationResultItem } from '@shared/contracts'
 import { AI_BATCH_MAX_BYTES, AI_BATCH_MAX_ITEM_BYTES, aiContextWindowInputByteBudget, resolveAiContextWindow } from './aiProfileSettings'
 

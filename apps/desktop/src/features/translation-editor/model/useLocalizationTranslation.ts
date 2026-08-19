@@ -1,3 +1,8 @@
+/**
+ * @file Hook owning one workbench AI translation batch — batching, streaming previews, conflict detection, and result application.
+ * @module features/translation-editor
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   appendTranslationStreamDelta,
@@ -29,7 +34,9 @@ import { planStardewTranslationItems } from './stardewTranslationBatch'
 const WORKBENCH_AI_NOTIFICATION_ID = 'workbench-ai-translation'
 const WORKBENCH_AI_USAGE_NOTIFICATION_ID = 'workbench-ai-translation-usage'
 
+/** AI translation scope — current entry, missing entries, or all entries. */
 export type TranslationAiMode = 'current' | 'missing' | 'all'
+/** Baseline snapshot of an entry's source and target text at request time, for conflict detection. */
 export type TranslationAiBaseline = Pick<TranslationEntry, 'sourceText' | 'targetText'>
 
 /** Separates safe AI results from entries edited or replaced while the request was running. */
@@ -53,6 +60,7 @@ export function partitionTranslationAiResults(
   return { applicable, conflicts }
 }
 
+/** Per-entry streaming preview commit — preview values and completed-item count. */
 export type WorkbenchStreamCommit = {
   /** Per-entry preview values keyed by original entry key; null when no new items completed. */
   preview: ReadonlyMap<string, string> | null
@@ -197,14 +205,18 @@ export function useLocalizationTranslation({
 
   useEffect(() => () => cancel(), [cancel, contextKey])
 
-  // 流式订阅：按 jobId + operation 双保险过滤，过期/错位 delta 一律丢弃。
-  // 订阅在挂载期建立一次，所有状态通过 ref 读取，避免与 run 的竞态管理冲突。
-  // 思考链 delta 只累积不渲染（工作台没有思考链控件），但绝不能报错。
+  // Streaming subscription: filters by jobId + operation as a double guard;
+  // stale/misplaced deltas are always discarded.
+  // The subscription is established once on mount; all state is read via refs
+  // to avoid racing with run's ownership management.
+  // Chain-of-thought deltas are accumulated but never rendered (the workbench
+  // has no chain-of-thought UI), but must never throw.
   useEffect(() => {
     let disposed = false
     let dispose: (() => void) | undefined
-    // 高频 content delta 经尾沿节流（80ms）合并后统一提交渲染：提交粒度即
-    // 单条目渐入/进度的一个 tick，避免每个 delta 触发一次整段重渲染。
+    // High-frequency content deltas are merged via a trailing-edge throttle
+    // (80ms) before a unified render commit: each commit tick is one
+    // per-entry fade-in / progress step, avoiding a full re-render per delta.
     const throttle = createStreamCommitThrottle(() => {
       if (disposed) return
       const active = streamingRef.current
@@ -362,17 +374,20 @@ export function useLocalizationTranslation({
         const originalId = (id: string) => stardewPlan.originalId(id.split('\u0000', 1)[0] ?? id)
         const execute = async (items: typeof sourceItems, jobId: string) => {
           activeJobs.current.add(jobId)
-          // 记录当前 job 的流式上下文：后端在档案开启 streamTranslation 时用
-          // 同一 jobId 通过 ai://translation-stream 上抛 delta。retry 的 job 也
-          // 会重新走这里，迟到 delta 因 jobId 不匹配被订阅侧丢弃。
+          // Record the streaming context for the current job: the backend
+          // uses the same jobId to push deltas over ai://translation-stream
+          // when the profile enables streamTranslation. A retry job also
+          // re-enters here; late deltas from the previous run are discarded
+          // by the subscription side due to jobId mismatch.
           streamingRef.current = {
             jobId,
             operation,
             totalEntries: selected.length,
             originalId: stardewPlan.originalId,
             mergeResults: (streamed) => stardewPlan.mergeResults(mergeBatchResults(streamed)),
-            // 与后端同款：按发送的 item 文本派生 wire sentinel 映射，流式预览
-            // 提交前把 ⟦N⟧ 还原回源占位符，避免用户看到线格式。
+            // Same as the backend: derive the wire sentinel mapping from the
+            // sent item text; before the streaming preview commit, restore
+            // ⟦N⟧ back to source placeholders so users never see the wire format.
             sentinelByItemId: buildPlaceholderSentinelMap(items),
           }
           streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
@@ -396,9 +411,11 @@ export function useLocalizationTranslation({
           } finally {
             activeJobs.current.delete(jobId)
             if (streamingRef.current?.jobId === jobId) {
-              // 该 job 已 settle：后续迟到 delta 全部丢弃，正式结果接管。
-              // 流式预览保留到整个 operation 结束（最终 apply 才写回文件），
-              // 已完成条目并入累计进度，进度在批次间隙不回退。
+              // This job has settled: all late deltas are discarded and the
+              // authoritative result takes over. The streaming preview is
+              // retained until the whole operation ends (the final apply
+              // writes back to the file); completed items are merged into the
+              // accumulated progress so progress never regresses between batches.
               overallCompletedRef.current += streamCompletedCountRef.current
               streamingRef.current = null
               streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
@@ -501,7 +518,8 @@ export function useLocalizationTranslation({
       } finally {
         if (ownerRef.current === operation) {
           ownerRef.current = null
-          // 正式结构化结果已通过 applyResults 写回文件，流式预览全部让位。
+          // The authoritative structured result has been written back to the
+          // file via applyResults; all streaming previews step aside.
           setStreamingValues(null)
           setProgress((current) => ({ ...current, running: false }))
         }

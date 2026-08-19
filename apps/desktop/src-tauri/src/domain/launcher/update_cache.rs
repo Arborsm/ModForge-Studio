@@ -1,3 +1,5 @@
+//! Launcher updates cache: TTL-based result caching, in-progress tracking, and auto-failure suppression.
+
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, logical_path_key, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;

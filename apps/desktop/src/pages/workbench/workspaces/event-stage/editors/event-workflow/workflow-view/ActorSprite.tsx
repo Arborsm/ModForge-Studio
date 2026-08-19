@@ -1,4 +1,6 @@
-// 地图角色精灵 — 根据事件命令序列渲染 actor 状态（位置、朝向、动画帧、表情）
+/**
+ * @file Map actor sprite component: renders actor state (position, facing, animation frame, emote) based on the event command sequence.
+ */
 
 import { useMemo } from 'react'
 import type { EventScript } from '@entities/event'
@@ -13,24 +15,24 @@ export type ActorSpriteProps = {
   tileWidth: number
   tileHeight: number
   eventScript: EventScript | null
-  /** 当前选中的命令索引，用于高亮 actor 状态变化点 */
+  /** Currently selected command index, used to highlight actor state change points */
   selectedCommandIndex?: number | null | undefined
-  /** 是否被显式选中（例如点击了 actor） */
+  /** Whether explicitly selected (e.g. by clicking the actor) */
   selected?: boolean
-  /** 是否显示名称标签 */
+  /** Whether to show the name label */
   showLabel?: boolean
 }
 
-// SDV 精灵帧布局：4 列（方向：下右左上），每行 4 帧
+// SDV sprite frame layout: 4 columns (directions: down/right/left/up), 4 frames per row
 // frame = direction * 4 + animationFrame
-// 但 getDefaultFrame 使用：下=0, 右=4, 上=8, 左=12（即 direction * 4）
+// But getDefaultFrame uses: down=0, right=4, up=8, left=12 (i.e. direction * 4)
 
 function getFrameForDirection(direction: number, animationFrame = 0): number {
   const dir = ((direction % 4) + 4) % 4
   return dir * 4 + (animationFrame % 4)
 }
 
-// 解析命令，计算 actor 在命令序列执行后的状态
+// Parse commands to compute the actor state after executing the command sequence
 type ActorRuntimeState = {
   tileX: number
   tileY: number
@@ -213,7 +215,7 @@ function computeActorState(
       case 'makeInvisible':
       case 'hideShadow': {
         if (!affectsThisActor) break
-        // 不完全隐藏，只是标记状态
+        // Not fully hidden, just marking the state
         break
       }
 
@@ -238,7 +240,7 @@ function computeActorState(
   return state
 }
 
-// 表情图标映射（简化版，用 Unicode 表情代替真实表情贴图）
+// Emote icon mapping (simplified: uses Unicode emojis in place of real emote textures)
 const EMOTE_ICONS: Record<number, string> = {
   0: '💭',
   1: '❓',
@@ -280,7 +282,7 @@ export function ActorSprite({
   const pixelX = runtime.tileX * tileWidth
   const pixelY = (runtime.tileY - 1) * tileHeight
 
-  // 精灵图是基于 16x32 的，需要根据 tile 大小缩放
+  // The sprite sheet is based on 16x32; scale according to tile size
   const spriteFrameX = (runtime.frame % 4) * 16
   const spriteFrameY = Math.floor(runtime.frame / 4) * 32
   const actorHeight = tileHeight * 2
@@ -299,7 +301,7 @@ export function ActorSprite({
         zIndex: runtime.tileY + (selected ? 1000 : 0),
       }}
     >
-      {/* 选中高亮光环 */}
+      {/* Selection highlight halo */}
       {selected && (
         <div
           className="absolute inset-0 rounded-full opacity-40"
@@ -310,7 +312,7 @@ export function ActorSprite({
         />
       )}
 
-      {/* 精灵主体 */}
+      {/* Sprite body */}
       {spriteUrl ? (
         <div
           className="relative overflow-hidden"
@@ -340,7 +342,7 @@ export function ActorSprite({
         </div>
       )}
 
-      {/* 表情气泡 */}
+      {/* Emote bubble */}
       {runtime.emoteId != null && (
         <div
           className="shadow-panel pointer-events-none absolute -top-5 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_90%,transparent)] text-xs"
@@ -350,7 +352,7 @@ export function ActorSprite({
         </div>
       )}
 
-      {/* 名称标签 */}
+      {/* Name label */}
       {showLabel && (
         <div
           className="text-text-primary shadow-panel text-caption-px pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 font-semibold"
@@ -360,7 +362,7 @@ export function ActorSprite({
         </div>
       )}
 
-      {/* 选中指示器 */}
+      {/* Selection indicator */}
       {selected && <div className="bg-accent pointer-events-none absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full" />}
     </div>
   )

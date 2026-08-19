@@ -1,4 +1,6 @@
-// 地图路径/轨迹渲染 — 在 EventStagePreview 上叠加 SVG 路径层
+/**
+ * @file Map path/trajectory rendering component: overlays an SVG path layer on EventStagePreview.
+ */
 
 import { useMemo } from 'react'
 import type { EventScript } from '@entities/event'
@@ -13,7 +15,7 @@ export type StagePathOverlayProps = {
   hoveredCommandIndex?: number | null
 }
 
-// ─── Actor 轨迹点 ────────────────────────────────────────────────────────
+// Actor trajectory points
 
 type PathPoint = {
   x: number
@@ -31,7 +33,7 @@ type ActorPath = {
   segments: { from: PathPoint; to: PathPoint; kind: PathPoint['kind']; commandIndex: number }[]
 }
 
-// 为每个 actor 分配一个稳定颜色
+// Assign a stable color to each actor
 const ACTOR_COLORS = [
   '#22c55e', // green
   '#3b82f6', // blue
@@ -55,14 +57,14 @@ function toActorKey(actorName: string): string {
   return normalizeActorName(actorName).toLowerCase()
 }
 
-// ─── 路径计算 ────────────────────────────────────────────────────────────
+// Path computation
 
 function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocument | null): ActorPath[] {
   if (!eventScript || !mapDocument) return []
 
   const { tileWidth, tileHeight } = mapDocument
 
-  // 初始化 actor 状态（从场景设置开始）
+  // Initialize actor state (starting from scene setup)
   const actorStates = new Map<string, { tileX: number; tileY: number; dir: number; name: string }>()
   const actorOrder: string[] = []
 
@@ -106,7 +108,7 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
     return path
   }
 
-  // 遍历命令，追踪位置变化
+  // Iterate commands, tracking position changes
   for (let i = 0; i < eventScript.commands.length; i++) {
     const cmd = eventScript.commands[i]
     if (!cmd) continue
@@ -243,7 +245,7 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
         const tx = Number.parseInt(cmd.args[1] ?? '', 10)
         const ty = Number.parseInt(cmd.args[2] ?? '', 10)
         if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue
-        // 影响所有 farmer
+        // Affects all farmers
         for (const [actorKey, state] of actorStates) {
           if (!/^farmer\d*$/iu.test(actorKey)) continue
           const path = ensurePath(actorKey)
@@ -289,7 +291,7 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
           command: cmd.command,
           kind: 'spawn',
         }
-        // 如果路径已有起点，添加一个 spawn segment
+        // If the path already has a start point, add a spawn segment
         if (path.points.length > 0) {
           const prevPoint = path.points[path.points.length - 1]
           path.segments.push({ from: prevPoint, to: point, kind: 'spawn', commandIndex: i })
@@ -343,7 +345,7 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
   return Array.from(paths.values()).filter((p) => p.points.length > 1 || p.segments.length > 0)
 }
 
-// ─── SVG 渲染 ────────────────────────────────────────────────────────────
+// SVG rendering
 
 function ArrowMarker({ id, color }: { id: string; color: string }) {
   return (
@@ -398,7 +400,7 @@ export function StagePathOverlay({
 
       {actorPaths.map((path) => (
         <g key={path.actorKey}>
-          {/* 路径线段 */}
+          {/* Path segments */}
           {path.segments.map((seg, idx) => {
             const opacity = segmentOpacity(seg.commandIndex)
             const strokeWidth = segmentStrokeWidth(seg.commandIndex)
@@ -421,7 +423,7 @@ export function StagePathOverlay({
             )
           })}
 
-          {/* 路径点 */}
+          {/* Path points */}
           {path.points.map((point, idx) => {
             const highlighted = isHighlighted(point.commandIndex)
             const opacity = point.commandIndex === -1 ? 0.4 : segmentOpacity(point.commandIndex, 0.7)
@@ -430,7 +432,7 @@ export function StagePathOverlay({
             return (
               <g key={`pt-${idx}`}>
                 {point.kind === 'spawn' && point.commandIndex !== -1 ? (
-                  // 新增 actor 用菱形
+                  // Newly added actors use a diamond
                   <polygon
                     points={`${point.x * viewportZoom},${point.y * viewportZoom - radius} ${point.x * viewportZoom + radius},${point.y * viewportZoom} ${point.x * viewportZoom},${point.y * viewportZoom + radius} ${point.x * viewportZoom - radius},${point.y * viewportZoom}`}
                     fill={path.color}
@@ -439,7 +441,7 @@ export function StagePathOverlay({
                     strokeWidth={1}
                   />
                 ) : point.kind === 'warp' ? (
-                  // 传送用空心圆
+                  // Warps use a hollow circle
                   <circle
                     cx={point.x * viewportZoom}
                     cy={point.y * viewportZoom}
@@ -450,7 +452,7 @@ export function StagePathOverlay({
                     strokeWidth={2}
                   />
                 ) : (
-                  // 普通移动点
+                  // Normal move points
                   <circle
                     cx={point.x * viewportZoom}
                     cy={point.y * viewportZoom}
@@ -462,7 +464,7 @@ export function StagePathOverlay({
                   />
                 )}
 
-                {/* 命令序号标签 */}
+                {/* Command index label */}
                 {point.commandIndex >= 0 && (
                   <text
                     x={point.x * viewportZoom + 8}

@@ -1,3 +1,5 @@
+//! Host command bindings for the localization domain (review, knowledge, semantic, corpus, usage).
+
 use crate::AppHandle;
 use crate::domain::localization::types::{
     AiGlossaryPage, AiLocalizationScopePage, AiLocalizationScopeSnapshot, AiOfficialCorpusStatus,

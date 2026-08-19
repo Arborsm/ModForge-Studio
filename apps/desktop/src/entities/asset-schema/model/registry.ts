@@ -1,5 +1,6 @@
 /**
- * Static registries for asset schemas and enum catalogs.
+ * @file Static registries for asset schemas and enum catalogs.
+ * @module entities/asset-schema
  *
  * `getAssetSchema` is the exact lookup that replaced the editor-selection
  * heuristics: a patch target either has a schema (structured editor) or it does

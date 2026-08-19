@@ -1,3 +1,6 @@
+//! XNB container reader: decompresses (LZ4/LZX) and dispatches to type
+//! readers, producing `XnbValue` (JSON-like) or `TextureData` for consumers.
+
 mod buffer;
 mod readers;
 mod schema;

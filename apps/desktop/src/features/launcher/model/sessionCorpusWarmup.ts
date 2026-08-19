@@ -1,5 +1,5 @@
 /**
- * Session-level corpus warmup singleton for launcher AI translation.
+ * @file Session-level corpus warmup singleton for launcher AI translation.
  *
  * `prewarm_localization_corpus` runs on the single-slot `AiSemanticSearch`
  * pool and is idempotent, so auto-warmup must happen at most once per app
@@ -15,6 +15,7 @@ export type SessionCorpusWarmup =
 
 let sessionWarmup: SessionCorpusWarmup = { status: 'idle' }
 
+/** Returns the current session corpus warmup state. */
 export function getSessionCorpusWarmup(): SessionCorpusWarmup {
   return sessionWarmup
 }

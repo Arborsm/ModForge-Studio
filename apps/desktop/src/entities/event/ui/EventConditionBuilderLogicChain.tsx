@@ -1,3 +1,8 @@
+/**
+ * @file Draggable condition chip chain for the event condition builder,
+ * supporting reordering, negation toggle, and removal.
+ */
+
 import { X } from 'lucide-react'
 import type { PointerEvent } from 'react'
 import { cx } from '@shared/lib/helper'
@@ -20,6 +25,7 @@ type EventConditionBuilderLogicChainProps = {
 }
 
 /** Renders the draggable condition-chip chain used by the condition builder modal. */
+/** Renders the ordered, draggable chip chain with negation toggles and remove buttons. */
 export function EventConditionBuilderLogicChain({
   chips,
   chipDrag,

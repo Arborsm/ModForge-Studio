@@ -1,3 +1,5 @@
+//! Semantic model management: download, verify, and list local embedding models.
+
 use super::settings;
 use crate::AppHandle;
 use crate::domain::app_paths::localization_semantic_models_dir;

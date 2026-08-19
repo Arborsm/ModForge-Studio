@@ -1,8 +1,11 @@
+/** @file Theme preset metadata (accent, preview colors) for the settings theme picker. */
+
 import type { ThemeId } from '@shared/contracts'
 import { DEFAULT_THEME_ID, THEME_IDS } from '@shared/lib/app-state'
 
 export { DEFAULT_THEME_ID, THEME_IDS }
 
+/** Display metadata for one color theme: label, accent hex, and preview swatch colors. */
 export type ThemePreset = {
   id: ThemeId
   label: string

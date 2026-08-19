@@ -7,7 +7,6 @@ export type StudioDeskCopy = {
   projectLobbyControl: string
   projectGrid: string
   projectCount: (count: number) => string
-  projectMoreActions: (name: string) => string
   projectManagerEyebrow: string
   projectManagerSubtitle: string
   projectList: string
@@ -17,7 +16,6 @@ export type StudioDeskCopy = {
   lastExportedLabel: string
   metadataIncomplete: string
   editProjectProperties: string
-  editProjectPropertiesHint: string
   overview: string
   totalProjects: string
   waitingExport: string
@@ -32,7 +30,6 @@ export type StudioDeskCopy = {
   copyProject: string
   deleteProject: string
   selectedProjects: (count: number) => string
-  clearSelection: string
   bulkDelete: string
   deleteProjectTitle: string
   deleteProjectMessage: (name: string) => string
@@ -245,6 +242,10 @@ export type StudioDeskCopy = {
   }
   mapPatchEditor: {
     tabs: Record<'properties' | 'warps' | 'tiles' | 'file' | 'advanced', string>
+    /** Header mode badge: patch editing (modifies the game map via a Content Patcher patch). */
+    modeBadgePatch: string
+    /** Header mode badge tooltip: explains this editor edits a Content Patcher patch, not the map file. */
+    modeBadgePatchHint: string
     playerWarps: string
     playerWarpsDescription: string
     npcWarps: string
@@ -265,6 +266,8 @@ export type StudioDeskCopy = {
     addProperty: string
     removeProperty: string
     addWarp: string
+    /** Context menu: select a warp entry from the list. */
+    selectWarpAction: string
     removeWarp: string
     noWarps: string
     warpSource: string
@@ -293,6 +296,62 @@ export type StudioDeskCopy = {
     tileId: (id: number) => string
     searchTilesets: string
     recentTilesets: string
+    /** Palette favorites strip: section label for starred selections. */
+    favoritesSection: string
+    /** Palette favorites strip: context menu item to star a selection. */
+    favoriteAdd: string
+    /** Palette favorites strip: context menu item to unstar a selection. */
+    favoriteRemove: string
+    /** Palette favorites strip: export favorites to JSON file. */
+    favoritesExport: string
+    /** Palette favorites strip: import favorites from JSON file. */
+    favoritesImport: string
+    /** Palette favorites tab: count label showing number of favorites. */
+    favoritesCount: (count: number) => string
+    /** Palette favorites tab: empty state hint. */
+    favoritesEmpty: string
+    /** Sheet picker: group listing the sheets already attached to the map. */
+    sheetPickerAttachedGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/Maps` sheets. */
+    sheetPickerGameMapsGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/TileSheets` sheets. */
+    sheetPickerGameTilesheetsGroup: string
+    /** Sheet picker: group listing project image assets. */
+    sheetPickerProjectGroup: string
+    /** Sheet picker: empty state when the search filter matches nothing. */
+    sheetPickerEmpty: string
+    /** Sheet gallery: back button to return to the palette view. */
+    sheetGalleryBack: string
+    /** Sheet picker: badge marking a catalog sheet the map already references. */
+    sheetPickerAttachedBadge: string
+    /** Sheet picker: badge marking an attached sheet that references a vanilla game sheet. */
+    sheetPickerGameBadge: string
+    /** Sheet picker: attached-row metadata with the sheet's tile count. */
+    sheetPickerTileCount: (tileCount: number) => string
+    /** Sheet picker: catalog-row metadata combining pixel size and tile split. */
+    sheetPickerSheetMeta: (imageWidth: number, imageHeight: number, columns: number, rows: number) => string
+    /** Sheet picker: tooltip for catalog sheets that do not divide evenly into 16px tiles. */
+    sheetPickerUnevenSplit: string
+    /** Sheet picker: tooltip for catalog rows while no game directory is connected. */
+    sheetPickerNoGameRoot: string
+    /** Sheet picker: trigger tooltip in the palette (switch between or attach sheets). */
+    sheetPickerSwitch: string
+    /** Palette sheet tab bar: tooltip for a tab (switch to this sheet). */
+    sheetTabSwitch: string
+    /** Palette sheet tab bar: add button tooltip (attach a new sheet). */
+    sheetTabAdd: string
+    /** Palette sheet tab bar: context menu item to replace the sheet image. */
+    sheetTabReplaceImage: string
+    /** Palette sheet tab bar: context menu item to remove the sheet. */
+    sheetTabRemove: string
+    /** Palette sheet tab bar: context menu item to edit the sheet in the Inspector. */
+    sheetTabEditInInspector: string
+    /** Palette sheet tab bar: confirmation prompt when removing a sheet. */
+    sheetTabRemoveConfirm: (name: string) => string
+    /** Palette hover magnifier: accessible label for the magnifier element. */
+    tilesetMagnifier: string
+    /** Palette recent strip: context menu item to remove a recent selection. */
+    recentRemove: string
     noTileSelection: string
     tileTooltip: (index: number, tileset: string) => string
     quickProperty: string
@@ -823,6 +882,12 @@ export type StudioDeskCopy = {
     preconditionWeatherName: (weather: string) => string
     preconditionDayName: (day: string) => string
     preconditionGenderName: (gender: string) => string
+    /** Formats a single friendship pair as a localized "X friendship at least Y" label. */
+    friendshipAtLeast: (name: string, points: string) => string
+    /** Formats a single shipped-item pair as a localized "X shipped at least Y" label. */
+    shippedAtLeast: (item: string, count: string) => string
+    /** Compact heart unit symbol used in friendship chip labels (e.g. "心" / "h"). */
+    heartUnit: string
     preconditions: {
       gameStateQuery: (query: string) => string
       activeDialogueEvent: (id: string) => string

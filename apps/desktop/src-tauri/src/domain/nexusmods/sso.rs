@@ -1,3 +1,6 @@
+//! Nexus Mods SSO (Single Sign-On) WebSocket flow: connects to the Nexus SSO
+//! service, opens the browser authorization URL, and resolves the API key.
+
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -10,15 +13,11 @@ use crate::AppHandle;
 use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
 
-// ---- Constants ----
-
 const SSO_WEBSOCKET_URL: &str = "wss://sso.nexusmods.com";
 const SSO_AUTH_URL_BASE: &str = "https://www.nexusmods.com/sso";
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 const AUTHORIZATION_TIMEOUT: Duration = Duration::from_secs(120);
 const SSO_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
-
-// ---- Public types ----
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,8 +56,6 @@ pub(crate) struct SsoStartResult {
     pub sso_id: String,
     pub status: SsoConnectionStatus,
 }
-
-// ---- Internal state ----
 
 struct SsoState {
     status: SsoConnectionStatus,
@@ -133,8 +130,6 @@ fn store_session_connection_token(generation: u64, connection_token: String) -> 
     state.connection_token = Some(connection_token);
     true
 }
-
-// ---- Public API ----
 
 /// Starts the SSO flow. The `save_api_key` callback persists the freshly
 /// authorized API key; the launcher domain provides it so the nexusmods domain
@@ -258,8 +253,6 @@ pub(crate) fn get_sso_status() -> SsoSnapshot {
         sso_id: state.sso_id.clone(),
     }
 }
-
-// ---- SSO flow (background thread) ----
 
 fn run_sso_flow(
     _app: &AppHandle,

@@ -1,3 +1,8 @@
+/**
+ * @file Event model types: re-exports core event script types from shared
+ * contracts and defines the `ParsedEventAsset` read model for the event workspace.
+ */
+
 import type { EventAssetSummary } from '@entities/game/api'
 import type { EventCommandKind, EventScript } from '@shared/contracts/event-script'
 

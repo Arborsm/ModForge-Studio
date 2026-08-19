@@ -1,3 +1,8 @@
+/**
+ * @file Shared icon-only toggle button for the global beginner/expert
+ * authoring preference.
+ * @module features/cp-maker
+ */
 import { Wrench } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { useAuthoringShellCopy } from '@locales/provider'

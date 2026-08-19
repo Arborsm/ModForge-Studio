@@ -1,3 +1,7 @@
+/**
+ * @file Undo/redo toolbar buttons backed by the shared draft history stack.
+ * @module features/cp-maker
+ */
 import { Redo2, Undo2 } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'

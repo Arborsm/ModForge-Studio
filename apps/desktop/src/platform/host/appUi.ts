@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for loading and patching persisted app UI state.
+ * @module platform/host/appUi
+ */
+
 import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from './runtime'

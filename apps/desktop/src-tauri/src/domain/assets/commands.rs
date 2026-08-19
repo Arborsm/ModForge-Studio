@@ -1,3 +1,5 @@
+//! Host command bindings for game asset scanning, loading, caching and export.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::assets::{

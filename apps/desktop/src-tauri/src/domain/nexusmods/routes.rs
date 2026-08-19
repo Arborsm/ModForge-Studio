@@ -1,3 +1,6 @@
+//! Launcher Nexus route enumeration and URL-to-route resolution for
+//! diagnostics and request routing.
+
 use super::request::NexusRequestContext;
 use super::{can_use_nexus_graphql, endpoints, graphql, rest_api};
 use anyhow::Context;

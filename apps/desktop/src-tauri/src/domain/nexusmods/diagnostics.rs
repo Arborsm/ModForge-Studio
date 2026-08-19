@@ -1,3 +1,6 @@
+//! Launcher Nexus route diagnostics: startup probing, retry, force-offline,
+//! and per-route snapshot state for the diagnostics UI.
+
 use super::http::launcher_http_client;
 use super::probes::probe_launcher_nexus_route_once;
 use super::request::NexusRequestContext;

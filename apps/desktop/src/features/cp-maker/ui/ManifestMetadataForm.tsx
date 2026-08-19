@@ -1,3 +1,8 @@
+/**
+ * @file Manifest metadata form shared by the create-draft and project-properties
+ * dialogs.
+ * @module features/cp-maker
+ */
 import type { ReactNode } from 'react'
 import { Plus, X } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'

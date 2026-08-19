@@ -1,3 +1,7 @@
+/**
+ * @file Debug bridge wire types: handshake, status, game state, and command payloads.
+ * @module entities/debug-bridge
+ */
 /** Handshake payload returned by the bridge mod's `hello` command. */
 export interface DebugBridgeHello {
   bridgeVersion: string

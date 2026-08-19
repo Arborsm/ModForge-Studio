@@ -1,3 +1,6 @@
+//! Machine translation provider adapters — DeepL, Google, Microsoft, Baidu,
+//! Tencent and LibreTranslate wire protocol implementations.
+
 use super::protection::{ProtectedText, protect};
 use super::settings::{resolve_credentials, resolve_profile};
 use crate::domain::localization::jobs;
@@ -19,6 +22,7 @@ use url::Url;
 const MAX_RETRIES: usize = 2;
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 
+/// Observed metadata for a single machine translation attempt.
 #[derive(Debug, Clone)]
 pub struct MachineTranslationAttempt {
     pub attempt: u32,
@@ -565,6 +569,8 @@ fn translate_wire(
     Ok(results)
 }
 
+/// Translates a batch of protected text items via the configured provider
+/// profile, invoking `observe` for each attempt.
 pub fn translate(
     request: &MachineTranslateBatchRequest,
     observe: &mut dyn FnMut(MachineTranslationAttempt),
@@ -650,6 +656,7 @@ fn static_languages(protocol: MachineTranslationProtocol) -> Vec<MachineTranslat
         .collect()
 }
 
+/// Lists supported languages for a machine translation profile.
 pub fn list_languages(
     request: MachineTranslationProfileRequest,
 ) -> anyhow::Result<Vec<MachineTranslationLanguage>> {
@@ -795,6 +802,7 @@ fn parse_languages(
     Ok(result)
 }
 
+/// Tests a machine translation profile with a minimal probe request.
 pub fn test_profile(
     request: MachineTranslationProfileRequest,
     observe: &mut dyn FnMut(MachineTranslationAttempt),

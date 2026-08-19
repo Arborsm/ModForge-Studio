@@ -1,3 +1,5 @@
+//! Launcher runtime: game/SMAPI process spawning, path and URL opening, and runtime info resolution.
+
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{

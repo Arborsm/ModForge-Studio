@@ -1,8 +1,11 @@
 import type { ComponentType, LazyExoticComponent } from 'react'
 
+/** Stable string id identifying a page or workbench module in the app registry. */
 export type RegistryItemId = string
+/** Kind of registry item — either a routable page or a workbench module. */
 export type RegistryItemKind = 'page' | 'workbench-module'
 
+/** Base metadata shared by all registry items. */
 export type RegistryItemMetadata = {
   id: RegistryItemId
   kind: RegistryItemKind
@@ -11,15 +14,19 @@ export type RegistryItemMetadata = {
   devOnly?: boolean
 }
 
+/** React component or lazy-loaded component factory used by registry entries. */
 export type ComponentFactory<TProps = never> = ComponentType<TProps> | LazyExoticComponent<ComponentType<TProps>>
 
+/** Registration entry for a routable page with its route and component. */
 export type PageRegistration<TProps = never> = RegistryItemMetadata & {
   kind: 'page'
   route: string
   component: ComponentFactory<TProps>
 }
 
+/** Navigation section grouping in the workbench sidebar. */
 export type WorkbenchNavigationSection = 'browse' | 'authoring' | 'translation' | 'tools' | 'development'
+/** Icon id for a workbench module in the sidebar. */
 export type WorkbenchNavigationIcon =
   | 'map'
   | 'events'
@@ -39,6 +46,7 @@ export type WorkbenchNavigationIcon =
   | 'bug'
   | 'settings'
   | 'images'
+/** Locale key identifying a workbench module's sidebar label. */
 export type WorkbenchModuleLocaleKey =
   | 'map-browser'
   | 'event-browser'
@@ -66,8 +74,10 @@ export type WorkbenchModuleLocaleKey =
   | 'game-debugger'
   | 'dev-resource-browser'
 
+/** Current workbench location — either the home screen or a specific module. */
 export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }
 
+/** Registration entry for a workbench module with navigation, presentation, and runtime factory. */
 export type WorkbenchModuleRegistration = {
   id: string
   navigation: {
@@ -83,11 +93,13 @@ export type WorkbenchModuleRegistration = {
   persistenceKey: string
 }
 
+/** Read-only app registry exposing all registered pages and workbench modules. */
 export interface AppRegistry {
   readonly pages: readonly PageRegistration<never>[]
   readonly workbenchModules: readonly WorkbenchModuleRegistration[]
 }
 
+/** Input shape for building an app registry — partial arrays of pages and modules. */
 export type AppRegistryInput = {
   pages?: readonly PageRegistration<never>[]
   workbenchModules?: readonly WorkbenchModuleRegistration[]

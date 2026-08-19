@@ -34,6 +34,8 @@ export type ModWorkspaceCopy = {
   manifestPathLabel: string
   contentPathLabel: string
   selectProjectFolder: string
+  /** Context menu: select/inspect a project row. */
+  selectProjectAction: string
   missingRequiredDependencies: (dependencies: string) => string
   unsavedChangesTitle: string
   unsavedChangesMessage: string

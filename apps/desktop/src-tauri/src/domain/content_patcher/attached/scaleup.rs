@@ -1,3 +1,5 @@
+//! ScaleUp attached API descriptor: declares ScaleUp-compatible asset targets for Content Patcher.
+
 use crate::domain::modding::attached_api::{AttachedApiDescriptor, AttachedApiTargetDescriptor};
 
 /// Built-in attached registration for ScaleUp compatibility.

@@ -1,3 +1,5 @@
+/** @file Transient zustand store for cross-module "open this map asset in the editor" requests. */
+
 import { create } from 'zustand'
 
 /**
@@ -14,6 +16,7 @@ type PendingMapAssetEditState = {
   consumeEdit: () => string | null
 }
 
+/** Zustand store that stages and one-shot consumes the pending map asset edit request. */
 export const usePendingMapAssetEditStore = create<PendingMapAssetEditState>((set, get) => ({
   relativePath: null,
   requestEdit: (relativePath) => set({ relativePath }),

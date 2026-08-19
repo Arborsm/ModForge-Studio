@@ -4,6 +4,7 @@ export { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnap
 export { useAssetLibraryFocusStore, type AssetLibraryFocus } from './assetLibraryFocusStore'
 export {
   DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES,
+  PALETTE_FAVORITE_LIMIT,
   PALETTE_RECENT_LIMIT,
   normalizeMapEditorPalettePreferences,
   type MapEditorPalettePreferences,

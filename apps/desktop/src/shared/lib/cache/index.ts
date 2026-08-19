@@ -1,5 +1,8 @@
+/** @file Generic promise cache helpers: create, read-or-load, and rooted/localized cache key builders. */
+
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 
+/** Creates a string-keyed promise cache with get/set/delete/clear helpers. */
 export function createPromiseCache<T>() {
   const cache = new Map<string, Promise<T>>()
 
@@ -29,14 +32,17 @@ export function createPromiseCache<T>() {
   }
 }
 
+/** Builds a `rootPath::assetPath` cache key from normalized path segments. */
 export function getRootedAssetCacheKey(rootPath: string, assetPath: string) {
   return `${normalizeCachePathSegment(rootPath)}::${normalizeCachePathSegment(assetPath)}`
 }
 
+/** Builds a locale-tagged rooted asset cache key. */
 export function getLocalizedRootedAssetCacheKey(rootPath: string, assetPath: string, locale?: string) {
   return `${getRootedAssetCacheKey(rootPath, assetPath)}::${locale?.trim() || 'default'}`
 }
 
+/** Reads a cached promise or loads, caches, and returns it; failed loads are evicted. */
 export async function readCached<T>(cache: ReturnType<typeof createPromiseCache<T>>, key: string, loader: () => Promise<T>) {
   const cachedValue = cache.get(key)
   if (cachedValue) {
@@ -52,6 +58,7 @@ export async function readCached<T>(cache: ReturnType<typeof createPromiseCache<
   return pendingValue
 }
 
+/** Reads a cached promise or loads and caches it; the entry is evicted once settled (single-flight only). */
 export async function readPending<T>(cache: ReturnType<typeof createPromiseCache<T>>, key: string, loader: () => Promise<T>) {
   const cachedValue = cache.get(key)
   if (cachedValue) {

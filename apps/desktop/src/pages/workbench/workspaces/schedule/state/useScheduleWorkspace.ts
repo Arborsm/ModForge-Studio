@@ -250,7 +250,7 @@ export function useScheduleWorkspace() {
   // freshly added patch only reaches the port on the next render.
   const [pendingEntry, setPendingEntry] = useState<{ npcId: string; patchId: string; key: string; script: string } | null>(null)
 
-  // ── NPC catalog ──
+  // NPC catalog
 
   useEffect(() => {
     if (!rootPath) {
@@ -293,7 +293,7 @@ export function useScheduleWorkspace() {
     })
   })
 
-  // ── Vanilla schedule for the selected NPC ──
+  // Vanilla schedule for the selected NPC
 
   useEffect(() => {
     if (!selectedNpcId) {
@@ -332,7 +332,7 @@ export function useScheduleWorkspace() {
     }
   }, [rootPath, selectedNpcId, locale, scheduleRefreshToken])
 
-  // ── Location catalog for the structured point editor ──
+  // Location catalog for the structured point editor
 
   useEffect(() => {
     if (!rootPath) {
@@ -375,7 +375,7 @@ export function useScheduleWorkspace() {
     }
   }, [rootPath, locale])
 
-  // ── Vanilla animation catalog for the animation datalist ──
+  // Vanilla animation catalog for the animation datalist
 
   useEffect(() => {
     if (!rootPath) {
@@ -405,7 +405,7 @@ export function useScheduleWorkspace() {
     }
   }, [rootPath, locale])
 
-  // ── Merged entries (project entries override vanilla) ──
+  // Merged entries (project entries override vanilla)
 
   const assetId = selectedNpcId === null ? null : buildScheduleTarget(selectedNpcId)
   const patchState =
@@ -454,7 +454,7 @@ export function useScheduleWorkspace() {
     setDeleteArmed(false)
   })
 
-  // ── Handlers ──
+  // Handlers
 
   function selectNpc(npcId: string) {
     if (npcId === selectedNpcId) {
@@ -663,6 +663,34 @@ export function useScheduleWorkspace() {
     setDeleteArmed(false)
   }
 
+  /** Directly stages removal of an entry by key, bypassing the two-step arming. */
+  function deleteEntryByKey(key: string) {
+    if (port === null || assetId === null) {
+      return
+    }
+    const target = entries.find((entry) => entry.key === key)
+    if (!target || target.origin === 'vanilla') {
+      return
+    }
+    port.stageValue(assetId, key, null)
+    if (selectedKey === key) {
+      setSelectedKey(null)
+    }
+    setDeleteArmed(false)
+  }
+
+  /** Toggles the enabled flag of an entry by key without selecting it. */
+  function toggleEntryEnabledByKey(key: string) {
+    if (port === null || assetId === null) {
+      return
+    }
+    const target = entries.find((entry) => entry.key === key)
+    if (!target || target.origin === 'vanilla') {
+      return
+    }
+    port.stageEntryMeta(assetId, key, { enabled: !target.enabled })
+  }
+
   const selectedNpc = npcOptions.find((option) => option.id === selectedNpcId) ?? null
 
   return {
@@ -706,6 +734,8 @@ export function useScheduleWorkspace() {
     appendSegment,
     addTimePoint,
     deleteEntry,
+    deleteEntryByKey,
+    toggleEntryEnabledByKey,
     deleteArmed,
     isDirty: port?.isDirty() ?? false,
     saveState: saveState as WorkbenchDraftSaveState,

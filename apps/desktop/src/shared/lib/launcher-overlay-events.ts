@@ -1,3 +1,5 @@
+/** @file Typed CustomEvent bridge for launcher overlay dismiss requests, avoiding cross-widget imports. */
+
 const LAUNCHER_MOD_DETAIL_DISMISS_EVENT = 'modforge:launcher-mod-detail-dismiss'
 
 /**

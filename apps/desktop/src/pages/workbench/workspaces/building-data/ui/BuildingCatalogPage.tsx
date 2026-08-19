@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { Building2, Plus, Search } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   addBuildingEntry,
   BUILDING_DATA_ASSET_ID,
@@ -40,29 +41,40 @@ function BuildingCatalogCard({
   const copy = useBuildingDataEditorCopy()
   const texture = useBuildingTexture(building, gameRootPath, locale)
   return (
-    <button
-      type="button"
-      className="building-catalog-card"
-      onClick={() => onSelect(row)}
-      title={copy.sources.openBuilding(row.displayName)}
-    >
-      <span className="building-catalog-preview" aria-hidden="true">
-        {building === null ? (
-          <Building2 className="h-8 w-8" />
-        ) : (
-          <BuildingSpritePreview building={building} textureState={texture} fitSize={64} />
-        )}
-      </span>
-      <span className="building-catalog-card-body">
-        <strong>{row.displayName}</strong>
-        <span>{row.key}</span>
-      </span>
-      {row.inProject ? (
-        <span className={cx('asset-editor-badge', row.vanilla ? 'is-warn' : 'is-ok')}>
-          {row.vanilla ? copy.sources.overrideBadge : copy.sources.newBadge}
-        </span>
-      ) : null}
-    </button>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <button
+          type="button"
+          className="building-catalog-card"
+          onClick={() => onSelect(row)}
+          title={copy.sources.openBuilding(row.displayName)}
+        >
+          <span className="building-catalog-preview" aria-hidden="true">
+            {building === null ? (
+              <Building2 className="h-8 w-8" />
+            ) : (
+              <BuildingSpritePreview building={building} textureState={texture} fitSize={64} />
+            )}
+          </span>
+          <span className="building-catalog-card-body">
+            <strong>{row.displayName}</strong>
+            <span>{row.key}</span>
+          </span>
+          {row.inProject ? (
+            <span className={cx('asset-editor-badge', row.vanilla ? 'is-warn' : 'is-ok')}>
+              {row.vanilla ? copy.sources.overrideBadge : copy.sources.newBadge}
+            </span>
+          ) : null}
+        </button>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={() => onSelect(row)}>
+            {copy.sources.openBuilding(row.displayName)}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 

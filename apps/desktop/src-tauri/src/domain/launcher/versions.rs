@@ -1,3 +1,5 @@
+//! SMAPI-style semantic version parsing and comparison for mod update detection.
+
 use std::cmp::Ordering;
 
 /// Normalize a version string for comparison: trim whitespace and drop any leading

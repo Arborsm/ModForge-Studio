@@ -1,3 +1,5 @@
+//! Semantic search service: index building, probing, and official corpus search with locale fallback.
+
 use super::{embedding, index, settings};
 use crate::AppHandle;
 use crate::domain::localization::operational_log::{self, SEMANTIC, event};

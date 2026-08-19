@@ -1,3 +1,6 @@
+/**
+ * @file Mail workspace state hook: manages mail catalog, attachment textures, trigger editing, and draft persistence.
+ */
 import { useEffect, useRef, useState } from 'react'
 import { loadImageDataUrl, loadTextAsset } from '@entities/game/api'
 import {
@@ -200,7 +203,7 @@ export function useMailWorkspace() {
     pendingPatchIds.current.clear()
   }, [draftKey])
 
-  // ── Vanilla mail reference ──
+  // Vanilla mail reference
   useEffect(() => {
     if (!rootPath) {
       return deferToTimeout(() => {
@@ -223,7 +226,7 @@ export function useMailWorkspace() {
     }
   }, [locale, rootPath])
 
-  // ── Letter background sheet ──
+  // Letter background sheet
   useEffect(() => {
     if (!rootPath) {
       return deferToTimeout(() => {
@@ -252,7 +255,7 @@ export function useMailWorkspace() {
     }
   }, [locale, rootPath])
 
-  // ── Item catalog and textures ──
+  // Item catalog and textures
   useEffect(() => {
     if (!rootPath) {
       return deferToTimeout(() => {
@@ -293,7 +296,7 @@ export function useMailWorkspace() {
     }
   }, [locale, rootPath])
 
-  // ── Staged draft projection ──
+  // Staged draft projection
   const lettersById = readLetterEntries(port)
   const triggerEntries = readTriggerEntries(port)
   const allMailIds = Object.keys(lettersById)
@@ -368,7 +371,7 @@ export function useMailWorkspace() {
     port.stageValues(TRIGGER_TARGET, writes)
   }
 
-  // ── Derived views ──
+  // Derived views
   function triggersForLetter(mailId: string): MailTriggerRow[] {
     return triggerRowsAll.filter((row) => row.draft.mailId === mailId)
   }
@@ -415,7 +418,7 @@ export function useMailWorkspace() {
   const activeTriggers = activeMailId === null ? [] : triggersForLetter(activeMailId)
   const activeIssues = activeMailId === null ? [] : validateLetter(activeMailId)
 
-  // ── Mutations ──
+  // Mutations
   function selectLetter(mailId: string) {
     setSelectedMailId(mailId)
   }

@@ -1,7 +1,9 @@
 /**
- * Content Patcher domain knowledge: token parsing shared by the condition
- * editor and validation. The catalog of built-in tokens lives in
- * `./tokens.ts`; this module only knows the *syntax* of token references.
+ * @file Content Patcher `When` condition syntax: token reference parsing shared by the condition editor and validation.
+ * @module entities/content-patcher
+ *
+ * The catalog of built-in tokens lives in `./tokens.ts`; this module only knows
+ * the *syntax* of token references.
  *
  * Syntax notes (CP author guide):
  * - Plain token reference: `{{TokenName}}`; with input: `{{TokenName:Input}}`.

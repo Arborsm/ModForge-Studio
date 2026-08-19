@@ -1,3 +1,8 @@
+/**
+ * @file Computes absolute panel rectangles and resizer hit-areas for the workbench dock layout.
+ * @module shared/workspace
+ */
+
 import { COLUMN_GAP, RESIZER_THICKNESS, ROOT_PADDING, SPLIT_GAP } from './layoutConstants'
 import type {
   PanelRect,
@@ -81,6 +86,14 @@ function assignBottomPanels(
   }
 }
 
+/**
+ * Computes the full workspace geometry — center rect, per-area rects, per-panel rects, and split/edge resizer rects —
+ * from the panel configuration, persisted proportions, and available size.
+ * @param panels Panel configurations placed in the layout.
+ * @param state Persisted layout proportions (widths, heights, splits).
+ * @param size Available root size in pixels.
+ * @returns Computed geometry containing all absolute rectangles and resizer hit-areas.
+ */
 export function getWorkspaceGeometry(panels: WorkspacePanelConfig[], state: WorkspaceStoredState, size: WorkspaceSize): WorkspaceGeometry {
   const leftPanels = getAreaPanels(panels, 'left')
   const centerPanels = getAreaPanels(panels, 'center')

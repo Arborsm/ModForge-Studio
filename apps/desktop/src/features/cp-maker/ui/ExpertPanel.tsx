@@ -1,11 +1,8 @@
 /**
- * Expert mode drawer: patch-level CP properties (LogName, Enabled, When,
+ * @file Expert mode drawer: patch-level CP properties (LogName, Enabled, When,
  * Priority, Update, TargetLocale, TargetField, LocalTokens) plus EditData
  * advanced ops (Fields, MoveEntries, TextOperations).
- *
- * Replaces PatchSettingsDialog and folds EditDataAdvancedOps into the same
- * drawer so expert content is one place instead of scattered across modals.
- * Hidden when expert mode is off.
+ * @module features/cp-maker
  */
 
 import { useState } from 'react'

@@ -143,13 +143,13 @@ function getDiscoverPaginationItems(page: number, totalPages: number, capacity: 
     return []
   }
 
-  //页码全部能塞下时直接铺开 1..totalPages。
+  // When all pages fit within capacity, lay out 1..totalPages directly.
   if (totalPages <= capacity) {
     return Array.from({ length: totalPages }, (_, index) => index + 1)
   }
 
-  //塞不下时按容量压缩：首尾各占 1 个槽，省略号各占 1 个槽，剩下的槽围绕当前页居中铺开。
-  //两侧是否需要省略号取决于当前页位置，capacity 始终被填满。
+  // When pages exceed capacity, compress: first and last each take 1 slot, ellipses each take 1 slot, remaining slots spread centered around the current page.
+  // Whether ellipses are needed on each side depends on the current page position; capacity is always filled.
   const slotsForCenter = Math.max(1, capacity - 2 /* first + last */ - 2 /* two ellipses */)
 
   let start = page - Math.floor(slotsForCenter / 2)

@@ -1,3 +1,7 @@
+/**
+ * @file Nexus diagnostics panel: route status table with merge, retry, and
+ * time-ago formatting for the launcher configuration page.
+ */
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'

@@ -1,3 +1,5 @@
+//! SQLite schema, migrations and low-level helpers for the knowledge store.
+
 use crate::domain::app_paths::ai_localization_knowledge_path;
 use crate::infrastructure::fs::pathing::normalize_separators;
 use anyhow::{Context, bail};

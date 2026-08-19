@@ -83,4 +83,37 @@ describe('resolveTilesetImagePath', () => {
     const tileset = createTileset({ imagePath: null, imageSource: '../textures/tile.png' })
     expect(resolveTilesetImagePath(mapDocument, tileset)).toBe('maps\\Sub\\..\\textures\\tile.png')
   })
+
+  it('resolves a game-sheet tileset inside the connected game directory', () => {
+    const mapDocument = createMapDocument()
+    const tileset = createTileset({
+      imagePath: null,
+      imageSource: 'townInterior.png',
+      properties: { 'modforge:game-sheet': 'Maps/townInterior' },
+    })
+    expect(resolveTilesetImagePath(mapDocument, tileset, 'C:\\Game\\Stardew Valley')).toBe(
+      'C:/Game/Stardew Valley/Content/Maps/townInterior.xnb',
+    )
+  })
+
+  it('returns null for a game-sheet tileset without a game directory', () => {
+    const mapDocument = createMapDocument()
+    const tileset = createTileset({
+      imagePath: null,
+      imageSource: 'townInterior.png',
+      properties: { 'modforge:game-sheet': 'Maps/townInterior' },
+    })
+    expect(resolveTilesetImagePath(mapDocument, tileset)).toBeNull()
+    expect(resolveTilesetImagePath(mapDocument, tileset, null)).toBeNull()
+  })
+
+  it('ignores an unknown game-sheet key and keeps project resolution', () => {
+    const mapDocument = createMapDocument({ sourcePath: 'maps\\TestMap.tmx' })
+    const tileset = createTileset({
+      imagePath: null,
+      imageSource: 'tilesheet.png',
+      properties: { 'modforge:game-sheet': 'Maps/not-a-real-sheet' },
+    })
+    expect(resolveTilesetImagePath(mapDocument, tileset, 'C:\\Game')).toBe('maps\\tilesheet.png')
+  })
 })

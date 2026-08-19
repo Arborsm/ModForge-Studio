@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   syncLightMapProperty,
   type MapDocument,
@@ -8,11 +8,11 @@ import {
   type MapTilesetPaletteSelection,
   type TileHoverInfo,
   type CellOverlayRule,
+  type VanillaTilesheetEntry,
 } from '@entities/map'
 import { useLocalUndoShortcutOwner, type AssetDraftPort, type ProjectAssetRef } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { measureImageDimensions } from '@shared/lib/assets'
-import { usePreferencesStore } from '@shared/lib/app-state'
 import {
   addMapAssetLayer,
   applyMapAssetStamp,
@@ -21,6 +21,7 @@ import {
   relativeMapAssetReference,
   setMapAssetCellOverlay,
 } from '../../model/mapAssetReducer'
+import { buildGameSheetTileset } from '../../model/gameSheetTilesets'
 import {
   buildMapHistoryTimeline,
   changedFieldKeys,
@@ -107,7 +108,12 @@ export type MapDocumentEditor = {
   activeLayerId: number
   tool: AssetTool
   selectedTile: { x: number; y: number } | null
-  hoverInfo: TileHoverInfo | null
+  /** Subscribe to hover-info changes (useSyncExternalStore). The hover info
+   * lives in a ref so pointermove never triggers a React re-render of the
+   * editor tree; only components that explicitly subscribe re-render. */
+  subscribeHoverInfo: (listener: () => void) => () => void
+  /** Read the current hover info snapshot (useSyncExternalStore getSnapshot). */
+  getHoverInfo: () => TileHoverInfo | null
   /** Whether the cell-rule overlay mode paints the active layer's rules on the canvas. */
   overlayActive: boolean
   /** Selected paint rule in the overlay rule bar; `walkable` erases rules. */
@@ -126,7 +132,6 @@ export type MapDocumentEditor = {
   selectedObjectId: number | null
   activeObjectGroupId: number
   projectImageUrls: Record<string, string>
-  paletteOpen: boolean
   undoStack: MapHistoryEntry[]
   redoStack: MapHistoryEntry[]
   /**
@@ -151,7 +156,6 @@ export type MapDocumentEditor = {
   setPendingDeleteLayerId: Dispatch<SetStateAction<number | null>>
   setSelectedObjectId: Dispatch<SetStateAction<number | null>>
   setActiveObjectGroupId: Dispatch<SetStateAction<number>>
-  setPaletteOpen: Dispatch<SetStateAction<boolean>>
   setLockedLayerIds: Dispatch<SetStateAction<Set<number>>>
   updateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
   undo: () => void
@@ -159,6 +163,18 @@ export type MapDocumentEditor = {
   commitStroke: (points: readonly { tileX: number; tileY: number }[]) => void
   clickTile: (x: number, y: number) => void
   addTileset: (relativePath: string, replaceName?: string) => Promise<void>
+  /**
+   * Attaches a vanilla game sheet as a dynamic reference (no project copy)
+   * using its predefined catalog split, then selects it in the palette.
+   */
+  attachGameSheet: (sheet: VanillaTilesheetEntry) => void
+  /**
+   * Removes a tileset by name: clears every gid that falls in its firstGid
+   * range across all layers, drops the tileset, and reindexes the remaining
+   * tilesets so firstGid ranges stay contiguous. No-op when the capability
+   * is disabled or the tileset is not found.
+   */
+  removeTileset: (name: string) => void
   deleteSelectedObject: () => void
   updateSelectedObject: (updates: Partial<MapObject>) => void
   updateActiveLayer: (updates: Partial<MapLayer>) => void
@@ -209,20 +225,31 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [lockedLayerIds, setLockedLayerIds] = useState<Set<number>>(() => new Set())
   const [tool, setTool] = useState<AssetTool>('inspect')
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null)
-  const [hoverInfo, setHoverInfoState] = useState<TileHoverInfo | null>(null)
+  // Hover info lives in a ref + listener set so pointermove never triggers a
+  // React re-render of the editor tree. Only the status-bar span subscribes
+  // via useSyncExternalStore and re-renders on tile change.
+  const hoverInfoRef = useRef<TileHoverInfo | null>(null)
+  const hoverInfoListenersRef = useRef(new Set<() => void>())
+  const subscribeHoverInfo = useCallback((listener: () => void) => {
+    hoverInfoListenersRef.current.add(listener)
+    return () => {
+      hoverInfoListenersRef.current.delete(listener)
+    }
+  }, [])
+  const getHoverInfo = useCallback(() => hoverInfoRef.current, [])
   // Hover fires per pointermove with a fresh info object; only the hovered tile
-  // coordinates are displayed, so suppress state updates that keep the same tile
-  // to avoid re-rendering the whole editor tree on every pixel of mouse travel.
+  // coordinates are displayed, so suppress updates that keep the same tile
+  // to avoid notifying subscribers on every pixel of mouse travel.
   // The callback identity must stay stable: MapViewport's reset effect depends
   // on it, and a fresh identity would clear the hover right after every update
   // (visible as flickering coordinates that only appear while moving).
   const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = useCallback((next) => {
-    setHoverInfoState((prev) => {
-      const value = typeof next === 'function' ? next(prev) : next
-      if (prev === null && value === null) return prev
-      if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return prev
-      return value
-    })
+    const value = typeof next === 'function' ? next(hoverInfoRef.current) : next
+    const prev = hoverInfoRef.current
+    if (prev === null && value === null) return
+    if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return
+    hoverInfoRef.current = value
+    hoverInfoListenersRef.current.forEach((l) => l())
   }, [])
   const [paletteSelection, setPaletteSelection] = useState<MapTilesetPaletteSelection | null>(null)
   const [saveState, setSaveState] = useState<MapEditorSaveState>({ status: 'idle', message: '' })
@@ -233,15 +260,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   const [overlayActive, setOverlayActiveState] = useState(false)
   const [overlayRule, setOverlayRule] = useState<CellOverlayRule>('walkable')
   const [overlayPaintPreview, setOverlayPaintPreview] = useState<readonly { tileX: number; tileY: number }[] | null>(null)
+  // rAF-coalesced overlay paint preview: pointermove feeds points at high
+  // frequency (one per new tile entered); coalescing into a single rAF
+  // collapses multiple feeds into one state update per frame so the canvas
+  // redraws at most ~60fps instead of once per tile crossed.
+  const overlayPaintPreviewRef = useRef<readonly { tileX: number; tileY: number }[] | null>(null)
+  const overlayPaintPreviewRafIdRef = useRef<number | null>(null)
   const [projectImageUrls, setProjectImageUrls] = useState<Record<string, string>>({})
-  // Palette open state is a responsive user preference: persisted in the shared
-  // preferences store, so the palette survives editor reopen and mode switches.
-  const paletteOpen = usePreferencesStore((state) => state.mapEditorPalette.paletteOpen)
-  const setPaletteOpen: Dispatch<SetStateAction<boolean>> = (next) => {
-    usePreferencesStore.getState().setMapEditorPalette({
-      paletteOpen: typeof next === 'function' ? next(usePreferencesStore.getState().mapEditorPalette.paletteOpen) : next,
-    })
-  }
   const [undoStack, setUndoStack] = useState<MapHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<MapHistoryEntry[]>([])
   /** Label of the most recent edit that produced the current document. */
@@ -252,6 +277,17 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   // ownership so the workbench draft shortcut stands down while the editor is
   // mounted; otherwise Ctrl+Z would pop both stacks at once.
   useLocalUndoShortcutOwner()
+
+  // Cancel any pending overlay paint preview rAF on unmount.
+  useEffect(
+    () => () => {
+      if (overlayPaintPreviewRafIdRef.current !== null) {
+        cancelAnimationFrame(overlayPaintPreviewRafIdRef.current)
+        overlayPaintPreviewRafIdRef.current = null
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     let active = true
@@ -275,7 +311,7 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     return () => {
       active = false
     }
-  }, [document.tilesets, readProjectAsset])
+  }, [document.tilesets, readProjectAsset, imageAssetPaths])
 
   const mapDocument = document
 
@@ -404,15 +440,30 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     if (!capabilities.cellProperties) return
     setOverlayActiveState((current) => {
       const value = typeof next === 'function' ? next(current) : next
-      if (!value) setOverlayPaintPreview(null)
+      if (!value) clearOverlayPaintPreview()
       return value
     })
+  }
+
+  /** Flushes the coalesced preview ref to state immediately (used by commit/disable). */
+  function clearOverlayPaintPreview() {
+    if (overlayPaintPreviewRafIdRef.current !== null) {
+      cancelAnimationFrame(overlayPaintPreviewRafIdRef.current)
+      overlayPaintPreviewRafIdRef.current = null
+    }
+    overlayPaintPreviewRef.current = null
+    setOverlayPaintPreview(null)
   }
 
   /** Feeds the live canvas preview while an overlay drag is in progress. */
   function previewCellOverlayStroke(points: readonly { tileX: number; tileY: number }[]) {
     if (!capabilities.cellProperties) return
-    setOverlayPaintPreview(points.length > 0 ? points : null)
+    overlayPaintPreviewRef.current = points.length > 0 ? points : null
+    if (overlayPaintPreviewRafIdRef.current !== null) return
+    overlayPaintPreviewRafIdRef.current = requestAnimationFrame(() => {
+      overlayPaintPreviewRafIdRef.current = null
+      setOverlayPaintPreview(overlayPaintPreviewRef.current)
+    })
   }
 
   /**
@@ -424,7 +475,7 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
    * from the tileset definition, the save-state message surfaces that hint.
    */
   function commitCellOverlayStroke(points: readonly { tileX: number; tileY: number }[]) {
-    setOverlayPaintPreview(null)
+    clearOverlayPaintPreview()
     if (!capabilities.cellProperties || !activeLayer || activeLayerLocked || points.length === 0) return
     const { document: painted, skippedTilesetDerived } = setMapAssetCellOverlay(
       mapDocument,
@@ -553,6 +604,83 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     } catch (error) {
       setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     }
+  }
+
+  /**
+   * Attaches a vanilla game sheet as a dynamic reference: the predefined
+   * catalog supplies the split, no image is copied into the project, and the
+   * tileset resolves from the connected game directory at render time.
+   */
+  function attachGameSheet(sheet: VanillaTilesheetEntry) {
+    if (!capabilities.tilesetManagement) return
+    const tileset = buildGameSheetTileset(mapDocument, sheet)
+    if (!tileset) {
+      setSaveState({
+        status: 'error',
+        message: copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+      })
+      return
+    }
+    updateDocument({ ...mapDocument, tilesets: [...mapDocument.tilesets, tileset] }, undefined, copy.addTileset)
+    setPaletteSelection({ tilesetName: tileset.name, startIndex: 0, width: 1, height: 1 })
+    setSaveState({ status: 'idle', message: '' })
+  }
+
+  /**
+   * Removes a tileset by name. Every gid in every layer that falls inside the
+   * tileset's [firstGid, firstGid+tileCount) range is cleared to 0 (erasing
+   * tiles painted from that sheet). Remaining tilesets are reindexed so their
+   * firstGid ranges stay contiguous starting at 1. The palette selection is
+   * reset to the first remaining tileset if it pointed at the removed one.
+   */
+  function removeTileset(name: string) {
+    if (!capabilities.tilesetManagement) return
+    const target = mapDocument.tilesets.find((tileset) => tileset.name === name)
+    if (!target) return
+    const gidStart = target.firstGid
+    const gidEnd = target.firstGid + target.tileCount
+    const stripGid = (gid: number) => {
+      const base = gid & ~0xf0000000
+      return base >= gidStart && base < gidEnd ? 0 : gid
+    }
+    // Build the remaining tilesets sorted by firstGid so reindexing is stable.
+    const remaining = mapDocument.tilesets.filter((tileset) => tileset.name !== name).sort((left, right) => left.firstGid - right.firstGid)
+    // Reindex firstGid contiguously starting at 1.
+    let nextGid = 1
+    const reindexed = remaining.map((tileset) => {
+      const shifted = { ...tileset, firstGid: nextGid }
+      nextGid += tileset.tileCount
+      return shifted
+    })
+    const reindexMap = new Map<number, number>()
+    remaining.forEach((old, index) => reindexMap.set(old.firstGid, reindexed[index]!.firstGid))
+    const remapGid = (gid: number) => {
+      const flags = gid & 0xf0000000
+      const base = gid & ~0xf0000000
+      if (base === 0) return 0
+      // Find the old tileset this gid belonged to and remap to the new firstGid.
+      for (const [oldFirstGid, newFirstGid] of reindexMap) {
+        const oldTileset = remaining.find((t) => t.firstGid === oldFirstGid)
+        if (oldTileset && base >= oldFirstGid && base < oldFirstGid + oldTileset.tileCount) {
+          return flags | (newFirstGid + (base - oldFirstGid))
+        }
+      }
+      return gid
+    }
+    const nextDocument: MapDocument = {
+      ...mapDocument,
+      tilesets: reindexed,
+      layers: mapDocument.layers.map((layer) => ({
+        ...layer,
+        gids: layer.gids.map((gid) => remapGid(stripGid(gid))),
+      })),
+    }
+    updateDocument(nextDocument, undefined, copy.removeTileset)
+    if (paletteSelection?.tilesetName === name) {
+      const fallback = reindexed[0]
+      setPaletteSelection(fallback ? { tilesetName: fallback.name, startIndex: 0, width: 1, height: 1 } : null)
+    }
+    setSaveState({ status: 'idle', message: '' })
   }
 
   function updateSelectedObject(updates: Partial<MapObject>) {
@@ -753,7 +881,8 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     activeLayerId,
     tool,
     selectedTile,
-    hoverInfo,
+    subscribeHoverInfo,
+    getHoverInfo,
     overlayActive,
     overlayRule,
     overlayPaintPreview,
@@ -767,7 +896,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     selectedObjectId,
     activeObjectGroupId,
     projectImageUrls,
-    paletteOpen,
     undoStack,
     redoStack,
     historyEntries,
@@ -782,7 +910,6 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     setPendingDeleteLayerId,
     setSelectedObjectId,
     setActiveObjectGroupId,
-    setPaletteOpen,
     setLockedLayerIds,
     updateDocument,
     undo,
@@ -790,6 +917,8 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     commitStroke,
     clickTile,
     addTileset,
+    attachGameSheet,
+    removeTileset,
     deleteSelectedObject,
     updateSelectedObject,
     updateActiveLayer,

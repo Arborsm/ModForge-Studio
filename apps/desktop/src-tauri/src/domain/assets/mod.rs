@@ -1,3 +1,5 @@
+//! Game asset domain: scanning, loading, caching and exporting Stardew Valley assets.
+
 pub(crate) mod commands;
 mod mime;
 pub mod types;

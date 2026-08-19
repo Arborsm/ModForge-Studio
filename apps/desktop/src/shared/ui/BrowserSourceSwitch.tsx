@@ -1,3 +1,5 @@
+/** @file Original/Mod source toggle for asset browsers. */
+
 import { cx } from '@shared/lib/helper'
 
 type BrowserSourceMode = 'original' | 'mod'
@@ -7,6 +9,7 @@ type BrowserSourceSwitchProps = {
   onChange: (value: BrowserSourceMode) => void
 }
 
+/** Two-button segmented switch toggling between original and mod asset source views. */
 export function BrowserSourceSwitch({ value, onChange }: BrowserSourceSwitchProps) {
   return (
     <div className="border-border-subtle bg-surface-panel-muted inline-flex rounded-lg border p-0.5">

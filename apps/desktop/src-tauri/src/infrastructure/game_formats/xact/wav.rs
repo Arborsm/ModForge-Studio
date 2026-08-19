@@ -1,3 +1,6 @@
+//! XACT WAV conversion: packed `MiniWaveFormat` parsing, PCM WAV building,
+//! and MS-ADPCM decoding for preview playback.
+
 use anyhow::{Context, bail};
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct MiniWaveFormat {

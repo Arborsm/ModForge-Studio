@@ -1,3 +1,5 @@
+//! Debug bridge domain: TCP communication with the in-game ModForge Debug Bridge SMAPI mod.
+
 pub(crate) mod commands;
 
 use std::io::{BufRead, BufReader, Write};

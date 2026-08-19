@@ -1,3 +1,5 @@
+//! AI settings persistence: profile storage, keychain credentials, validation and normalization.
+
 use super::presets::provider_presets;
 use super::types::{
     AiProviderProfile, AiSettingsSnapshot, SaveAiProviderProfile, SaveAiSettingsRequest,

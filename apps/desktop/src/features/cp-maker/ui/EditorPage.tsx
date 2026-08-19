@@ -1,4 +1,8 @@
-// 编辑器路由页：把 patch 交给工作区注册的编辑器，并解析它的 AssetSchema
+/**
+ * @file Editor route page: resolves the registered workspace editor for a patch
+ * and passes its `AssetSchema`.
+ * @module features/cp-maker
+ */
 
 import { getAssetSchema } from '@entities/asset-schema'
 import { useEditorCopy } from '@locales/provider'
@@ -13,6 +17,7 @@ interface EditorPageProps {
   resources: EditorResources
 }
 
+/** Renders the workspace-registered editor for a patch, or a fallback when none is registered. */
 export function EditorPage({ workspaceId, patch, draftPort, resources }: EditorPageProps) {
   const copy = useEditorCopy().studioDesk.editorPage
 

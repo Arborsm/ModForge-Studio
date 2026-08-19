@@ -1,3 +1,5 @@
+//! CP Maker types: draft records, project assets, change registry, export and session models.
+
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::infrastructure::game_formats::tbin::MapDocument;
 use serde::{Deserialize, Serialize};
@@ -279,7 +281,7 @@ impl CpMakerDraftRecord {
     }
 }
 
-// ─── Change Registry (frontend-defined opaque structure) ──────────────
+// Change Registry (frontend-defined opaque structure)
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -304,7 +306,7 @@ pub struct ChangeRegistryPatch {
     pub from_file: Option<String>,
     #[serde(default)]
     pub editor_state: Value,
-    // ── CP PatchConfig advanced fields ──
+    // CP PatchConfig advanced fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_locale: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

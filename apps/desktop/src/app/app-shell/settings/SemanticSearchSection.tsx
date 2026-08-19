@@ -1,3 +1,6 @@
+/**
+ * @file Semantic search settings panel: manages retrieval mode, model download/validation, index rebuild, and remote configuration.
+ */
 import { useEffect, useId, useRef, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
@@ -58,6 +61,7 @@ function bytes(value: number | null | undefined) {
   return `${amount} B`
 }
 
+/** Semantic search settings panel component: manages retrieval mode, model status, index health, and remote configuration. */
 export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
   const localization = useLocalization()
   const rootCopy = useSettingsMenuCopy().ai
@@ -148,8 +152,8 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
           }
         })
         .catch(() => {
-          // 索引状态查询失败/超时：降级为「未知」并暴露重试入口，而不是把
-          // 错误吞掉或假装索引为空。
+          // Index status query failed/timed out: degrade to "unknown" and expose a retry entry,
+          // rather than swallowing the error or pretending the index is empty.
           if (mounted.current && generation === refreshGeneration.current) setIndexFailed(true)
         })
     } catch (cause) {

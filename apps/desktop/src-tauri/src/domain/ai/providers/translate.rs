@@ -1,3 +1,5 @@
+//! Translation orchestration: model listing, structured-output execution and batch translation.
+
 use super::super::jobs::AiJobGuard;
 use super::super::presets::provider_preset;
 use super::super::settings::resolve_profile_credential;

@@ -1,3 +1,8 @@
+/**
+ * @file Desktop game asset API: promise-cached wrappers around Host Runtime
+ * commands for scanning and loading maps, events, images, audio, and data assets.
+ */
+
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/cache'

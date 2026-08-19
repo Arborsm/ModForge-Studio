@@ -1,7 +1,13 @@
+/**
+ * @file Formatting and keyboard helpers for the Studio Desk dashboard labels
+ * and interactions.
+ * @module features/cp-maker
+ */
 import type { KeyboardEvent } from 'react'
 import type { EditorCopy } from '@locales'
 import type { StudioDeskProjectStatus } from './studioDeskModel'
 
+/** Formats a timestamp as a relative "edited" label using locale copy. */
 export function formatStudioTimestamp(copy: EditorCopy['studioDesk'], timestamp: number | null) {
   if (!timestamp) return copy.edited.recently
   const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000))
@@ -10,6 +16,7 @@ export function formatStudioTimestamp(copy: EditorCopy['studioDesk'], timestamp:
   return copy.edited.hoursAgo(Math.max(1, Math.round(minutes / 60)))
 }
 
+/** Returns the locale label for a given project status. */
 export function getStudioProjectStatusLabel(copy: EditorCopy['studioDesk'], status: StudioDeskProjectStatus) {
   if (status === 'export') return copy.pendingExport
   if (status === 'error') return copy.hasErrors
@@ -18,6 +25,7 @@ export function getStudioProjectStatusLabel(copy: EditorCopy['studioDesk'], stat
   return copy.neverExported
 }
 
+/** Invokes a callback on Enter/Space keyboard activation, preventing default. */
 export function handleStudioKeyboardAction(event: KeyboardEvent<HTMLElement>, callback: () => void) {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()

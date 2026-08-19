@@ -1,5 +1,6 @@
 /**
- * Domain types and entry-level operations for the `Data/Characters` asset.
+ * @file Domain types and entry-level operations for the `Data/Characters` asset.
+ * @module entities/character
  *
  * Single definition site for the character field shape: the authoring page, the
  * character browser and the validation layer all read these types, this key
@@ -273,7 +274,7 @@ export function addCharacterEntry(entries: Record<string, unknown>, npcId: strin
   }
 }
 
-// --- Enum catalogs (mirrored from gamedata_schema.json) ---
+// Enum catalogs (mirrored from gamedata_schema.json)
 
 export const SEASON_VALUES = ['Spring', 'Summer', 'Fall', 'Winter'] as const
 export const GENDER_VALUES = ['Undefined', 'Male', 'Female'] as const
@@ -288,7 +289,7 @@ export const END_SLIDE_SHOW_VALUES = ['Hidden', 'MainGroup', 'TrailingGroup'] as
 export const HOME_DIRECTION_VALUES = ['up', 'down', 'left', 'right'] as const
 export const HOME_REGION_SUGGESTIONS = ['Town', 'Desert', 'Other'] as const
 
-// --- Companion image patch lookup (Portraits/<npc>, Characters/<npc>) ---
+// Companion image patch lookup (Portraits/<npc>, Characters/<npc>)
 
 /** Minimal structural view over a draft patch used for asset lookups. */
 export type CharacterAssetPatchInput = {

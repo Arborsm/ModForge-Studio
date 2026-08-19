@@ -1,3 +1,5 @@
+/** @file Expert mode toggle store for authoring workspaces, persisted via app UI state patch. */
+
 import { create } from 'zustand'
 import { applyAppUiStatePatch } from './appUiState'
 

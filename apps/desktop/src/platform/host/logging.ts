@@ -1,6 +1,12 @@
+/**
+ * @file Desktop host facade for frontend log forwarding and debug logging controls.
+ * @module platform/host/logging
+ */
+
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { canUseDesktopHost, invokeDesktop } from './runtime'
 
+/** Severity levels accepted by the desktop logger. */
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
 
 declare global {

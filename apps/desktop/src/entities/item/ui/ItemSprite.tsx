@@ -1,3 +1,8 @@
+/**
+ * @file Item sprite renderer: resolves source rect and tint mask from an item
+ * entry and delegates to `AtlasSprite` for atlas rendering.
+ */
+
 import type { CSSProperties } from 'react'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '../model/itemIndex'
 import { getItemSpriteSourceRect, getItemSpriteTintMaskSourceRect } from '../model/itemIndex'
@@ -33,6 +38,7 @@ type ItemSpriteProps = {
   style?: CSSProperties
 }
 
+/** Renders an item's sprite from its texture atlas, with apparel tint mask and fit-size scaling. */
 export function ItemSprite({
   item,
   textureState,

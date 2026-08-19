@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for native directory/file pickers, archive validation and drag-drop listeners.
+ * @module platform/host/dialogs
+ */
+
 import type { PlatformDragDropPayload, PlatformUnlistenFn, SaveDialogOptions } from '@shared/contracts'
 import { canUseDesktopHost, getPlatformPorts } from './runtime'
 

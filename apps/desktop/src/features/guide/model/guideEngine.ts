@@ -1,3 +1,8 @@
+/**
+ * @file Zustand store driving the in-app guide engine: registers guide
+ * definitions, tracks active step runs, and persists completion progress.
+ * @module features/guide
+ */
 import { create } from 'zustand'
 import type { GuideDefinition } from '@shared/contracts'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state/appUiState'
@@ -69,6 +74,10 @@ function startRun(state: GuideEngineState, guideId: string): Partial<GuideEngine
   }
 }
 
+/**
+ * Global guide engine store. Tracks registered guide definitions, the active
+ * step run, and completed guides; persists completion to app UI state.
+ */
 export const useGuideEngineStore = create<GuideEngineState>((set, get) => ({
   definitions: {},
   stateReady: false,

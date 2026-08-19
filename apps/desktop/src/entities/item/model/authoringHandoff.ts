@@ -1,5 +1,5 @@
 /**
- * "Open in item authoring" handoff.
+ * @file "Open in item authoring" handoff.
  *
  * The codex page and the authoring page are separate workbench modules and must
  * not import each other, so the request travels through this shared entity-level

@@ -1,3 +1,7 @@
+/**
+ * @file Case handler part 1 for vanilla `specificTemporarySprite` sprite ids.
+ */
+
 import type { EventCommand } from '@entities/event'
 import {
   createStageEffect,
@@ -8,6 +12,7 @@ import {
 
 const UNRESOLVED: SpecificTemporarySpriteResolution | null = null
 
+/** Resolves specific sprite ids handled in part 1 (e.g. boombox, jasmine gift, shake updates). */
 export function resolveSpecificTemporarySpriteEffectCase1(
   command: EventCommand,
   spriteId: string,

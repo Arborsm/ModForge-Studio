@@ -1,0 +1,41 @@
+/* ===== Left column: layers + history split body ===== */
+.map-asset-left-tab-content {
+  @apply min-h-0 flex-1 overflow-hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-asset-left-tab-content > .map-asset-layers {
+  flex: 0 0 var(--map-leftcol-split, 57%);
+  min-height: 0;
+}
+
+.map-asset-left-tab-content > .map-asset-leftcol-divider {
+  flex: 0 0 0.375rem;
+  position: relative;
+  z-index: 1;
+  margin: -0.1875rem 0;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.map-asset-left-tab-content > .map-asset-leftcol-divider::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0.125rem;
+  height: 0.125rem;
+  background: transparent;
+}
+
+.map-asset-left-tab-content > .map-asset-leftcol-divider:hover::after,
+.map-asset-left-tab-content > .map-asset-leftcol-divider.is-active::after {
+  background: var(--accent);
+}
+
+.map-asset-left-tab-content > .map-asset-history-panel {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border-color);
+}

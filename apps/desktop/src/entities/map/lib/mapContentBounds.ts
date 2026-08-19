@@ -1,3 +1,8 @@
+/**
+ * @file Map content bounds calculation: computes the tight pixel rect of
+ * non-empty tiles and the preview crop for viewport centering.
+ */
+
 import type { MapDocument } from './types'
 import { stripTileGidFlags } from './tileFlags'
 

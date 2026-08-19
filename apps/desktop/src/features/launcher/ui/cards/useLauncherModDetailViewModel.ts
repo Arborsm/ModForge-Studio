@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherModDetailViewModel hook: builds the pure render model for
+ * the launcher mod detail panel from local + remote data.
+ */
 import type { CSSProperties } from 'react'
 import type { useEditorCopy } from '@locales/provider'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '../../model/types'
@@ -21,6 +25,7 @@ import { isUpdateAvailable } from '../../model/versionCompare'
 
 type EditorCopy = ReturnType<typeof useEditorCopy>
 
+/** Input shape for {@link useLauncherModDetailViewModel}. */
 export type LauncherModDetailViewModelInput = {
   copy: EditorCopy
   activeTab: LauncherDetailTab
@@ -34,6 +39,7 @@ export type LauncherModDetailViewModelInput = {
   canQueueDownload: boolean
 }
 
+/** Pure render model for the launcher mod detail panel: hero, tabs, details, files, changelog, and dependency tree. */
 export type LauncherModDetailViewModel = {
   statusFlags: {
     isLocal: boolean

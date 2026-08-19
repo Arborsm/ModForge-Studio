@@ -1,3 +1,6 @@
+/**
+ * @file Settings window component: provides categorized preference panels for appearance, loading motion, view, interaction, AI, debugging, etc.
+ */
 import { AlertTriangle, Settings2, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -100,6 +103,9 @@ function SettingsCompactSwitch({
   )
 }
 
+/**
+ * Settings window component: renders preference panels by category; intercepts leave/close when the AI panel has unsaved changes.
+ */
 export default function SettingsWindow({
   open,
   activeCategory: controlledActiveCategory,

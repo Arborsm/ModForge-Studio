@@ -1,3 +1,6 @@
+/**
+ * @file models.dev catalog import dialog: searches and selects public model catalog entries to apply to the current AI configuration.
+ */
 import { useId } from 'react'
 import { findModelsDevEntry, searchModelsDevCatalog } from '@entities/ai'
 import { useSettingsMenuCopy } from '@locales/provider'

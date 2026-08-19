@@ -1,3 +1,8 @@
+/**
+ * @file Item asset API: loads and localizes the full item catalog (objects,
+ * weapons, tools, apparel, furniture) with gift-taste hydration and texture loading.
+ */
+
 import { loadTextAsset, resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 import {

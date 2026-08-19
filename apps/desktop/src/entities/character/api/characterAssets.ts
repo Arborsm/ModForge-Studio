@@ -1,5 +1,6 @@
 /**
- * Single vanilla-asset load path for both character pages.
+ * @file Single vanilla-asset load path for both character pages.
+ * @module entities/character
  *
  * Reads `Data/Characters` once per (game root, locale), resolves display names
  * through the localized string tables, attaches the resolved gift tastes and

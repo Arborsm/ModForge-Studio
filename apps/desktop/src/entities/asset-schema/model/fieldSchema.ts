@@ -1,5 +1,6 @@
 /**
- * Declarative field schema for Content Patcher data assets.
+ * @file Declarative field schema for Content Patcher data assets.
+ * @module entities/asset-schema
  *
  * This is the data-asset counterpart of the event editor's `CommandSchema`: a
  * page contributes one `AssetSchema` plus its domain types, and the shared

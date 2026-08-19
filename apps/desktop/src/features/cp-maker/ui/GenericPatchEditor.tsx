@@ -1,3 +1,7 @@
+/**
+ * @file Fallback editor for patch targets without a registered AssetSchema.
+ * @module features/cp-maker
+ */
 import { Code2, FileWarning, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAssetAuthoringCopy, useEditorCopy } from '@locales/provider'

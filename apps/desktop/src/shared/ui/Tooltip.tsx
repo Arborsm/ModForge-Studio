@@ -1,3 +1,5 @@
+/** @file App-styled tooltip replacing native browser title popups with floating-ui positioning. */
+
 import type { ReactNode } from 'react'
 import { useCallback, useId, useState } from 'react'
 import {

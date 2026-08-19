@@ -1,3 +1,5 @@
+//! SQLite-backed translation cache for AI-generated translations.
+
 use super::types::{
     AiTranslationCacheEntry, AiTranslationCacheStats, ReadAiTranslationCacheRequest,
 };

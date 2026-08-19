@@ -1,3 +1,8 @@
+/**
+ * @file Core parser for Stardew event scripts: splits keys/preconditions,
+ * parses scene setup and commands, and builds the display graph for timelines.
+ */
+
 import type { EventAssetSummary } from '@entities/game/api'
 import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from '@entities/event'
 import type {

@@ -1,5 +1,11 @@
+/**
+ * @file Item browse metadata: derives display categories and search tokens from
+ * item kind, type, tags, and relation data for the Items workspace browser.
+ */
+
 import type { ItemBrowseCategory, ItemWorkspaceEntry } from './itemTypes'
 
+/** Derives the set of browse categories an item belongs to (crop, fish, mineral, etc.). */
 export function getItemBrowseCategories(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>,
 ) {
@@ -51,6 +57,7 @@ export function getItemBrowseCategories(
   return Array.from(categories)
 }
 
+/** Builds search alias tokens for an item's categories, including CJK aliases for bilingual search. */
 export function getItemCategorySearchTokens(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>,
 ) {
@@ -112,6 +119,7 @@ export function getItemCategorySearchTokens(
   return Array.from(aliases).map((token) => token.toLowerCase())
 }
 
+/** Decorates each item entry with derived browse categories and category search tokens. */
 export function decorateItemBrowseMetadata(entries: ItemWorkspaceEntry[]) {
   return entries.map((entry) => {
     const browseCategories = getItemBrowseCategories({
@@ -141,6 +149,7 @@ export function decorateItemBrowseMetadata(entries: ItemWorkspaceEntry[]) {
   })
 }
 
+/** Returns whether an item matches a raw filter string, supporting `@id` and `#category` token prefixes. */
 export function itemMatchesFilter(entry: ItemWorkspaceEntry, rawFilter: string) {
   const filter = rawFilter.trim().toLowerCase()
   if (!filter) {

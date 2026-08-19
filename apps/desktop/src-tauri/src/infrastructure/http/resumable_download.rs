@@ -1,3 +1,5 @@
+//! Resumable HTTP download with range requests, SHA-256 verification, and cancellation polling.
+
 use anyhow::{Context, bail};
 use reqwest::StatusCode;
 use reqwest::blocking::Response;

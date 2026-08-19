@@ -1,6 +1,12 @@
+/**
+ * @file Parsers for `temporaryAnimatedSprite` and `temporarySprite` commands,
+ * extracting source rect, animation, motion, and styling fields into stage effect state.
+ */
+
 import type { EventCommand } from '@entities/event'
 import { createStageEffect, parseBoolean, parseEffectColor, parseNumber } from '@entities/event'
 
+/** Parses a `temporaryAnimatedSprite` command into a stage effect, or null when required fields are missing. */
 export function parseTemporaryAnimatedSpriteCommand(command: EventCommand) {
   const sourceX = parseNumber(command.args[2])
   const sourceY = parseNumber(command.args[3])

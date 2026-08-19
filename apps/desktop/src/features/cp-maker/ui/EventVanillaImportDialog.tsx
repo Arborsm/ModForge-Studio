@@ -1,3 +1,8 @@
+/**
+ * @file Dialog for importing individual vanilla events into a draft patch's
+ * `editorState.entries`.
+ * @module features/cp-maker
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { CheckSquare, FileJson, Loader2, Search } from 'lucide-react'
 import { loadEventAsset } from '@entities/game/api'

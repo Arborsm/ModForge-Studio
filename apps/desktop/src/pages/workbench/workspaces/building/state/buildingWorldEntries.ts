@@ -12,7 +12,7 @@ import {
 import { BUILDING_LOCATION_SEED_GROUP_ORDER, BUILDING_LOCATION_SEEDS, type BuildingLocationSeedGroup } from './buildingLocationSeeds'
 import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '@entities/building'
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// Types
 
 type LocationCreateOnLoadEntry = {
   MapPath?: string | null
@@ -62,7 +62,7 @@ type WorldEntranceAggregate = {
   primaryExteriorEntryTile: { X: number; Y: number } | null
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// Helpers
 
 function isTruthyProperty(value: MapPropertyValue | undefined) {
   if (typeof value === 'boolean') {
@@ -303,7 +303,7 @@ function createWorldBuildingEntry({
   } satisfies BuildingWorkspaceEntry
 }
 
-// ── Location data index ───────────────────────────────────────────────────
+// Location data index
 
 export function buildLocationDataIndex(locationsContent: string | null) {
   const locationDataIndex = new Map<string, LocationDataSeed>()
@@ -335,7 +335,7 @@ export function buildLocationDataIndex(locationsContent: string | null) {
   return locationDataIndex
 }
 
-// ── Location seeds ────────────────────────────────────────────────────────
+// Location seeds
 
 export function buildLocationSeeds(locationsContent: string | null) {
   const locationDataIndex = buildLocationDataIndex(locationsContent)
@@ -362,7 +362,7 @@ export function buildLocationSeeds(locationsContent: string | null) {
   })
 }
 
-// ── World building entries ────────────────────────────────────────────────
+// World building entries
 
 export function buildWorldBuildingEntries(loadedMapDocuments: MapDocument[], locationSeeds: WorldLocationSeed[]): BuildingWorkspaceEntry[] {
   const outdoorDocuments: MapDocument[] = []

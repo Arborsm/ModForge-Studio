@@ -144,6 +144,7 @@ const dialogueEditor: DialogueEditorCopy = {
   addPageEndAction: 'New talk page ($e)',
   addPageBreakAction: 'Page break ($b)',
   removePageAction: 'Remove page',
+  selectPageAction: 'Select page',
   pagePropsTitle: 'Page properties',
   emotionFieldLabel: 'Emotion / portrait',
   emotionNeutral: 'Neutral (default)',

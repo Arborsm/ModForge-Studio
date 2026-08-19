@@ -1,4 +1,6 @@
-// 事件选择下拉
+/**
+ * @file Event selector dropdown component.
+ */
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Search, FileText, Sparkles } from 'lucide-react'

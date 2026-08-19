@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type HTMLAttributes } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import {
   AlertCircle,
@@ -23,6 +24,8 @@ import {
 } from 'lucide-react'
 import { type EditorResources, type ProjectAssetRef, type VirtualPreviewAsset } from '@features/cp-maker'
 import { scanAudioAssets, scanDataAssets, scanImageAssets, type MapAssetSummary } from '@entities/game/api'
+import type { MapDocument } from '@entities/map'
+import { MapAssetEditorSession } from '../../map'
 import {
   ResourcePicker,
   toGameAudioResourceBrowserOptions,
@@ -34,7 +37,6 @@ import {
 import { useAssetLibraryCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
-import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
@@ -159,6 +161,7 @@ export function AssetLibraryWorkspace() {
   const [createMapOpen, setCreateMapOpen] = useState(false)
   const [repairingKey, setRepairingKey] = useState<string | null>(null)
   const [dismissedMissingSignature, setDismissedMissingSignature] = useState<string | null>(null)
+  const [mapAssetSession, setMapAssetSession] = useState<{ relativePath: string; document: MapDocument } | null>(null)
   const assets = project.projectAssets
   const missingDependencies = findMissingAssetDependencies(assets)
   const missingSignature = missingDependencies.map((missing) => `${missing.assetPath}\u0000${missing.missingPath}`).join('\n')
@@ -186,6 +189,13 @@ export function AssetLibraryWorkspace() {
     playerAppearanceProfile: environment.playerAppearanceProfile ?? null,
     onOpenPlayerAppearanceWindow: environment.onOpenPlayerAppearanceWindow,
     onReadProjectAsset: (relativePath) => project.readProjectAsset(relativePath),
+  }
+  async function openMapAsset(relativePath: string) {
+    const loaded = await project.loadProjectMapAsset(relativePath)
+    setMapAssetSession({ relativePath, document: JSON.parse(loaded.content) as MapDocument })
+  }
+  function closeMapAsset() {
+    setMapAssetSession(null)
   }
   const loadBindings = port ? collectLoadPatches(port.draft.patches) : []
   const loadBindingsByFamily = groupLoadPatchesByFamily(loadBindings)
@@ -749,72 +759,103 @@ export function AssetLibraryWorkspace() {
       })
     }
     return (
-      <div
-        key={asset.relativePath}
-        data-asset-path={asset.relativePath}
-        className={cx('asset-library-asset', active && 'is-selected', multiSelected && 'is-multi-selected')}
-      >
-        <button
-          type="button"
-          className="asset-library-asset-main"
-          aria-pressed={active}
-          onClick={(event) => {
-            // Ctrl/Cmd+click toggles multi-selection without leaving the detail view.
-            if (event.ctrlKey || event.metaKey) {
-              toggleMultiSelect()
-              return
-            }
-            setSelectedPath(asset.relativePath)
-          }}
-        >
-          <span className="asset-library-thumb">
-            {isProjectMapAssetPath(asset.relativePath) ? (
-              <AssetMapThumbnail
-                assetPath={asset.relativePath}
-                sha256={asset.sha256}
-                width={480}
-                height={352}
-                fallback={<AssetGlyph kind={kind} />}
-              />
-            ) : kind === 'image' ? (
-              <AssetImageThumbnail
-                assetPath={asset.relativePath}
-                sha256={asset.sha256}
-                mediaType={asset.mediaType}
-                fallback={<AssetGlyph kind={kind} />}
-              />
-            ) : (
-              <AssetGlyph kind={kind} />
-            )}
-            {missingByAsset.has(asset.relativePath) ? (
-              <span
-                className="asset-library-missing-badge"
-                title={copy.missingDependenciesBadge}
-                aria-label={copy.missingDependenciesBadge}
-              >
-                {copy.missingDependenciesBadge}
+      <ContextMenu.Root key={asset.relativePath}>
+        <ContextMenu.Trigger asChild>
+          <div
+            data-asset-path={asset.relativePath}
+            className={cx('asset-library-asset', active && 'is-selected', multiSelected && 'is-multi-selected')}
+          >
+            <button
+              type="button"
+              className="asset-library-asset-main"
+              aria-pressed={active}
+              onClick={(event) => {
+                // Ctrl/Cmd+click toggles multi-selection without leaving the detail view.
+                if (event.ctrlKey || event.metaKey) {
+                  toggleMultiSelect()
+                  return
+                }
+                setSelectedPath(asset.relativePath)
+              }}
+            >
+              <span className="asset-library-thumb">
+                {isProjectMapAssetPath(asset.relativePath) ? (
+                  <AssetMapThumbnail
+                    assetPath={asset.relativePath}
+                    sha256={asset.sha256}
+                    width={480}
+                    height={352}
+                    fallback={<AssetGlyph kind={kind} />}
+                  />
+                ) : kind === 'image' ? (
+                  <AssetImageThumbnail
+                    assetPath={asset.relativePath}
+                    sha256={asset.sha256}
+                    mediaType={asset.mediaType}
+                    fallback={<AssetGlyph kind={kind} />}
+                  />
+                ) : (
+                  <AssetGlyph kind={kind} />
+                )}
+                {missingByAsset.has(asset.relativePath) ? (
+                  <span
+                    className="asset-library-missing-badge"
+                    title={copy.missingDependenciesBadge}
+                    aria-label={copy.missingDependenciesBadge}
+                  >
+                    {copy.missingDependenciesBadge}
+                  </span>
+                ) : null}
               </span>
+              <span className="asset-library-asset-copy" title={asset.relativePath}>
+                <strong>{asset.relativePath.split('/').at(-1)}</strong>
+                <span>{asset.relativePath}</span>
+              </span>
+              <span className="asset-library-asset-meta">
+                {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={cx('asset-library-asset-check', multiSelected && 'is-checked')}
+              aria-label={copy.selectAsset(asset.relativePath)}
+              title={copy.selectAsset(asset.relativePath)}
+              aria-pressed={multiSelected}
+              onClick={toggleMultiSelect}
+            >
+              <Check className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+            <ContextMenu.Item className="context-menu-item" onSelect={() => setSelectedPath(asset.relativePath)}>
+              {copy.selectAsset(asset.relativePath)}
+            </ContextMenu.Item>
+            {isProjectMapAssetPath(asset.relativePath) ? (
+              <ContextMenu.Item className="context-menu-item" onSelect={() => void openMapAsset(asset.relativePath)}>
+                {copy.editInMapEditorAction}
+              </ContextMenu.Item>
             ) : null}
-          </span>
-          <span className="asset-library-asset-copy" title={asset.relativePath}>
-            <strong>{asset.relativePath.split('/').at(-1)}</strong>
-            <span>{asset.relativePath}</span>
-          </span>
-          <span className="asset-library-asset-meta">
-            {copy.filters[kind]} · {formatBytes(asset.sizeBytes)}
-          </span>
-        </button>
-        <button
-          type="button"
-          className={cx('asset-library-asset-check', multiSelected && 'is-checked')}
-          aria-label={copy.selectAsset(asset.relativePath)}
-          title={copy.selectAsset(asset.relativePath)}
-          aria-pressed={multiSelected}
-          onClick={toggleMultiSelect}
-        >
-          <Check className="h-3 w-3" aria-hidden="true" />
-        </button>
-      </div>
+            <ContextMenu.Item className="context-menu-item" onSelect={() => createLoadBindingForAsset(asset.relativePath)}>
+              {copy.replaceGameResourceAction}
+            </ContextMenu.Item>
+            <ContextMenu.Separator className="context-menu-separator" />
+            <ContextMenu.Item
+              className="context-menu-item"
+              onSelect={() => {
+                setRenamePath(asset.relativePath)
+                setRenameDraft(asset.relativePath)
+              }}
+            >
+              {copy.renameAction}
+            </ContextMenu.Item>
+            <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => setDeletePath(asset.relativePath)}>
+              {copy.deleteAction}
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
     )
   }
 
@@ -1114,10 +1155,7 @@ export function AssetLibraryWorkspace() {
                         <button
                           type="button"
                           className="control-button control-button-primary"
-                          onClick={() => {
-                            usePendingMapAssetEditStore.getState().requestEdit(selected.relativePath)
-                            environment.onOpenModule('map-authoring')
-                          }}
+                          onClick={() => void openMapAsset(selected.relativePath)}
                         >
                           <MapIcon className="h-4 w-4" aria-hidden="true" />
                           {copy.editInMapEditorAction}
@@ -1512,6 +1550,25 @@ export function AssetLibraryWorkspace() {
           setSelectedLoadBindingId(null)
         }}
       />
+
+      {mapAssetSession && port ? (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg-panel)' }}>
+          <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--border-color)' }}>
+            <span className="text-caption-px font-medium">{mapAssetSession.relativePath}</span>
+            <button type="button" className="icon-button" aria-label={copy.closeAction} title={copy.closeAction} onClick={closeMapAsset}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1">
+            <MapAssetEditorSession
+              relativePath={mapAssetSession.relativePath}
+              document={mapAssetSession.document}
+              draftPort={port}
+              resources={resources}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

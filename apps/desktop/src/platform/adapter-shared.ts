@@ -1,3 +1,8 @@
+/**
+ * @file Transport-agnostic storage and dialog chooser helpers shared by the Tauri and Electron platform adapters.
+ * @module platform/adapter-shared
+ */
+
 import type { OpenDialogOptions } from '../shared/contracts/platform'
 
 /** Transport-agnostic browser-storage adapter shared by the Tauri and Electron platform adapters. */

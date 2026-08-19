@@ -1,3 +1,5 @@
+//! Launcher image failure tracking: records repeated fetch failures and blocks mods after threshold.
+
 use super::types::{
     LauncherImageFailureEntry, LauncherImageFailuresState, RecordLauncherImageFailureRequest,
 };

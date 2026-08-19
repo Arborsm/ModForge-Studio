@@ -1,3 +1,5 @@
+//! Launcher domain: mod library, downloads, installs, settings, and SMAPI updates.
+
 pub mod archive;
 pub(crate) mod commands;
 pub mod downloads;

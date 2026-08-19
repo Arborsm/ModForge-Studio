@@ -1,6 +1,6 @@
 /**
- * Portrait frame math shared by every surface that renders a Stardew portrait
- * sheet (dialogue canvas, event stage, event `speak` cards).
+ * @file Portrait frame math for Stardew portrait sheets (dialogue canvas, event stage, event `speak` cards).
+ * @module entities/dialogue
  *
  * Sheets are grids of 64x64 frames laid out row-major; a portrait token
  * (`$h`, `$12`, ...) resolves to a frame index, and the index resolves to a

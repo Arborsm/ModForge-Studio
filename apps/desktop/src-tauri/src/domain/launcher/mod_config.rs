@@ -1,4 +1,6 @@
-// Facade for the GMCM mod-config domain. Implementation lives in the
+//! Facade for the GMCM mod-config domain, re-exporting load/save and probe diagnostics.
+
+// Implementation lives in the `mod_config/` submodules split by responsibility:
 // `mod_config/` submodules split by responsibility:
 //   - schema: path/JSON safety, schema/options/config parsing and i18n copy discovery
 //   - probe_run: dotnet host resolution and GMCM probe child-process execution

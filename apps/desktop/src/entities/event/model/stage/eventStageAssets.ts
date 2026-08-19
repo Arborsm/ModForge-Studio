@@ -1,3 +1,8 @@
+/**
+ * @file Resolves and prepares stage renderer assets for event actors and
+ * temporary sprite effects, including farmer appearance layer baking.
+ */
+
 import {
   bakeFarmerBaseTexture,
   bakeFarmerHairTexture,

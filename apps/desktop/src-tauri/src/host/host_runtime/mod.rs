@@ -1,3 +1,8 @@
+//! Host Runtime: the shared command scheduler that both the Tauri in-process
+//! path and the Electron sidecar use. Provides typed command binding (lane,
+//! pool, resources, mutation policy), pool dispatchers, and the in-process
+//! `execute` entry point.
+
 use crate::AppHandle;
 use crate::support::logging::{DebugLoggingState, LogEvent, targets};
 use serde::Serialize;

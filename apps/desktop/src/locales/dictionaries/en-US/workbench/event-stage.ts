@@ -37,6 +37,52 @@ const eventstage: EventStageCopy = {
   flashAlphaLabel: (alpha) => `Alpha ${alpha}`,
   playbackHaltedTitle: 'Playback halted',
   playbackHaltedDetail: 'The event keeps switching without advancing. Check for a switchEvent/fork cycle and reset playback.',
+  pickModeComplete: 'Done',
+  pickModeClear: 'Clear',
+  pickModeCancel: 'Cancel',
+  clickMapToPick: 'Click the map to pick a location',
+  directionLabels: {
+    up: 'Up',
+    right: 'Right',
+    down: 'Down',
+    left: 'Left',
+  },
+  directionName: (dir) => {
+    switch (dir) {
+      case 0:
+        return 'Up'
+      case 1:
+        return 'Right'
+      case 2:
+        return 'Down'
+      case 3:
+        return 'Left'
+      default:
+        return `Direction ${dir}`
+    }
+  },
+  pathPointCount: (count) => `${count} path points`,
+  toggleTrue: 'Yes',
+  toggleFalse: 'No',
+  pickFromMapPath: 'Pick path from map',
+  pickFromMap: 'Pick from map',
+  commandSummary: {
+    choosePath: 'Choose path',
+    waitForMovement: 'Wait for movement',
+    waitForOtherPlayers: 'Wait for other players',
+    faceDirection: (dirName) => `Facing ${dirName}`,
+    stop: 'Stop',
+    playAnimation: 'Play animation',
+    stopAnimation: 'Stop animation',
+    frameLabel: (frame) => `Frame ${frame}`,
+    offset: (x, y) => `Offset (${x}, ${y})`,
+    optionCount: (count) => `${count} options`,
+    conditionLabel: (condition) => `Condition: ${condition}`,
+    eventEnd: 'Event end',
+    beginParallel: 'Begin parallel',
+    endParallel: 'End parallel',
+    jump: 'Jump',
+  },
   workflow: {
     commandLabels: {
       farmerAnimation: 'Farmer Animation',

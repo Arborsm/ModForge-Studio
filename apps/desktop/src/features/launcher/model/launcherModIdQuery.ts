@@ -1,4 +1,9 @@
 /**
+ * @file Parses a discover search query as a Nexus mod id when it is a plain
+ * positive integer.
+ */
+
+/**
  * Parses a discover search query as a Nexus mod id when the trimmed query is a
  * plain positive integer (for example "40775"). Returns null for text queries,
  * empty strings, zero, or numbers outside the safe integer range so normal

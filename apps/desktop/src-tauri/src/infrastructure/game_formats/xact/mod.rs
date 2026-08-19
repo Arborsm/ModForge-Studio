@@ -1,3 +1,6 @@
+//! XACT audio infrastructure: resolves cue names to wave bank entries and
+//! decodes PCM/ADPCM audio into WAV data URLs for preview playback.
+
 pub(crate) mod commands;
 mod io;
 mod wav;

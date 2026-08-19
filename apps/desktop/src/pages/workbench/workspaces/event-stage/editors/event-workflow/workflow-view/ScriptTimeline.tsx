@@ -1,4 +1,6 @@
-// 流式时间轴 — 卡片列表 + 间隙插入 + 拖拽排序
+/**
+ * @file Streaming timeline component: card list with gap insertion and drag-to-reorder.
+ */
 
 import { useCallback, useEffect, useRef } from 'react'
 import { GitFork, Plus, ListPlus } from 'lucide-react'

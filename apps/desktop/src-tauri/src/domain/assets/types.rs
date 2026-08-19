@@ -1,3 +1,5 @@
+//! Asset domain types: game directory info, map/event/image/audio/data asset summaries and content models.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

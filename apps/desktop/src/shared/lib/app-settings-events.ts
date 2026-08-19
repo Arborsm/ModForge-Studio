@@ -1,3 +1,5 @@
+/** @file Typed CustomEvent bridge that lets lower FSD layers request settings navigation without importing app state. */
+
 import type { SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 
 const OPEN_SETTINGS_EVENT = 'modforge:open-settings'

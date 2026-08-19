@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Redo2, Undo2 } from 'lucide-react'
 import { useMapAuthoringCopy } from '@locales/provider'
 import type { MapEditorHistoryEntry } from '../../model/mapHistoryStack'
@@ -41,18 +42,28 @@ export function MapAssetEditorHistoryPanel(props: MapAssetEditorHistoryPanelProp
       ) : (
         <div className="map-asset-history-list">
           {entries.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              className="map-asset-history-row"
-              data-state={entry.state}
-              disabled={entry.state === 'current'}
-              onClick={() => onJumpTo(entry.key)}
-            >
-              <span className="map-asset-history-dot" />
-              <span className="map-asset-history-label">{entry.label}</span>
-              {entry.state !== 'current' ? <span className="map-asset-history-jump">{copy.historyJumpTo}</span> : null}
-            </button>
+            <ContextMenu.Root key={entry.key}>
+              <ContextMenu.Trigger asChild>
+                <button
+                  type="button"
+                  className="map-asset-history-row"
+                  data-state={entry.state}
+                  disabled={entry.state === 'current'}
+                  onClick={() => onJumpTo(entry.key)}
+                >
+                  <span className="map-asset-history-dot" />
+                  <span className="map-asset-history-label">{entry.label}</span>
+                  {entry.state !== 'current' ? <span className="map-asset-history-jump">{copy.historyJumpTo}</span> : null}
+                </button>
+              </ContextMenu.Trigger>
+              <ContextMenu.Portal>
+                <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                  <ContextMenu.Item className="context-menu-item" disabled={entry.state === 'current'} onSelect={() => onJumpTo(entry.key)}>
+                    {copy.historyJumpTo}
+                  </ContextMenu.Item>
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            </ContextMenu.Root>
           ))}
         </div>
       )}

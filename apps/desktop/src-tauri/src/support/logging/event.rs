@@ -1,3 +1,6 @@
+//! Structured log event builder: the single supported way to construct backend
+//! log lines with consistent `key=value` field formatting and multi-line blocks.
+
 use std::fmt::{self, Debug, Display};
 use std::path::Path;
 use std::time::Duration;

@@ -1,3 +1,6 @@
+//! Saves domain: scans the default Stardew Valley save slot directory and
+//! returns per-slot summaries for the save browser.
+
 pub(crate) mod commands;
 pub mod types;
 

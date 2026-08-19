@@ -1,9 +1,8 @@
 /**
- * Landing mode for authoring workspaces, declaring how the user enters and what they see first.
- *
- * Replaces the old `WorkspaceContentEntry` (expert | hub | singleton | mapTargets | standalone)
- * with user-facing primitives: what the workspace shows on entry. No workspace lands on a
- * patch list; patches stay an internal implementation detail.
+ * @file Landing mode for authoring workspaces, declaring how the user enters and
+ * what they see first. Replaces the old `WorkspaceContentEntry` with
+ * user-facing primitives; no workspace lands on a patch list.
+ * @module features/cp-maker
  */
 
 import { listPatchTargetSuggestions } from './patchTargets'

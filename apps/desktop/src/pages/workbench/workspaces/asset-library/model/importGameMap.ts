@@ -1,5 +1,12 @@
 import { loadImageDataUrl, loadMapAsset, type MapAssetSummary } from '@entities/game/api'
-import type { MapDocument } from '@entities/map'
+import {
+  GAME_SHEET_PROPERTY,
+  findTilesheetByKey,
+  gameSheetImageSourceTmx,
+  type MapDocument,
+  type MapTileset,
+  type VanillaTilesheetEntry,
+} from '@entities/map'
 import type { EditorResources, VirtualPreviewAsset } from '@features/cp-maker'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { relativeMapAssetReference } from '../../map/model/mapAssetReducer'
@@ -39,6 +46,24 @@ export function availableAssetPath(wantedPath: string, usedPaths: Set<string>): 
   return candidate
 }
 
+function resolveVanillaTilesheet(tileset: MapTileset): VanillaTilesheetEntry | null {
+  const raw = (tileset.imageSource ?? tileset.imagePath ?? '').trim().replaceAll('\\', '/')
+  const withoutExt = raw.replace(/\.[^./\\]+$/u, '')
+  const normalized = withoutExt
+    .replace(/^\/?(?:Content|Maps|TileSheets)\//iu, '')
+    .replace(/^\//u, '')
+    .replace(/\/$/u, '')
+  const segments = normalized.split('/')
+  const base = segments.at(-1) ?? ''
+  const folder = segments.length > 1 ? segments.slice(0, -1).join('/') : null
+  const candidates = [...(folder ? [`${folder}/${base}`] : []), `Maps/${base}`, `TileSheets/${base}`, base]
+  for (const key of candidates) {
+    const sheet = findTilesheetByKey(key)
+    if (sheet) return sheet
+  }
+  return null
+}
+
 export async function prepareProjectMapCopy({
   target,
   asset,
@@ -68,6 +93,20 @@ export async function prepareProjectMapCopy({
   const copiedImages = new Map<string, string>()
   const tilesets = [] as MapDocument['tilesets']
   for (const tileset of parsed.tilesets) {
+    const gameSheet = resolveVanillaTilesheet(tileset)
+    if (gameSheet) {
+      tilesets.push({
+        ...tileset,
+        source: null,
+        imageSource: gameSheetImageSourceTmx(gameSheet),
+        imagePath: null,
+        imageWidth: gameSheet.imageWidth,
+        imageHeight: gameSheet.imageHeight,
+        properties: { ...tileset.properties, [GAME_SHEET_PROPERTY]: gameSheet.key },
+      })
+      continue
+    }
+
     if (!tileset.imagePath) throw new Error(tilesheetLoadError(tileset.name))
     const sourceKey = tileset.imagePath.replaceAll('\\', '/').toLowerCase()
     let imagePath = copiedImages.get(sourceKey)

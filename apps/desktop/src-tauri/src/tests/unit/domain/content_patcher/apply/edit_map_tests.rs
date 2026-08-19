@@ -108,7 +108,7 @@ fn apply_map_properties_adds_and_updates() {
             "Outdoors": true
         }
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     let props = &map.document.properties;
     assert_eq!(
@@ -128,7 +128,7 @@ fn apply_warps_adds_warp_entries() {
             "6 11 Town 30 35"
         ]
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     // Warps are stored as a MapProperty, not as object groups
     let warp_prop = map.document.properties.get("Warp");
@@ -155,7 +155,7 @@ fn apply_map_tiles_sets_tile_index() {
             }
         ]
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     let layer = map
         .document
@@ -191,8 +191,7 @@ fn apply_map_tiles_accepts_numeric_index_and_boolean_remove_then_replace() {
         }]
     }));
 
-    apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json")
-        .expect("apply remove and replacement");
+    apply_edit_map_patch(&snapshot, &mut map, &patch).expect("apply remove and replacement");
 
     let layer = &map.document.layers[0];
     assert_eq!(layer.gids[0], 13);
@@ -227,7 +226,7 @@ fn apply_map_tiles_removes_tile() {
             }
         ]
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     let layer = map
         .document
@@ -256,7 +255,7 @@ fn apply_combined_map_properties_and_tiles() {
             }
         ]
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     assert_eq!(
         map.document.properties.get("Music"),
@@ -299,7 +298,7 @@ fn apply_remove_layer_removes_existing_layer() {
     let patch = patch_from(json!({
         "RemoveLayer": "Back"
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     assert!(
         map.document
@@ -324,7 +323,7 @@ fn apply_add_layer_creates_empty_layer() {
     let patch = patch_from(json!({
         "AddLayer": "Buildings"
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     let buildings = map.document.layers.iter().find(|l| l.name == "Buildings");
     assert!(buildings.is_some());
@@ -339,7 +338,7 @@ fn apply_remove_layer_and_add_layer_combined() {
         "RemoveLayer": ["Back"],
         "AddLayer": "Buildings"
     }));
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     assert!(
         map.document
@@ -399,7 +398,7 @@ fn apply_replace_by_layer_adds_source_only_layer() {
         "FromFile": "assets/source.tbin"
     }));
 
-    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch);
     assert!(result.is_ok(), "{result:?}");
     let buildings = map
         .document

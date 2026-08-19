@@ -1,3 +1,8 @@
+/**
+ * @file CP Maker state hook: draft CRUD, patch management, asset I/O, and
+ * content.json/manifest.json generation for the active draft.
+ * @module features/cp-maker
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { CpMakerPort } from '@features/cp-maker/provider'
@@ -16,7 +21,7 @@ import { duplicatePatchInArray, movePatchWithin } from '../model/patchOrder'
 import { mapPatchDraftToContentFields } from '../model/mapPatchDraft'
 import type { CpMakerDraftRecord, CpMakerDraftSummary, CpMakerExportResult } from '../model/cpMakerPort'
 
-// ─── Adapter: backend record ↔ frontend draft ─────────────────────────
+// Adapter: backend record ↔ frontend draft
 
 function parseConfigSchema(configSchemaDraft: Record<string, unknown>): ConfigSchemaEntry[] {
   return Object.entries(configSchemaDraft)
@@ -295,8 +300,9 @@ function buildConfigJsonAsset(configSchema: ConfigSchemaEntry[]): {
   }
 }
 
-// ─── content.json / manifest.json 前端生成 ───────────────────────────────
+// content.json / manifest.json frontend generation
 
+/** Builds the `manifest.json` string for a CP Maker draft. */
 export function buildManifestJson(draft: CpMakerDraft): string {
   const meta = draft.projectMetadata
   const contentPackFor: Record<string, unknown> = { UniqueID: meta.contentPackForUniqueId }
@@ -330,6 +336,7 @@ export function buildManifestJson(draft: CpMakerDraft): string {
   return `${JSON.stringify(manifest, null, 2)}\n`
 }
 
+/** Result of building `content.json` and its per-workspace include files. */
 export interface ContentBuildResult {
   contentJson: string
   includeFiles: Array<{ relativePath: string; content: string }>
@@ -360,6 +367,10 @@ const MOVE_ENTRY_KEY_MAP: Record<string, string> = {
   toPosition: 'ToPosition',
 }
 
+/**
+ * Builds `content.json` and per-workspace include files for a draft, merging
+ * EditData patches that share the same target and patch config.
+ */
 export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
   // enabled can be boolean or string token (e.g. "{{EnableMapEdit}}")
   // CP treats "false" (any case) as disabled; everything else is a token or enabled.
@@ -369,11 +380,11 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     return true
   })
 
-  // 按 workspace 分组 changes
   const workspaceChanges = new Map<string, Record<string, unknown>[]>()
 
-  // 合并同 Target + 同 Action + 同 PatchConfig (When/Enabled/Priority 等) 的 EditData patch
-  // 避免不同条件的 patch 被合并后丢失条件信息
+  // Merge EditData patches that share the same Target + Action + PatchConfig
+  // (When/Enabled/Priority etc.) so different-condition patches don't lose
+  // their conditions when combined.
   const editDataGroups = new Map<string, DraftPatch[]>()
   const standalonePatches: DraftPatch[] = []
 
@@ -403,7 +414,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     }
   }
 
-  // 合并 EditData
   for (const [, patches] of editDataGroups) {
     const ws = patches[0]!.workspace
     const changes = workspaceChanges.get(ws) ?? []
@@ -413,11 +423,9 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
       Target: patches[0]!.target,
     }
 
-    // 合并 Entries
     const entries: Record<string, unknown> = {}
-    // 合并 Fields (EntryKey -> { FieldName -> Value })
+    // Fields: EntryKey -> { FieldName -> Value }
     const fields: Record<string, Record<string, unknown>> = {}
-    // 收集 TextOperations
     const textOperations: unknown[] = []
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
@@ -453,7 +461,7 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     if (textOperations.length > 0) {
       change['TextOperations'] = textOperations.map((op) => mapKeysToPascalCase(op as Record<string, unknown>, TEXT_OP_KEY_MAP))
     }
-    // 收集 MoveEntries（CP 格式为数组 { ID, BeforeId, AfterId, ToPosition }）
+    // MoveEntries (CP format: array of { ID, BeforeId, AfterId, ToPosition })
     const moveEntries: unknown[] = []
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
@@ -488,7 +496,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     workspaceChanges.set(ws, changes)
   }
 
-  // 独立 patch (EditImage, EditMap, Load)
   for (const patch of standalonePatches) {
     const changes = workspaceChanges.get(patch.workspace) ?? []
 
@@ -603,7 +610,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     workspaceChanges.set(patch.workspace, changes)
   }
 
-  // 生成各 workspace 的 include 文件
   const includeFiles: Array<{ relativePath: string; content: string }> = []
   const allChanges: Record<string, unknown>[] = []
 
@@ -662,7 +668,7 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
   }
 }
 
-// ─── Hook ──────────────────────────────────────────────────────────────
+// Hook
 
 let nextPatchId = 0
 function generatePatchId() {
@@ -691,6 +697,11 @@ function isSameDefaultPatch(patch: DraftPatch, workspace: WorkspaceId, target: s
   return patch.target === target
 }
 
+/**
+ * CP Maker state hook: manages draft CRUD, patch lifecycle, config schema,
+ * virtual assets, project assets, metadata, import/export, and derived state
+ * for the active draft.
+ */
 export function useCpMaker() {
   const port: CpMakerPort = useCpMakerPort()
   const [drafts, setDrafts] = useState<CpMakerDraftSummary[]>([])
@@ -703,12 +714,10 @@ export function useCpMaker() {
   const [dirtyPatchIds, setDirtyPatchIds] = useState<Set<string>>(() => new Set())
   const isDirtyRef = useRef(false)
 
-  // 保持 ref 同步
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
 
-  // 加载草稿列表
   const refreshDrafts = useCallback(async () => {
     try {
       const list = await port.listDrafts()
@@ -722,7 +731,6 @@ export function useCpMaker() {
     }
   }, [port])
 
-  // 初始加载草稿列表
   useEffect(() => {
     let cancelled = false
 
@@ -746,7 +754,6 @@ export function useCpMaker() {
     }
   }, [port])
 
-  // 加载指定草稿
   const loadDraft = useCallback(
     async (storageKey: string): Promise<boolean> => {
       setDraftLoading(true)
@@ -773,7 +780,6 @@ export function useCpMaker() {
     [port],
   )
 
-  // 创建新草稿
   const createDraft = useCallback(
     async (metadata: Partial<CpMakerDraft['projectMetadata']>): Promise<boolean> => {
       setDraftLoading(true)
@@ -824,7 +830,6 @@ export function useCpMaker() {
     [port, refreshDrafts],
   )
 
-  // 保存草稿
   const saveDraft = useCallback(async () => {
     if (!activeDraft) return false
     setDraftLoading(true)
@@ -844,7 +849,7 @@ export function useCpMaker() {
     }
   }, [activeDraft, port, refreshDrafts])
 
-  // 放弃未保存修改：回滚到最近持久化的记录
+  // Discard unsaved changes: roll back to the most recently persisted record.
   const discardDraftChanges = useCallback(async () => {
     const storageKey = activeDraftKeyRef.current
     if (!storageKey) {
@@ -869,7 +874,6 @@ export function useCpMaker() {
     }
   }, [port])
 
-  // 删除草稿
   const deleteDraft = useCallback(
     async (storageKey: string) => {
       try {
@@ -897,7 +901,6 @@ export function useCpMaker() {
     setDraftError(null)
   }, [])
 
-  // 复制草稿
   const copyDraft = useCallback(
     async (storageKey: string) => {
       setDraftLoading(true)
@@ -918,7 +921,7 @@ export function useCpMaker() {
     [port, refreshDrafts],
   )
 
-  // ── Patch 管理 ──
+  // Patch management
 
   const addPatchWithReturn = useCallback(
     (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
@@ -1017,7 +1020,7 @@ export function useCpMaker() {
     [activeDraft],
   )
 
-  // ── Config Schema 管理 ──
+  // Config Schema management
 
   const addConfigEntry = useCallback((entry: ConfigSchemaEntry) => {
     setActiveDraft((current) => {
@@ -1058,7 +1061,7 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
-  // ── CustomLocations 管理 ──
+  // CustomLocations management
 
   const setCustomLocations = useCallback((locations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>) => {
     setActiveDraft((current) => {
@@ -1068,7 +1071,7 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
-  // ── DynamicTokens 管理 ──
+  // DynamicTokens management
 
   const setDynamicTokens = useCallback((tokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>) => {
     setActiveDraft((current) => {
@@ -1078,7 +1081,7 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
-  // ── AliasTokenNames 管理 ──
+  // AliasTokenNames management
 
   const addAliasTokenName = useCallback((alias: string, tokenName: string) => {
     setActiveDraft((current) => {
@@ -1143,7 +1146,7 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
-  // ── Virtual Asset 管理 ──
+  // Virtual Asset management
 
   const addVirtualAsset = useCallback((asset: VirtualPreviewAsset) => {
     setActiveDraft((current) => {
@@ -1288,7 +1291,7 @@ export function useCpMaker() {
     [activeDraft, applyPersistedAssetMutation, port],
   )
 
-  // ── Metadata ──
+  // Metadata
 
   const updateMetadata = useCallback((patch: Partial<CpMakerDraft['projectMetadata']>) => {
     setActiveDraft((current) => {
@@ -1301,7 +1304,7 @@ export function useCpMaker() {
     setIsDirty(true)
   }, [])
 
-  // ── Import ──
+  // Import
 
   const importPack = useCallback(
     async (modDirectoryPath: string) => {
@@ -1327,7 +1330,7 @@ export function useCpMaker() {
     [port, refreshDrafts],
   )
 
-  // ── Export ──
+  // Export
 
   const exportPack = useCallback(
     async (outputPath: string): Promise<CpMakerExportResult> => {
@@ -1337,14 +1340,12 @@ export function useCpMaker() {
       const manifestJson = buildManifestJson(activeDraft)
       const { contentJson, includeFiles } = buildContentJson(activeDraft)
 
-      // Include 文件作为 virtual assets 传入
       const includeAssets = includeFiles.map((file) => ({
         relativePath: file.relativePath,
         mediaType: 'application/json',
         bytesBase64: encodeTextToBase64(file.content),
       }))
 
-      // config.json 默认值文件（当 ConfigSchema 存在时）
       const configAssets = activeDraft.configSchema.length > 0 ? [buildConfigJsonAsset(activeDraft.configSchema)] : []
 
       const result = await port.exportPack({
@@ -1378,7 +1379,7 @@ export function useCpMaker() {
     [activeDraft, port, refreshDrafts],
   )
 
-  // ── Derived ──
+  // Derived
 
   const patchCountByWorkspace = useMemo(() => {
     const counts: Partial<Record<WorkspaceId, number>> = {}
@@ -1410,7 +1411,7 @@ export function useCpMaker() {
     chooseDirectory: (title?: string) => port.chooseDirectory(title),
     chooseFiles: (title?: string, filters?: readonly DialogFilter[]) => port.chooseFiles(title, filters),
 
-    // Patch 管理
+    // Patch management
     addPatch: addPatchWithReturn,
     removePatch,
     updatePatch,

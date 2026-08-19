@@ -1,4 +1,6 @@
-// Zustand 状态管理 — 事件编辑器全局状态
+/**
+ * @file Event editor Zustand global state store.
+ */
 
 import { create } from 'zustand'
 import { nextDraftEditMergeKey, tagNextDraftEdit } from '@features/cp-maker'
@@ -14,52 +16,50 @@ export type PickModeTarget = {
 type ScriptCardView = 'compact' | 'comfortable'
 
 interface EditorState {
-  // ── 事件选择 ──
   selectedEventKey: string | null
   setSelectedEventKey: (key: string | null) => void
 
-  // ── 命令选择 ──
   selectedCommandIndex: number | null
   setSelectedCommandIndex: (index: number | null) => void
 
-  // ── 播放位置（预览播放推进到的命令 id）──
-  // 走 store 而非编辑器根 state：播放推进时只有订阅的卡片重渲染，
-  // 避免每次命令跃迁都重渲染整个编辑器（含全部 dnd 卡片）。
+  // Playback position (the command id playback has advanced to)
+  // Kept in the store rather than editor root state: when playback advances only
+  // subscribed cards re-render, avoiding re-rendering the whole editor (including all dnd cards) on every command transition.
   playbackCommandId: string | null
   setPlaybackCommandId: (id: string | null) => void
 
-  // ── 当前解析后的事件脚本（由上层注入）──
+  // Currently parsed event script (injected by the parent layer)
   currentScript: EventScript | null
   setCurrentScript: (script: EventScript | null) => void
 
-  // ── Pick Mode（地图拾取）──
+  // Pick Mode (map picking)
   pickModeTarget: PickModeTarget
   setPickModeTarget: (target: PickModeTarget) => void
   isPickMode: boolean
 
-  // ── 命令面板 ──
+  // Command palette
   commandPaletteOpen: boolean
   setCommandPaletteOpen: (open: boolean) => void
   commandPaletteInsertIndex: number | null
   setCommandPaletteInsertIndex: (index: number | null) => void
 
-  // ── 视图偏好 ──
+  // View preferences
   cardView: ScriptCardView
   setCardView: (view: ScriptCardView) => void
   showLineNumbers: boolean
   setShowLineNumbers: (show: boolean) => void
 
-  // ── 编辑状态 ──
+  // Edit state
   expandedCards: Set<string>
   toggleCardExpanded: (id: string) => void
 
-  // ── 操作 ──
+  // Operations
   insertCommandAt: (index: number, raw: string) => void
   updateCommandAt: (index: number, raw: string) => void
   removeCommandAt: (index: number) => void
   moveCommand: (fromIndex: number, toIndex: number) => void
 
-  // ── 重置 ──
+  // Reset
   reset: () => void
 }
 
@@ -92,19 +92,19 @@ function rebuildScriptRaw(script: EventScript): EventScript {
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
-  // 事件选择
+  // Event selection
   selectedEventKey: null,
   setSelectedEventKey: (key) => set({ selectedEventKey: key, selectedCommandIndex: null }),
 
-  // 命令选择
+  // Command selection
   selectedCommandIndex: null,
   setSelectedCommandIndex: (index) => set({ selectedCommandIndex: index }),
 
-  // 播放位置
+  // Playback position
   playbackCommandId: null,
   setPlaybackCommandId: (id) => set({ playbackCommandId: id }),
 
-  // 当前脚本
+  // Current script
   currentScript: null,
   setCurrentScript: (script) => set({ currentScript: script }),
 
@@ -113,19 +113,19 @@ export const useEditorStore = create<EditorState>((set) => ({
   isPickMode: false,
   setPickModeTarget: (target) => set({ pickModeTarget: target, isPickMode: target != null }),
 
-  // 命令面板
+  // Command palette
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   commandPaletteInsertIndex: null,
   setCommandPaletteInsertIndex: (index) => set({ commandPaletteInsertIndex: index }),
 
-  // 视图偏好
+  // View preferences
   cardView: 'comfortable',
   setCardView: (view) => set({ cardView: view }),
   showLineNumbers: true,
   setShowLineNumbers: (show) => set({ showLineNumbers: show }),
 
-  // 编辑状态
+  // Edit state
   expandedCards: new Set(),
   toggleCardExpanded: (id) =>
     set((state) => {
@@ -135,7 +135,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { expandedCards: next }
     }),
 
-  // 操作
+  // Operations
   insertCommandAt: (index, raw) =>
     set((state) => {
       if (!state.currentScript) return state

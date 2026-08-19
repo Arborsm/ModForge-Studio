@@ -1,3 +1,7 @@
+/**
+ * @file Case handler part 6 for vanilla `specificTemporarySprite` sprite ids.
+ */
+
 import type { EventCommand } from '@entities/event'
 import {
   createAnimationRowEffect,
@@ -10,6 +14,7 @@ import {
 
 const UNRESOLVED: SpecificTemporarySpriteResolution | null = null
 
+/** Resolves specific sprite ids handled in part 6 (remaining vanilla special-cased sprites). */
 export function resolveSpecificTemporarySpriteEffectCase6(
   command: EventCommand,
   spriteId: string,

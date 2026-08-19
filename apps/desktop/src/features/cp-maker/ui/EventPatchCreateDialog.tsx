@@ -1,3 +1,8 @@
+/**
+ * @file Dialog for creating an EditData event patch from a scanned vanilla
+ * event file or a custom target.
+ * @module features/cp-maker
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { FileJson, Loader2, Search } from 'lucide-react'
 import { scanEvents, type EventAssetSummary } from '@entities/game/api'

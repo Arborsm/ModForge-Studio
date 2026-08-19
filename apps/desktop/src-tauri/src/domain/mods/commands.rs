@@ -1,3 +1,5 @@
+//! Host command bindings for the mods domain (scan, load, asset index, i18n save).
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::mods::{

@@ -1,10 +1,6 @@
 /**
- * Shared loading motion renderer for page-level presentation.
- *
- * This module now provides the shared loading motion environment
- * through context, plus a small set of pre-defined reveal controls
- * that pages can consume without threading preference props through
- * every intermediate layer.
+ * @file Shared loading motion renderer providing the page-level loading context,
+ * reveal controls, and Suspense-compatible fallback through a single module.
  */
 
 import {
@@ -69,9 +65,7 @@ function useLoadingMotionContextValue() {
   return contextValue ?? DEFAULT_LOADING_MOTION_STATE
 }
 
-/* ------------------------------------------------------------------ */
-/*  Host adapter hook - page hosts normalize their state through this  */
-/* ------------------------------------------------------------------ */
+// Host adapter hook - page hosts normalize their state through this
 
 export type PageLoadingState = {
   /** Current lifecycle stage of the page. */
@@ -111,9 +105,7 @@ export function useLoadingMotionConfig(state: PageLoadingState): {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Shared loading context                                             */
-/* ------------------------------------------------------------------ */
+// Shared loading context
 
 export type LoadingMotionProviderProps = {
   preference?: Partial<LoadingMotionPreference> | null
@@ -122,6 +114,7 @@ export type LoadingMotionProviderProps = {
   children: ReactNode
 }
 
+/** Provides the shared loading motion preference and resolved config to descendants via context. */
 export function LoadingMotionProvider({ preference, revealOrder = null, anchors = null, children }: LoadingMotionProviderProps) {
   const value = useMemo(
     () => ({
@@ -137,10 +130,12 @@ export function LoadingMotionProvider({ preference, revealOrder = null, anchors 
   return <LoadingMotionContext.Provider value={value}>{children}</LoadingMotionContext.Provider>
 }
 
+/** Returns the current loading motion preference from context (or the default when no provider is present). */
 export function useLoadingMotionPreference(): LoadingMotionPreference {
   return useLoadingMotionContextValue().preference
 }
 
+/** Resolves the effective loading motion config, merging an optional override with the context preference. */
 export function useResolvedLoadingMotion(preferenceOverride?: Partial<LoadingMotionPreference> | null): ResolvedLoadingMotionConfig {
   const current = useLoadingMotionContextValue()
   const mergedPreference = preferenceOverride
@@ -162,9 +157,7 @@ export function useResolvedLoadingMotion(preferenceOverride?: Partial<LoadingMot
   })
 }
 
-/* ------------------------------------------------------------------ */
-/*  Shared renderer component                                          */
-/* ------------------------------------------------------------------ */
+// Shared renderer component
 
 export type LoadingMotionHostProps = {
   stage: LoadingMotionStage
@@ -197,9 +190,7 @@ export function LoadingMotionHost({ stage, children, placeholder }: LoadingMotio
   return <>{children}</>
 }
 
-/* ------------------------------------------------------------------ */
-/*  Suspense-compatible fallback helper                               */
-/* ------------------------------------------------------------------ */
+// Suspense-compatible fallback helper
 
 export type LoadingMotionFallbackProps = {
   styleId?: LoadingMotionStyleId
@@ -210,9 +201,7 @@ export type LoadingMotionFallbackProps = {
   className?: string
 }
 
-/* ------------------------------------------------------------------ */
-/*  Section reveal helpers                                             */
-/* ------------------------------------------------------------------ */
+// Section reveal helpers
 
 type LoadingMotionRevealStyle = CSSProperties & {
   '--loading-motion-reveal-index'?: number
@@ -279,6 +268,7 @@ function buildLoadingMotionRevealProps({
   }
 }
 
+/** Builds the data-attribute props for a section reveal element from a raw preference (no context needed). */
 export function getLoadingMotionRevealProps({
   itemId,
   index,
@@ -297,6 +287,7 @@ export function getLoadingMotionRevealProps({
   return buildLoadingMotionRevealProps({ itemId, index, config, className })
 }
 
+/** Builds the data-attribute props for a child reveal element (index-only, no preference needed). */
 export function getLoadingMotionChildRevealProps({
   index,
   className,
@@ -312,6 +303,7 @@ export function getLoadingMotionChildRevealProps({
   }
 }
 
+/** Section-level reveal wrapper that applies the resolved motion config via data attributes and CSS custom properties. */
 export function LoadingMotionReveal<T extends LoadingMotionIntrinsicElement = 'div'>({
   itemId,
   index,
@@ -338,6 +330,7 @@ export type LoadingMotionRevealItemProps<T extends LoadingMotionIntrinsicElement
   children: ReactNode
 }
 
+/** Child-level reveal wrapper that applies a staggered index via CSS custom properties. */
 export function LoadingMotionRevealItem<T extends LoadingMotionIntrinsicElement = 'div'>({
   index,
   className,

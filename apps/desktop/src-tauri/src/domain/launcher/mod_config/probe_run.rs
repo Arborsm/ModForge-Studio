@@ -1,3 +1,5 @@
+//! GMCM probe execution: dotnet host resolution and probe child-process management.
+
 use super::MANIFEST_FILE_NAME;
 use super::schema::object_value_case_insensitive;
 use crate::domain::launcher::fs::read_json_file;

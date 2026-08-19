@@ -1,3 +1,8 @@
+/**
+ * @file World state preview overlay builders: derives building data index and
+ * overlay sprites (atlas + stage) for rendering world-state-dependent map overlays.
+ */
+
 import type { MapDocument, MapPropertyValue, MapWorldOverlaySprite } from '@entities/map'
 import { stripTileGidFlags, unwrapMapPropertyValue } from '@entities/map'
 import { findTilesetForGid as resolveTilesetForGid } from '@entities/map'

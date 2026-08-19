@@ -242,7 +242,8 @@ export function EventCommandPipeline({
   onDelete,
   onInsertAfter,
 }: EventCommandPipelineProps) {
-  const labels = useEventStageCopy().workflow.commandPipeline
+  const copy = useEventStageCopy()
+  const labels = copy.workflow.commandPipeline
 
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -287,7 +288,7 @@ export function EventCommandPipeline({
   return (
     <div ref={containerRef} className="flex flex-col" onKeyDown={handleKeyDown} tabIndex={-1}>
       {commands.map((cmd, index) => {
-        const summary = getCommandSummary(cmd)
+        const summary = getCommandSummary(cmd, copy)
         const Icon = ICON_MAP[summary.icon] ?? CircleDot
         const isSelected = selectedId === cmd.id
         const isExpanded = expandedId === cmd.id

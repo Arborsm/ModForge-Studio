@@ -1,5 +1,9 @@
+/** @file Stardew Valley i18n parser — splits dialogue values into lossless protocol literals and translatable text nodes. */
+
+/** One node in a parsed i18n value: either a non-translatable protocol literal or a translatable text segment. */
 export type StardewI18nNode = { kind: 'literal'; value: string } | { kind: 'text'; id: string; value: string }
 
+/** Parsed i18n template: all nodes plus a filtered view of translatable text nodes. */
 export type StardewI18nTemplate = {
   nodes: StardewI18nNode[]
   textNodes: Array<Extract<StardewI18nNode, { kind: 'text' }>>

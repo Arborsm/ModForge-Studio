@@ -1,3 +1,6 @@
+/**
+ * @file Global guide overlay component: portals to body to render guide cards and mask; mounted as a singleton by the app shell.
+ */
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGuidesCopy } from '@locales/provider'

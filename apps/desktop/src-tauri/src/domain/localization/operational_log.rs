@@ -1,3 +1,5 @@
+//! Operational log targets and helper events for the localization domain.
+
 use crate::support::logging::{LogEvent, targets};
 
 pub const TRANSLATION: &str = targets::LOCALIZATION_TRANSLATION;

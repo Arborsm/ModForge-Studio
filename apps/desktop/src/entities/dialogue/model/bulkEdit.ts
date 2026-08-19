@@ -1,6 +1,6 @@
 /**
- * Helpers for the dialogue bulk table: which entries a plain textarea can
- * carry, and what a row should be called when the author never titled it.
+ * @file Helpers for the dialogue bulk table: inline-edit eligibility and row labels.
+ * @module entities/dialogue
  */
 
 import { parseDialogueScript, setPageText, type DialogueScriptAst } from './script'
@@ -43,7 +43,7 @@ function firstTextLine(script: string): string | null {
 
 /**
  * Row label: the author's title when set, else the first spoken line, else the
- * key itself. Vanilla entries never carry a project title, and "未命名条目"
+ * key itself. Vanilla entries never carry a project title, and "Untitled entry"
  * told the author nothing.
  */
 export function dialogueEntryLabel(entry: DialogueEntryLabelSource): string {

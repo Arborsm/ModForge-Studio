@@ -1,3 +1,5 @@
+//! Launcher mod download queue management and Nexus download execution with cancellation support.
+
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
 use super::runtime::open_launcher_url_in_browser;

@@ -1,3 +1,7 @@
+/**
+ * @file Renders one schema field as its corresponding control widget based on the field's control kind.
+ * @module entities/asset-schema
+ */
 import { useId } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { DialogueScriptField } from '@entities/dialogue'

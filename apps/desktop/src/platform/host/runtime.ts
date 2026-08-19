@@ -1,3 +1,8 @@
+/**
+ * @file Desktop platform runtime — holds the configured `PlatformPorts` and provides the typed `invokeDesktop` entry point.
+ * @module platform/host/runtime
+ */
+
 import type { PlatformPorts } from '@shared/contracts'
 import { createHostCommandClient, type HostCommandClient, type HostCommandPolicy } from '@platform/host-command-client'
 import type { HostCommandName } from '@platform/host-commands'

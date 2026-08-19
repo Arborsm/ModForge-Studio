@@ -1,3 +1,6 @@
+//! Nexus Mods catalog search via GraphQL (credentialed and public anonymous
+//! paths) and the REST trending endpoint, with facet parsing and fallback.
+
 use crate::domain::nexusmods::can_use_nexus_graphql;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;

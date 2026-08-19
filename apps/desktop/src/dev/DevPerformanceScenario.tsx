@@ -1,3 +1,9 @@
+/**
+ * @file Dev-only component-level performance scenarios: renders individual
+ * widgets (project gallery, translation editor, event modals, launcher detail)
+ * with large fixture data.
+ * @module dev
+ */
 import { useDeferredValue, useState, type ReactNode } from 'react'
 import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
@@ -640,6 +646,7 @@ function resolveScenarioId(): ScenarioId {
   return scenarioIds.includes(requested as ScenarioId) ? (requested as ScenarioId) : 'cp-maker-project-gallery'
 }
 
+/** Dev scenario entry point: resolves the requested performance scenario from URL params. */
 export function DevPerformanceScenario() {
   return (
     <LocaleProvider locale="en-US">

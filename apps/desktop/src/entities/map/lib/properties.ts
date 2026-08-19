@@ -1,3 +1,8 @@
+/**
+ * @file Map property key constants, category classification, and value
+ * coercion helpers for map-level and per-cell properties.
+ */
+
 import type { MapPropertyValue } from './types'
 
 /** Map-level property keys the semantic cards and top-bar chips read and write. */

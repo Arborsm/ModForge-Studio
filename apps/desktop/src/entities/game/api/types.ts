@@ -1,3 +1,8 @@
+/**
+ * @file Game asset API type definitions: game directory metadata, map/event
+ * asset summaries, parsed asset content, and resource registry interfaces.
+ */
+
 /** Validated Stardew Valley game directory metadata used by workbench editors. */
 export type GameDirectoryInfo = {
   rootPath: string

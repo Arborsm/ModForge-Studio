@@ -1,3 +1,7 @@
+/**
+ * @file Launcher blocked-state card: eyebrow, title, issue summary, and
+ * copy-to-clipboard detail toggle for unavailable launcher surfaces.
+ */
 import { type ReactNode } from 'react'
 import { AlertTriangle, Copy } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

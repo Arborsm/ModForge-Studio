@@ -1,3 +1,5 @@
+//! CP Maker draft persistence: load, save, delete, copy and session file management.
+
 use super::project_assets::{copy_project_assets_at_dir, delete_project_assets_at_dir};
 use super::types::{CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary};
 use crate::infrastructure::text_encoding::read_text_file;

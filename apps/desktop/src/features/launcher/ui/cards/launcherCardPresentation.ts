@@ -1,3 +1,7 @@
+/**
+ * @file Launcher mod card presentation helpers: monogram extraction, cover
+ * word selection, and deterministic fallback palette generation.
+ */
 type LauncherCardFallbackPalette = {
   hue: number
   bright: string
@@ -21,6 +25,7 @@ function wrapHue(value: number) {
   return ((value % 360) + 360) % 360
 }
 
+/** Extracts a 1-3 character monogram from a mod title for the cover placeholder. */
 export function getLauncherCardMonogram(title: string) {
   const words = title.trim().split(/\s+/).filter(Boolean)
 
@@ -39,6 +44,7 @@ export function getLauncherCardMonogram(title: string) {
     .toUpperCase()
 }
 
+/** Picks the featured cover word (longest >= 4 chars, or first word) from a mod title. */
 export function getLauncherCardCoverWord(title: string) {
   const words = title
     .trim()
@@ -54,6 +60,7 @@ export function getLauncherCardCoverWord(title: string) {
   return featuredWord.slice(0, 14).toUpperCase()
 }
 
+/** Generates a deterministic HSL fallback palette from a seed string for cover placeholders. */
 export function getLauncherCardFallbackPalette(seed: string): LauncherCardFallbackPalette {
   const hash = hashText(seed || 'mod')
   const hue = wrapHue(hash % 360)

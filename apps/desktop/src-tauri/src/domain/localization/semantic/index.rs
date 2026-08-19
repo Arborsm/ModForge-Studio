@@ -1,3 +1,5 @@
+//! Semantic vector index persistence: SQLite storage for embeddings with build and status tracking.
+
 use crate::domain::app_paths::localization_semantic_index_path;
 use crate::domain::localization::types::AiSemanticIndexStatus;
 use anyhow::bail;

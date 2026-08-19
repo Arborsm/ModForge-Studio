@@ -1,3 +1,8 @@
+/**
+ * @file Mod desktop API type definitions: project summaries, diagnostics,
+ * Content Patcher inspection data, result materialization, and i18n save types.
+ */
+
 export type PluginKind = 'content-patcher' | 'unknown'
 export type PluginDiagnosticSeverity = 'info' | 'warning' | 'error'
 

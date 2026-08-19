@@ -1,20 +1,32 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { Grid2X2, GripVertical, Image, ImageOff, Loader2, Minus, Plus, ScanLine, Search, X } from 'lucide-react'
+/**
+ * @file Tileset palette component: interactive tileset sheet grid for picking
+ * tiles, managing favorite/recent selections, and uploading custom tilesheets.
+ */
+
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronRight, Download, ImageOff, LayoutGrid, Star, Upload } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
 import { usePreferencesStore, type PaletteRecentSelection } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import type { MapDocument, MapTileset } from '../lib/types'
 import { resolveTilesetImagePath } from '../lib/assets'
+import { extractAnimationGroups } from '../lib/animationGroups'
+import { type MapTilesheetPickerProjectOption } from './MapTilesheetPicker'
+import { MapTilesheetGallery } from './MapTilesheetGallery'
+import { SheetGridCanvas } from './SheetGridCanvas'
+import type { VanillaTilesheetEntry } from '../model/vanillaTilesheets'
 import {
-  cellFromGridPointer,
-  cellFromSheetPointer,
+  isFavoriteSelection,
+  mergeFavoriteSelections,
   normalizeSelectionRect,
+  pushFavoriteSelection,
   pushRecentSelection,
+  removeFavoriteSelection,
+  removeRecentSelection,
   rememberTilesetSelection,
   selectionRectForSelection,
-  tileIndexInSelection,
   tilesetSelectionFromRect,
   type NormalizedSelectionRect,
   type TilesetSelectionRect,
@@ -23,54 +35,29 @@ import { loadImage } from './mapViewportHelpers'
 
 export type MapTilesetPaletteSelection = PaletteRecentSelection
 
-type ImageState = {
-  key: string
-  status: 'loading' | 'ready' | 'error'
-  image: HTMLImageElement | null
-}
-
-/** In-flight header drag: pointer identity, start cursor position, and the panel origin inside its offset parent. */
-type DragSession = {
-  pointerId: number
-  startX: number
-  startY: number
-  originLeft: number
-  originTop: number
-}
-
-/** Which panel edge a resize drag affects: left edge (width), bottom edge (height), or bottom-left corner (both). */
-type ResizeAxis = 'width' | 'height' | 'both'
-
-/** In-flight resize drag: pointer identity, affected axes, start cursor position, and the panel geometry inside its offset parent. */
-type ResizeSession = {
-  pointerId: number
-  axis: ResizeAxis
-  startX: number
-  startY: number
-  originLeft: number
-  originTop: number
-  originWidth: number
-  originHeight: number
-}
-
 type MapTilesetPaletteProps = {
   document: MapDocument
   locale: LocaleCode
   selection: MapTilesetPaletteSelection | null
-  onSelectionChange: (selection: MapTilesetPaletteSelection) => void
-  /** Smaller chips without name labels for narrow panels. */
-  compact?: boolean
-  /** When provided, renders a close button in the floating panel header. */
-  onClose?: () => void
-  /** When provided, renders edge/corner drag handles so the floating panel can be resized. */
-  resizeLabel?: string
-}
-
-/** Hover tooltip content: the hovered tile index plus the anchor cell's viewport position. */
-type HoveredCell = {
-  index: number
-  left: number
-  top: number
+  onSelectionChange: (selection: MapTilesetPaletteSelection | null) => void
+  /** Game root used to resolve dynamically referenced vanilla sheets; null disables their images and catalog rows. */
+  gameRootPath?: string | null
+  /** Attaches a vanilla catalog sheet as a dynamic reference; enables the catalog groups in the sheet picker. */
+  onAttachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
+  /** Project image choices for the sheet picker; omit to hide the project group. */
+  projectImageOptions?: readonly MapTilesheetPickerProjectOption[]
+  /** Attaches a project image as a new tileset. */
+  onAddProjectImage?: ((relativePath: string) => void) | null
+  /** Removes a tileset by name; omitted in session modes without tileset management. */
+  onRemoveTileset?: ((name: string) => void) | null
+  /** Replaces a tileset's image; reuses the add-tileset flow with a replaceName. */
+  onReplaceTilesetImage?: ((relativePath: string, replaceName: string) => void) | null
+  /** Requests the host to switch the Inspector to the tilesets tab for this sheet. */
+  onEditTilesetInInspector?: ((name: string) => void) | null
+  /** Notifies the host that a sheet is being hovered in the gallery; null clears the preview. */
+  onHoverTileset?: ((imageSrc: string | null) => void) | null
+  /** Notifies the host that the gallery selection mode is active (overlay backdrop). */
+  onGalleryModeChange?: ((active: boolean) => void) | null
 }
 
 type RecentCellProps = {
@@ -78,13 +65,32 @@ type RecentCellProps = {
   tileset: MapTileset
   entry: PaletteRecentSelection
   locale: LocaleCode
+  gameRootPath: string | null
   errorFactory: (path: string) => string
   onRestore: (entry: PaletteRecentSelection) => void
+  isFavorite: boolean
+  onToggleFavorite: (entry: PaletteRecentSelection) => void
+  /** Tile pixel size for each cell; 28 for recent strip, 40 for favorites grid. */
+  cellPx?: number
+  /** Whether to show the tileset name label below the thumbnail (favorites page). */
+  showLabel?: boolean
 }
 
 /** One thumbnail in the recent-use strip: the selection's tiles rendered as a mini grid. */
-function RecentCell({ document, tileset, entry, locale, errorFactory, onRestore }: RecentCellProps) {
-  const imagePath = resolveTilesetImagePath(document, tileset)
+function RecentCell({
+  document,
+  tileset,
+  entry,
+  locale,
+  gameRootPath,
+  errorFactory,
+  onRestore,
+  isFavorite,
+  onToggleFavorite,
+  cellPx = 28,
+  showLabel = false,
+}: RecentCellProps) {
+  const imagePath = resolveTilesetImagePath(document, tileset, gameRootPath)
   const [imageState, setImageState] = useState<{ status: 'loading' | 'ready' | 'error'; image: HTMLImageElement | null }>({
     status: 'loading',
     image: null,
@@ -111,150 +117,128 @@ function RecentCell({ document, tileset, entry, locale, errorFactory, onRestore 
 
   const spacing = tileset.spacing ?? 0
   const margin = tileset.margin ?? 0
-  const cells: Array<{ index: number; x: number; y: number }> = []
-  for (let row = 0; row < entry.height; row += 1) {
-    for (let column = 0; column < entry.width; column += 1) {
-      const tileIndex = entry.startIndex + row * tileset.columns + column
-      if (tileIndex < 0 || tileIndex >= tileset.tileCount) continue
-      cells.push({
-        index: tileIndex,
-        x: margin + (tileIndex % tileset.columns) * (tileset.tileWidth + spacing),
-        y: margin + Math.floor(tileIndex / tileset.columns) * (tileset.tileHeight + spacing),
-      })
-    }
-  }
+  const startCol = entry.startIndex % tileset.columns
+  const startRow = Math.floor(entry.startIndex / tileset.columns)
+  // Crop origin in source pixels (top-left of the selection rect).
+  const cropX = margin + startCol * (tileset.tileWidth + spacing)
+  const cropY = margin + startRow * (tileset.tileHeight + spacing)
+
+  // Render the entire selection as a single background-cropped element so
+  // multi-tile selections appear seamless — no gaps between cells.
+  // For 1x1 selections in the recent strip, scale up for better visibility.
+  // For large selections, cap the per-cell size so the thumbnail fits the strip.
+  const MAX_CELL_PX = cellPx === 28 ? 48 : cellPx
+  const baseCellPx = cellPx === 28 && entry.width === 1 && entry.height === 1 ? 48 : cellPx
+  // Cap: if the total render width/height exceeds 2.5x the strip height, shrink.
+  const maxRenderDim = MAX_CELL_PX * 2.5
+  const naturalRenderW = entry.width * baseCellPx
+  const naturalRenderH = entry.height * baseCellPx
+  const capScale = Math.min(1, maxRenderDim / Math.max(naturalRenderW, naturalRenderH))
+  const CELL_PX = Math.round(baseCellPx * capScale)
+  const scale = CELL_PX / tileset.tileWidth
+  const scaledW = imageState.image ? imageState.image.naturalWidth * scale : 0
+  const scaledH = imageState.image ? imageState.image.naturalHeight * scale : 0
+  const renderW = entry.width * CELL_PX
+  const renderH = entry.height * CELL_PX
 
   return (
-    <button
-      type="button"
-      className="map-tileset-palette-recent"
-      style={{ gridTemplateColumns: `repeat(${entry.width}, 1fr)` }}
-      onClick={() => onRestore(entry)}
-    >
-      {imageState.status === 'ready' && imageState.image && cells.length > 0 ? (
-        cells.map((cell) => (
+    <span className={cx('map-tileset-palette-recent-wrapper', showLabel && 'has-label')}>
+      <button
+        type="button"
+        className={cx('map-tileset-palette-recent-star', isFavorite && 'is-active')}
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleFavorite(entry)
+        }}
+        aria-label={isFavorite ? 'Unstar' : 'Star'}
+        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        <Star className="h-3 w-3" aria-hidden="true" fill={isFavorite ? 'currentColor' : 'none'} />
+      </button>
+      <button
+        type="button"
+        className="map-tileset-palette-recent"
+        style={{
+          width: `${renderW + 2}px`,
+          height: `${renderH + 2}px`,
+        }}
+        onClick={() => onRestore(entry)}
+      >
+        {imageState.status === 'ready' && imageState.image ? (
           <i
-            key={cell.index}
             style={{
+              width: `${renderW}px`,
+              height: `${renderH}px`,
               backgroundImage: `url(${JSON.stringify(imageState.image!.src)})`,
-              backgroundSize: `${imageState.image!.naturalWidth}px ${imageState.image!.naturalHeight}px`,
-              backgroundPosition: `-${cell.x}px -${cell.y}px`,
+              backgroundSize: `${scaledW}px ${scaledH}px`,
+              backgroundPosition: `-${cropX * scale}px -${cropY * scale}px`,
             }}
             aria-hidden="true"
           />
-        ))
-      ) : (
-        <span className="map-tileset-palette-recent-fallback">
-          {entry.width}×{entry.height}
-        </span>
-      )}
-    </button>
+        ) : (
+          <span className="map-tileset-palette-recent-fallback">
+            {entry.width}×{entry.height}
+          </span>
+        )}
+      </button>
+      {showLabel ? <span className="map-tileset-palette-recent-label">{entry.tilesetName}</span> : null}
+    </span>
   )
 }
 
-function readRootFontSize() {
-  if (typeof document === 'undefined') return 16
-  return Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
-}
-
-/** Renders a real tileset image and commits a bounded rectangular stamp selection. */
+/** Renders the docked whole-sheet palette: sheet tabs, recents, draggable sheet image with hover magnifier, and zoom footer. */
 export function MapTilesetPalette({
   document,
   locale,
   selection,
   onSelectionChange,
-  compact,
-  onClose,
-  resizeLabel,
+  gameRootPath = null,
+  onAttachGameSheet = null,
+  projectImageOptions = [],
+  onAddProjectImage = null,
+  onRemoveTileset = null,
+  onReplaceTilesetImage = null,
+  onEditTilesetInInspector = null,
+  onHoverTileset = null,
+  onGalleryModeChange = null,
 }: MapTilesetPaletteProps) {
   const editorCopy = useEditorCopy()
   const labels = editorCopy.studioDesk.mapPatchEditor
-  const viewportLabels = editorCopy.viewportLabels
-  const closeLabel = editorCopy.buildAssetDialog.closeAction
   const palettePrefs = usePreferencesStore((state) => state.mapEditorPalette)
   const setPalettePrefs = usePreferencesStore((state) => state.setMapEditorPalette)
   const availableTilesets = document.tilesets.filter((tileset) => tileset.columns > 0 && tileset.tileCount > 0)
   const fallbackName = availableTilesets[0]?.name ?? ''
   const requestedName = selection?.tilesetName ?? fallbackName
   const activeTileset = availableTilesets.find((tileset) => tileset.name === requestedName) ?? availableTilesets[0] ?? null
-  const imagePath = activeTileset ? resolveTilesetImagePath(document, activeTileset) : null
-  const imageKey = `${locale}:${imagePath ?? ''}`
-  const [imageState, setImageState] = useState<ImageState>({ key: imageKey, status: 'loading', image: null })
+  const animationGroups = useMemo(() => (activeTileset ? extractAnimationGroups(activeTileset) : []), [activeTileset])
   const [dragRect, setDragRect] = useState<TilesetSelectionRect | null>(null)
-  const dragRef = useRef<TilesetSelectionRect | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [viewOverrides, setViewOverrides] = useState<Record<string, 'grid' | 'sheet'>>({})
-  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
-  const [virtualElement, setVirtualElement] = useState<HTMLDivElement | null>(null)
-  const [rootFontSize, setRootFontSize] = useState(readRootFontSize)
-  const [hoveredCell, setHoveredCell] = useState<HoveredCell | null>(null)
-  const hoveredIndexRef = useRef<number | null>(null)
-  const [dragPosition, setDragPosition] = useState<{ left: number; top: number } | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragSessionRef = useRef<DragSession | null>(null)
-  const [paletteSize, setPaletteSize] = useState<{ width: number; height: number } | null>(null)
-  const [activeResize, setActiveResize] = useState<ResizeAxis | null>(null)
-  const resizeSessionRef = useRef<ResizeSession | null>(null)
+  // Sheet gallery view: replaces the palette scroll area with a grid of sheet thumbnails.
+  const [showGallery, setShowGallery] = useState(false)
+  // Favorites tab: when active, shows a grid of starred selections instead of a sheet.
+  const [showFavorites, setShowFavorites] = useState(false)
 
   useEffect(() => {
-    if (!imagePath) {
-      setImageState({ key: imageKey, status: 'error', image: null })
-      return
-    }
-    let current = true
-    setImageState({ key: imageKey, status: 'loading', image: null })
-    void loadImage(imagePath, locale, labels.tilesetImageError)
-      .then((image) => {
-        if (current) setImageState({ key: imageKey, status: 'ready', image })
-      })
-      .catch(() => {
-        if (current) setImageState({ key: imageKey, status: 'error', image: null })
-      })
-    return () => {
-      current = false
-    }
-  }, [imageKey, imagePath, labels.tilesetImageError, locale])
+    onGalleryModeChange?.(showGallery)
+    if (!showGallery) onHoverTileset?.(null)
+  }, [showGallery, onGalleryModeChange, onHoverTileset])
 
-  useEffect(() => {
-    if (!scrollElement) return
-    const updateLayout = () => {
-      setRootFontSize(readRootFontSize())
-    }
-    const observer = new ResizeObserver(updateLayout)
-    observer.observe(scrollElement)
-    updateLayout()
-    return () => observer.disconnect()
-  }, [scrollElement])
+  // Switching to favorites or gallery clears the active sheet view.
+  function activateFavorites() {
+    setShowFavorites((current) => !current)
+    setShowGallery(false)
+  }
 
-  const currentImageState = imageState.key === imageKey ? imageState : { key: imageKey, status: 'loading' as const, image: null }
-  const paletteImage = currentImageState.image
+  function activateTileset(name: string) {
+    setShowFavorites(false)
+    setShowGallery(false)
+    switchTileset(name)
+  }
   const zoom = palettePrefs.zoom
-  const scale = Math.max(0.5, zoom)
-  const gridGap = rootFontSize * 0.25
-  const gridCellWidth = Math.max(rootFontSize * 2, (activeTileset?.tileWidth ?? 16) * scale + 2)
-  const gridRowContentHeight = Math.max(rootFontSize, (activeTileset?.tileHeight ?? 16) * scale) + rootFontSize * 1.125
-  const rows = activeTileset ? Math.max(1, Math.ceil(activeTileset.tileCount / activeTileset.columns)) : 1
-  const paletteView = activeTileset ? (viewOverrides[activeTileset.name] ?? 'grid') : 'grid'
   const currentSelection =
     selection?.tilesetName === activeTileset?.name ? selection : (palettePrefs.perTilesetSelections[activeTileset?.name ?? ''] ?? null)
   const visibleRect: TilesetSelectionRect | null =
     dragRect ?? (activeTileset && currentSelection ? selectionRectForSelection(currentSelection, activeTileset.columns) : null)
   const normalized: NormalizedSelectionRect | null = visibleRect ? normalizeSelectionRect(visibleRect) : null
-  const gridVirtualizer = useVirtualizer({
-    count: paletteView === 'grid' ? rows : 0,
-    getScrollElement: () => scrollElement,
-    estimateSize: () => gridRowContentHeight + gridGap,
-    overscan: 1,
-  })
-
-  useEffect(() => {
-    gridVirtualizer.measure()
-  }, [activeTileset?.columns, gridCellWidth, gridRowContentHeight, gridVirtualizer])
-
-  useEffect(() => {
-    if (!activeTileset || paletteView !== 'grid' || selection?.tilesetName !== activeTileset.name) return
-    gridVirtualizer.scrollToIndex(Math.floor(selection.startIndex / activeTileset.columns), { align: 'auto' })
-  }, [activeTileset, gridVirtualizer, paletteView, selection])
 
   if (!activeTileset) {
     return (
@@ -265,11 +249,8 @@ export function MapTilesetPalette({
     )
   }
 
-  const normalizedQuery = searchQuery.trim().toLowerCase()
-  const filteredTilesets = normalizedQuery
-    ? availableTilesets.filter((tileset) => tileset.name.toLowerCase().includes(normalizedQuery))
-    : availableTilesets
   const recentEntries = palettePrefs.recents.filter((entry) => availableTilesets.some((tileset) => tileset.name === entry.tilesetName))
+  const favoriteEntries = palettePrefs.favorites.filter((entry) => availableTilesets.some((tileset) => tileset.name === entry.tilesetName))
 
   function commitSelection(rect: TilesetSelectionRect) {
     const next = tilesetSelectionFromRect(rect, activeTileset.columns, activeTileset.tileCount)
@@ -294,558 +275,373 @@ export function MapTilesetPalette({
     setPalettePrefs({ perTilesetSelections: rememberTilesetSelection(prefs.perTilesetSelections, entry.tilesetName, selection) })
   }
 
-  function showCellTip(event: PointerEvent<HTMLButtonElement>, index: number) {
-    if (hoveredIndexRef.current === index) return
-    hoveredIndexRef.current = index
-    const rect = event.currentTarget.getBoundingClientRect()
-    setHoveredCell({ index, left: rect.left, top: rect.top })
+  /** Removes a recent selection from the preferences store. */
+  function removeRecentEntry(entry: PaletteRecentSelection) {
+    const prefs = usePreferencesStore.getState().mapEditorPalette
+    setPalettePrefs({ recents: removeRecentSelection(prefs.recents, entry) })
   }
 
-  function hideCellTip() {
-    hoveredIndexRef.current = null
-    setHoveredCell(null)
+  /** Toggles favorite status for a selection entry. */
+  function toggleFavorite(entry: PaletteRecentSelection) {
+    const prefs = usePreferencesStore.getState().mapEditorPalette
+    const favorites = isFavoriteSelection(prefs.favorites, entry)
+      ? removeFavoriteSelection(prefs.favorites, entry)
+      : pushFavoriteSelection(prefs.favorites, entry)
+    setPalettePrefs({ favorites })
   }
 
-  function handleHeadPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return
-    // Clicks on the search box (label padding included), view toggles, or the
-    // close button must not start a header drag.
-    if (event.target instanceof Element && event.target.closest('button, input, .map-tileset-palette-search')) return
-    const panel = event.currentTarget.parentElement
-    const offsetParent = panel?.offsetParent as HTMLElement | null
-    if (!panel || !offsetParent) return
-    const parentBounds = offsetParent.getBoundingClientRect()
-    const panelBounds = panel.getBoundingClientRect()
-    dragSessionRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originLeft: panelBounds.left - parentBounds.left,
-      originTop: panelBounds.top - parentBounds.top,
+  /** Removes a favorite entry by identity. */
+  function removeFavoriteEntry(entry: PaletteRecentSelection) {
+    const prefs = usePreferencesStore.getState().mapEditorPalette
+    setPalettePrefs({ favorites: removeFavoriteSelection(prefs.favorites, entry) })
+  }
+
+  /** Exports favorites as a downloadable JSON file. */
+  function exportFavorites() {
+    const prefs = usePreferencesStore.getState().mapEditorPalette
+    const json = JSON.stringify({ version: 1, favorites: prefs.favorites }, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = globalThis.document.createElement('a')
+    a.href = url
+    a.download = 'map-palette-favorites.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  /** Imports favorites from a JSON file selected by the user. */
+  function importFavorites() {
+    const input = globalThis.document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (!file) return
+      void file.text().then((text) => {
+        try {
+          const parsed = JSON.parse(text) as unknown
+          if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as Record<string, unknown>).favorites)) {
+            return
+          }
+          const imported = (parsed as { favorites: unknown[] }).favorites
+            .map((entry) => {
+              if (typeof entry !== 'object' || entry === null) return null
+              const e = entry as Record<string, unknown>
+              if (
+                typeof e.tilesetName !== 'string' ||
+                typeof e.startIndex !== 'number' ||
+                typeof e.width !== 'number' ||
+                typeof e.height !== 'number'
+              )
+                return null
+              return { tilesetName: e.tilesetName, startIndex: e.startIndex, width: e.width, height: e.height } as PaletteRecentSelection
+            })
+            .filter((entry): entry is PaletteRecentSelection => entry !== null)
+          if (imported.length === 0) return
+          const prefs = usePreferencesStore.getState().mapEditorPalette
+          setPalettePrefs({ favorites: mergeFavoriteSelections(prefs.favorites, imported) })
+        } catch {
+          // Ignore malformed JSON
+        }
+      })
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setIsDragging(true)
+    input.click()
   }
 
-  function handleHeadPointerMove(event: PointerEvent<HTMLDivElement>) {
-    const session = dragSessionRef.current
-    if (!session || session.pointerId !== event.pointerId) return
-    const panel = event.currentTarget.parentElement as HTMLElement | null
-    const offsetParent = panel?.offsetParent as HTMLElement | null
-    if (!panel || !offsetParent) return
-    const maxLeft = Math.max(0, offsetParent.clientWidth - panel.offsetWidth)
-    const maxTop = Math.max(0, offsetParent.clientHeight - panel.offsetHeight)
-    setDragPosition({
-      left: Math.min(Math.max(0, session.originLeft + event.clientX - session.startX), maxLeft),
-      top: Math.min(Math.max(0, session.originTop + event.clientY - session.startY), maxTop),
-    })
-  }
-
-  function handleHeadPointerEnd(event: PointerEvent<HTMLDivElement>) {
-    const session = dragSessionRef.current
-    if (!session || session.pointerId !== event.pointerId) return
-    dragSessionRef.current = null
-    setIsDragging(false)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  function startResize(event: PointerEvent<HTMLDivElement>, axis: ResizeAxis) {
-    if (event.button !== 0) return
-    const panel = event.currentTarget.parentElement as HTMLElement | null
-    const offsetParent = panel?.offsetParent as HTMLElement | null
-    if (!panel || !offsetParent) return
-    const parentBounds = offsetParent.getBoundingClientRect()
-    const panelBounds = panel.getBoundingClientRect()
-    resizeSessionRef.current = {
-      pointerId: event.pointerId,
-      axis,
-      startX: event.clientX,
-      startY: event.clientY,
-      originLeft: panelBounds.left - parentBounds.left,
-      originTop: panelBounds.top - parentBounds.top,
-      originWidth: panelBounds.width,
-      originHeight: panelBounds.height,
-    }
-    setActiveResize(axis)
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function handleResizePointerMove(event: PointerEvent<HTMLDivElement>) {
-    const session = resizeSessionRef.current
-    if (!session || session.pointerId !== event.pointerId) return
-    const panel = event.currentTarget.parentElement as HTMLElement | null
-    const offsetParent = panel?.offsetParent as HTMLElement | null
-    if (!panel || !offsetParent) return
-    const parentBounds = offsetParent.getBoundingClientRect()
-    const margin = rootFontSize * 0.75
-    const minWidth = rootFontSize * 16
-    const minHeight = rootFontSize * 12
-    const deltaX = event.clientX - session.startX
-    const deltaY = event.clientY - session.startY
-
-    let width = session.originWidth
-    let height = session.originHeight
-    if (session.axis !== 'height') {
-      // The left edge follows the pointer so the panel's right edge stays fixed.
-      const left = Math.min(Math.max(session.originLeft + deltaX, margin), Math.max(margin, parentBounds.width - margin - minWidth))
-      width = Math.min(Math.max(session.originWidth - deltaX, minWidth), Math.max(minWidth, parentBounds.width - left - margin))
-      setDragPosition({ left, top: session.originTop })
-    }
-    if (session.axis !== 'width') {
-      // The bottom edge follows the pointer; the panel's top edge stays fixed.
-      height = Math.min(
-        Math.max(session.originHeight + deltaY, minHeight),
-        Math.max(minHeight, parentBounds.height - session.originTop - margin),
-      )
-    }
-    setPaletteSize({ width, height })
-  }
-
-  function handleResizePointerEnd(event: PointerEvent<HTMLDivElement>) {
-    const session = resizeSessionRef.current
-    if (!session || session.pointerId !== event.pointerId) return
-    resizeSessionRef.current = null
-    setActiveResize(null)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  function gridPointerCell(event: PointerEvent<HTMLDivElement>, gridElement: HTMLDivElement) {
-    const bounds = gridElement.getBoundingClientRect()
-    return cellFromGridPointer({
-      x: event.clientX,
-      y: event.clientY,
-      originX: bounds.left,
-      originY: bounds.top,
-      cellWidth: gridCellWidth,
-      cellHeight: gridRowContentHeight,
-      gap: gridGap,
-      columns: activeTileset.columns,
-      rows,
-    })
-  }
-
-  function sheetPointerCell(event: PointerEvent<HTMLDivElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect()
-    return cellFromSheetPointer({
-      x: event.clientX,
-      y: event.clientY,
-      originX: bounds.left,
-      originY: bounds.top,
-      width: bounds.width,
-      height: bounds.height,
-      columns: activeTileset.columns,
-      rows,
-    })
-  }
-
-  function handleScrollPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (paletteView !== 'grid' || currentImageState.status !== 'ready' || !virtualElement) return
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const cell = gridPointerCell(event, virtualElement)
-    const next = { startColumn: cell.column, startRow: cell.row, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = next
-    setDragRect(next)
-    hideCellTip()
-  }
-
-  function handleScrollPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current || !virtualElement) return
-    const cell = gridPointerCell(event, virtualElement)
-    const next = { ...dragRef.current, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = next
-    setDragRect(next)
-  }
-
-  function handleScrollPointerUp(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current || !virtualElement) return
-    const cell = gridPointerCell(event, virtualElement)
-    const next = { ...dragRef.current, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = null
-    setDragRect(null)
-    commitSelection(next)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  function handleScrollPointerCancel(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return
-    dragRef.current = null
-    setDragRect(null)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  function handleSheetPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const cell = sheetPointerCell(event)
-    const next = { startColumn: cell.column, startRow: cell.row, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = next
-    setDragRect(next)
-    hideCellTip()
-  }
-
-  function handleSheetPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return
-    const cell = sheetPointerCell(event)
-    const next = { ...dragRef.current, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = next
-    setDragRect(next)
-  }
-
-  function handleSheetPointerUp(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return
-    const cell = sheetPointerCell(event)
-    const next = { ...dragRef.current, endColumn: cell.column, endRow: cell.row }
-    dragRef.current = null
-    setDragRect(null)
-    commitSelection(next)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  function handleSheetPointerCancel(event: PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current) return
-    dragRef.current = null
-    setDragRect(null)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  const tipScale = 64 / Math.max(activeTileset.tileWidth, activeTileset.tileHeight)
-  const tipTileWidth = activeTileset.tileWidth * tipScale
-  const tipTileHeight = activeTileset.tileHeight * tipScale
-  const tipWidth = rootFontSize * 6
-  const tipHeight = rootFontSize * 6.75
-  const tipLeft = hoveredCell ? Math.max(rootFontSize * 0.5, hoveredCell.left - tipWidth - rootFontSize * 0.625) : 0
-  const tipTop = hoveredCell
-    ? Math.min(window.innerHeight - tipHeight - rootFontSize * 0.5, Math.max(rootFontSize * 0.5, hoveredCell.top - rootFontSize * 1.25))
-    : 0
-  const hoveredTileSourceX = hoveredCell
-    ? (activeTileset.margin ?? 0) + (hoveredCell.index % activeTileset.columns) * (activeTileset.tileWidth + (activeTileset.spacing ?? 0))
-    : 0
-  const hoveredTileSourceY = hoveredCell
-    ? (activeTileset.margin ?? 0) +
-      Math.floor(hoveredCell.index / activeTileset.columns) * (activeTileset.tileHeight + (activeTileset.spacing ?? 0))
-    : 0
+  /** Whether the sheet tab context menu should show management items. */
+  const tabManagementEnabled = Boolean(onRemoveTileset || onReplaceTilesetImage || onEditTilesetInInspector)
 
   return (
-    <section
-      className={cx('map-tileset-palette', activeResize && 'is-resizing')}
-      aria-label={labels.tilesetPalette}
-      style={
-        dragPosition || paletteSize
-          ? {
-              ...(dragPosition ? { left: dragPosition.left, top: dragPosition.top, right: 'auto' as const } : null),
-              ...(paletteSize ? { width: paletteSize.width, height: paletteSize.height } : null),
-            }
-          : undefined
-      }
-    >
-      <div
-        className={cx('map-tileset-palette-head', isDragging && 'is-dragging')}
-        onPointerDown={handleHeadPointerDown}
-        onPointerMove={handleHeadPointerMove}
-        onPointerUp={handleHeadPointerEnd}
-        onPointerCancel={handleHeadPointerEnd}
-      >
-        <GripVertical className="map-tileset-palette-head-grip h-3.5 w-3.5" aria-hidden="true" />
-        <label className="map-tileset-palette-search">
-          <Search className="map-tileset-palette-search-icon h-3.5 w-3.5" aria-hidden="true" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={labels.searchTilesets}
-            aria-label={labels.searchTilesets}
-            spellCheck={false}
-          />
-        </label>
-        <div className="map-tileset-palette-view" role="group" aria-label={labels.tilesetView}>
-          {(
-            [
-              ['grid', Grid2X2, labels.tilesetGridView],
-              ['sheet', Image, labels.tilesetSheetView],
-            ] as const
-          ).map(([view, Icon, label]) => (
-            <button
-              key={view}
-              type="button"
-              className={cx('icon-button', paletteView === view && 'is-active')}
-              aria-label={label}
-              title={label}
-              aria-pressed={paletteView === view}
-              onClick={() => setViewOverrides((current) => ({ ...current, [activeTileset.name]: view }))}
-            >
-              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-        {onClose ? (
-          <button type="button" className="map-tileset-palette-close" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
-      <div
-        className={cx('map-tileset-palette-sheets', compact && 'is-compact')}
-        role="group"
-        aria-label={labels.tileTileset(activeTileset.name)}
-      >
-        {filteredTilesets.map((tileset) => {
-          const isActive = tileset.name === activeTileset.name
-          const hasRememberedSelection = Boolean(palettePrefs.perTilesetSelections[tileset.name])
-          return (
-            <button
-              key={`${tileset.firstGid}:${tileset.name}`}
-              type="button"
-              className={cx('map-tileset-palette-chip', isActive && 'is-active')}
-              aria-pressed={isActive}
-              onClick={() => switchTileset(tileset.name)}
-            >
-              <span className="map-tileset-palette-chip-name">{tileset.name}</span>
-              {hasRememberedSelection ? <span className="map-tileset-palette-chip-mem" aria-hidden="true" /> : null}
-            </button>
-          )
-        })}
-      </div>
-      {recentEntries.length > 0 ? (
-        <div className="map-tileset-palette-recents">
-          <span className="map-tileset-palette-recents-label">{labels.recentTilesets}</span>
-          {recentEntries.map((entry) => {
-            const tileset = availableTilesets.find((candidate) => candidate.name === entry.tilesetName)
-            if (!tileset) return null
+    <section className="map-tileset-palette" aria-label={labels.tilesetPalette} data-guide="map-tileset-palette">
+      <div className="map-tileset-palette-head">
+        <div className="map-tileset-palette-tabs" role="tablist" aria-label={labels.tilesetPalette}>
+          {availableTilesets.map((tileset) => {
+            const isActive = tileset.name === activeTileset.name
+            const tabContextMenu = tabManagementEnabled ? (
+              <ContextMenu.Portal>
+                <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                  {onEditTilesetInInspector ? (
+                    <ContextMenu.Item className="context-menu-item" onSelect={() => onEditTilesetInInspector(tileset.name)}>
+                      {labels.sheetTabEditInInspector}
+                    </ContextMenu.Item>
+                  ) : null}
+                  {onReplaceTilesetImage && projectImageOptions.length > 0 ? (
+                    <ContextMenu.Sub>
+                      <ContextMenu.SubTrigger className="context-menu-item context-menu-subtrigger">
+                        {labels.sheetTabReplaceImage}
+                        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                      </ContextMenu.SubTrigger>
+                      <ContextMenu.Portal>
+                        <ContextMenu.SubContent className="context-menu-content context-menu-subcontent" collisionPadding={12}>
+                          {projectImageOptions.map((option) => (
+                            <ContextMenu.Item
+                              key={option.value}
+                              className="context-menu-item"
+                              onSelect={() => onReplaceTilesetImage(option.value, tileset.name)}
+                            >
+                              {option.label}
+                            </ContextMenu.Item>
+                          ))}
+                        </ContextMenu.SubContent>
+                      </ContextMenu.Portal>
+                    </ContextMenu.Sub>
+                  ) : null}
+                  {onRemoveTileset ? (
+                    <>
+                      <ContextMenu.Separator className="context-menu-separator" />
+                      <ContextMenu.Item
+                        className="context-menu-item is-danger"
+                        onSelect={() => {
+                          if (globalThis.confirm(labels.sheetTabRemoveConfirm(tileset.name))) {
+                            onRemoveTileset(tileset.name)
+                          }
+                        }}
+                      >
+                        {labels.sheetTabRemove}
+                      </ContextMenu.Item>
+                    </>
+                  ) : null}
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            ) : null
             return (
-              <RecentCell
-                key={`${entry.tilesetName}:${entry.startIndex}:${entry.width}:${entry.height}`}
-                document={document}
-                tileset={tileset}
-                entry={entry}
-                locale={locale}
-                errorFactory={labels.tilesetImageError}
-                onRestore={restoreRecent}
-              />
+              <ContextMenu.Root key={tileset.name}>
+                <ContextMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={cx('map-tileset-palette-tab', isActive && 'is-active')}
+                    title={labels.sheetTabSwitch}
+                    onClick={() => activateTileset(tileset.name)}
+                  >
+                    <span className="map-tileset-palette-tab-label">{tileset.name}</span>
+                  </button>
+                </ContextMenu.Trigger>
+                {tabContextMenu}
+              </ContextMenu.Root>
             )
           })}
         </div>
-      ) : null}
-      <div
-        ref={setScrollElement}
-        className={cx('map-tileset-palette-scroll', currentImageState.status !== 'ready' && 'is-state')}
-        onScroll={hideCellTip}
-        onPointerDown={handleScrollPointerDown}
-        onPointerMove={handleScrollPointerMove}
-        onPointerUp={handleScrollPointerUp}
-        onPointerCancel={handleScrollPointerCancel}
-      >
-        {currentImageState.status === 'loading' ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-label={labels.loadingTileset} />
-        ) : currentImageState.status === 'error' || !paletteImage ? (
-          <span className="map-tileset-palette-error">
-            <ImageOff className="h-4 w-4" aria-hidden="true" />
-            {imagePath ? labels.tilesetImageError(imagePath) : labels.tilesetImageMissing}
-          </span>
-        ) : paletteView === 'grid' ? (
-          <div
-            ref={setVirtualElement}
-            className="map-tileset-palette-virtual"
-            style={
-              {
-                height: `${gridVirtualizer.getTotalSize()}px`,
-                '--map-tileset-image': `url(${JSON.stringify(paletteImage.src)})`,
-                '--map-tileset-image-size': `${paletteImage.naturalWidth * zoom}px ${paletteImage.naturalHeight * zoom}px`,
-              } as CSSProperties
-            }
+        <div className="map-tileset-palette-head-actions">
+          {/* Favorites tab */}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showFavorites}
+            className={cx('map-tileset-palette-tab-favorites', showFavorites && 'is-active')}
+            title={labels.favoritesSection}
+            onClick={activateFavorites}
           >
-            {gridVirtualizer.getVirtualItems().map((virtualRow) => (
-              <div
-                key={virtualRow.key}
-                className="map-tileset-palette-virtual-row"
-                style={{
-                  height: `${gridRowContentHeight}px`,
-                  gridTemplateColumns: `repeat(${activeTileset.columns}, ${gridCellWidth}px)`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+            <Star className="h-3.5 w-3.5" aria-hidden="true" fill={showFavorites ? 'currentColor' : 'none'} />
+          </button>
+          {/* Add-sheet gallery trigger */}
+          <button
+            type="button"
+            className={cx('map-tileset-palette-tab-add', showGallery && 'is-active')}
+            aria-label={labels.sheetTabAdd}
+            title={labels.sheetTabAdd}
+            aria-pressed={showGallery}
+            onClick={() => setShowGallery((current) => !current)}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      {showFavorites ? (
+        <div className="map-tileset-palette-favorites-page">
+          <div className="map-tileset-palette-favorites-toolbar">
+            <span className="map-tileset-palette-favorites-count">{labels.favoritesCount(favoriteEntries.length)}</span>
+            <span className="map-tileset-palette-favorites-actions">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={exportFavorites}
+                aria-label={labels.favoritesExport}
+                title={labels.favoritesExport}
+                disabled={palettePrefs.favorites.length === 0}
               >
-                {Array.from({ length: activeTileset.columns }, (_, columnIndex) => {
-                  const tileIndex = virtualRow.index * activeTileset.columns + columnIndex
-                  if (tileIndex >= activeTileset.tileCount) return null
-                  const sourceX =
-                    (activeTileset.margin ?? 0) +
-                    (tileIndex % activeTileset.columns) * (activeTileset.tileWidth + (activeTileset.spacing ?? 0))
-                  const sourceY =
-                    (activeTileset.margin ?? 0) +
-                    Math.floor(tileIndex / activeTileset.columns) * (activeTileset.tileHeight + (activeTileset.spacing ?? 0))
-                  const isSelected = normalized ? tileIndexInSelection(tileIndex, normalized, activeTileset.columns) : false
-                  return (
-                    <button
-                      key={tileIndex}
-                      type="button"
-                      className={cx('map-tileset-palette-cell', isSelected && 'is-sel')}
-                      aria-label={labels.tileId(tileIndex)}
-                      aria-pressed={isSelected}
-                      onClick={() =>
-                        commitSelection({
-                          startColumn: columnIndex,
-                          startRow: virtualRow.index,
-                          endColumn: columnIndex,
-                          endRow: virtualRow.index,
-                        })
-                      }
-                      onPointerEnter={(event) => showCellTip(event, tileIndex)}
-                      onPointerLeave={hideCellTip}
-                    >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={importFavorites}
+                aria-label={labels.favoritesImport}
+                title={labels.favoritesImport}
+              >
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </span>
+          </div>
+          {favoriteEntries.length > 0 ? (
+            <div className="map-tileset-palette-favorites-grid">
+              {favoriteEntries.map((entry) => {
+                const tileset = availableTilesets.find((candidate) => candidate.name === entry.tilesetName)
+                if (!tileset) return null
+                return (
+                  <ContextMenu.Root key={`fav:${entry.tilesetName}:${entry.startIndex}:${entry.width}:${entry.height}`}>
+                    <ContextMenu.Trigger asChild>
+                      <span>
+                        <RecentCell
+                          document={document}
+                          tileset={tileset}
+                          entry={entry}
+                          locale={locale}
+                          gameRootPath={gameRootPath}
+                          errorFactory={labels.tilesetImageError}
+                          onRestore={restoreRecent}
+                          isFavorite
+                          onToggleFavorite={toggleFavorite}
+                          cellPx={40}
+                          showLabel
+                        />
+                      </span>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => restoreRecent(entry)}>
+                          {labels.tilesetSelection(entry.startIndex, entry.width, entry.height)}
+                        </ContextMenu.Item>
+                        <ContextMenu.Separator className="context-menu-separator" />
+                        <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => removeFavoriteEntry(entry)}>
+                          {labels.favoriteRemove}
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="map-tileset-palette-favorites-empty">
+              <Star className="h-5 w-5" aria-hidden="true" />
+              <span>{labels.favoritesEmpty}</span>
+            </div>
+          )}
+        </div>
+      ) : showGallery ? (
+        <MapTilesheetGallery
+          document={document}
+          locale={locale}
+          gameRootPath={gameRootPath}
+          attachedTilesets={availableTilesets}
+          activeTilesetName={activeTileset.name}
+          projectImageOptions={projectImageOptions}
+          gameSheetsEnabled={gameRootPath !== null}
+          onPickAttached={activateTileset}
+          onPickGameSheet={onAttachGameSheet}
+          onPickProjectImage={onAddProjectImage}
+          onClose={() => setShowGallery(false)}
+          onHoverTileset={onHoverTileset}
+        />
+      ) : (
+        <>
+          <SheetGridCanvas
+            document={document}
+            tileset={activeTileset}
+            locale={locale}
+            gameRootPath={gameRootPath}
+            zoomState={{ zoom, setZoom: (next) => setPalettePrefs({ zoom: next }) }}
+            overlay={
+              animationGroups.length > 0 ? (
+                <>
+                  {animationGroups.map((group, index) => {
+                    const col = group.ownerTileId % activeTileset.columns
+                    const row = Math.floor(group.ownerTileId / activeTileset.columns)
+                    const sheetRows = Math.ceil(activeTileset.tileCount / activeTileset.columns)
+                    return (
                       <span
+                        key={index}
+                        className="map-palette-anim-badge"
                         style={{
-                          width: `${activeTileset.tileWidth * scale}px`,
-                          height: `${activeTileset.tileHeight * scale}px`,
-                          backgroundPosition: `${-sourceX * scale}px ${-sourceY * scale}px`,
+                          left: `${(col / activeTileset.columns) * 100}%`,
+                          top: `${(row / sheetRows) * 100}%`,
+                          width: `${(group.width / activeTileset.columns) * 100}%`,
+                          height: `${(group.height / sheetRows) * 100}%`,
                         }}
                         aria-hidden="true"
                       />
-                      <small>{tileIndex}</small>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className="map-tileset-palette-image"
-            style={{
-              width: `${paletteImage.naturalWidth * zoom}px`,
-              height: `${paletteImage.naturalHeight * zoom}px`,
+                    )
+                  })}
+                </>
+              ) : null
+            }
+            selectionRect={
+              normalized
+                ? {
+                    startTileId: normalized.top * activeTileset.columns + normalized.left,
+                    endTileId: normalized.bottom * activeTileset.columns + normalized.right,
+                  }
+                : null
+            }
+            onDragSelectionChange={(startTileId, endTileId) => {
+              const startCol = startTileId % activeTileset.columns
+              const startRow = Math.floor(startTileId / activeTileset.columns)
+              const endCol = endTileId % activeTileset.columns
+              const endRow = Math.floor(endTileId / activeTileset.columns)
+              setDragRect({ startColumn: startCol, startRow, endColumn: endCol, endRow })
             }}
-            onPointerDown={handleSheetPointerDown}
-            onPointerMove={handleSheetPointerMove}
-            onPointerUp={handleSheetPointerUp}
-            onPointerCancel={handleSheetPointerCancel}
-          >
-            <img src={paletteImage.src} alt={activeTileset.name} draggable={false} />
-            <span
-              className="map-tileset-palette-grid"
-              style={{
-                backgroundSize: `${100 / activeTileset.columns}% ${100 / rows}%`,
-              }}
-              aria-hidden="true"
-            />
-            {normalized ? (
-              <span
-                className="map-tileset-palette-selection"
-                style={{
-                  left: `${(normalized.left / activeTileset.columns) * 100}%`,
-                  top: `${(normalized.top / rows) * 100}%`,
-                  width: `${((normalized.right - normalized.left + 1) / activeTileset.columns) * 100}%`,
-                  height: `${((normalized.bottom - normalized.top + 1) / rows) * 100}%`,
-                }}
-                aria-hidden="true"
-              />
-            ) : null}
-          </div>
-        )}
-      </div>
-      <div className="map-tileset-palette-foot">
-        <span className="map-tileset-palette-foot-selection">
-          {currentSelection
-            ? `${labels.tilesetSelection(currentSelection.startIndex, currentSelection.width, currentSelection.height)} · ${activeTileset.name}`
-            : `${labels.noTileSelection} · ${activeTileset.name}`}
-        </span>
-        <div className="map-tileset-palette-zoom" role="group" aria-label={viewportLabels.zoomLabel(zoom)}>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={viewportLabels.zoomOut}
-            title={viewportLabels.zoomOut}
-            disabled={zoom <= 0.5}
-            onClick={() => setPalettePrefs({ zoom: Math.max(0.5, zoom - 0.5) })}
-          >
-            <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="map-tileset-palette-zoom-value"
-            aria-label={viewportLabels.setOneToOne}
-            title={viewportLabels.setOneToOne}
-            onClick={() => setPalettePrefs({ zoom: 1 })}
-          >
-            <ScanLine className="h-3.5 w-3.5" aria-hidden="true" />
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={viewportLabels.zoomIn}
-            title={viewportLabels.zoomIn}
-            disabled={zoom >= 4}
-            onClick={() => setPalettePrefs({ zoom: Math.min(4, zoom + 0.5) })}
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      {resizeLabel ? (
-        <>
-          <div
-            className={cx('map-tileset-palette-resize-left', activeResize === 'width' && 'is-active')}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={resizeLabel}
-            title={resizeLabel}
-            onPointerDown={(event) => startResize(event, 'width')}
-            onPointerMove={handleResizePointerMove}
-            onPointerUp={handleResizePointerEnd}
-            onPointerCancel={handleResizePointerEnd}
+            onTileClick={(tileId) => {
+              const col = tileId % activeTileset.columns
+              const row = Math.floor(tileId / activeTileset.columns)
+              commitSelection({ startColumn: col, startRow: row, endColumn: col, endRow: row })
+            }}
+            onDragSelectionEnd={(startTileId, endTileId) => {
+              const startCol = startTileId % activeTileset.columns
+              const startRow = Math.floor(startTileId / activeTileset.columns)
+              const endCol = endTileId % activeTileset.columns
+              const endRow = Math.floor(endTileId / activeTileset.columns)
+              setDragRect(null)
+              commitSelection({ startColumn: startCol, startRow, endColumn: endCol, endRow })
+            }}
           />
-          <div
-            className={cx('map-tileset-palette-resize-bottom', activeResize === 'height' && 'is-active')}
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label={resizeLabel}
-            title={resizeLabel}
-            onPointerDown={(event) => startResize(event, 'height')}
-            onPointerMove={handleResizePointerMove}
-            onPointerUp={handleResizePointerEnd}
-            onPointerCancel={handleResizePointerEnd}
-          />
-          <div
-            className={cx('map-tileset-palette-resize-corner', activeResize === 'both' && 'is-active')}
-            role="separator"
-            aria-label={resizeLabel}
-            title={resizeLabel}
-            onPointerDown={(event) => startResize(event, 'both')}
-            onPointerMove={handleResizePointerMove}
-            onPointerUp={handleResizePointerEnd}
-            onPointerCancel={handleResizePointerEnd}
-          />
+          {/* Recent section — fixed height strip at the bottom */}
+          {recentEntries.length > 0 ? (
+            <div className="map-tileset-palette-recents">
+              <span className="map-tileset-palette-recents-label">{labels.recentTilesets}</span>
+              {recentEntries.map((entry) => {
+                const tileset = availableTilesets.find((candidate) => candidate.name === entry.tilesetName)
+                if (!tileset) return null
+                const fav = isFavoriteSelection(palettePrefs.favorites, entry)
+                return (
+                  <ContextMenu.Root key={`recent:${entry.tilesetName}:${entry.startIndex}:${entry.width}:${entry.height}`}>
+                    <ContextMenu.Trigger asChild>
+                      <span>
+                        <RecentCell
+                          document={document}
+                          tileset={tileset}
+                          entry={entry}
+                          locale={locale}
+                          gameRootPath={gameRootPath}
+                          errorFactory={labels.tilesetImageError}
+                          onRestore={restoreRecent}
+                          isFavorite={fav}
+                          onToggleFavorite={toggleFavorite}
+                        />
+                      </span>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => restoreRecent(entry)}>
+                          {labels.tilesetSelection(entry.startIndex, entry.width, entry.height)}
+                        </ContextMenu.Item>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => toggleFavorite(entry)}>
+                          {fav ? labels.favoriteRemove : labels.favoriteAdd}
+                        </ContextMenu.Item>
+                        <ContextMenu.Separator className="context-menu-separator" />
+                        <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => removeRecentEntry(entry)}>
+                          {labels.recentRemove}
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
+                )
+              })}
+            </div>
+          ) : null}
         </>
-      ) : null}
-      {hoveredCell && paletteImage ? (
-        <div className="map-tileset-palette-tip" style={{ left: tipLeft, top: tipTop }} role="tooltip">
-          <span
-            className="map-tileset-palette-tip-image"
-            style={{
-              width: `${tipTileWidth}px`,
-              height: `${tipTileHeight}px`,
-              backgroundImage: `url(${JSON.stringify(paletteImage.src)})`,
-              backgroundSize: `${paletteImage.naturalWidth * tipScale}px ${paletteImage.naturalHeight * tipScale}px`,
-              backgroundPosition: `${-hoveredTileSourceX * tipScale}px ${-hoveredTileSourceY * tipScale}px`,
-            }}
-            aria-hidden="true"
-          />
-          <span className="map-tileset-palette-tip-label">{labels.tileTooltip(hoveredCell.index, activeTileset.name)}</span>
-        </div>
-      ) : null}
+      )}
     </section>
   )
 }

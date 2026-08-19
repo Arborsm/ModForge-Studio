@@ -1,3 +1,8 @@
+/**
+ * @file Cell overlay property keys, rules, and painting helpers for the grid-rule
+ * overlay mode (Passable, NPCBarrier, Water, etc.).
+ */
+
 import type { MapPropertyValue } from './mapTypes'
 
 /**
@@ -48,6 +53,15 @@ export const CELL_OVERLAY_STROKE_COLORS: Record<Exclude<CellOverlayRule, 'walkab
   water: 'rgba(63, 111, 224, 0.95)',
   dig: 'rgba(62, 164, 76, 0.95)',
 }
+
+/**
+ * Day/night swap highlight canvas colors — mirrors the `--cell-overlay-daynight`
+ * token (see `tokens.css`). Same non-theme decorative palette exception as the
+ * four rule colors above: a fixed hue that must stay readable over any map tile
+ * in both themes. Used by the canvas day/night highlight overlay in MapViewport.
+ */
+export const DAY_NIGHT_HIGHLIGHT_COLOR = '#a855f7'
+export const DAY_NIGHT_HIGHLIGHT_FILL = 'rgba(168, 85, 247, 0.12)'
 
 /**
  * Derives the display rule of a cell from its property keys. `NPCBarrier`

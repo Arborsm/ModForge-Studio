@@ -1,3 +1,7 @@
+/**
+ * @file Portrait frame renderer cropping one 64x64 frame from a loaded sheet.
+ * @module entities/dialogue
+ */
 import { getDialoguePortraitFrame } from '../model/portrait'
 
 /** A loaded portrait sheet: object URL plus its natural pixel dimensions. */

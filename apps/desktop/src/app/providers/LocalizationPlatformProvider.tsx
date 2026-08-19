@@ -1,3 +1,6 @@
+/**
+ * @file Localization platform Provider: adapts host localization commands into a LocalizationPort and injects it into LocalizationProvider.
+ */
 import { useMemo, type ReactNode } from 'react'
 import { LocalizationProvider } from '@entities/localization'
 import {
@@ -66,6 +69,7 @@ import {
 import type { LocalizationPort } from '@shared/contracts'
 import { usePlatformPorts } from './usePlatformPorts'
 
+/** Localization platform Provider component: creates a LocalizationPort and injects it into LocalizationProvider. */
 export function LocalizationPlatformProvider({ children }: { children: ReactNode }) {
   const { dialog } = usePlatformPorts()
   const port = useMemo<LocalizationPort>(

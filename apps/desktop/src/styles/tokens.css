@@ -28,6 +28,11 @@
     --cell-overlay-npc: #e07a0e;
     --cell-overlay-water: #3f6fe0;
     --cell-overlay-dig: #3ea44c;
+    /* Day/night swap highlight hue (purple). Same non-theme exception as the
+     * four rule colors above: a fixed hue that must stay readable over any
+     * map tile in both themes. The canvas drawing mirrors this value in
+     * `entities/map/lib/cellProperties.ts` (`DAY_NIGHT_HIGHLIGHT_COLOR`). */
+    --cell-overlay-daynight: #a855f7;
 
     /* Window border / divider derive from accent + border-color; theme-agnostic formulas. */
     --app-window-border-standard: color-mix(in srgb, var(--accent) 68%, transparent);

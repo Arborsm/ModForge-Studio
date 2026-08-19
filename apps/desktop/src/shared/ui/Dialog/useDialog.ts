@@ -1,3 +1,5 @@
+/** @file Dialog open/close state hook standardizing the recurring useState + onClose pattern. */
+
 import { useCallback, useState } from 'react'
 
 /** Result of {@link useDialog}. */

@@ -1,3 +1,7 @@
+/**
+ * @file Launcher library mod card: cover, metadata, update badge, context menu,
+ * and enable/disable toggle for one installed mod.
+ */
 import { memo, useCallback, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
@@ -8,11 +12,13 @@ import { getSmapiRequirementBadgeVersion } from '@features/launcher/model/smapiU
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
+/** A context menu action shown on a launcher mod card. */
 type LauncherModCardAction = {
   label: string
   onSelect: () => void
 }
 
+/** Props for {@link LauncherModCard}. */
 type LauncherModCardProps = {
   title: string
   titleTooltip?: string
@@ -45,6 +51,7 @@ type LauncherModCardProps = {
   minimumApiVersion?: string | null
 }
 
+/** Internal content component for {@link LauncherModCard}; renders the card body and optional context menu. */
 function LauncherModCardContent({
   title,
   meta,
@@ -277,6 +284,7 @@ function LauncherModCardContent({
   )
 }
 
+/** Renders a single context menu item for a launcher mod card. */
 function LauncherModCardContextMenuItem({ action }: { action: LauncherModCardAction }) {
   const runAction = () => {
     action.onSelect()
@@ -289,4 +297,5 @@ function LauncherModCardContextMenuItem({ action }: { action: LauncherModCardAct
   )
 }
 
+/** Memoized launcher mod card with artwork cover, status badges, expand/collapse, and context menu. */
 export const LauncherModCard = memo(LauncherModCardContent)

@@ -1,3 +1,6 @@
+//! XACT wave bank (.xwb) parser: segment table, entry metadata, and
+//! `MiniWaveFormat` extraction for wave data lookup.
+
 use std::fs;
 use std::path::Path;
 

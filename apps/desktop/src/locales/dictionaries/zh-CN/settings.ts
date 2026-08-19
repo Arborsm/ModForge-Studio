@@ -320,6 +320,7 @@ const settings: SettingsMenuCopy = {
       loadError: '无法加载默认翻译引擎。',
       saveError: '无法保存默认翻译引擎。',
       noneSelected: '尚未选择默认引擎',
+      noKeyLabel: '无需 Key',
     },
     title: 'AI 翻译',
     description: '管理供应商档案、模型、凭据和持久翻译缓存。',

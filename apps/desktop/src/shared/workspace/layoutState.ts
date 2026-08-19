@@ -1,13 +1,21 @@
+/**
+ * @file Layout state helpers — default chrome per workspace type, normalization/clamping, and sanitization of persisted state.
+ * @module shared/workspace
+ */
+
 import type { WorkspaceChromeState, WorkspacePanelConfig, WorkspaceLayoutState, WorkspaceStoredState } from '@shared/contracts'
 
+/** Clamps `value` to the inclusive `[minimum, maximum]` range. */
 export function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
+/** Returns true when the panel set matches the items workspace (panel ids prefixed `item-browser/`). */
 export function isItemsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return panels?.some((panel) => panel.id.startsWith('item-browser/')) || false
 }
 
+/** Returns true when the panel set matches the buildings workspace (browser/details/preview panels). */
 export function isBuildingsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return (
     panels?.some((panel) => panel.id === 'building-browser/browser') ||
@@ -17,6 +25,7 @@ export function isBuildingsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   )
 }
 
+/** Returns true when the panel set matches the events workspace (browser/stage/detail panels). */
 export function isEventsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   return (
     panels?.some((panel) => panel.id === 'event-browser/browser') ||
@@ -26,6 +35,7 @@ export function isEventsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
   )
 }
 
+/** Returns the default chrome proportions (widths, heights, splits) for the given panel set's workspace type. */
 export function getDefaultChrome(panels?: WorkspacePanelConfig[]): WorkspaceChromeState {
   const isItemsWorkspace = isItemsWorkspacePanels(panels)
   const isBuildingsWorkspace = isBuildingsWorkspacePanels(panels)
@@ -63,6 +73,7 @@ export function getDefaultChrome(panels?: WorkspacePanelConfig[]): WorkspaceChro
   }
 }
 
+/** Normalizes a partial chrome state against defaults and clamps each field to its allowed range. */
 export function normalizeChrome(chrome: Partial<WorkspaceChromeState> | undefined, panels?: WorkspacePanelConfig[]) {
   const defaults = getDefaultChrome(panels)
   const isItemsWorkspace = isItemsWorkspacePanels(panels)
@@ -85,10 +96,12 @@ export function normalizeChrome(chrome: Partial<WorkspaceChromeState> | undefine
   } satisfies WorkspaceChromeState
 }
 
+/** Builds a fresh default layout state for the given panel set. */
 export function buildDefaultLayoutState(panels: WorkspacePanelConfig[]): WorkspaceLayoutState {
   return { chrome: getDefaultChrome(panels) }
 }
 
+/** Sanitizes a partial/null layout state into a fully valid `WorkspaceLayoutState` using defaults and clamping. */
 export function sanitizeLayoutState(
   state: Partial<WorkspaceLayoutState> | null | undefined,
   panels: WorkspacePanelConfig[],
@@ -98,10 +111,12 @@ export function sanitizeLayoutState(
   }
 }
 
+/** Creates a default stored state (same shape as layout state) for the given panel set. */
 export function createDefaultStoredState(panels: WorkspacePanelConfig[]) {
   return buildDefaultLayoutState(panels) satisfies WorkspaceStoredState
 }
 
+/** Sanitizes a partial/null stored state into a fully valid `WorkspaceStoredState`. */
 export function sanitizeStoredState(
   state: Partial<WorkspaceStoredState> | null | undefined,
   panels: WorkspacePanelConfig[],

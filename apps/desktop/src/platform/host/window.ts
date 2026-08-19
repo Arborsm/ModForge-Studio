@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for window management (minimize, maximize, fullscreen, close, tray, close-request listener).
+ * @module platform/host/window
+ */
+
 import { canUseDesktopHost, getPlatformPorts } from './runtime'
 
 /** Minimizes the current desktop window when running inside Tauri. */

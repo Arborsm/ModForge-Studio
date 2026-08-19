@@ -1,3 +1,5 @@
+//! Startup cleanup for stale host-process artifacts (Windows shared-memory leaks).
+
 #[cfg(windows)]
 mod windows;
 

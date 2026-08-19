@@ -11,6 +11,9 @@ export type ItemsPanelCopy = {
   statsCookingLabel: string
   statsFishLabel: string
   statsCropLabel: string
+  statsMineralLabel: string
+  statsEquipmentLabel: string
+  statsApparelLabel: string
   filtersTitle: string
   workspaceTitle: string
   workspaceSubtitle: string
@@ -114,4 +117,39 @@ export type ItemsPanelCopy = {
   gridViewLabel: string
   sourceLabel: string
   kindLabels: Record<'object' | 'big-craftable' | 'weapon' | 'tool' | 'shirt' | 'pants' | 'trinket' | 'hat' | 'boots' | 'furniture', string>
+  /** Localized strings emitted by `getWorkspaceText` for the item workspace chrome. */
+  workspaceText: WorkspaceTextCopy
+}
+
+export type WorkspaceTextCopy = {
+  catalogTitle: string
+  detailTitle: string
+  viewTitle: string
+  railTitle: string
+  selectionTitle: string
+  sourceOriginalLabel: string
+  sourceModLabel: string
+  infoTab: string
+  relationsTab: string
+  resourcesTab: string
+  descriptionTitle: string
+  relationsEmpty: string
+  giftsEmpty: string
+  spriteSizeLabel: string
+  catalogItemsLabel: string
+  catalogGridLabel: string
+  catalogPageLabel: string
+  catalogItemsPerPageLabel: string
+  catalogWheelHint: string
+  previousPageLabel: string
+  nextPageLabel: string
+  customFieldsTitle: string
+  customFieldsEmpty: string
+  moduleLabels: {
+    map: string
+    events: string
+    characters: string
+    buildings: string
+    items: string
+  }
 }

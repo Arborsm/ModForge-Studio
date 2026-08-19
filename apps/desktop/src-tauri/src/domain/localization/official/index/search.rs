@@ -1,3 +1,6 @@
+//! Official localization corpus search — lexical FTS, semantic and entity
+//! retrieval with locale fallback.
+
 use super::build::looks_like_internal_value;
 use super::persistence::{active_revision, open};
 use super::shared::{
@@ -54,6 +57,7 @@ fn is_internal_structured_record(row: &AiOfficialUnit) -> bool {
         && looks_like_internal_value(&row.source_text)
 }
 
+/// Searches the official localization corpus with lexical retrieval only.
 pub fn search(request: SearchOfficialLocalizationRequest) -> anyhow::Result<AiOfficialSearchPage> {
     search_with_semantic(request, None)
 }
@@ -540,6 +544,8 @@ pub(crate) fn semantic_snapshot() -> anyhow::Result<(Option<String>, Vec<Semanti
     Ok((Some(revision), records))
 }
 
+/// Searches the official corpus for prompt-eligible examples matching a batch
+/// of queries.
 pub fn find_prompt_examples_batch(
     source_locale: &str,
     target_locale: &str,
@@ -602,6 +608,7 @@ pub fn find_prompt_examples_batch(
         .collect()
 }
 
+/// Finds official term entries whose source text appears in `source_text`.
 pub fn find_terms_in_text(
     source_locale: &str,
     target_locale: &str,

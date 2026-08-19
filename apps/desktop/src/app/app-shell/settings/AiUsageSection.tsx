@@ -1,3 +1,6 @@
+/**
+ * @file AI usage statistics panel: displays KPIs, provider/failure distribution, and detail records within a time range.
+ */
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { usePlatformPorts } from '@app/providers/usePlatformPorts'
@@ -50,6 +53,7 @@ function startOfToday() {
   return value.getTime()
 }
 
+/** AI usage statistics panel component: loads summaries and details by time range and filter conditions. */
 export function AiUsageSection() {
   const localization = useLocalization()
   const { dialog } = usePlatformPorts()

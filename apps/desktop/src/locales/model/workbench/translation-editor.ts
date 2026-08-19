@@ -112,6 +112,8 @@ export type TranslationEditorCopy = {
   browserI18nEntries: (count: number) => string
   browserOpenFolder: string
   browserImportProject: string
+  /** Context menu: select a project row in the i18n browser. */
+  browserSelectProjectAction: string
   bootstrapTitle: string
   bootstrapDescription: string
   bootstrapFound: (count: number) => string

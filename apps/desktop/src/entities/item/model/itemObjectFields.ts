@@ -1,6 +1,6 @@
 /**
- * `Data/Objects` domain constants: key order, value suggestions and the minimal
- * entry a newly created object starts from.
+ * @file `Data/Objects` domain constants: key order, value suggestions and the
+ * minimal entry a newly created object starts from.
  *
  * The key list and the `Type` suggestions are taken from the shipped
  * `Content/Data/Objects.json` rather than from prose, so the editor writes keys

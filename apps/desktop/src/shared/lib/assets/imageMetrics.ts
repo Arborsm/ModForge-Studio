@@ -1,3 +1,5 @@
+/** @file Image loading, decoding, and dimension measurement with LRU caches and locale-aware path resolution. */
+
 import { getLocalizedPathCacheKey } from '@shared/lib/assets'
 
 export { getLocalizedPathCacheKey, normalizeCachePathSegment } from '@shared/lib/assets'

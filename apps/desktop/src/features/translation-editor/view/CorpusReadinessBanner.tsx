@@ -1,3 +1,8 @@
+/**
+ * @file Banner reminding the user to build the corpus index and download the semantic model.
+ * @module features/translation-editor
+ */
+
 import { AlertTriangle, Settings2, X } from 'lucide-react'
 import { useTranslationEditorCopy } from '@locales/provider'
 import type { CorpusReadiness } from '../model/useCorpusReadiness'

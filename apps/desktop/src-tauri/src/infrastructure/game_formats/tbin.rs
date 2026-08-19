@@ -1,3 +1,7 @@
+//! TBin (xTile binary map) format reader and writer: deserializes the binary
+//! map structure into `MapDocument` and serializes it back, handling tile
+//! properties, animations, and RLE tile runs.
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

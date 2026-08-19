@@ -1,3 +1,8 @@
+/**
+ * @file Cell overlay object painting: writes and removes per-cell TileData
+ * objects (rules, light markers) on map layers with immutable document updates.
+ */
+
 import type { MapDocument, MapObject, MapPropertyValue } from './mapTypes'
 import { applyCellOverlayRule, cellOverlayRule, type CellOverlayRule } from './cellProperties'
 import { isLightMarkerObject } from './mapObjectHelpers'

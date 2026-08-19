@@ -1,3 +1,8 @@
+/**
+ * @file Item model type definitions: item kinds, browse categories, texture
+ * asset states, workspace entry shape, and raw recipe/upgrade data types.
+ */
+
 export type RawToolUpgradeEntry = {
   Condition?: string | null
   Price?: number | null

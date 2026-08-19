@@ -1,13 +1,23 @@
+/**
+ * @file Builds the Studio Desk dashboard view model from draft summaries and
+ * active draft state, including gallery, inspirations, and world bible.
+ * @module features/cp-maker
+ */
 import { countAssetIssues } from '@entities/asset-schema'
 import { collectDraftIssues } from './projectValidation'
 import type { CpMakerDraftSummary } from '../model/cpMakerPort'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@features/cp-maker'
 
+/** Sync status of a recent inspiration shown on the dashboard. */
 export type StudioDeskInspirationStatus = 'modified' | 'synced'
+/** Category of a recent inspiration (event, map, asset, or project-level). */
 export type StudioDeskInspirationKind = 'event' | 'map' | 'asset' | 'project'
+/** Lifecycle status of a project shown in the gallery. */
 export type StudioDeskProjectStatus = 'export' | 'error' | 'archive' | 'incomplete' | 'neverExported'
+/** Visual tone assigned to a project's gallery cover. */
 export type StudioDeskProjectCoverTone = 'festival' | 'harbor' | 'market' | 'forest' | 'greenhouse' | 'archive'
 
+/** A recent patch surfaced as dashboard inspiration. */
 export type StudioDeskInspiration = {
   patchId: string
   kind: StudioDeskInspirationKind
@@ -19,17 +29,20 @@ export type StudioDeskInspiration = {
   workspaceId: WorkspaceId
 }
 
+/** Entry point card for an independent workspace on the dashboard. */
 export type StudioDeskWorkspaceEntrypoint = {
   kind: 'independent-workspace'
   workspaceId: WorkspaceId
   patchCount: number
 }
 
+/** Key-value pair in the dashboard's world bible summary. */
 export type StudioDeskWorldBibleEntry = {
   key: string
   value: string
 }
 
+/** Structured summary of the project's config, tokens, locations, and actors. */
 export type StudioDeskWorldBible = {
   configSchema: StudioDeskWorldBibleEntry[]
   tokens: StudioDeskWorldBibleEntry[]
@@ -41,6 +54,7 @@ export type StudioDeskWorldBible = {
   errorCount: number
 }
 
+/** One project card in the dashboard gallery. */
 export type StudioDeskGalleryProject = {
   draftStorageKey: string
   title: string
@@ -55,6 +69,7 @@ export type StudioDeskGalleryProject = {
   needsMetadata: boolean
 }
 
+/** Gallery of project cards with a total count. */
 export type StudioDeskGallery = {
   projects: StudioDeskGalleryProject[]
   counts: {
@@ -62,6 +77,7 @@ export type StudioDeskGallery = {
   }
 }
 
+/** Complete Studio Desk dashboard view model. */
 export type StudioDeskModel = {
   projectName: string
   projectDescription: string
@@ -216,6 +232,7 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, errorCount: numb
   return { projects, counts }
 }
 
+/** Builds the Studio Desk dashboard view model from draft state and summaries. */
 export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDeskModel {
   const activeDraft = input.activeDraft
   const patches = activeDraft?.patches ?? []

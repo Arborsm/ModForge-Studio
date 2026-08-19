@@ -1,3 +1,8 @@
+/**
+ * @file World atlas builder: aggregates all maps in a project into a single
+ * atlas view with portal placements, warp routes, and name alias resolution.
+ */
+
 import type {
   MapAtlasPortal,
   MapAtlasPoint,

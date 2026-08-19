@@ -1,3 +1,7 @@
+/**
+ * @file Paginated item-picker dialog for launcher mod config fields that
+ * reference game items by qualified id.
+ */
 import { Check, ChevronLeft, ChevronRight, PackageSearch, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'

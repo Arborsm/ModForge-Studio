@@ -1,8 +1,13 @@
+/**
+ * @file Case handler part 2 for vanilla `specificTemporarySprite` sprite ids.
+ */
+
 import type { EventCommand } from '@entities/event'
 import { createStageEffect, EFFECT_VIEWPORT_BASE_WIDTH, parsePoint, type SpecificTemporarySpriteResolution } from '@entities/event'
 
 const UNRESOLVED: SpecificTemporarySpriteResolution | null = null
 
+/** Resolves specific sprite ids handled in part 2 (e.g. pennyCook, leah painting). */
 export function resolveSpecificTemporarySpriteEffectCase2(
   command: EventCommand,
   spriteId: string,

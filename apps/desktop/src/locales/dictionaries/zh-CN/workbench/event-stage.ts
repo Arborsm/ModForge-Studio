@@ -37,6 +37,52 @@ const eventstage: EventStageCopy = {
   flashAlphaLabel: (alpha) => `透明度 ${alpha}`,
   playbackHaltedTitle: '播放已终止',
   playbackHaltedDetail: '事件不断跳转而无法继续推进，请检查 switchEvent/fork 分支是否成环，并重置播放。',
+  pickModeComplete: '完成',
+  pickModeClear: '清空',
+  pickModeCancel: '取消',
+  clickMapToPick: '点击地图选择位置',
+  directionLabels: {
+    up: '上',
+    right: '右',
+    down: '下',
+    left: '左',
+  },
+  directionName: (dir) => {
+    switch (dir) {
+      case 0:
+        return '上'
+      case 1:
+        return '右'
+      case 2:
+        return '下'
+      case 3:
+        return '左'
+      default:
+        return `方向${dir}`
+    }
+  },
+  pathPointCount: (count) => `${count} 个路径点`,
+  toggleTrue: '是',
+  toggleFalse: '否',
+  pickFromMapPath: '从地图选择路径',
+  pickFromMap: '从地图拾取',
+  commandSummary: {
+    choosePath: '选择路径',
+    waitForMovement: '等待移动结束',
+    waitForOtherPlayers: '等待其他玩家',
+    faceDirection: (dirName) => `面向${dirName}`,
+    stop: '停止',
+    playAnimation: '播放动画',
+    stopAnimation: '停止动画',
+    frameLabel: (frame) => `帧 ${frame}`,
+    offset: (x, y) => `偏移 (${x}, ${y})`,
+    optionCount: (count) => `${count} 个选项`,
+    conditionLabel: (condition) => `条件: ${condition}`,
+    eventEnd: '事件结束',
+    beginParallel: '开始并行',
+    endParallel: '结束并行',
+    jump: '跳跃',
+  },
   workflow: {
     commandLabels: {
       farmerAnimation: '玩家动画',

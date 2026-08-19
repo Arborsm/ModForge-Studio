@@ -1,3 +1,8 @@
+/**
+ * @file Item identity helpers: qualified-id formatting, search alias building
+ * (including CJK pinyin initials), and kind label resolution.
+ */
+
 import type { ItemKind } from './itemTypes'
 
 const PINYIN_INITIAL_BOUNDARIES = [
@@ -60,6 +65,7 @@ function buildInitialism(value: string | null | undefined) {
   return [latinInitials, cjkInitials].filter(Boolean).join(' ')
 }
 
+/** Builds compact search aliases (compacted form + pinyin/latin initialism) from one or more display values. */
 export function buildItemSearchAliases(...values: Array<string | null | undefined>) {
   return values
     .flatMap((value) => {
@@ -76,6 +82,7 @@ export function buildItemSearchAliases(...values: Array<string | null | undefine
     .toLowerCase()
 }
 
+/** Formats a qualified item id (e.g. `(O)24`) from an item kind and raw id. */
 export function getQualifiedItemId(kind: ItemKind, itemId: string) {
   const normalizedId = itemId.trim()
   switch (kind) {
@@ -102,6 +109,7 @@ export function getQualifiedItemId(kind: ItemKind, itemId: string) {
   }
 }
 
+/** Normalizes a value into a qualified item id, prepending the fallback kind prefix when missing. */
 export function normalizeQualifiedItemId(value: string | null | undefined, fallbackKind: ItemKind = 'object') {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) {
@@ -115,6 +123,7 @@ export function normalizeQualifiedItemId(value: string | null | undefined, fallb
   return getQualifiedItemId(fallbackKind, trimmed)
 }
 
+/** Returns a human-readable label for an item kind (e.g. "Big Craftable"). */
 export function getItemKindLabel(kind: ItemKind) {
   switch (kind) {
     case 'object':

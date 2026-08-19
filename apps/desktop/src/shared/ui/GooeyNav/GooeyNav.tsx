@@ -1,3 +1,5 @@
+/** @file Gooey pill navigation with bubble-particle transition effects. */
+
 import { useRef, useEffect, useId, useState, useCallback, type ReactNode, type MouseEvent } from 'react'
 
 export interface GooeyNavItem {
@@ -47,9 +49,7 @@ export interface GooeyNavProps {
   className?: string
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
+// Helpers
 
 const noise = (n = 1) => n / 2 - Math.random() * n
 
@@ -69,10 +69,9 @@ interface Particle {
   rotate: number
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
+// Component
 
+/** Gooey pill navigation with animated bubble-particle transitions between active items. */
 export default function GooeyNav({
   items,
   variant = 'dark',
@@ -101,7 +100,7 @@ export default function GooeyNav({
   const isControlled = controlledIndex !== undefined
   const activeIndex = isControlled ? controlledIndex : internalIndex
 
-  /* ---------- particle factory ---------- */
+  // particle factory
 
   const clearQueuedParticles = useCallback(() => {
     for (const timeoutId of particleTimeoutsRef.current) {
@@ -170,7 +169,7 @@ export default function GooeyNav({
     }
   }
 
-  /* ---------- position sync ---------- */
+  // position sync
 
   const updateEffectPosition = (element: HTMLElement) => {
     if (!containerRef.current || !filterRef.current || !textRef.current) return
@@ -188,7 +187,7 @@ export default function GooeyNav({
     textRef.current.textContent = element.querySelector('.gooey-nav-item-label')?.textContent ?? element.textContent ?? ''
   }
 
-  /* ---------- handlers ---------- */
+  // handlers
 
   const activateItem = (element: HTMLElement, index: number) => {
     if (items[index]?.disabled) return
@@ -225,7 +224,7 @@ export default function GooeyNav({
     activateItem(e.currentTarget, index)
   }
 
-  /* ---------- sync on mount & resize ---------- */
+  // sync on mount & resize
 
   useEffect(() => {
     if (!navRef.current || !containerRef.current) return
@@ -252,7 +251,7 @@ export default function GooeyNav({
     }
   }, [clearQueuedParticles])
 
-  /* ---------- render ---------- */
+  // render
 
   return (
     <div className={`gooey-nav-container${className ? ` ${className}` : ''}`} data-variant={variant} ref={containerRef}>

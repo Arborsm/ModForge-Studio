@@ -1,14 +1,20 @@
+/**
+ * @file useLauncherUpdateProgressNotifications hook: listens to update-check
+ * progress events and publishes/dismisses a throttled progress notification.
+ */
 import { useEffect } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type { LauncherUpdateProgressPayload } from './launcherContracts'
 
+/** Stable notification id for the launcher update-check progress banner. */
 export const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
 const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_THROTTLE_MS = 250
 
 type LauncherUpdatesCopy = ReturnType<typeof useEditorCopy>['launcher']['updates']
 
+/** Returns a 0-100 progress percentage from an update-check progress payload. */
 export function getLauncherUpdateNotificationProgress(payload: LauncherUpdateProgressPayload) {
   if (payload.total <= 0) {
     return 18
@@ -21,6 +27,7 @@ function isLauncherUpdateProgressComplete(payload: LauncherUpdateProgressPayload
   return payload.total > 0 && payload.checked >= payload.total
 }
 
+/** Publishes an update-check progress notification with current checked/total/mod name. */
 export function publishLauncherUpdateProgressNotification(copy: LauncherUpdatesCopy, payload: LauncherUpdateProgressPayload) {
   publishNotification({
     id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
@@ -32,6 +39,7 @@ export function publishLauncherUpdateProgressNotification(copy: LauncherUpdatesC
   })
 }
 
+/** Subscribes to update-check progress events and publishes/dismisses a throttled notification. */
 export function useLauncherUpdateProgressNotifications() {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher.updates

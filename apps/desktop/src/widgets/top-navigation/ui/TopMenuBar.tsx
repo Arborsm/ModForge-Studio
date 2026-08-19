@@ -1,3 +1,6 @@
+/**
+ * @file Top menu bar component: hosts mode switching, project menu, launcher navigation, and window controls.
+ */
 import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceTone } from '@locales/api'
@@ -7,6 +10,7 @@ import { requestLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-ev
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
+/** "Recent projects" list item for the top menu bar. */
 export type TopMenuBarProjectRecentItem = {
   draftStorageKey: string
   title: string
@@ -15,6 +19,7 @@ export type TopMenuBarProjectRecentItem = {
   isCurrent?: boolean
 }
 
+/** Configuration and callbacks for the top menu bar project hub menu. */
 export type TopMenuBarProjectMenu = {
   title: string | null
   version: string | null
@@ -70,6 +75,10 @@ function formatLauncherNavBadgeCount(count: number) {
   return count > 99 ? '99+' : String(count)
 }
 
+/**
+ * Top menu bar. Switches between launcher and workbench modes; displays the project menu,
+ * launcher navigation tabs, downloads entry, theme toggle, settings entry, and window control buttons.
+ */
 export default function TopMenuBar({
   appMode,
   onAppModeChange,

@@ -66,7 +66,14 @@ export type {
   MapAssetEditorTopBarCopy,
 } from './map'
 export type { StudioDeskCopy } from './studio-desk'
-export type { EventStageCopy, EventWorkflowCopy, EventWorkflowCommandKey, EventScenarioPresetId, ScriptEditorCopy } from './event-stage'
+export type {
+  EventStageCopy,
+  EventWorkflowCopy,
+  EventWorkflowCommandKey,
+  EventScenarioPresetId,
+  ScriptEditorCopy,
+  CommandSummaryCopy,
+} from './event-stage'
 export type { CharactersPanelCopy } from './characters'
 export type { CharacterDataEditorCopy } from './character-data'
 export type { BuildingDataEditorCopy } from './building-data'
@@ -83,7 +90,7 @@ export type {
   AssetTextCategoryKey,
 } from './asset-authoring'
 export type { BuildingsPanelCopy } from './buildings'
-export type { ItemsPanelCopy } from './items'
+export type { ItemsPanelCopy, WorkspaceTextCopy } from './items'
 export type { I18nGeneratorCopy } from './i18n-generator'
 export type { AiLocalizationCopy } from './ai-localization'
 export type { DialogueEditorCopy } from './dialogue'

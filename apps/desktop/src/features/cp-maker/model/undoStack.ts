@@ -1,5 +1,5 @@
 /**
- * Undo/redo for every staged draft edit, shared by the whole workbench.
+ * @file Undo/redo for every staged draft edit, shared by the whole workbench.
  *
  * `AssetDraftPort.stage` is the single write path into a draft, so one staged
  * operation is exactly one undoable step: the port records the patch fields as
@@ -18,6 +18,7 @@
  *
  * The stack is scoped to one draft: opening another project starts a fresh
  * history instead of offering to undo edits into a draft that is no longer open.
+ * @module features/cp-maker
  */
 
 import { create } from 'zustand'
@@ -88,6 +89,7 @@ function isNoop(entry: DraftUndoEntry): boolean {
   return Object.keys(after).every((key) => before[key] === after[key])
 }
 
+/** Zustand store holding the per-draft undo/redo history. */
 export const useDraftUndoStore = create<DraftUndoState>((set, get) => ({
   scopeKey: null,
   past: [],

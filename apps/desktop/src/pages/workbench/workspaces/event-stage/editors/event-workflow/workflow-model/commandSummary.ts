@@ -1,26 +1,12 @@
 import type { EventCommand } from '@entities/event'
 import { getEventCommandTitle } from '@entities/event'
+import type { EventStageCopy } from '@locales/model/workbench'
 
 export type CommandSummary = {
   icon: string
   title: string
   subtitle: string
   timing?: string
-}
-
-function getDirectionName(dir: number): string {
-  switch (dir) {
-    case 0:
-      return '上'
-    case 1:
-      return '右'
-    case 2:
-      return '下'
-    case 3:
-      return '左'
-    default:
-      return `方向${dir}`
-  }
 }
 
 function getEmoteName(index: number): string {
@@ -55,8 +41,9 @@ function stripQuotes(value: string): string {
   return t
 }
 
-export function getCommandSummary(cmd: EventCommand): CommandSummary {
+export function getCommandSummary(cmd: EventCommand, copy: EventStageCopy): CommandSummary {
   const args = cmd.args
+  const cs = copy.commandSummary
 
   switch (cmd.command) {
     case 'speak':
@@ -85,7 +72,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'ArrowRightLeft',
         title: actor || 'Move',
-        subtitle: pathPoints > 0 ? `${pathPoints} 个路径点` : '选择路径',
+        subtitle: pathPoints > 0 ? copy.pathPointCount(pathPoints) : cs.choosePath,
       }
     }
 
@@ -115,7 +102,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'TimerReset',
         title: 'Wait',
-        subtitle: '等待移动结束',
+        subtitle: cs.waitForMovement,
         timing: 'wait all',
       }
 
@@ -123,7 +110,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'TimerReset',
         title: 'Wait',
-        subtitle: '等待其他玩家',
+        subtitle: cs.waitForOtherPlayers,
         timing: 'wait players',
       }
 
@@ -143,7 +130,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'Compass',
         title: actor || 'Face',
-        subtitle: `面向${getDirectionName(dir)}`,
+        subtitle: cs.faceDirection(copy.directionName(dir)),
       }
     }
 
@@ -160,7 +147,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'Music',
         title: 'Music',
-        subtitle: '停止',
+        subtitle: cs.stop,
       }
 
     case 'playSound': {
@@ -176,7 +163,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'Volume2',
         title: 'Sound',
-        subtitle: '停止',
+        subtitle: cs.stop,
       }
 
     case 'viewport': {
@@ -203,7 +190,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'PlayCircle',
         title: actor || 'Animate',
-        subtitle: '播放动画',
+        subtitle: cs.playAnimation,
       }
     }
 
@@ -212,7 +199,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'PlayCircle',
         title: actor || 'Stop Animate',
-        subtitle: '停止动画',
+        subtitle: cs.stopAnimation,
       }
     }
 
@@ -222,7 +209,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'PlayCircle',
         title: actor || 'Frame',
-        subtitle: `帧 ${frame}`,
+        subtitle: cs.frameLabel(frame),
       }
     }
 
@@ -233,7 +220,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'Move',
         title: actor || 'Offset',
-        subtitle: `偏移 (${x}, ${y})`,
+        subtitle: cs.offset(x, y),
       }
     }
 
@@ -280,7 +267,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'ListChecks',
         title: 'Question',
-        subtitle: prompt ? truncate(prompt) : choices > 0 ? `${choices} 个选项` : '',
+        subtitle: prompt ? truncate(prompt) : choices > 0 ? cs.optionCount(choices) : '',
       }
     }
 
@@ -289,7 +276,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'GitBranch',
         title: 'Fork',
-        subtitle: condition ? `条件: ${stripQuotes(condition)}` : '',
+        subtitle: condition ? cs.conditionLabel(stripQuotes(condition)) : '',
       }
     }
 
@@ -306,21 +293,21 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'Octagon',
         title: 'End',
-        subtitle: '事件结束',
+        subtitle: cs.eventEnd,
       }
 
     case 'beginSimultaneousCommand':
       return {
         icon: 'Layers',
         title: 'Simultaneous',
-        subtitle: '开始并行',
+        subtitle: cs.beginParallel,
       }
 
     case 'endSimultaneousCommand':
       return {
         icon: 'Layers',
         title: 'Simultaneous',
-        subtitle: '结束并行',
+        subtitle: cs.endParallel,
       }
 
     case 'jump': {
@@ -328,7 +315,7 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
       return {
         icon: 'ArrowUp',
         title: actor || 'Jump',
-        subtitle: '跳跃',
+        subtitle: cs.jump,
       }
     }
 

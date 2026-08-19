@@ -1,3 +1,7 @@
+//! Nexus Mods remote mod detail loading via public GraphQL and REST API
+//! fallback, including file parsing, requirement extraction, and update risk
+//! inference.
+
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{launcher_http_client, send_nexus_json_request};

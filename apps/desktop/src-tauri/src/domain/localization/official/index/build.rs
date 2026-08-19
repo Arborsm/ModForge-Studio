@@ -1,3 +1,6 @@
+//! Official localization index builder — scans game content, extracts
+//! translation units and commits a new generation to the SQLite store.
+
 use super::persistence::open;
 use super::shared::{
     EXTRACTOR_VERSION, LOCALES, UnitEligibility, hex, semantic_fingerprint, semantic_identity,
@@ -563,6 +566,7 @@ fn game_version(game_directory: &str) -> Option<String> {
         .find_map(|name| read_windows_file_version(&Path::new(game_directory).join(name)))
 }
 
+/// Inspects the official localization index status for a game directory.
 pub fn inspect(
     request: InspectOfficialLocalizationIndexRequest,
 ) -> anyhow::Result<AiOfficialCorpusStatus> {
@@ -609,6 +613,8 @@ pub(crate) fn rebuild(
     rebuild_with_progress(request, |_| {})
 }
 
+/// Rebuilds the official localization index, invoking `progress` for each
+/// parsing milestone.
 pub fn rebuild_with_progress(
     request: RebuildOfficialLocalizationIndexRequest,
     mut progress: impl FnMut(AiOfficialIndexProgress),

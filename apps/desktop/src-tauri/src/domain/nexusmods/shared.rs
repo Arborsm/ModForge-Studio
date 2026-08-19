@@ -1,3 +1,6 @@
+//! Shared Nexus Mods helpers: URL building, GraphQL error extraction, URL
+//! normalization, and HTML entity decoding.
+
 use serde_json::Value;
 
 pub(crate) use crate::domain::manifest::string_field;

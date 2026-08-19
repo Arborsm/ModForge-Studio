@@ -1,3 +1,5 @@
+//! Launcher mod update checking: SMAPI lookup, Nexus GraphQL fallback, caching, and progress emission.
+
 use super::library::scan_library_at_path;
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;

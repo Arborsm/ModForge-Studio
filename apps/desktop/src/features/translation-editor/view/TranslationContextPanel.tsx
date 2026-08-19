@@ -1,3 +1,8 @@
+/**
+ * @file Side panel showing effective knowledge (glossary, memory, official, style) for the active translation unit.
+ * @module features/translation-editor
+ */
+
 import { BookOpen, Check, Database, Landmark, Palette, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocalization } from '@entities/localization'
@@ -7,6 +12,7 @@ import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import type { TranslationEntry } from '../model/translationEditor'
 
+/** Props for the `TranslationContextPanel` component. */
 type TranslationContextPanelProps = {
   entry: TranslationEntry
   scopeId: string

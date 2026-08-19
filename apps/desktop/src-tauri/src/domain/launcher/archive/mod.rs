@@ -1,5 +1,6 @@
-// Facade for the launcher archive domain. Implementation lives in the
-// `archive/` submodules split by responsibility:
+//! Facade for the launcher archive domain, re-exporting extract, inspect, and install entry points.
+
+// Implementation lives in the `archive/` submodules split by responsibility:
 //   - extract: format detection, path-traversal-safe decompression and temp work dirs
 //   - inspect: archive inspection, manifest metadata, tree building and file diffs
 //   - install: install/backup entry points and Tauri command wrappers

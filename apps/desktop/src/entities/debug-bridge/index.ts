@@ -1,3 +1,7 @@
+/**
+ * @file Public exports for the debug-bridge entity: bridge API, command builders, and the React hook.
+ * @module entities/debug-bridge
+ */
 export { getDebugBridgeStatus, sendDebugBridgeCommand, getDebugBridgeModState, installDebugBridgeMod } from './api/debugBridgeApi'
 export {
   BRIDGE_WEATHER_IDS,

@@ -1,5 +1,6 @@
 /**
- * Sprite-sheet frame assembly shared by every character surface.
+ * @file Sprite-sheet frame assembly shared by every character surface.
+ * @module entities/character
  *
  * Both helpers turn a sheet plus a source rect into background CSS. The scaled
  * variant multiplies every value so a nearest-neighbour frame stays crisp; the
@@ -9,6 +10,7 @@
 
 import type { CSSProperties } from 'react'
 
+/** Builds scaled background CSS for a sprite frame, multiplying every value by `scale` for crisp nearest-neighbour rendering. */
 export function buildSpriteStyle({
   url,
   sheetWidth,
@@ -39,6 +41,7 @@ export function buildSpriteStyle({
   }
 }
 
+/** Builds native-pixel background CSS for a sprite layer scaled by an ancestor transform. */
 export function buildAbsoluteSpriteLayerStyle({
   url,
   sheetWidth,

@@ -1,3 +1,5 @@
+//! Windows shell integration: opens directories via `explorer` with no-console flag.
+
 use anyhow::{Context, bail};
 use std::os::windows::process::CommandExt;
 use std::path::Path;

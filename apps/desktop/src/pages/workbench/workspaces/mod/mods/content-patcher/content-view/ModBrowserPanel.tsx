@@ -1,4 +1,5 @@
 import { Archive, Check, Filter, FolderOpen, Plus, RefreshCw, Search } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ModProjectSummary } from '@entities/mod/api'
 import { useModCopy, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -80,46 +81,57 @@ function ProjectRow({
   })
 
   return (
-    <button type="button" disabled={isIncompatible} aria-pressed={active} {...revealProps} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-text-primary truncate text-sm font-semibold">{project.name}</p>
-          <p className="text-text-tertiary text-meta-px mt-0.5 truncate">{project.uniqueId ?? project.folderName}</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
-          <span
-            className={cx(
-              'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
-              pluginKindBadge.className,
-            )}
-          >
-            {pluginKindBadge.label}
-          </span>
-          {statusBadge ? (
-            <span
-              className={cx(
-                'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
-                statusBadge.className,
-              )}
-            >
-              {statusBadge.label}
-            </span>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <button type="button" disabled={isIncompatible} aria-pressed={active} {...revealProps} onClick={onSelect}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-text-primary truncate text-sm font-semibold">{project.name}</p>
+              <p className="text-text-tertiary text-meta-px mt-0.5 truncate">{project.uniqueId ?? project.folderName}</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              <span
+                className={cx(
+                  'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
+                  pluginKindBadge.className,
+                )}
+              >
+                {pluginKindBadge.label}
+              </span>
+              {statusBadge ? (
+                <span
+                  className={cx(
+                    'inline-flex items-center rounded-sm border px-1.5 py-0.5 text-caption-px leading-none font-semibold whitespace-nowrap',
+                    statusBadge.className,
+                  )}
+                >
+                  {statusBadge.label}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="text-text-secondary text-meta-px mt-1.5 flex min-w-0 items-center gap-1.5">
+            <span className="truncate">{project.author ?? copy.unknownLabel}</span>
+            <span aria-hidden="true">·</span>
+            <span>{project.version ?? copy.noVersionLabel}</span>
+          </div>
+
+          {isIncompatible ? (
+            <p className="text-warning mt-3 text-xs leading-5">
+              {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
+            </p>
           ) : null}
-        </div>
-      </div>
-
-      <div className="text-text-secondary text-meta-px mt-1.5 flex min-w-0 items-center gap-1.5">
-        <span className="truncate">{project.author ?? copy.unknownLabel}</span>
-        <span aria-hidden="true">·</span>
-        <span>{project.version ?? copy.noVersionLabel}</span>
-      </div>
-
-      {isIncompatible ? (
-        <p className="text-warning mt-3 text-xs leading-5">
-          {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
-        </p>
-      ) : null}
-    </button>
+        </button>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" disabled={isIncompatible} onSelect={onSelect}>
+            {copy.selectProjectAction}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 
@@ -198,30 +210,40 @@ export function ModBrowserPanel({
               {filteredProjects.map((project, index) => {
                 const active = activeProjectPath === project.absolutePath
                 return (
-                  <button
-                    key={project.absolutePath}
-                    type="button"
-                    {...getLoadingMotionChildRevealProps({
-                      index,
-                      className: cx(
-                        'flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors',
-                        active ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
-                      ),
-                    })}
-                    aria-pressed={active}
-                    onClick={() => onSelectProject(project.absolutePath)}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-body-px truncate leading-tight font-medium">{project.name}</p>
-                      <p className="text-text-tertiary text-meta-px truncate">
-                        {i18nCopy.browserProjectMeta(project.author, project.version, project.uniqueId)}
-                      </p>
-                    </div>
-                    <span className="text-text-tertiary text-meta-px flex shrink-0 items-center gap-2">
-                      {i18nCopy.browserI18nEntries(project.i18nEntryCount)}
-                      {active ? <Check className="text-accent h-3.5 w-3.5" aria-label={i18nCopy.browserSelectedLabel} /> : null}
-                    </span>
-                  </button>
+                  <ContextMenu.Root key={project.absolutePath}>
+                    <ContextMenu.Trigger asChild>
+                      <button
+                        type="button"
+                        {...getLoadingMotionChildRevealProps({
+                          index,
+                          className: cx(
+                            'flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors',
+                            active ? 'bg-accent-soft text-accent' : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+                          ),
+                        })}
+                        aria-pressed={active}
+                        onClick={() => onSelectProject(project.absolutePath)}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-body-px truncate leading-tight font-medium">{project.name}</p>
+                          <p className="text-text-tertiary text-meta-px truncate">
+                            {i18nCopy.browserProjectMeta(project.author, project.version, project.uniqueId)}
+                          </p>
+                        </div>
+                        <span className="text-text-tertiary text-meta-px flex shrink-0 items-center gap-2">
+                          {i18nCopy.browserI18nEntries(project.i18nEntryCount)}
+                          {active ? <Check className="text-accent h-3.5 w-3.5" aria-label={i18nCopy.browserSelectedLabel} /> : null}
+                        </span>
+                      </button>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Portal>
+                      <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                        <ContextMenu.Item className="context-menu-item" onSelect={() => onSelectProject(project.absolutePath)}>
+                          {i18nCopy.browserSelectProjectAction}
+                        </ContextMenu.Item>
+                      </ContextMenu.Content>
+                    </ContextMenu.Portal>
+                  </ContextMenu.Root>
                 )
               })}
             </div>

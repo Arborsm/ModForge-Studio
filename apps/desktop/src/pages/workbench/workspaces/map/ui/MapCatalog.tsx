@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { AlertCircle, Copy, Loader2, Map as MapIcon, Plus, Search } from 'lucide-react'
+import { AlertCircle, FileEdit, Loader2, Map as MapIcon, Plus, Search } from 'lucide-react'
 import { loadMapAsset } from '@entities/game/api'
 import { loadMapThumbnail, type MapDocument } from '@entities/map'
 import { WorkspacePatchList, type AssetDraftPort, type DraftPatch, type EditorResources } from '@features/cp-maker'
 import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { useNotificationPublisher } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import {
   buildMapCatalogEntries,
@@ -14,7 +16,7 @@ import {
   type MapCatalogEntry,
 } from '../state/mapAuthoringCatalog'
 import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
-import { parseMapDocument } from '../../asset-library/model/importGameMap'
+import { parseMapDocument, prepareProjectMapCopy } from '../../asset-library/model/importGameMap'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 
 type CatalogRow =
@@ -93,6 +95,7 @@ function MapCatalogPreview({ entry, resources }: { entry: MapCatalogEntry; resou
       locale: resources.locale,
       width: 240,
       height: 176,
+      gameRootPath: resources.gameRootPath,
     }).then(
       (url) => {
         if (!cancelled) setThumbnailUrl(url)
@@ -104,7 +107,7 @@ function MapCatalogPreview({ entry, resources }: { entry: MapCatalogEntry; resou
     return () => {
       cancelled = true
     }
-  }, [document, entry.asset, entry.id, resources.locale])
+  }, [document, entry.asset, entry.id, resources.gameRootPath, resources.locale])
 
   return (
     <div ref={hostRef} className="map-catalog-preview" aria-hidden="true">
@@ -127,52 +130,89 @@ function MapCatalogCard({
   entry,
   resources,
   onOpen,
-  onImportToLibrary,
+  onImportAndEdit,
+  importing,
+  importDisabled,
+  importDisabledTitle,
 }: {
   entry: MapCatalogEntry
   resources: EditorResources
   onOpen: () => void
-  onImportToLibrary: () => void
+  onImportAndEdit: () => void
+  importing: boolean
+  importDisabled: boolean
+  importDisabledTitle: string
 }) {
   const copy = useMapAuthoringCopy()
   const format = entry.asset.format.toUpperCase()
   const size = formatBytes(entry.asset.sizeBytes)
   return (
-    <article
-      className="map-catalog-card"
-      role="button"
-      tabIndex={0}
-      aria-label={copy.patchGameMap(entry.name)}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen()
-        }
-      }}
-    >
-      <MapCatalogPreview entry={entry} resources={resources} />
-      <div className="map-catalog-card-copy">
-        <strong>{entry.name}</strong>
-        <span>{entry.target}</span>
-      </div>
-      <div className="map-catalog-card-meta">
-        <span>{copy.formatValue(format, size)}</span>
-        <button
-          type="button"
-          className="map-catalog-card-import"
-          title={copy.importInAssetLibrary(entry.name)}
-          aria-label={copy.importInAssetLibrary(entry.name)}
-          onClick={(event) => {
-            event.stopPropagation()
-            onImportToLibrary()
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <article
+          className="map-catalog-card"
+          data-guide="map-catalog-card"
+          role="button"
+          tabIndex={0}
+          aria-label={copy.patchGameMap(entry.name)}
+          title={copy.cardEntryHint}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              onOpen()
+            }
           }}
-          onKeyDown={(event) => event.stopPropagation()}
         >
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </div>
-    </article>
+          <MapCatalogPreview entry={entry} resources={resources} />
+          <div className="map-catalog-card-copy">
+            <strong>{entry.name}</strong>
+            <span>{entry.target}</span>
+          </div>
+          <div className="map-catalog-card-meta">
+            <span>{copy.formatValue(format, size)}</span>
+          </div>
+          <div className="map-catalog-card-actions">
+            <button
+              type="button"
+              className="control-button control-button-primary map-catalog-card-action-primary"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpen()
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              {copy.createPatchAction}
+            </button>
+            <button
+              type="button"
+              className="control-button map-catalog-card-action-secondary"
+              disabled={importing || importDisabled}
+              title={importDisabled ? importDisabledTitle : copy.importAndEditAction}
+              aria-label={copy.importAndEditAction}
+              onClick={(event) => {
+                event.stopPropagation()
+                onImportAndEdit()
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileEdit className="h-3.5 w-3.5" aria-hidden="true" />}
+              {importing ? copy.importing : copy.importAndEditAction}
+            </button>
+          </div>
+        </article>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={onOpen}>
+            {copy.createPatchAction}
+          </ContextMenu.Item>
+          <ContextMenu.Item className="context-menu-item" disabled={importing || importDisabled} onSelect={onImportAndEdit}>
+            {copy.importAndEditAction}
+          </ContextMenu.Item>
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 
@@ -193,12 +233,14 @@ export function MapCatalog({
   const editorCopy = useEditorCopy()
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
+  const publishNotification = useNotificationPublisher()
   const catalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
   const [query, setQuery] = useState('')
   const [sourceMode, setSourceMode] = useState<'all' | 'project' | 'vanilla'>('all')
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null)
   const [columnCount, setColumnCount] = useState(1)
   const [rootFontSize, setRootFontSize] = useState(readRootFontSize)
+  const [importingEntryId, setImportingEntryId] = useState<string | null>(null)
   const mapWorkspacePatches = draftPort.draft.patches.filter((patch) => patch.workspace === 'map')
   const isMapChange = (patch: DraftPatch) => patch.workspace === 'map' && (patch.action === 'EditMap' || patch.action === 'Load')
   const entries = buildMapCatalogEntries(catalog.assets)
@@ -265,8 +307,35 @@ export function MapCatalog({
     onOpenPatch(id)
   }
 
+  async function importAndEdit(entry: MapCatalogEntry) {
+    if (!resources.gameRootPath) return
+    setImportingEntryId(entry.id)
+    try {
+      const usedPaths = new Set(draftPort.draft.projectAssets.map((a) => a.relativePath.replaceAll('\\', '/').toLowerCase()))
+      const prepared = await prepareProjectMapCopy({
+        target: resolveGameMapPatchTarget(entry),
+        asset: entry.asset,
+        resources,
+        usedPaths,
+        invalidMapError: copy.importFailed,
+        tilesheetLoadError: (name) => copy.create.tilesheetLoadError(name),
+      })
+      await project.writeProjectAssets(prepared.assets, 'generated')
+      resources.onOpenMapAsset?.(prepared.document.relativePath)
+    } catch (error) {
+      publishNotification({
+        level: 'error',
+        title: copy.importFailed,
+        description: error instanceof Error ? error.message : null,
+      })
+    } finally {
+      setImportingEntryId(null)
+    }
+  }
+
   return (
     <WorkspaceSplitView
+      data-guide-surface="workbench.map"
       sidebarLabel={editorCopy.studioDesk.patchList.regionLabel}
       mainToolbar={
         <>
@@ -370,7 +439,10 @@ export function MapCatalog({
                           entry={entry}
                           resources={resources}
                           onOpen={() => openEntry(entry)}
-                          onImportToLibrary={() => environment.onOpenModule('asset-library')}
+                          onImportAndEdit={() => void importAndEdit(entry)}
+                          importing={importingEntryId === entry.id}
+                          importDisabled={!resources.gameRootPath}
+                          importDisabledTitle={copy.importAndEditNoGameRootHint}
                         />
                       ))}
                     </div>

@@ -1,3 +1,5 @@
+//! JSON parsing and numeric coercion helpers for Content Patcher source files.
+
 use crate::infrastructure::game_formats::json_relaxed;
 use serde_json::Value;
 use std::path::Path;

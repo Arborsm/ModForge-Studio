@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Info } from 'lucide-react'
 import type { MapDocument } from '@entities/map'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useMapAuthoringCopy } from '@locales/provider'
@@ -18,6 +19,8 @@ export type WarpCarrier = 'property' | 'touch' | 'action'
 export type WarpCarrierOption = {
   value: WarpCarrier
   label: string
+  /** Optional trigger-condition hint shown beneath the option label in the dropdown. */
+  description?: string
   disabled?: boolean
 }
 
@@ -91,7 +94,13 @@ export function WarpDialog({
         <div className="map-warp-dialog">
           {carrierOptions && carrierOptions.length > 0 ? (
             <label className="map-warp-dialog-field">
-              <span>{copy.warpCarrierLabel}</span>
+              <span className="map-concept-info-anchor">
+                {copy.warpCarrierLabel}
+                <Info className="map-concept-info-icon" aria-hidden="true" />
+                <span className="map-concept-info-tooltip" role="tooltip">
+                  {copy.warpCarrierConceptHint}
+                </span>
+              </span>
               <CompactSelect
                 value={carrier}
                 options={carrierOptions}

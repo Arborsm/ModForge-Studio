@@ -1,3 +1,5 @@
+//! Disk cache for parsed game assets (maps, text, images) with versioned invalidation.
+
 use crate::domain::app_paths::app_cache_dir;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;

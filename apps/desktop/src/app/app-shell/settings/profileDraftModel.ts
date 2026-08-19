@@ -1,3 +1,6 @@
+/**
+ * @file AI configuration profile draft model: manages edit-time string-state generation parameters and dirty-comparison logic.
+ */
 import { parseOptionalNumberInput, type AiGenerationParamError, type AiGenerationParamField } from '@entities/ai'
 import type { AiProviderPreset, AiSettingsSnapshot, SaveAiProviderProfile } from '@shared/contracts'
 
@@ -12,11 +15,13 @@ export const AI_GENERATION_PARAM_FIELDS = [
   'presencePenalty',
 ] as const satisfies readonly AiGenerationParamField[]
 
+/** String-state mapping of generation parameters while editing. */
 export type ParamDraftStrings = Record<(typeof AI_GENERATION_PARAM_FIELDS)[number], string>
 
 /** Editable generative profile draft; keyStatus mirrors the resolved credential source. */
 export type ProfileDraft = SaveAiProviderProfile & { keyStatus: 'keychain' | 'environment' | null }
 
+/** Minimal slice extracting generation parameter fields from ProfileDraft. */
 export type GenerationParamSource = Pick<ProfileDraft, 'id' | (typeof AI_GENERATION_PARAM_FIELDS)[number]>
 
 /** Minimal slice of the settings copy the numeric-parameter error formatter needs. */

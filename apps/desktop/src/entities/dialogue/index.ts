@@ -1,3 +1,7 @@
+/**
+ * @file Public exports for the dialogue entity: portrait math, script AST, key priority, entries, and UI components.
+ * @module entities/dialogue
+ */
 export {
   DIALOGUE_EMOTION_FRAME_INDEX,
   DIALOGUE_EMOTIONS,

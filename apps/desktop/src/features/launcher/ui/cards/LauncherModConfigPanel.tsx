@@ -1,3 +1,7 @@
+/**
+ * @file Launcher mod config panel: sectioned field editors with save/reset,
+ * dirty-guarded close, and GMCM/CP/config.json schema source attribution.
+ */
 import { Info, RotateCcw, Save, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'

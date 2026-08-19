@@ -1,3 +1,5 @@
+//! Launcher mod library: scanning, state persistence, covers, folder/pack organization, and dependency health.
+
 use super::fs::{discover_project_roots, read_json_file};
 use super::image_cache::resolve_launcher_image_blocking;
 use super::settings::load_or_create_settings_at_path;

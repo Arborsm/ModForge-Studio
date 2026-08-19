@@ -85,6 +85,8 @@ export type WorkbenchShellCopy = {
     lightingNight: string
     /** Pill title: what the preview shows for outdoor vs indoor maps. */
     lightingPreviewHint: string
+    /** Tooltip explaining the world atlas concept (multiple maps stitched together). */
+    worldAtlasConceptHint: string
     moduleWorkspace: string
     moduleWorkspaceDisabled: string
     moduleCanvas: string

@@ -1,3 +1,5 @@
+/** @file Collapsible disclosure section for progressive disclosure of advanced options. */
+
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

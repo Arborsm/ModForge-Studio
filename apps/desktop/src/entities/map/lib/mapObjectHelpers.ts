@@ -1,3 +1,8 @@
+/**
+ * @file Map object helpers: display name resolution, interaction tag detection,
+ * light-marker identification, and preview ranking for map object catalogs.
+ */
+
 import type { EditorCopy } from '@locales/api'
 import type { MapObject, MapObjectGroup } from '@entities/map'
 import { asMapPropertyString } from './properties'

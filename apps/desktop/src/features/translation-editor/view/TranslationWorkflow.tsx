@@ -1,3 +1,8 @@
+/**
+ * @file Three-step translation workflow — locale setup, editing, and review/checks with persistence.
+ * @module features/translation-editor
+ */
+
 import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Languages, Save, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
@@ -13,6 +18,7 @@ import {
 } from '../model/translationEditor'
 import { TranslationEditor, type TranslationEditorProps } from './TranslationEditor'
 
+/** Props for the `TranslationWorkflow` component — extends `TranslationEditorProps` with project-change callback. */
 export type TranslationWorkflowProps = TranslationEditorProps & {
   onChangeProject?: () => void
 }

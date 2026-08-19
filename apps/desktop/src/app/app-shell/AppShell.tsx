@@ -1,3 +1,6 @@
+/**
+ * @file App shell root component: manages app mode switching, window controls, settings window, guide tour, and workbench lazy loading.
+ */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -136,6 +139,9 @@ configureObservability({
 setNotificationDispatcher(publishNotification)
 useGuideEngineStore.getState().registerGuideDefinitions(appGuideDefinitions)
 
+/**
+ * App shell component: coordinates launcher/workbench mode switching, window frame controls, settings window, and guide tour lifecycle.
+ */
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
@@ -625,6 +631,15 @@ export default function App() {
     setSettingsWindowOpen(false)
     useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
   }, [guideReplayRequest])
+
+  useEffect(() => {
+    // Suppress the native browser context menu app-wide. Interactive surfaces
+    // opt into a custom Radix context menu instead; everywhere else the native
+    // menu is meaningless inside the desktop shell and leaks web-platform UX.
+    const handler = (event: MouseEvent) => event.preventDefault()
+    document.addEventListener('contextmenu', handler)
+    return () => document.removeEventListener('contextmenu', handler)
+  }, [])
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return

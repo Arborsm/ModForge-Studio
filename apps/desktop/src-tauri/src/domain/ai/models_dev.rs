@@ -1,3 +1,5 @@
+//! models.dev catalog fetcher with in-memory and disk caching for context-window metadata.
+
 use super::types::{ModelsDevCatalog, ModelsDevModel, ModelsDevProvider};
 use crate::domain::app_paths::modforge_data_dir;
 use anyhow::{Context, bail};

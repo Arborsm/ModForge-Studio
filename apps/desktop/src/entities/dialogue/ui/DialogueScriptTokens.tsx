@@ -1,3 +1,7 @@
+/**
+ * @file Read-only dialogue script renderer with protocol token highlighting.
+ * @module entities/dialogue
+ */
 import { parseStardewI18n } from '@shared/infra/game-formats/stardew-i18n/stardewI18n'
 
 const PROTOCOL_LITERAL_PATTERN = /[#$%^@{}[\]|]/u

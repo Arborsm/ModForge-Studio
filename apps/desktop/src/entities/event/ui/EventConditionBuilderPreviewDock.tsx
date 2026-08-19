@@ -1,3 +1,8 @@
+/**
+ * @file Preview dock for the event condition builder, showing validation,
+ * natural/code preview, and apply/cancel actions.
+ */
+
 import { cx } from '@shared/lib/helper'
 import type { ConditionBuilderCopy } from './eventConditionBuilderTypes'
 

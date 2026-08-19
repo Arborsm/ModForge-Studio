@@ -1,3 +1,6 @@
+//! Backend logging infrastructure: structured event builder, terminal/file
+//! sinks, log rotation, debug-level toggle, and frontend log forwarding.
+
 pub(crate) mod commands;
 pub mod event;
 pub mod terminal;
@@ -31,6 +34,7 @@ const COMMAND_TRACE_ENV: &str = "MODFORGE_COMMAND_TRACE";
 const SYSTEM_CERTIFICATE_LOG_TARGET: &str = "rustls_platform_verifier::verification::others";
 const REQWEST_CONNECT_LOG_TARGET: &str = "reqwest::connect";
 
+/// Configuration for the rotating host log file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogFileConfig {
     pub directory: PathBuf,
@@ -39,6 +43,7 @@ pub struct LogFileConfig {
     pub retained_file_count: usize,
 }
 
+/// Returns the active log file configuration (directory, name, size, retention).
 pub fn log_file_config() -> anyhow::Result<LogFileConfig> {
     Ok(LogFileConfig {
         directory: app_logs_dir()?,
@@ -48,6 +53,7 @@ pub fn log_file_config() -> anyhow::Result<LogFileConfig> {
     })
 }
 
+/// Frontend log entry forwarded through the host command protocol.
 #[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendLogRequest {
@@ -78,6 +84,7 @@ impl FrontendLogLevel {
     }
 }
 
+/// Shared debug-logging and command-trace toggle state, safe to clone.
 #[derive(Clone)]
 pub struct DebugLoggingState {
     enabled: Arc<AtomicBool>,
@@ -85,6 +92,7 @@ pub struct DebugLoggingState {
 }
 
 impl DebugLoggingState {
+    /// Creates a new state with debug logging off and command trace from env.
     pub fn new() -> Self {
         Self {
             enabled: Arc::new(AtomicBool::new(false)),
@@ -94,11 +102,13 @@ impl DebugLoggingState {
         }
     }
 
+    /// Enables or disables debug-level logging and applies the global filter.
     pub fn set_enabled(&self, enabled: bool) {
         self.enabled.store(enabled, Ordering::Relaxed);
         self.apply_global_level_filter();
     }
 
+    /// Returns whether debug-level logging is currently enabled.
     pub fn is_enabled(&self) -> bool {
         self.enabled.load(Ordering::Relaxed)
     }
@@ -175,6 +185,7 @@ impl TerminalNoiseState {
     }
 }
 
+/// True when the given env-flag string represents an enabled value.
 pub(crate) fn env_flag_is_enabled(value: &str) -> bool {
     let normalized = value.trim().to_ascii_lowercase();
     !normalized.is_empty() && !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
@@ -200,6 +211,8 @@ fn format_record(
     )
 }
 
+/// Writes a single log line to stderr with a process tag, used before the
+/// structured logger is installed.
 pub fn write_fallback_terminal_log(
     process_tag: &str,
     level: log::Level,
@@ -222,10 +235,12 @@ pub fn write_fallback_terminal_log(
     );
 }
 
+/// Writes a sidecar-process fallback log line to stderr.
 pub fn write_sidecar_fallback_log(level: log::Level, target: &str, message: impl AsRef<str>) {
     write_fallback_terminal_log(SIDECAR_PROCESS_TAG, level, target, message);
 }
 
+/// Writes a dev-asset-bridge fallback log line to stderr.
 pub fn write_dev_asset_bridge_log(level: log::Level, target: &str, message: impl AsRef<str>) {
     write_fallback_terminal_log(DEV_ASSET_BRIDGE_PROCESS_TAG, level, target, message);
 }
@@ -388,6 +403,7 @@ fn open_host_log_file(path: &Path) -> anyhow::Result<File> {
         .with_context(|| format!("Failed to open host log {}", path.display()))
 }
 
+/// Installs the sidecar stderr logger and applies the global level filter.
 pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLoggerError> {
     log::set_boxed_logger(Box::new(SidecarStderrLogger {
         state: state.clone(),
@@ -397,6 +413,7 @@ pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLog
     Ok(())
 }
 
+/// Installs the host logger (terminal + rotating file) and applies the level filter.
 pub fn init_host_logging(state: &DebugLoggingState) -> anyhow::Result<()> {
     log::set_boxed_logger(Box::new(HostLogger {
         state: state.clone(),
@@ -435,6 +452,7 @@ where
     result
 }
 
+/// Logs a failed Tauri command result at error level, preserving the error.
 pub fn log_tauri_command_error<T, E>(command_name: &str, result: Result<T, E>) -> Result<T, E>
 where
     E: Display,
@@ -449,6 +467,7 @@ where
     )
 }
 
+/// Logs a failed Tauri command with a custom error description.
 pub fn log_tauri_command_error_with_message<T, E, F>(
     command_name: &str,
     result: Result<T, E>,
@@ -462,6 +481,7 @@ where
     })
 }
 
+/// Forwards a frontend log request into the backend `log` crate as a Webview-targeted record.
 pub fn write_frontend_log(request: FrontendLogRequest) {
     let mut builder = RecordBuilder::new();
     builder
@@ -491,6 +511,7 @@ fn format_frontend_log_message(message: &str, key_values: &HashMap<String, Strin
     event.render()
 }
 
+/// Toggles debug logging and emits a summary line when the state actually changes.
 pub fn set_debug_logging_enabled(state: &DebugLoggingState, enabled: bool) {
     if !apply_debug_logging_toggle(state, enabled) {
         return;

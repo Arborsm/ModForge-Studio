@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowRight, Code2, Crosshair, Map as MapIcon, MapPin, Plus, Trash2 } from 'lucide-react'
 import {
   MAP_PROPERTY_CATEGORY_KEYS,
@@ -453,27 +454,50 @@ export function MapWarpsEditor({
       {warps.length > 0 ? (
         <div className="map-warp-list" role="list" aria-label={title}>
           {warps.map((warp, index) => (
-            <button
-              key={`${warp.fromX}:${warp.fromY}:${warp.toMap}:${index}`}
-              type="button"
-              role="listitem"
-              className={cx(index === selectedIndex && 'is-active')}
-              aria-pressed={index === selectedIndex}
-              onClick={() => {
-                setSelectedIndex(index)
-                setPickingIndex(null)
-              }}
-            >
-              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>
-                {warp.fromX}, {warp.fromY}
-              </span>
-              <ArrowRight className="h-3 w-3" aria-hidden="true" />
-              <strong>{warp.toMap || copy.destinationPlaceholder}</strong>
-              <small>
-                {warp.toX}, {warp.toY}
-              </small>
-            </button>
+            <ContextMenu.Root key={`${warp.fromX}:${warp.fromY}:${warp.toMap}:${index}`}>
+              <ContextMenu.Trigger asChild>
+                <button
+                  type="button"
+                  role="listitem"
+                  className={cx(index === selectedIndex && 'is-active')}
+                  aria-pressed={index === selectedIndex}
+                  onClick={() => {
+                    setSelectedIndex(index)
+                    setPickingIndex(null)
+                  }}
+                >
+                  <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    {warp.fromX}, {warp.fromY}
+                  </span>
+                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                  <strong>{warp.toMap || copy.destinationPlaceholder}</strong>
+                  <small>
+                    {warp.toX}, {warp.toY}
+                  </small>
+                </button>
+              </ContextMenu.Trigger>
+              <ContextMenu.Portal>
+                <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => {
+                      setSelectedIndex(index)
+                      setPickingIndex(null)
+                    }}
+                  >
+                    {copy.selectWarpAction}
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator className="context-menu-separator" />
+                  <ContextMenu.Item
+                    className="context-menu-item is-danger"
+                    onSelect={() => onChange(warps.filter((_, warpIndex) => warpIndex !== index))}
+                  >
+                    {copy.removeWarp}
+                  </ContextMenu.Item>
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            </ContextMenu.Root>
           ))}
         </div>
       ) : (

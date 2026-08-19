@@ -1,3 +1,6 @@
+//! Game format infrastructure: dispatches map asset parsing (TMX/TBin/XNB)
+//! to the appropriate format reader based on extension and byte signature.
+
 pub mod json_relaxed;
 pub mod map;
 pub mod tbin;

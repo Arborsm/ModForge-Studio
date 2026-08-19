@@ -1,3 +1,8 @@
+/**
+ * @file Pre-built starting-point templates for CP Maker project creation,
+ * seeding singleton patches and choosing the landing module.
+ * @module features/cp-maker
+ */
 import type { DraftPatch, WorkspaceId } from './types'
 
 /**
@@ -11,12 +16,14 @@ import type { DraftPatch, WorkspaceId } from './types'
  */
 export type PackTemplateId = 'blank' | 'npc' | 'item' | 'building' | 'map' | 'event' | 'mail'
 
+/** A singleton patch seeded by a template into a specific workspace. */
 export type PackTemplateSeedPatch = {
   workspace: WorkspaceId
   action: DraftPatch['action']
   target: string
 }
 
+/** A project creation template with seed patches and a landing module. */
 export type PackTemplate = {
   id: PackTemplateId
   seedPatches: readonly PackTemplateSeedPatch[]
@@ -24,6 +31,7 @@ export type PackTemplate = {
   landingModule: string | null
 }
 
+/** All available project creation templates, keyed by id. */
 export const PACK_TEMPLATES: readonly PackTemplate[] = [
   {
     id: 'blank',

@@ -1,8 +1,9 @@
 /**
- * Read/write helpers for the EditData advanced operations parked in a patch's
- * `editorState`: `textOperations`, `moveEntries` and the per-entry `fields`
- * map. The export (`buildContentJson`) already merges these records; these
- * helpers give the GUI and validation one shared, shape-checked view of them.
+ * @file Read/write helpers for the EditData advanced operations parked in a
+ * patch's `editorState`: `textOperations`, `moveEntries` and the per-entry
+ * `fields` map. The export (`buildContentJson`) already merges these records;
+ * these helpers give the GUI and validation one shared, shape-checked view.
+ * @module features/cp-maker
  */
 
 import { readDisabledEntryKeys } from './draftPort'
@@ -28,7 +29,9 @@ export type MoveEntryDraft = {
 /** `Fields` map: entry key → field name → replacement value. */
 export type AdvancedFieldMap = Record<string, Record<string, unknown>>
 
+/** Supported `TextOperations` action kinds. */
 export const TEXT_OPERATION_KINDS = ['Append', 'Prepend', 'RemoveDelimited'] as const
+/** Supported replace modes for `RemoveDelimited` text operations. */
 export const TEXT_OPERATION_REPLACE_MODES = ['All', 'First', 'Last'] as const
 
 function asRecord(value: unknown): Record<string, unknown> {

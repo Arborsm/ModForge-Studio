@@ -1,3 +1,6 @@
+/**
+ * @file Static app registry composition point: gathers all workbench module registrations.
+ */
 import {
   assetLibraryRegistration,
   audioBrowserRegistration,
@@ -27,6 +30,7 @@ import {
 } from '@pages/workbench/module-registrations'
 import { createAppRegistry } from './registry'
 
+/** Static app registry; in DEV mode additionally includes the dev resource browser module. */
 export const appRegistry = createAppRegistry({
   workbenchModules: [
     mapBrowserRegistration,

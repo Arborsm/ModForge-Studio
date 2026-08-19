@@ -1,3 +1,6 @@
+//! Host layer: sidecar transport, host handle abstraction, and the shared
+//! Host Runtime scheduler entry points.
+
 pub mod host_commands;
 pub mod host_handle;
 pub mod host_runtime;

@@ -1,5 +1,5 @@
 /**
- * Project-wide validation roll-up.
+ * @file Project-wide validation roll-up.
  *
  * Every authoring page validates its own asset, but the dashboard needs one
  * number for "things that will break the pack". This module runs the same
@@ -10,6 +10,7 @@
  *
  * Patches the author switched off are skipped: they are not exported, so their
  * findings are not the project's problem.
+ * @module features/cp-maker
  */
 
 import { getAssetSchema, parseAssetEditorState, validateAssetEntries, type AssetIssue } from '@entities/asset-schema'

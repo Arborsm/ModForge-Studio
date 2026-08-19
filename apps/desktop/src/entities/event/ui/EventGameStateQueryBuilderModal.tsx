@@ -1,3 +1,8 @@
+/**
+ * @file Modal dialog for the GameStateQuery clause builder: category browser,
+ * field editors, and clause serialization preview.
+ */
+
 import { Clock, Code2, Compass, Database, Layers3, PackageSearch, Search, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
 import { cx } from '@shared/lib/helper'
@@ -99,6 +104,7 @@ function compactLabelForClause(clause: GameStateQueryClauseDraft, label: string)
   return compactText(label)
 }
 
+/** Renders the GameStateQuery clause builder modal with category browser and field editors. */
 export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, onApply, onCancel }: EventGameStateQueryBuilderModalProps) {
   const [activeCategory, setActiveCategory] = useState<ActiveCategory>('world')
   const [searchText, setSearchText] = useState('')

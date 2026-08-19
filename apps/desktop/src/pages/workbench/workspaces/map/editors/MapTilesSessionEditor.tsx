@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Redo2, Undo2 } from 'lucide-react'
-import { MapTilesetPalette, MapViewport, type MapDocument, type MapTileRect } from '@entities/map'
+import { MapViewport, type MapDocument, type MapTileRect, type TileHoverInfo } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import type { EditorResources } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
@@ -13,7 +13,8 @@ import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
 import { MapAssetCellOverlayRules } from './core/MapAssetCellOverlayRules'
 import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
-import { useMapDocumentEditor, type AssetTool } from './core/useMapDocumentEditor'
+import { useMapDocumentEditor } from './core/useMapDocumentEditor'
+import { useMapEditorShortcuts } from './core/useMapEditorShortcuts'
 
 /**
  * Patch-tiles session capabilities: only tile painting and cell-property
@@ -60,6 +61,9 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
   const mapName = target.replace(/^Maps\//iu, '').trim()
   const assetPath = `Maps/${mapName}.tmx`
+  const [hoverPreviewSrc, setHoverPreviewSrc] = useState<string | null>(null)
+  const [galleryMode, setGalleryMode] = useState(false)
+  const [hoverLayerId, setHoverLayerId] = useState<number | null>(null)
 
   const editor = useMapDocumentEditor({
     document,
@@ -74,12 +78,16 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
 
   const changedCellCount = useMemo(() => diffMapDocumentToMapTiles(baseDocument, document).length, [baseDocument, document])
 
-  const undoRef = useRef<() => void>(() => {})
-  const redoRef = useRef<() => void>(() => {})
-  undoRef.current = editor.undo
-  redoRef.current = editor.redo
   const overlayActiveRef = useRef(editor.overlayActive)
   overlayActiveRef.current = editor.overlayActive
+
+  useMapEditorShortcuts({
+    onUndo: editor.undo,
+    onRedo: editor.redo,
+    onToggleOverlay: () => editor.setOverlayActive((open) => !open),
+    onToolChange: editor.setTool,
+    overlayActiveRef,
+  })
 
   const activeLayer = editor.activeLayer
   const selectedTileset = editor.selectedTileset
@@ -103,53 +111,16 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
     return { layerId: layer.id, width: layer.width, height: layer.height, cells }
   }, [editor.activeLayerId, editor.overlayActive, editor.overlayPaintPreview, editor.overlayRule, editor.renderDocument])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const tag = globalThis.document.activeElement?.tagName
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        redoRef.current()
-        return
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        undoRef.current()
-        return
-      }
-      if (event.ctrlKey && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        redoRef.current()
-        return
-      }
-      const key = event.key.toLowerCase()
-      if (key === 'g') {
-        editor.setOverlayActive((open) => !open)
-        return
-      }
-      const shortcuts: Record<string, AssetTool> = {
-        b: 'brush',
-        e: 'erase',
-        f: 'fill',
-        r: 'rectangle',
-        d: 'eyedropper',
-        h: 'hand',
-        i: 'inspect',
-      }
-      if (overlayActiveRef.current || !shortcuts[key]) return
-      editor.setTool(shortcuts[key])
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
-
   return (
-    <div className="map-asset-editor">
+    <div className="map-asset-editor" data-guide-surface="workbench.map">
       <header className="map-asset-editor-header">
         <div className="map-asset-editor-title">
           <strong>{document.name || mapName}</strong>
           <span>{target}</span>
         </div>
+        <span className="map-asset-mode-badge" title={sessionCopy.modeBadgeSessionHint}>
+          {sessionCopy.modeBadgeSession}
+        </span>
         <span className="map-tiles-session-changed" aria-live="polite">
           {sessionCopy.changedCells(changedCellCount)}
         </span>
@@ -179,6 +150,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
         <button
           type="button"
           className="control-button control-button-primary"
+          title={sessionCopy.completeHint}
           onClick={() => onComplete(diffMapDocumentToMapTiles(baseDocument, document))}
         >
           <Check className="h-3.5 w-3.5" />
@@ -191,6 +163,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           document={document}
           renderDocument={editor.renderDocument}
           locale={resources.locale}
+          gameRootPath={resources.gameRootPath}
           activeLayer={editor.activeLayer}
           lockedLayerIds={editor.lockedLayerIds}
           capabilities={editor.capabilities}
@@ -206,27 +179,25 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           onActivateLayer={(layerId) => {
             editor.setActiveLayerId(layerId)
           }}
-          onAddLayer={() => {}}
-          onDuplicateLayer={() => {}}
-          onRequestDeleteLayer={() => {}}
-          onMoveLayer={() => {}}
+          onHoverLayerPreview={setHoverLayerId}
         />
 
-        <main className="map-asset-canvas">
+        <main className="map-asset-canvas" data-guide="map-canvas">
           <div className="map-asset-viewport">
             <MapAssetEditorToolbar
               tool={editor.tool}
               paletteSelection={editor.paletteSelection}
               onToolChange={editor.setTool}
-              paletteOpen={editor.paletteOpen}
-              onTogglePalette={() => editor.setPaletteOpen((open) => !open)}
               overlayActive={editor.overlayActive}
               onToggleOverlay={() => editor.setOverlayActive((open) => !open)}
+              capabilities={editor.capabilities}
             />
             <MapViewport
               locale={resources.locale}
               mapDocument={editor.renderDocument}
-              visibleLayerIds={document.layers.filter((layer) => layer.visible).map((layer) => layer.id)}
+              visibleLayerIds={
+                hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id)
+              }
               visibleObjectGroupIds={document.objectGroups.filter((group) => group.visible).map((group) => group.id)}
               hideRuleTileDataObjects
               includeHiddenLayers={document.layers.every((layer) => !layer.visible)}
@@ -234,8 +205,18 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
               accentColor={resources.accentColor}
               showGrid
               showStatsChips={false}
-              contextMenuEnabled={false}
+              contextMenuEnabled
               onHoverChange={editor.setHoverInfo}
+              paintPreview={
+                !editor.overlayActive &&
+                !editor.activeLayerLocked &&
+                (editor.tool === 'brush' || editor.tool === 'stamp') &&
+                editor.paletteSelection &&
+                editor.selectedTileset
+                  ? editor.paletteSelection
+                  : null
+              }
+              tilesetPreview={galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null}
               onTileStroke={
                 editor.overlayActive && !editor.activeLayerLocked
                   ? editor.commitCellOverlayStroke
@@ -272,22 +253,19 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
               }
               cellOverlay={overlayCells}
             />
+            {!editor.overlayActive &&
+            (editor.tool === 'brush' || editor.tool === 'stamp' || editor.tool === 'fill') &&
+            !paletteSelection ? (
+              <div className="map-asset-canvas-guide" role="status" aria-live="polite">
+                <strong>{assetEditorCopy.canvasGuideTitle}</strong>
+                <p>{assetEditorCopy.canvasGuideStep1}</p>
+                <p>{assetEditorCopy.canvasGuideStep2}</p>
+                <p>{assetEditorCopy.canvasGuideStep3}</p>
+              </div>
+            ) : null}
             {editor.overlayActive ? (
               <MapAssetCellOverlayRules activeRule={editor.overlayRule} onRuleChange={editor.setOverlayRule} />
             ) : null}
-            {editor.paletteOpen ? (
-              <MapTilesetPalette
-                document={editor.renderDocument}
-                locale={resources.locale}
-                selection={editor.paletteSelection}
-                onSelectionChange={(selection) => {
-                  editor.setPaletteSelection(selection)
-                  editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-                }}
-                onClose={() => editor.setPaletteOpen(false)}
-              />
-            ) : null}
-            {editor.paletteOpen ? <p className="map-tiles-session-tileset-hint">{sessionCopy.tilesetSourceHint}</p> : null}
           </div>
         </main>
 
@@ -302,7 +280,6 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           selectedObject={null}
           selectedObjectId={null}
           paletteSelection={editor.paletteSelection}
-          tilesetOptions={[]}
           isTmxAsset
           tbinIssues={[]}
           layerNameIssues={[]}
@@ -320,12 +297,14 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
           onUpdateSelectedObject={editor.updateSelectedObject}
           onDeleteSelectedObject={editor.deleteSelectedObject}
           onAddTileDataObject={editor.addTileDataObject}
-          // Object editing is disabled in the patch-tiles session (capabilities.objectGroups = false).
-          onLocateObject={() => {}}
-          // Map cards are not rendered in the session (no mapOptions), so hover highlighting is a no-op.
-          onHighlightInspector={() => {}}
-          onAddTileset={editor.addTileset}
-          onConvertToTmx={async () => {}}
+          paletteSelectionForPicker={editor.paletteSelection}
+          onPaletteSelectionChange={(selection) => {
+            if (!selection) return
+            editor.setPaletteSelection(selection)
+            editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+          }}
+          onHoverTileset={setHoverPreviewSrc}
+          onGalleryModeChange={setGalleryMode}
         />
       </div>
 
@@ -338,8 +317,24 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
         </span>
         <span>{editor.activeLayer?.name ?? '-'}</span>
         <span />
-        <span>{editor.hoverInfo ? `${editor.hoverInfo.tileX}, ${editor.hoverInfo.tileY}` : '-'}</span>
+        <HoverInfoSpan subscribe={editor.subscribeHoverInfo} getSnapshot={editor.getHoverInfo} />
       </footer>
     </div>
   )
+}
+
+/**
+ * Status-bar span that displays the hovered tile coordinates. Subscribes to
+ * the editor's hover-info ref via useSyncExternalStore so pointermove only
+ * re-renders this span, not the entire editor tree.
+ */
+function HoverInfoSpan({
+  subscribe,
+  getSnapshot,
+}: {
+  subscribe: (listener: () => void) => () => void
+  getSnapshot: () => TileHoverInfo | null
+}) {
+  const hoverInfo = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return <span>{hoverInfo ? `${hoverInfo.tileX}, ${hoverInfo.tileY}` : '-'}</span>
 }

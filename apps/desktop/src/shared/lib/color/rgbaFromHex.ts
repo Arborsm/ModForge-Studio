@@ -1,3 +1,6 @@
+/** @file Hex-to-rgba color converter with fallback for invalid input. */
+
+/** Converts a hex color (`#rgb` or `#rrggbb`) to an `rgba()` string with the given alpha; falls back to indigo on invalid input. */
 export function rgbaFromHex(value: string, alpha: number): string {
   const normalized = value.trim().replace(/^#/u, '')
   if (!/^(?:[\da-f]{3}|[\da-f]{6})$/iu.test(normalized)) {

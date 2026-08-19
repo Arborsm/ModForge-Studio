@@ -1,3 +1,7 @@
+/**
+ * @file React hook for resolving `[LocalizedText ...]` values with loading-state awareness.
+ */
+
 import { useEffect, useState } from 'react'
 import type { LocaleCode } from '@locales/api'
 import { resolveLocalizedTextDetailed, type LocalizedTextResolution } from './localizedText'

@@ -1,8 +1,9 @@
 /**
- * Validation for the `content.json` top-level triplets: DynamicTokens,
+ * @file Validation for the `content.json` top-level triplets: DynamicTokens,
  * CustomLocations and AliasTokenNames. These fail silently in-game (a token
  * that never resolves, a location that does not exist), so the workbench
  * flags them before export.
+ * @module features/cp-maker
  */
 
 import type { AssetIssue } from '@entities/asset-schema'

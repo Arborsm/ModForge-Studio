@@ -1,5 +1,6 @@
 import { CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
@@ -336,40 +337,55 @@ export function LauncherUpdatesPage({
 
                 return (
                   <LoadingMotionRevealItem key={key} index={index + 2} as="article" className="launcher-updates-item">
-                    <div className="launcher-updates-row">
-                      <label className="launcher-updates-row-check">
-                        <input
-                          type="checkbox"
-                          aria-label={item.name}
-                          checked={updates.isSelected(item)}
-                          onChange={() => updates.toggleSelected(item)}
-                        />
-                      </label>
+                    <ContextMenu.Root>
+                      <ContextMenu.Trigger asChild>
+                        <div className="launcher-updates-row">
+                          <label className="launcher-updates-row-check">
+                            <input
+                              type="checkbox"
+                              aria-label={item.name}
+                              checked={updates.isSelected(item)}
+                              onChange={() => updates.toggleSelected(item)}
+                            />
+                          </label>
 
-                      <UpdateArtwork title={item.name} imageUrl={item.imageUrl} className="launcher-updates-row-artwork" />
+                          <UpdateArtwork title={item.name} imageUrl={item.imageUrl} className="launcher-updates-row-artwork" />
 
-                      <div className="launcher-updates-row-copy">
-                        <p className="launcher-updates-row-title">{item.name}</p>
-                        <p className="launcher-updates-row-author">{item.author?.trim() || `Nexus #${item.modId}`}</p>
-                      </div>
+                          <div className="launcher-updates-row-copy">
+                            <p className="launcher-updates-row-title">{item.name}</p>
+                            <p className="launcher-updates-row-author">{item.author?.trim() || `Nexus #${item.modId}`}</p>
+                          </div>
 
-                      <div className="launcher-updates-row-version">
-                        <span className="launcher-updates-row-version-current">{formatVersionLabel(item.currentVersion)}</span>
-                        <span className="launcher-updates-row-version-arrow" aria-hidden="true">
-                          →
-                        </span>
-                        <strong className="launcher-updates-row-version-next">{formatVersionLabel(item.latestVersion)}</strong>
-                      </div>
+                          <div className="launcher-updates-row-version">
+                            <span className="launcher-updates-row-version-current">{formatVersionLabel(item.currentVersion)}</span>
+                            <span className="launcher-updates-row-version-arrow" aria-hidden="true">
+                              →
+                            </span>
+                            <strong className="launcher-updates-row-version-next">{formatVersionLabel(item.latestVersion)}</strong>
+                          </div>
 
-                      <div className="launcher-updates-row-actions">
-                        <button type="button" className="launcher-updates-inline-action" onClick={() => openDetail(item)}>
-                          <span>{copy.updates.viewDetails}</span>
-                        </button>
-                        <button type="button" className="control-button" onClick={() => queueItem(item)}>
-                          {copy.updates.updateOne}
-                        </button>
-                      </div>
-                    </div>
+                          <div className="launcher-updates-row-actions">
+                            <button type="button" className="launcher-updates-inline-action" onClick={() => openDetail(item)}>
+                              <span>{copy.updates.viewDetails}</span>
+                            </button>
+                            <button type="button" className="control-button" onClick={() => queueItem(item)}>
+                              {copy.updates.updateOne}
+                            </button>
+                          </div>
+                        </div>
+                      </ContextMenu.Trigger>
+                      <ContextMenu.Portal>
+                        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                          <ContextMenu.Item className="context-menu-item" onSelect={() => openDetail(item)}>
+                            {copy.updates.viewDetails}
+                          </ContextMenu.Item>
+                          <ContextMenu.Separator className="context-menu-separator" />
+                          <ContextMenu.Item className="context-menu-item" onSelect={() => queueItem(item)}>
+                            {copy.updates.updateOne}
+                          </ContextMenu.Item>
+                        </ContextMenu.Content>
+                      </ContextMenu.Portal>
+                    </ContextMenu.Root>
                   </LoadingMotionRevealItem>
                 )
               })}

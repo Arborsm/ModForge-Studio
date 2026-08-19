@@ -1,3 +1,5 @@
+//! Filesystem helpers for the launcher domain: project discovery, JSON reading, path sanitization.
+
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::game_formats::json_relaxed;
 use anyhow::Context;

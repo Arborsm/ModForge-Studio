@@ -44,7 +44,7 @@ fn apply_mask_reduces_alpha() {
     }));
 
     let result = with_virtual_preview_assets(Some(&[asset]), || {
-        apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        apply_edit_image_patch(&snapshot, &mut base, &patch)
     });
     assert!(result.is_ok(), "{result:?}");
 
@@ -66,7 +66,7 @@ fn apply_replace_overwrites_pixels() {
     }));
 
     let result = with_virtual_preview_assets(Some(&[asset]), || {
-        apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        apply_edit_image_patch(&snapshot, &mut base, &patch)
     });
     assert!(result.is_ok(), "{result:?}");
 
@@ -89,7 +89,7 @@ fn apply_overlay_blends_pixels() {
     }));
 
     let result = with_virtual_preview_assets(Some(&[asset]), || {
-        apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        apply_edit_image_patch(&snapshot, &mut base, &patch)
     });
     assert!(result.is_ok(), "{result:?}");
 
@@ -109,7 +109,7 @@ fn default_patch_mode_is_replace() {
     }));
 
     let result = with_virtual_preview_assets(Some(&[asset]), || {
-        apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        apply_edit_image_patch(&snapshot, &mut base, &patch)
     });
     assert!(result.is_ok(), "{result:?}");
     assert_eq!(base.get_pixel(0, 0), &image::Rgba([255, 255, 255, 255]));

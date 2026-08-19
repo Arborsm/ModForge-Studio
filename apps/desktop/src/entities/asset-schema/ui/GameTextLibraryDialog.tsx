@@ -1,5 +1,6 @@
 /**
- * Browser over the game's shipped `Strings/*` tables.
+ * @file Browser dialog over the game's shipped `Strings/*` tables for inserting localized text references.
+ * @module entities/asset-schema
  *
  * Authors writing a `DisplayName` or `Description` usually want the string the
  * game already ships, referenced as `[LocalizedText Strings\Objects:Key]` so it

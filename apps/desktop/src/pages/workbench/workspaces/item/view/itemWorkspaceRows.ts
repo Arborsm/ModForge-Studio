@@ -103,40 +103,9 @@ function getChipToneForEdibility(value: number | null | undefined): Tone {
 }
 
 export function getWorkspaceText(copy: ItemsCopy) {
-  const isEnglish = copy.statsAllLabel === 'All'
-
   return {
-    catalogTitle: isEnglish ? 'Catalog' : '目录',
-    detailTitle: isEnglish ? 'Inspector' : '检查器',
-    viewTitle: isEnglish ? 'View Controls' : '视图控制',
-    railTitle: isEnglish ? 'Browse' : '浏览',
+    ...copy.workspaceText,
     filtersTitle: copy.filtersTitle,
-    selectionTitle: isEnglish ? 'Selected' : '已选',
-    sourceOriginalLabel: isEnglish ? 'Original' : '原版',
-    sourceModLabel: isEnglish ? 'Mod' : '模组',
-    infoTab: isEnglish ? 'Info' : '基础信息',
-    relationsTab: isEnglish ? 'Relations / Recipes' : '关联 / 配方',
-    resourcesTab: isEnglish ? 'Dev / Resources' : '技术 / 资源',
-    descriptionTitle: isEnglish ? 'Description' : '描述',
-    relationsEmpty: isEnglish ? 'No related recipes or acquisition routes yet.' : '暂无相关配方/途径记录',
-    giftsEmpty: isEnglish ? 'No villager preference records.' : '暂无村民喜好记录',
-    spriteSizeLabel: isEnglish ? 'Sprite Size' : '贴图尺寸',
-    catalogItemsLabel: isEnglish ? 'items' : '物品',
-    catalogGridLabel: isEnglish ? 'grid' : '网格',
-    catalogPageLabel: isEnglish ? 'Page' : '页',
-    catalogItemsPerPageLabel: isEnglish ? 'per page' : '每页',
-    catalogWheelHint: isEnglish ? 'Wheel to flip pages' : '滚轮翻页',
-    previousPageLabel: isEnglish ? 'Prev' : '上一页',
-    nextPageLabel: isEnglish ? 'Next' : '下一页',
-    customFieldsTitle: isEnglish ? 'Custom Fields' : '自定义字段',
-    customFieldsEmpty: isEnglish ? 'No custom fields.' : '暂无自定义字段',
-    moduleLabels: {
-      map: isEnglish ? 'Map' : '地图',
-      events: isEnglish ? 'Events' : '事件',
-      characters: isEnglish ? 'Characters' : '角色',
-      buildings: isEnglish ? 'Buildings' : '建筑',
-      items: isEnglish ? 'Items' : '物品',
-    },
   }
 }
 
@@ -336,15 +305,14 @@ export function createMachineUseCard(machine: ItemMachineLink, item: ItemWorkspa
 }
 
 export function getTabDefinitions(copy: ItemsCopy, items: ItemWorkspaceEntry[]): BrowseTab[] {
-  const isZh = copy.statsAllLabel !== 'All'
   const labels: Record<ItemBrowseCategory, string> = {
     all: copy.statsAllLabel,
-    mineral: isZh ? '矿物' : 'Minerals',
+    mineral: copy.statsMineralLabel,
     cooking: copy.statsCookingLabel,
     fish: copy.statsFishLabel,
     crop: copy.statsCropLabel,
-    equipment: isZh ? '装备' : 'Gear',
-    apparel: isZh ? '服饰' : 'Apparel',
+    equipment: copy.statsEquipmentLabel,
+    apparel: copy.statsApparelLabel,
     furniture: copy.kindLabels.furniture,
     crafting: copy.statsCraftingLabel,
   }

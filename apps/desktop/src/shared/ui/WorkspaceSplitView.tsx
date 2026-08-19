@@ -1,3 +1,5 @@
+/** @file Two/three-column workspace split layout with optional toolbar, empty state, and right detail panel. */
+
 import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
@@ -9,34 +11,34 @@ export type WorkspaceSplitViewEmptyState = {
 }
 
 export type WorkspaceSplitViewProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
-  /** 左栏内容；栏体整体滚动，需要固定头部时用 sticky 自行处理。 */
+  /** Left column content; the column body scrolls as a whole, use sticky for fixed headers. */
   sidebar: ReactNode
-  /** 主内容；缺省时渲染 emptyState 提示。 */
+  /** Main content; renders the emptyState hint when absent. */
   children?: ReactNode
-  /** 主内容固定顶栏（搜索/筛选/新增等工具控件），渲染在主内容上方。 */
+  /** Fixed top toolbar for the main content (search/filter/add controls), rendered above the main content. */
   mainToolbar?: ReactNode
-  /** 右侧可选详情栏；有内容时显示，为空时折叠不占位。 */
+  /** Optional right detail panel; shown when provided, collapses to no space when empty. */
   rightPanel?: ReactNode
-  /** 主内容无内容时的提示态。 */
+  /** Hint state shown when the main content has no children. */
   emptyState?: WorkspaceSplitViewEmptyState
-  /** 侧栏 landmark 的无障碍标签。 */
+  /** Accessible label for the sidebar landmark. */
   sidebarLabel?: string
-  /** 右栏 landmark 的无障碍标签。 */
+  /** Accessible label for the right panel landmark. */
   rightPanelLabel?: string
-  /** 侧栏宽度，默认 20rem。 */
+  /** Sidebar width, defaults to 20rem. */
   sidebarWidth?: string
-  /** 右栏宽度，默认 18rem。 */
+  /** Right panel width, defaults to 18rem. */
   rightPanelWidth?: string
   sidebarClassName?: string
   mainClassName?: string
   rightPanelClassName?: string
-  /** 主内容是否显示画布网格背景（编辑器视图用）；目录/列表页默认不显示。 */
+  /** Main content canvas grid background toggle (for editor views); off by default for directory/list pages. */
   canvas?: boolean
 }
 
 /**
- * 工作台二/三栏布局控件：左侧纯白侧栏，中间主内容区，右侧可选详情栏。
- * 有内容时右侧直接渲染 children；无内容时渲染 emptyState 居中空态。
+ * Workspace two/three-column layout control: a plain left sidebar, a center main content area, and an optional right detail panel.
+ * Renders children directly when there is content; otherwise renders a centered emptyState.
  */
 export function WorkspaceSplitView({
   sidebar,

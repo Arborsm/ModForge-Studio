@@ -1,4 +1,14 @@
-import { PALETTE_RECENT_LIMIT, type PaletteRecentSelection, type PaletteTilesetSelection } from '@shared/lib/app-state'
+/**
+ * @file Tileset palette selection helpers: drag-rect normalization, favorite
+ * and recent selection management, and sheet-pointer-to-cell conversion.
+ */
+
+import {
+  PALETTE_FAVORITE_LIMIT,
+  PALETTE_RECENT_LIMIT,
+  type PaletteRecentSelection,
+  type PaletteTilesetSelection,
+} from '@shared/lib/app-state'
 
 /** A rectangular drag selection over tileset tile coordinates. */
 export type TilesetSelectionRect = {
@@ -56,35 +66,6 @@ export function tilesetSelectionFromRect(rect: TilesetSelectionRect, columns: nu
   }
 }
 
-/** Reports whether a tile index falls inside a normalized selection rectangle. */
-export function tileIndexInSelection(tileIndex: number, rect: NormalizedSelectionRect, columns: number) {
-  const column = tileIndex % columns
-  const row = Math.floor(tileIndex / columns)
-  return column >= rect.left && column <= rect.right && row >= rect.top && row <= rect.bottom
-}
-
-/** Maps a pointer position to a tileset cell for fixed-size grid layouts (grid view). */
-export function cellFromGridPointer(options: {
-  x: number
-  y: number
-  originX: number
-  originY: number
-  cellWidth: number
-  cellHeight: number
-  gap: number
-  columns: number
-  rows: number
-}) {
-  const relativeX = options.x - options.originX
-  const relativeY = options.y - options.originY
-  const column = Math.floor(relativeX / (options.cellWidth + options.gap))
-  const row = Math.floor(relativeY / (options.cellHeight + options.gap))
-  return {
-    column: clamp(column, 0, Math.max(0, options.columns - 1)),
-    row: clamp(row, 0, Math.max(0, options.rows - 1)),
-  }
-}
-
 /** Maps a pointer position to a tileset cell for the proportional sheet image layout. */
 export function cellFromSheetPointer(options: {
   x: number
@@ -125,6 +106,19 @@ export function pushRecentSelection(
   return next
 }
 
+/** Removes a recent selection entry by identity (tileset + selection rect). */
+export function removeRecentSelection(recents: readonly PaletteRecentSelection[], entry: PaletteRecentSelection): PaletteRecentSelection[] {
+  return recents.filter(
+    (recent) =>
+      !(
+        recent.tilesetName === entry.tilesetName &&
+        recent.startIndex === entry.startIndex &&
+        recent.width === entry.width &&
+        recent.height === entry.height
+      ),
+  )
+}
+
 /** Merges a selection into the per-tileset remembered-selection map. */
 export function rememberTilesetSelection(
   remembered: Readonly<Record<string, PaletteTilesetSelection>>,
@@ -132,4 +126,47 @@ export function rememberTilesetSelection(
   selection: PaletteTilesetSelection,
 ): Record<string, PaletteTilesetSelection> {
   return { ...remembered, [tilesetName]: selection }
+}
+
+/** Checks whether an entry exists in a list by identity (tileset + selection rect). */
+function entryIdentityMatch(a: PaletteRecentSelection, b: PaletteRecentSelection): boolean {
+  return a.tilesetName === b.tilesetName && a.startIndex === b.startIndex && a.width === b.width && a.height === b.height
+}
+
+/** Adds a favorite entry if not already present, capping at PALETTE_FAVORITE_LIMIT. */
+export function pushFavoriteSelection(
+  favorites: readonly PaletteRecentSelection[],
+  entry: PaletteRecentSelection,
+  limit = PALETTE_FAVORITE_LIMIT,
+): PaletteRecentSelection[] {
+  if (favorites.some((fav) => entryIdentityMatch(fav, entry))) return [...favorites]
+  return [entry, ...favorites].slice(0, limit)
+}
+
+/** Removes a favorite entry by identity. */
+export function removeFavoriteSelection(
+  favorites: readonly PaletteRecentSelection[],
+  entry: PaletteRecentSelection,
+): PaletteRecentSelection[] {
+  return favorites.filter((fav) => !entryIdentityMatch(fav, entry))
+}
+
+/** Returns true if the entry is in the favorites list. */
+export function isFavoriteSelection(favorites: readonly PaletteRecentSelection[], entry: PaletteRecentSelection): boolean {
+  return favorites.some((fav) => entryIdentityMatch(fav, entry))
+}
+
+/** Merges imported favorites into existing ones, de-duplicating and capping. */
+export function mergeFavoriteSelections(
+  existing: readonly PaletteRecentSelection[],
+  imported: readonly PaletteRecentSelection[],
+  limit = PALETTE_FAVORITE_LIMIT,
+): PaletteRecentSelection[] {
+  const result = [...existing]
+  for (const entry of imported) {
+    if (result.some((fav) => entryIdentityMatch(fav, entry))) continue
+    result.push(entry)
+    if (result.length >= limit) break
+  }
+  return result.slice(0, limit)
 }

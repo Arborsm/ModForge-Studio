@@ -93,6 +93,7 @@ const shell: WorkbenchShellCopy = {
     lightingDuskIndoorHint: '黄昏天空色调只对户外地图有意义；室内走环境光白天→夜晚插值预览。',
     lightingNight: '夜晚',
     lightingPreviewHint: '光照预览（只影响画布，不改地图数据）：户外=游戏昼夜循环，室内=环境光白天→夜晚插值。',
+    worldAtlasConceptHint: '星露谷物语的世界由多个地图拼接而成。切换视图可浏览相连区域。',
     moduleWorkspace: '模块工作区',
     moduleWorkspaceDisabled: '先打开或创建项目，才能使用工作区。',
     moduleCanvas: '主编辑面',

@@ -1,3 +1,5 @@
+//! Host command bindings for the resource registry domain.
+
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::resource_registry::ResourceRegistry;

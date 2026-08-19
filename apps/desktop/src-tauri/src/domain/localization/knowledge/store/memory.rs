@@ -1,3 +1,5 @@
+//! Translation memory persistence — lexical and semantic search, confirm and copy.
+
 use super::schema::{bump, normalize, now, open, text_hash};
 use crate::domain::localization::types::*;
 use anyhow::{Context, bail};
@@ -118,6 +120,7 @@ pub(crate) fn lexical_memory_suggestions(
     Ok(records)
 }
 
+/// Searches translation memory entries with automatic semantic retrieval.
 pub fn search_memory(
     request: SearchLocalizationKnowledgeRequest,
 ) -> anyhow::Result<AiTranslationMemoryPage> {
@@ -411,6 +414,8 @@ pub(crate) fn semantic_snapshot(
     Ok((revisions.join("|"), records))
 }
 
+/// Records confirmed translations into memory, replacing prior automatic
+/// entries for the same scope and file namespace.
 pub fn record_confirmed(request: RecordConfirmedTranslationsRequest) -> anyhow::Result<u64> {
     let mut db = open()?;
     let tx = db.transaction()?;
@@ -432,6 +437,7 @@ pub fn record_confirmed(request: RecordConfirmedTranslationsRequest) -> anyhow::
     tx.commit()?;
     Ok(count)
 }
+/// Deletes translation memory entries by id within the given scope.
 pub fn delete_memory(request: DeleteLocalizationEntriesRequest) -> anyhow::Result<u64> {
     let mut db = open()?;
     let tx = db.transaction()?;
@@ -449,6 +455,7 @@ pub fn delete_memory(request: DeleteLocalizationEntriesRequest) -> anyhow::Resul
     Ok(removed as u64)
 }
 
+/// Copies selected translation memory entries from one scope to another.
 pub fn copy_memory(request: CopyTranslationMemoryEntriesRequest) -> anyhow::Result<u64> {
     if request.source_scope_id == request.target_scope_id {
         bail!("Translation memory source and target scopes must differ.")

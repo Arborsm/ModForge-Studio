@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport chrome: empty-state rendering, context menus, and overlay
+ * UI elements rendered on top of the map viewport canvas.
+ */
+
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useEditorCopy } from '@locales/provider'

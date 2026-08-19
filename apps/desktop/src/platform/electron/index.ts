@@ -1,6 +1,12 @@
+/**
+ * @file Electron platform adapter — wires the preload-exposed `modforgeElectron` API into the `PlatformPorts` contract.
+ * @module platform/electron
+ */
+
 import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
 import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
 
+/** Reports whether the current runtime is inside the Electron desktop host. */
 export function isElectronHost() {
   return typeof window !== 'undefined' && Boolean(window.modforgeElectron)
 }
@@ -17,6 +23,7 @@ async function openDialog(options?: OpenDialogOptions) {
   return getElectronApi().openDialog(options)
 }
 
+/** Builds the `PlatformPorts` instance backed by the Electron preload bridge. */
 export function createElectronPlatformPorts(): PlatformPorts {
   return {
     fileSystem: {

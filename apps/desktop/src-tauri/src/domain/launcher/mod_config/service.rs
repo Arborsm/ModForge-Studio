@@ -1,3 +1,5 @@
+//! Mod config load/save entry points and field normalization orchestration.
+
 use super::CONFIG_FILE_NAME;
 use super::probe_merge::{configured_probe_paths, merge_probe_fields, normalized_config_key};
 use super::schema::{

@@ -1,3 +1,7 @@
+/**
+ * @file Classifies archive mod roots as new/update/reinstall/downgrade before
+ * install, using SMAPI version-comparison semantics.
+ */
 import { isUpdateAvailable } from './versionCompare'
 
 /**

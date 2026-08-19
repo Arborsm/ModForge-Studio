@@ -1,3 +1,7 @@
+/**
+ * @file Parses and classifies AI command error envelopes for inline UI surfacing and transient-failure detection.
+ * @module entities/ai
+ */
 import type { AiErrorCode } from '@shared/contracts'
 
 const AI_ERROR_PATTERN = /AI_ERROR::([a-z-]+)::([\s\S]*)/

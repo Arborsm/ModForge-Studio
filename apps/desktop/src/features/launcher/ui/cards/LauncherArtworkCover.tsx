@@ -1,8 +1,13 @@
+/**
+ * @file Launcher mod card cover: renders the remote image, blur strip, skeleton,
+ * or deterministic fallback word/palette when no image is available.
+ */
 import type { CSSProperties } from 'react'
 import { cx } from '@shared/lib/helper'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { useLauncherImage } from '../../model/imageLoader'
 
+/** Props for {@link LauncherArtworkCover}. */
 type LauncherArtworkCoverProps = {
   title: string
   imageUrl: string | null
@@ -13,6 +18,7 @@ type LauncherArtworkCoverProps = {
   showBlurStrip?: boolean
 }
 
+/** Renders the mod card cover: remote image, blur strip, skeleton, or fallback word. */
 export function LauncherArtworkCover({
   title,
   imageUrl,

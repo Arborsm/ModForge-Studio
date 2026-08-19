@@ -1,3 +1,6 @@
+//! SQLite persistence for the official localization index — schema creation,
+//! migration and active generation lookup.
+
 use super::shared::{INDEX_OPEN_LOCK, SCHEMA_VERSION};
 use crate::domain::app_paths::official_localization_index_path;
 use anyhow::Context;
@@ -72,6 +75,7 @@ pub(crate) fn open() -> anyhow::Result<Connection> {
     Ok(connection)
 }
 
+/// Returns the id of the currently active official index generation, if any.
 pub fn active_revision() -> anyhow::Result<Option<String>> {
     open()?
         .query_row(

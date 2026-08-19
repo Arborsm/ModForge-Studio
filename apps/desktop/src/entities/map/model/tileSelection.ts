@@ -1,3 +1,8 @@
+/**
+ * @file Map tile selection model: inclusive tile rectangles, inspector hover
+ * highlights, and selection rect creation helpers for the map viewport.
+ */
+
 /** Inclusive tile rectangle selected on a map viewport. */
 export type MapTileRect = {
   x: number

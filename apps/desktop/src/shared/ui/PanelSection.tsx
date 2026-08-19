@@ -1,3 +1,5 @@
+/** @file Panel section sub-components: section with header/body and an empty-state wrapper. */
+
 import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
@@ -12,6 +14,7 @@ type PanelSectionProps = {
   children: ReactNode
 }
 
+/** Sub-section within a panel, with an optional header (title, subtitle, action) and variant styling. */
 export function PanelSection({
   title,
   subtitle,
@@ -52,6 +55,7 @@ type PanelEmptyStateProps = {
   children: ReactNode
 }
 
+/** Empty-state wrapper for a panel section body. */
 export function PanelEmptyState({ className, children }: PanelEmptyStateProps) {
   return <div className={cx('panel-empty-state', className)}>{children}</div>
 }

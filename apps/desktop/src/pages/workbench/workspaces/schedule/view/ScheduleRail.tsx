@@ -1,6 +1,9 @@
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { useScheduleEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type { SchedulePriorityEntry, SchedulePriorityGroup, ScheduleNpcOption } from '../entities/schedule'
 
 type ScheduleRailProps = {
@@ -19,32 +22,83 @@ type ScheduleRailProps = {
   priorityGroups: SchedulePriorityGroup[]
   selectedKey: string | null
   onSelectEntry: (key: string) => void
+  onOverrideVanillaEntry: (key: string) => void
+  onToggleEntryEnabled: (key: string) => void
+  onDeleteEntry: (key: string) => void
   onAddEntry: () => void
   onRetrySchedule: () => void
 }
 
-function ScheduleEntryItem({ node, isActive, onSelect }: { node: SchedulePriorityEntry; isActive: boolean; onSelect: () => void }) {
+function ScheduleEntryItem({
+  node,
+  isActive,
+  onSelect,
+  onOverrideVanillaEntry,
+  onToggleEntryEnabled,
+  onRequestDelete,
+}: {
+  node: SchedulePriorityEntry
+  isActive: boolean
+  onSelect: () => void
+  onOverrideVanillaEntry: () => void
+  onToggleEntryEnabled: () => void
+  onRequestDelete: () => void
+}) {
   const copy = useScheduleEditorCopy()
   const { summary } = node
   const originBadge =
     summary.origin === 'vanilla' ? copy.entryBadgeVanilla : summary.origin === 'override' ? copy.entryBadgeOverride : copy.entryBadgeProject
+  const isVanilla = summary.origin === 'vanilla'
 
   return (
-    <button type="button" className={cx('schedule-editor-entry-item', isActive && 'is-active')} aria-pressed={isActive} onClick={onSelect}>
-      <span className="schedule-editor-entry-key">
-        <span className="truncate">{summary.key}</span>
-        {summary.label ? <span className="schedule-editor-entry-label">{summary.label}</span> : null}
-      </span>
-      <span className="schedule-editor-entry-badges">
-        <span className={cx('schedule-editor-badge', summary.origin !== 'vanilla' && 'is-accent')}>{originBadge}</span>
-        {summary.structured ? (
-          <span className="schedule-editor-badge">{copy.entryBadgeStructured}</span>
-        ) : (
-          <span className="schedule-editor-badge">{copy.entryBadgeRaw}</span>
-        )}
-        {!summary.enabled ? <span className="schedule-editor-badge is-warn">{copy.entryBadgeDisabled}</span> : null}
-      </span>
-    </button>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <button
+          type="button"
+          className={cx('schedule-editor-entry-item', isActive && 'is-active')}
+          aria-pressed={isActive}
+          onClick={onSelect}
+        >
+          <span className="schedule-editor-entry-key">
+            <span className="truncate">{summary.key}</span>
+            {summary.label ? <span className="schedule-editor-entry-label">{summary.label}</span> : null}
+          </span>
+          <span className="schedule-editor-entry-badges">
+            <span className={cx('schedule-editor-badge', summary.origin !== 'vanilla' && 'is-accent')}>{originBadge}</span>
+            {summary.structured ? (
+              <span className="schedule-editor-badge">{copy.entryBadgeStructured}</span>
+            ) : (
+              <span className="schedule-editor-badge">{copy.entryBadgeRaw}</span>
+            )}
+            {!summary.enabled ? <span className="schedule-editor-badge is-warn">{copy.entryBadgeDisabled}</span> : null}
+          </span>
+        </button>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={onSelect}>
+            {copy.selectEntryAction}
+          </ContextMenu.Item>
+          {isVanilla ? (
+            <ContextMenu.Item className="context-menu-item" onSelect={onOverrideVanillaEntry}>
+              {copy.overrideVanillaAction}
+            </ContextMenu.Item>
+          ) : (
+            <ContextMenu.Item className="context-menu-item" onSelect={onToggleEntryEnabled}>
+              {summary.enabled ? copy.toggleDisableAction : copy.toggleEnableAction}
+            </ContextMenu.Item>
+          )}
+          {!isVanilla ? (
+            <>
+              <ContextMenu.Separator className="context-menu-separator" />
+              <ContextMenu.Item className="context-menu-item is-danger" onSelect={onRequestDelete}>
+                {copy.deleteAction}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   )
 }
 
@@ -56,10 +110,16 @@ function SchedulePriorityTree({
   priorityGroups,
   selectedKey,
   onSelectEntry,
+  onOverrideVanillaEntry,
+  onToggleEntryEnabled,
+  onDeleteEntry,
 }: {
   priorityGroups: SchedulePriorityGroup[]
   selectedKey: string | null
   onSelectEntry: (key: string) => void
+  onOverrideVanillaEntry: (key: string) => void
+  onToggleEntryEnabled: (key: string) => void
+  onDeleteEntry: (key: string) => void
 }) {
   const copy = useScheduleEditorCopy()
 
@@ -77,6 +137,9 @@ function SchedulePriorityTree({
               node={node}
               isActive={node.summary.key === selectedKey}
               onSelect={() => onSelectEntry(node.summary.key)}
+              onOverrideVanillaEntry={() => onOverrideVanillaEntry(node.summary.key)}
+              onToggleEntryEnabled={() => onToggleEntryEnabled(node.summary.key)}
+              onRequestDelete={() => onDeleteEntry(node.summary.key)}
             />
           ))}
         </section>
@@ -105,10 +168,14 @@ export function ScheduleRail({
   priorityGroups,
   selectedKey,
   onSelectEntry,
+  onOverrideVanillaEntry,
+  onToggleEntryEnabled,
+  onDeleteEntry,
   onAddEntry,
   onRetrySchedule,
 }: ScheduleRailProps) {
   const copy = useScheduleEditorCopy()
+  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null)
   const projectOptions = npcOptions.filter((option) => option.source === 'project')
   const vanillaOptions = npcOptions.filter((option) => option.source === 'vanilla')
 
@@ -194,7 +261,14 @@ export function ScheduleRail({
             <span>{copy.emptyHint}</span>
           </div>
         ) : null}
-        <SchedulePriorityTree priorityGroups={priorityGroups} selectedKey={selectedKey} onSelectEntry={onSelectEntry} />
+        <SchedulePriorityTree
+          priorityGroups={priorityGroups}
+          selectedKey={selectedKey}
+          onSelectEntry={onSelectEntry}
+          onOverrideVanillaEntry={onOverrideVanillaEntry}
+          onToggleEntryEnabled={onToggleEntryEnabled}
+          onDeleteEntry={(key) => setPendingDeleteKey(key)}
+        />
       </div>
 
       <div className="schedule-editor-rail-footer">
@@ -208,6 +282,34 @@ export function ScheduleRail({
           <span>{copy.addEntryAction}</span>
         </button>
       </div>
+
+      <Dialog open={pendingDeleteKey !== null} onClose={() => setPendingDeleteKey(null)} labelledBy="schedule-rail-delete-title" size="sm">
+        <DialogHeader
+          id="schedule-rail-delete-title"
+          title={copy.deleteEntryTitle}
+          tone="danger"
+          icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
+          onClose={() => setPendingDeleteKey(null)}
+          closeLabel={copy.closeLabel}
+        />
+        <DialogBody>
+          <p>{pendingDeleteKey ? copy.deleteEntryMessage(pendingDeleteKey) : ''}</p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setPendingDeleteKey(null)}>{copy.cancelAction}</DialogAction>
+          <DialogAction
+            tone="danger"
+            onClick={() => {
+              if (pendingDeleteKey) {
+                onDeleteEntry(pendingDeleteKey)
+              }
+              setPendingDeleteKey(null)
+            }}
+          >
+            {copy.deleteAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
     </aside>
   )
 }

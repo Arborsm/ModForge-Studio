@@ -1,3 +1,7 @@
+/**
+ * @file Circular progress ring overlay for the launcher AI translation action,
+ * supporting both determinate streaming and indeterminate spin states.
+ */
 import { useEffect, useState, type ReactNode } from 'react'
 import { resolveTranslationProgress } from '@entities/ai'
 import { cx } from '@shared/lib/helper'

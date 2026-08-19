@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherUpdates hook: installed-mod update check state with cached
+ * load, live subscription, diagnostics gating, and selection management.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
@@ -18,6 +22,7 @@ function isTaskCancelled(error: unknown) {
   return error instanceof TaskCancelledError || (error instanceof DOMException && error.name === 'AbortError')
 }
 
+/** Manages installed-mod update checks: cached load, live subscription, diagnostics gating, and selection. */
 export function useLauncherUpdates(settings: LauncherSettings) {
   const launcherPort = useLauncherPort()
   const runUpdatesTask = useLatestTask('launcher-updates')

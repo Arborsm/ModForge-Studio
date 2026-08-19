@@ -1,3 +1,5 @@
+//! XNB type reader registry and dispatch: maps type reader names to deserialization logic.
+
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 

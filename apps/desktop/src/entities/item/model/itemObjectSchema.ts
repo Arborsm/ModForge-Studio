@@ -1,5 +1,5 @@
 /**
- * `Data/Objects` field schema.
+ * @file `Data/Objects` field schema.
  *
  * Declares every `ObjectData` key as a control, group and validation rule, so
  * the shared `AssetEntryCanvas` renders the whole form and the validation rail

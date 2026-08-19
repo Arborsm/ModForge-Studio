@@ -1,5 +1,6 @@
 /**
- * Domain types and entry-level operations for the `Data/Buildings` asset.
+ * @file Domain types and entry-level operations for the `Data/Buildings` asset.
+ * @module entities/building
  *
  * Single definition site for the building field shape: the authoring page, the
  * building codex and the validation layer all read these types, this key order
@@ -173,7 +174,7 @@ export const BUILDING_FIELD_ORDER = [
 /** Content Patcher token prefix recommended for custom building internal names. */
 export const BUILDING_ID_TOKEN_PREFIX = '{{ModId}}_'
 
-// --- Suggestion catalogs (free-text in game, so suggestions rather than enums) ---
+// Suggestion catalogs (free-text in game, so suggestions rather than enums)
 
 /** Vanilla `Builder` values; a custom builder is legal, so this only suggests. */
 export const BUILDER_SUGGESTIONS = ['Robin', 'Wizard'] as const
@@ -256,7 +257,7 @@ export function createMinimalBuildingEntry(buildingId: string, displayName: stri
   return entry
 }
 
-// --- Companion texture patch lookup (Buildings/<id>) ---
+// Companion texture patch lookup (Buildings/<id>)
 
 /** Minimal structural view over a draft patch used for texture lookups. */
 export type BuildingAssetPatchInput = AssetTexturePatchInput

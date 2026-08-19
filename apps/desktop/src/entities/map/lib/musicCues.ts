@@ -1,11 +1,11 @@
 /**
- * Real game music cue names for the map `Music` property. These are the cue
- * names shipped in the vanilla XACT sound banks (and the ones the game's own
- * `MusicContext` / ambient logic triggers); they are the only reliable source
- * of music choices without an unpacked game directory, because the game does
- * not ship a localized display-name catalog for cues. Each entry is the literal
- * cue name a map writes into `Music`, so it doubles as both the display label
- * and the serialized value.
+ * @file Real game music cue names for the map `Music` property. These are the
+ * cue names shipped in the vanilla XACT sound banks (and the ones the game's
+ * own `MusicContext` / ambient logic triggers); they are the only reliable
+ * source of music choices without an unpacked game directory, because the game
+ * does not ship a localized display-name catalog for cues. Each entry is the
+ * literal cue name a map writes into `Music`, so it doubles as both the
+ * display label and the serialized value.
  */
 export const GAME_MUSIC_COMMON_CUES: string[] = [
   'wavy',

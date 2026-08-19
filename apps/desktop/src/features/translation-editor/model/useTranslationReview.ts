@@ -1,3 +1,8 @@
+/**
+ * @file Hook running AI translation review batches — scope selection, issue tracking, and suggestion application.
+ * @module features/translation-editor
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { parseAiFailure } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
@@ -7,8 +12,10 @@ import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifi
 import type { TranslationEntry } from './translationEditor'
 
 const NOTIFICATION_ID = 'workbench-localization-review'
+/** AI review scope — current entry, translated entries, or all entries. */
 export type TranslationReviewMode = 'current' | 'translated' | 'all'
 
+/** Runs AI translation review batches and manages issue selection, status updates, and suggestion application. */
 export function useTranslationReview(options: {
   activeEntry: TranslationEntry | null
   allEntries: TranslationEntry[]

@@ -1,5 +1,6 @@
 /**
- * `Data/Characters` field schema.
+ * @file `Data/Characters` field schema declaration and registration.
+ * @module entities/character
  *
  * Declares every known CharacterData key as a control, group and validation
  * rule, so the shared `AssetEntryCanvas` renders the whole form and the browser
@@ -154,7 +155,7 @@ const SHADOW_ITEM_SCHEMA: readonly AssetFieldSchema[] = [
 ]
 
 const FIELDS: readonly AssetFieldSchema[] = [
-  // 核心档案
+  // Core profile
   { key: 'DisplayName', group: 'core', control: 'text', labelKey: 'character.displayName', required: true },
   { key: 'HomeRegion', group: 'core', control: 'text', labelKey: 'character.homeRegion', suggestions: HOME_REGION_SUGGESTIONS },
   { key: 'Gender', group: 'core', control: 'enum', enumCatalog: 'character.gender', labelKey: 'character.gender' },
@@ -173,7 +174,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'CanBeRomanced', group: 'core', control: 'tri_bool', labelKey: 'character.canBeRomanced' },
   { key: 'LoveInterest', group: 'core', control: 'npc_ref', labelKey: 'character.loveInterest' },
 
-  // 性格标签
+  // Personality tags
   { key: 'Manner', group: 'personality', control: 'enum', enumCatalog: 'character.manner', labelKey: 'character.manner' },
   {
     key: 'SocialAnxiety',
@@ -184,12 +185,12 @@ const FIELDS: readonly AssetFieldSchema[] = [
   },
   { key: 'Optimism', group: 'personality', control: 'enum', enumCatalog: 'character.optimism', labelKey: 'character.optimism' },
 
-  // 生成与住所
+  // Spawn & home
   { key: 'Home', group: 'spawn', control: 'nested_list', labelKey: 'character.home', wide: true, itemSchema: HOME_ITEM_SCHEMA },
   { key: 'SpawnIfMissing', group: 'spawn', control: 'tri_bool', labelKey: 'character.spawnIfMissing' },
   { key: 'UnlockConditions', group: 'spawn', control: 'gsq', labelKey: 'character.unlockConditions', wide: true },
 
-  // 社交与任务
+  // Social & quests
   { key: 'Calendar', group: 'social', control: 'enum', enumCatalog: 'character.calendar', labelKey: 'character.calendar' },
   { key: 'SocialTab', group: 'social', control: 'enum', enumCatalog: 'character.socialTab', labelKey: 'character.socialTab' },
   { key: 'CanSocialize', group: 'social', control: 'gsq', labelKey: 'character.canSocialize' },
@@ -203,7 +204,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'EndSlideShow', group: 'social', control: 'enum', enumCatalog: 'character.endSlideShow', labelKey: 'character.endSlideShow' },
   { key: 'FriendsAndFamily', group: 'social', control: 'key_value_list', labelKey: 'character.friendsAndFamily', wide: true },
 
-  // 互动、节日与礼物
+  // Interaction, festivals & gifts
   {
     key: 'DumpsterDiveFriendshipEffect',
     group: 'festival',
@@ -223,7 +224,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
     itemSchema: WINTER_STAR_GIFT_ITEM_SCHEMA,
   },
 
-  // 绘制、动画与头像
+  // Rendering, animation & portrait
   { key: 'TextureName', group: 'render', control: 'texture_ref', labelKey: 'character.textureName' },
   {
     key: 'Appearance',
@@ -255,7 +256,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
     labelKey: 'character.hiddenProfileEmoteFrameDuration',
   },
 
-  // 高级与自定义
+  // Advanced & custom
   { key: 'Language', group: 'advanced', control: 'enum', enumCatalog: 'character.language', labelKey: 'character.language' },
   { key: 'IsDarkSkinned', group: 'advanced', control: 'tri_bool', labelKey: 'character.isDarkSkinned' },
   { key: 'FormerCharacterNames', group: 'advanced', control: 'string_list', labelKey: 'character.formerCharacterNames' },

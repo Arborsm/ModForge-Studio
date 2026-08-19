@@ -1,3 +1,5 @@
+//! Host command bindings for machine translation settings and operations.
+
 use crate::AppHandle;
 use crate::domain::localization::types::{
     MachineTranslateBatchRequest, MachineTranslateBatchResult, MachineTranslationLanguage,

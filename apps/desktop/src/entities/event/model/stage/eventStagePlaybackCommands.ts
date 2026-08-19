@@ -1,3 +1,8 @@
+/**
+ * @file Pure command appliers that mutate actor state for the event stage
+ * playback engine (move, warp, face, animate, portrait/sprite changes, etc.).
+ */
+
 import type { EventCommand } from '../types'
 import {
   buildEventAnimationFrames,
@@ -29,6 +34,7 @@ function getPrimaryFarmerActor(actors: Record<string, EventActorState>) {
   return Object.values(actors).find((actor) => isFarmerActor(actor.actorName)) ?? null
 }
 
+/** Applies a `move` command to actor positions, returning the new actor map and total movement duration. */
 export function applyMoveCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const nextActors = { ...actors }
   let durationMs = 0
@@ -83,6 +89,7 @@ export function applyMoveCommand(actors: Record<string, EventActorState>, comman
   return { actors: nextActors, durationMs }
 }
 
+/** Applies a `warp` command, teleporting an actor to a tile and optionally setting facing direction. */
 export function applyWarpCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.args[1]
   const point = parsePoint(command.args[2], command.args[3])
@@ -111,6 +118,7 @@ export function applyWarpCommand(actors: Record<string, EventActorState>, comman
     : actors
 }
 
+/** Applies a `faceDirection` command, updating an actor's facing direction and default frame. */
 export function applyFaceDirectionCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.args[1]
   const facingDirection = Number.parseInt(command.args[2] ?? '', 10)
@@ -135,6 +143,7 @@ export function applyFaceDirectionCommand(actors: Record<string, EventActorState
     : actors
 }
 
+/** Applies a `showFrame` command, setting an actor's frame and inferring farmer tool/visual state when applicable. */
 export function applyShowFrameCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.args.length === 2 ? 'farmer' : command.args[1]
   const frame = Number.parseInt((command.args.length === 2 ? command.args[1] : command.args[2]) ?? '', 10)
@@ -172,6 +181,7 @@ export function applyShowFrameCommand(actors: Record<string, EventActorState>, c
   }
 }
 
+/** Applies a `positionOffset` command, adding a pixel offset to an actor with a short interpolation. */
 export function applyPositionOffsetCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.args[1]
   const offsetX = Number.parseInt(command.args[2] ?? '', 10)
@@ -205,6 +215,7 @@ export function applyPositionOffsetCommand(actors: Record<string, EventActorStat
     : actors
 }
 
+/** Applies an `eyes` command, setting the farmer's eye frame and blink timer. */
 export function applyFarmerEyesCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const farmer = getPrimaryFarmerActor(actors)
   const eyes = Number.parseInt(command.args[1] ?? '', 10)
@@ -224,6 +235,7 @@ export function applyFarmerEyesCommand(actors: Record<string, EventActorState>, 
   }
 }
 
+/** Applies `swimming`/`stopSwimming`, toggling the farmer's swimming and bathing-clothes state. */
 export function applyFarmerSwimmingCommand(state: PlaybackState, actorName: string | undefined, swimming: boolean) {
   if (!actorName) {
     return state.actors
@@ -244,6 +256,7 @@ export function applyFarmerSwimmingCommand(state: PlaybackState, actorName: stri
   }
 }
 
+/** Applies a `changePortrait` command, setting the actor's portrait override suffix. */
 export function applyChangePortraitCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.actorName ?? command.args[1]
   if (!actorName) {
@@ -262,6 +275,7 @@ export function applyChangePortraitCommand(actors: Record<string, EventActorStat
     : actors
 }
 
+/** Applies a `changeSprite` command, setting the actor's sprite override suffix. */
 export function applyChangeSpriteCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.actorName ?? command.args[1]
   if (!actorName) {
@@ -280,6 +294,7 @@ export function applyChangeSpriteCommand(actors: Record<string, EventActorState>
     : actors
 }
 
+/** Applies an `animate` command, starting a multi-frame animation on an actor with farmer visual-state inference. */
 export function applyAnimateCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.actorName ?? command.args[1]
   const frames = command.animationFrames ?? []
@@ -325,6 +340,7 @@ export function applyAnimateCommand(actors: Record<string, EventActorState>, com
   }
 }
 
+/** Applies a `stopAnimation` command, clearing the actor's animation and restoring its default frame. */
 export function applyStopAnimationCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const actorName = command.actorName ?? command.args[1]
   if (!actorName) {
@@ -364,6 +380,7 @@ export function applyStopAnimationCommand(actors: Record<string, EventActorState
   }
 }
 
+/** Applies a `farmerAnimation` command by id, looking up the built-in single-animation frame set. */
 export function applyFarmerSingleAnimationCommand(actors: Record<string, EventActorState>, animationId: number) {
   const farmer = getPrimaryFarmerActor(actors)
   if (!farmer?.farmerRenderState) {
@@ -404,6 +421,7 @@ export function applyFarmerSingleAnimationCommand(actors: Record<string, EventAc
   }
 }
 
+/** Applies a `farmerEat` command, playing the eat/drink animation on the primary farmer actor. */
 export function applyFarmerEatCommand(
   actors: Record<string, EventActorState>,
   rawItemId: string | undefined,

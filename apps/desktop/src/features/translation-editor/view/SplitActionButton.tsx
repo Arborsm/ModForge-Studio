@@ -1,7 +1,13 @@
+/**
+ * @file Split-button control combining a primary action with a details popover.
+ * @module features/translation-editor
+ */
+
 import { ChevronDown } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { cx } from '@shared/lib/helper'
 
+/** Props for the `SplitActionButton` component. */
 type SplitActionButtonProps = {
   /** Main button content (icon + label, optional badge). */
   children: ReactNode

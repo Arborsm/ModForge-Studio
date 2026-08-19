@@ -1,7 +1,13 @@
+/**
+ * @file Presentational shell for one workspace dock panel — renders header (title/subtitle) and content area.
+ * @module shared/workspace
+ */
+
 import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 import type { PanelRect, WorkspacePanelConfig } from '@shared/contracts'
 
+/** Renders one workspace panel at an absolute position with an optional dock header. */
 export function WorkspacePanelShell({
   panel,
   rect,

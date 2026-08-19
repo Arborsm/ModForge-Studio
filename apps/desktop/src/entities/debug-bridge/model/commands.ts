@@ -1,3 +1,7 @@
+/**
+ * @file Debug bridge command builders for the running game's command set.
+ * @module entities/debug-bridge
+ */
 import type { DebugBridgeCommandRequest } from './types'
 
 /** Weather ids accepted by the bridge's set-weather-tomorrow command (vanilla 1.6 weather ids). */
@@ -22,10 +26,12 @@ export function buildAddMoneyCommand(amount: number): DebugBridgeCommandRequest 
   return { command: 'add-money', args: { amount } }
 }
 
+/** Builds a set-stamina command setting the player's current stamina. */
 export function buildSetStaminaCommand(value: number): DebugBridgeCommandRequest {
   return { command: 'set-stamina', args: { value } }
 }
 
+/** Builds a set-health command setting the player's current health. */
 export function buildSetHealthCommand(value: number): DebugBridgeCommandRequest {
   return { command: 'set-health', args: { value } }
 }
@@ -35,6 +41,7 @@ export function buildSetFriendshipCommand(npc: string, hearts: number): DebugBri
   return { command: 'set-friendship', args: { npc, points: Math.max(0, Math.round(hearts * POINTS_PER_HEART)) } }
 }
 
+/** Builds a set-weather-tomorrow command from a vanilla weather id. */
 export function buildSetWeatherTomorrowCommand(weather: BridgeWeatherId): DebugBridgeCommandRequest {
   return { command: 'set-weather-tomorrow', args: { weather } }
 }
@@ -49,6 +56,7 @@ export function buildSetTempEntryCommand(target: string, key: string, value: str
   return { command: 'set-temp-entry', args: { target, key, value } }
 }
 
+/** Builds a clear-temp-entries command removing all in-memory string-dictionary edits. */
 export function buildClearTempEntriesCommand(): DebugBridgeCommandRequest {
   return { command: 'clear-temp-entries' }
 }

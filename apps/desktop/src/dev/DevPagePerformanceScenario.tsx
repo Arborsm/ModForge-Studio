@@ -1,3 +1,8 @@
+/**
+ * @file Dev-only page-level performance scenarios: renders individual workbench
+ * pages with large fixture data for render stress testing.
+ * @module dev
+ */
 import { useDeferredValue, useEffect, useState, type ReactNode } from 'react'
 import '../styles/workbench.css'
 import { localeBundles } from '@locales'
@@ -176,11 +181,14 @@ function createDraftPatch(index: number, workspace: WorkspaceId = workspaceFor(i
   }
 }
 
+/** Dev-only override: `?mfGameRoot=<path>` points editor scenarios at a real game directory (used with the dev asset bridge). */
+const scenarioGameRootPath = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('mfGameRoot')
+
 const scenarioEditorResources: EditorResources = {
   locale: 'en-US',
   theme: 'dark',
   accentColor,
-  gameRootPath: null,
+  gameRootPath: scenarioGameRootPath,
   directoryInfo: null,
   playerAppearanceProfile: null,
   onOpenPlayerAppearanceWindow: noop,
@@ -1056,7 +1064,15 @@ const performanceCpMakerPort: CpMakerPort = {
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO9nQ1YAAAAASUVORK5CYII=',
 }
 
-configureImageDataUrlLoader((path, locale) => performanceCpMakerPort.loadImageDataUrl(path, locale))
+// Real game directory scenario (?mfGameRoot=…, typically with the dev asset
+// bridge) uses the real image loading chain; the default performance scenario
+// keeps a 1px fixed-pixel stub to avoid image decode interfering with perf.
+if (scenarioGameRootPath) {
+  const { loadImageDataUrl: loadRealImageDataUrl } = await import('@entities/game/api')
+  configureImageDataUrlLoader((path, locale) => loadRealImageDataUrl(path, locale))
+} else {
+  configureImageDataUrlLoader((path, locale) => performanceCpMakerPort.loadImageDataUrl(path, locale))
+}
 
 function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNode }) {
   return (
@@ -1458,6 +1474,7 @@ function resolveScenarioId(): PageScenarioId {
   return pageScenarioIds.includes(requested as PageScenarioId) ? (requested as PageScenarioId) : 'workbench-home'
 }
 
+/** Dev scenario entry point: resolves the requested page performance scenario from URL params. */
 export function DevPagePerformanceScenario() {
   const locale = new URLSearchParams(window.location.search).get('mfLocale') === 'zh-CN' ? 'zh-CN' : 'en-US'
   return (

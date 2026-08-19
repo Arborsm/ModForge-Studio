@@ -1,3 +1,5 @@
+//! Attached API registry tracking which mods provide APIs and what asset kinds they target.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::domain::manifest::normalize_unique_id;

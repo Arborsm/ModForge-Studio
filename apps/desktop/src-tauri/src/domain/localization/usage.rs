@@ -1,3 +1,5 @@
+//! Localization usage tracking: records AI/MT usage events and provides query/export/clear operations.
+
 use super::operational_log::{self, TRANSLATION};
 use super::types::*;
 use crate::domain::app_paths::ai_usage_ledger_path;

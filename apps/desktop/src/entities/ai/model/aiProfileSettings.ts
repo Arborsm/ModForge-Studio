@@ -1,3 +1,7 @@
+/**
+ * @file Validates and resolves AI generation parameters (context window, token budgets, batch caps) for translation profiles.
+ * @module entities/ai
+ */
 /** Safe context-window fallback (tokens) used when a profile sets no explicit
  * value and no model metadata is available. Chosen so the default batch byte
  * budget stays close to the legacy 24 KB cap while remaining safe for the

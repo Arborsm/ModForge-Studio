@@ -36,6 +36,7 @@ const mods: ModWorkspaceCopy = {
   manifestPathLabel: 'Manifest',
   contentPathLabel: 'Content',
   selectProjectFolder: '选择模组目录',
+  selectProjectAction: '选择项目',
   missingRequiredDependencies: (dependencies) => `缺少必需依赖：${dependencies}`,
   unsavedChangesTitle: '有未保存翻译',
   unsavedChangesMessage: '继续前请保存或放弃当前翻译修改。',

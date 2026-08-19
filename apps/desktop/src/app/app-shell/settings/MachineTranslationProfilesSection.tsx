@@ -1,3 +1,6 @@
+/**
+ * @file Machine translation configuration panel: manages MT provider profiles, credentials, languages, and connection tests.
+ */
 import { useEffect, useId, useRef, useState } from 'react'
 import { parseAiFailure } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
@@ -51,6 +54,7 @@ function profilesAreSaved(snapshot: MachineTranslationSettingsSnapshot | null, p
   })
 }
 
+/** Machine translation configuration panel component: manages MT profile drafts, credentials, and remote tests. */
 export function MachineTranslationProfilesSection({
   onDirtyChange,
   requestLeave,

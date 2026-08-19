@@ -1,6 +1,6 @@
 /**
- * Bootstraps a pack's `i18n/default.json` from the text already authored in
- * the draft: translatable string fields are rewritten to `{{i18n:key}}` and
+ * @file Bootstraps a pack's `i18n/default.json` from the text already authored
+ * in the draft: translatable string fields are rewritten to `{{i18n:key}}` and
  * their texts collected as the default entries. Pure and side-effect free —
  * the caller applies the returned editor states and entries to the draft.
  *
@@ -10,10 +10,12 @@
  * tokenized (`{{…}}`) or referencing game strings (`[LocalizedText …]`) are
  * left alone, and keys already present in `default.json` are never
  * overwritten — the author's existing text always wins.
+ * @module features/cp-maker
  */
 
 import type { CpMakerDraft, DraftPatch } from './types'
 
+/** Result of scanning a draft for translatable text and rewriting it to i18n tokens. */
 export type I18nExtraction = {
   /** key → default text, to merge into `i18n/default.json`. */
   entries: Record<string, string>

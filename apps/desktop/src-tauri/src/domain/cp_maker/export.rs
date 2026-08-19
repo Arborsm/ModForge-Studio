@@ -1,3 +1,5 @@
+//! CP Maker export: validates and writes a Content Patcher mod directory from a draft.
+
 use super::builder::validate_i18n_locale;
 use super::project_assets::verify_asset_file;
 use super::types::{CpMakerExportRequest, CpMakerExportResult, CpMakerI18nFile, ProjectAssetRef};

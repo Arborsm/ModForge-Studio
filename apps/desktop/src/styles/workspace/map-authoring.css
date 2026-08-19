@@ -3,6 +3,13 @@
     @apply bg-surface-panel flex h-full min-h-0 flex-col overflow-hidden;
   }
 
+  /* Paint preview: hidden by default; positionPaintPreviewElement toggles display via inline style.
+     Must not use inline display:none in JSX because React re-renders (e.g. animation clock) would
+     reset it and override the imperative positioning. */
+  .map-paint-preview {
+    display: none;
+  }
+
   .map-authoring-editor-main {
     @apply min-h-0 min-w-0;
   }

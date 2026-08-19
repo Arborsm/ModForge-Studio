@@ -1,3 +1,7 @@
+/**
+ * @file Launcher mod detail drawer: hero, tabbed detail/file/changelog/
+ * dependency views, AI translation, config panel, and download queueing.
+ */
 import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -158,7 +162,9 @@ export function LauncherModDetailPanel({
     full: fullDescription,
     changelog: changelogItems,
   })
-  // 流式翻译期间优先渲染部分译文（边生成边显示）；结束后被正式结构化结果替换。
+  // During streaming translation, prefer rendering the partial translation
+  // (show as it generates); replaced by the authoritative structured result
+  // once it settles.
   const visibleOverview = showAiTranslation
     ? (aiTranslation.streamPreview?.overview ?? aiTranslation.translation?.overview ?? overviewDescription)
     : overviewDescription
@@ -168,12 +174,16 @@ export function LauncherModDetailPanel({
   const visibleChangelog = showAiTranslation
     ? (aiTranslation.streamPreview?.changelog ?? aiTranslation.translation?.changelog ?? changelogItems)
     : changelogItems
-  // 部分译文在屏 = 流式翻译中；逐字段渐入动画只在该窗口内生效，结束时无动画切换。
+  // Partial translation on screen = streaming in progress; the per-field
+  // fade-in animation only applies within this window, with no animation on settle.
   const aiStreaming = aiTranslation.streamPreview !== null
-  // 流式会话（state === 'loading'）跨整个任务的所有批次，批次间隙 streamPreview
-  // 置空的瞬时回退不会让 .is-ai-arrived 类被移除，因此渐入动画整场只播放一次。
+  // The streaming session (state === 'loading') spans all batches of the whole
+  // job; the momentary fallback where streamPreview is cleared between batches
+  // does not remove the .is-ai-arrived class, so the fade-in plays only once
+  // for the entire session.
   const aiStreamingSession = aiTranslation.state === 'loading'
-  // 字段级「已到达」标记：译文首次与原文不同即置位；已显示内容不再重复触发动画。
+  // Field-level "arrived" flag: set the first time the translation differs
+  // from the source; already-shown content does not re-trigger the animation.
   const overviewArrived = visibleOverview !== overviewDescription
   const fullArrived = visibleFullDescription !== fullDescription
 
@@ -473,7 +483,7 @@ export function LauncherModDetailPanel({
                         aiStreamingSession && overviewArrived && 'is-ai-arrived',
                       )}
                     >
-                      {/* 稳定 key（mod 维度而非文本内容）：流式提交只就地更新文本，不再整块重挂载；动画由 .is-ai-arrived 触发一次 */}
+                      {/* Stable key (mod-level, not text content): streaming commits only update text in place without remounting the whole block; animation is triggered once by .is-ai-arrived */}
                       <NexusModsBbcode key={`ai-overview:${detailContentKey}`} source={visibleOverview} />
                     </div>
                   </div>
@@ -632,9 +642,12 @@ export function LauncherModDetailPanel({
                     )}
                   >
                     {selectedTab === 'description' ? (
-                      // 稳定 key：.nexusmods-bbcode 是滚动容器，按文本内容做 key 会让每次
-                      // 提交重挂载容器导致 scrollTop 归零、阅读位置被拉回；固定 key 后 DOM 存活，
-                      // 交给浏览器 scroll anchoring 保持锚点。
+                      // Stable key: .nexusmods-bbcode is the scroll container;
+                      // keying by text content would remount the container on
+                      // every commit, resetting scrollTop and pulling the
+                      // reading position back to the top. A fixed key keeps the
+                      // DOM alive and lets browser scroll anchoring hold the
+                      // anchor point.
                       <NexusModsBbcode key={`ai-full:${detailContentKey}`} source={visibleFullDescription} />
                     ) : null}
                     {selectedTab === 'description' && (aiTranslation.reasoning.length > 0 || aiTranslation.streamingReasoning) ? (
@@ -825,7 +838,7 @@ export function LauncherModDetailPanel({
                     aiStreamingSession && fullArrived && 'is-ai-arrived',
                   )}
                 >
-                  {/* 稳定 key：正文节点随流式提交保留，滚动锚点不被替换，阅读位置不跳动 */}
+                  {/* Stable key: the body node persists across streaming commits, the scroll anchor is not replaced, and the reading position does not jump */}
                   <NexusModsBbcode key={`ai-reader:${detailContentKey}`} source={visibleFullDescription} />
                 </article>
               </div>

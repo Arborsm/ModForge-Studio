@@ -19,6 +19,7 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+/** Active-project session tracking which draft is open in the editor. */
 export type CpMakerSession = {
   activeDraftKey: string | null
   activeGeneratedDraftKey: string | null
@@ -58,8 +59,10 @@ export type CpMakerDraftRecord = {
   } | null
 }
 
+/** Origin of a project asset within the draft lifecycle. */
 export type ProjectAssetSource = 'imported' | 'generated' | 'edited'
 
+/** Lightweight reference to a persisted project asset stored inside a draft. */
 export type ProjectAssetRef = {
   relativePath: string
   mediaType: string
@@ -70,11 +73,13 @@ export type ProjectAssetRef = {
   dependencies: Array<{ relativePath: string; kind: string }>
 }
 
+/** Asset payload with base64-encoded bytes for transport to the host. */
 export type ProjectAssetPayload = {
   asset: ProjectAssetRef
   bytesBase64: string
 }
 
+/** Parsed map asset content returned for preview or editing. */
 export type ProjectMapAssetContent = {
   name: string
   format: string
@@ -83,28 +88,34 @@ export type ProjectMapAssetContent = {
   content: string
 }
 
+/** Request to read a single project asset by draft key and relative path. */
 export type ReadProjectAssetRequest = {
   draftStorageKey: string
   relativePath: string
 }
 
+/** Request to write a single project asset with its bytes and source type. */
 export type WriteProjectAssetRequest = ReadProjectAssetRequest & {
   mediaType: string
   bytesBase64: string
   sourceType: ProjectAssetSource
 }
 
+/** Request to write a batch of project assets atomically under one draft. */
 export type WriteProjectAssetsRequest = {
   draftStorageKey: string
   assets: Array<Omit<WriteProjectAssetRequest, 'draftStorageKey'>>
 }
 
+/** Request to rename a project asset to a new relative path. */
 export type RenameProjectAssetRequest = ReadProjectAssetRequest & {
   newRelativePath: string
 }
 
+/** Request to delete a single project asset from a draft. */
 export type DeleteProjectAssetRequest = ReadProjectAssetRequest
 
+/** Request to import external files into a draft's project asset store. */
 export type ImportProjectAssetsRequest = {
   draftStorageKey: string
   sourcePaths: string[]
@@ -140,6 +151,7 @@ export type BuildCpMakerMapAssetRequest = {
   mapDocument: unknown // MapDocument from backend
 }
 
+/** Result of building a virtual map asset preview, including companion assets. */
 export type BuildCpMakerMapAssetResult = {
   asset: VirtualPreviewAsset
   companionAssets: VirtualPreviewAsset[]

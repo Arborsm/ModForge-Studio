@@ -1,7 +1,7 @@
 /**
- * Validation for one parsed event script, expressed in the shared `AssetIssue`
- * shape so the event hub, the dashboard counters and the schema-driven
- * validation rail all read the same findings.
+ * @file Validation for one parsed event script, expressed in the shared
+ * `AssetIssue` shape so the event hub, the dashboard counters and the
+ * schema-driven validation rail all read the same findings.
  *
  * Every rule below mirrors something the game or SMAPI actually complains
  * about at runtime; ambiguous cases are reported as `warning` rather than

@@ -1,5 +1,8 @@
+/** @file Typed CustomEvent bridge for guide step activations, letting pages reveal anchored UI without importing the guide engine. */
+
 const GUIDE_STEP_EVENT = 'modforge:guide-step'
 
+/** Active guide step and its anchor target, broadcast so pages can prepare the referenced UI. */
 export type GuideStepActivation = {
   guideId: string
   stepId: string

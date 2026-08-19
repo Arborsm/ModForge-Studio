@@ -145,23 +145,18 @@
     gap: 0.5rem;
   }
 
-  .map-catalog-card-import {
-    @apply text-text-tertiary grid cursor-pointer;
-    width: 1.5rem;
-    height: 1.5rem;
-    flex: 0 0 auto;
-    margin-left: auto;
-    place-items: center;
-    border-radius: 0.25rem;
+  .map-catalog-card-actions {
+    @apply flex items-stretch;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
   }
 
-  .map-catalog-card-import:hover {
-    @apply bg-surface-hover text-text-primary;
+  .map-catalog-card-action-primary {
+    @apply flex-1;
   }
 
-  .map-catalog-card-import:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
+  .map-catalog-card-action-secondary {
+    @apply flex-1;
   }
 
   .map-catalog-state {

@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherDownloads hook: download queue state, concurrent download
+ * scheduling, progress batching, persistence, and debug simulation.
+ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { publishNotification } from '@shared/ui/notifications'
@@ -204,6 +208,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
 }
 
+/** Manages the launcher download queue: hydration, concurrent scheduling, progress, persistence, and notifications. */
 export function useLauncherDownloads(settings: LauncherSettings) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher.downloads

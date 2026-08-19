@@ -1,3 +1,5 @@
+//! Glossary entry and style guide persistence for localization knowledge.
+
 use super::schema::{bump, normalize, now, open};
 use crate::domain::localization::types::*;
 use anyhow::bail;
@@ -17,6 +19,7 @@ pub(crate) fn glossary_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiGlossa
         updated_at_ms: row.get(9)?,
     })
 }
+/// Lists glossary entries matching the given scope, locales and optional query.
 pub fn list_glossary(
     request: SearchLocalizationKnowledgeRequest,
 ) -> anyhow::Result<AiGlossaryPage> {
@@ -54,6 +57,7 @@ pub fn list_glossary(
     Ok(AiGlossaryPage { records, total })
 }
 
+/// Inserts or updates glossary entries, returning the updated page.
 pub fn upsert_glossary(
     request: UpsertLocalizationGlossaryEntriesRequest,
 ) -> anyhow::Result<AiGlossaryPage> {
@@ -98,6 +102,7 @@ pub fn upsert_glossary(
     })
 }
 
+/// Deletes glossary entries by id within the given scope.
 pub fn delete_glossary(request: DeleteLocalizationEntriesRequest) -> anyhow::Result<u64> {
     let mut db = open()?;
     let tx = db.transaction()?;
@@ -115,11 +120,13 @@ pub fn delete_glossary(request: DeleteLocalizationEntriesRequest) -> anyhow::Res
     Ok(removed as u64)
 }
 
+/// Loads the style guide for a scope and target locale, if one exists.
 pub fn load_style(
     request: LoadLocalizationStyleGuideRequest,
 ) -> anyhow::Result<Option<AiStyleGuide>> {
     open()?.query_row("SELECT scope_id,target_locale,tone,audience,formality,forbidden_phrases,preferred_phrases,rules,updated_at_ms FROM style_guides WHERE scope_id=? AND target_locale=?",params![request.scope_id,request.target_locale],|row|Ok(AiStyleGuide{scope_id:row.get(0)?,target_locale:row.get(1)?,tone:row.get(2)?,audience:row.get(3)?,formality:row.get(4)?,forbidden_phrases:serde_json::from_str(&row.get::<_,String>(5)?).unwrap_or_default(),preferred_phrases:serde_json::from_str(&row.get::<_,String>(6)?).unwrap_or_default(),rules:serde_json::from_str(&row.get::<_,String>(7)?).unwrap_or_default(),updated_at_ms:row.get(8)?})).optional().map_err(Into::into)
 }
+/// Saves a style guide, enforcing the 16 KB serialized size limit.
 pub fn save_style(mut guide: AiStyleGuide) -> anyhow::Result<AiStyleGuide> {
     let serialized = serde_json::to_vec(&guide)?;
     if serialized.len() > 16 * 1024 {

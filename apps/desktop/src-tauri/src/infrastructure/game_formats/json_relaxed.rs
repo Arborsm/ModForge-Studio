@@ -1,3 +1,6 @@
+//! Relaxed JSON parser: strips comments, trailing commas, and unquoted
+//! numeric keys so Stardew Valley's non-standard JSON files can be deserialized.
+
 use crate::infrastructure::text_encoding::decode_text_bytes;
 use anyhow::Context;
 use serde_json::Value;

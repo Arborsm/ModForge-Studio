@@ -1,3 +1,8 @@
+/**
+ * @file React context provider for the localization capability, exposing the
+ * `LocalizationPort` to feature layers without leaking host transport.
+ */
+
 import { createContext, useContext, type ReactNode } from 'react'
 import type { LocalizationPort } from '@shared/contracts'
 

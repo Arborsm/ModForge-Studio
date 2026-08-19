@@ -1,3 +1,8 @@
+/**
+ * @file Event stage playback engine: steps through parsed commands, mutates
+ * actor/effect/camera state, and produces the log entries the stage UI renders.
+ */
+
 import { parseEventCommand, EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventStageCopy } from '@locales/api'
 import type { EventCommand, EventDialoguePage, EventScript } from '@entities/event'

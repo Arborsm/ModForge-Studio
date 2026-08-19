@@ -1,4 +1,6 @@
-// 命令默认模板 — 用于快速插入新命令
+/**
+ * @file Default command templates for quickly inserting new commands.
+ */
 
 export const COMMAND_TEMPLATES: Record<string, string> = {
   speak: 'speak Abigail "Hello!"',

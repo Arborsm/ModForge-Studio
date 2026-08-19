@@ -1,3 +1,5 @@
+//! Request construction: translation schema/prompt, structured-output capability and generation parameters.
+
 use super::super::presets::provider_preset;
 use super::super::types::{
     AiProtocol, AiProviderProfile, AiStructuredOutputCapability, AiTranslateBatchRequest,

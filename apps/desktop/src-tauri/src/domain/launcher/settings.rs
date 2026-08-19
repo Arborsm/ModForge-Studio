@@ -1,3 +1,5 @@
+//! Launcher settings persistence: load, normalize, merge patches, and save with file locking.
+
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
 use crate::domain::app_paths::launcher_settings_path;

@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for AI settings, model listing, translation batches, streaming events and translation cache.
+ * @module platform/host/ai
+ */
+
 import type {
   AiModelInfo,
   AiProfileTestResult,
@@ -112,6 +117,7 @@ export function listenToAiStream(listener: (payload: AiTranslationStreamPayload)
   return getPlatformPorts().hostEvents.listen<AiTranslationStreamPayload>(AI_STREAM_EVENT, listener)
 }
 
+/** Reads one cached translation entry by scope, locale and source hash. */
 export function readAiTranslationCache(request: Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>) {
   return invokeDesktop<AiTranslationCacheEntry | null>(
     HOST_COMMANDS.readAiTranslationCache,
@@ -120,6 +126,7 @@ export function readAiTranslationCache(request: Pick<AiTranslationCacheEntry, 's
   )
 }
 
+/** Persists one translation cache entry, keyed by scope and target locale. */
 export function writeAiTranslationCache(entry: AiTranslationCacheEntry) {
   return invokeDesktop<AiTranslationCacheEntry>(
     HOST_COMMANDS.writeAiTranslationCache,
@@ -128,6 +135,7 @@ export function writeAiTranslationCache(entry: AiTranslationCacheEntry) {
   )
 }
 
+/** Returns aggregate translation cache statistics for debug tooling. */
 export function getAiTranslationCacheStats() {
   return invokeDesktop<AiTranslationCacheStats>(HOST_COMMANDS.getAiTranslationCacheStats, undefined, {
     kind: 'latest',
@@ -135,6 +143,7 @@ export function getAiTranslationCacheStats() {
   })
 }
 
+/** Clears all translation cache entries and returns the post-clear statistics. */
 export function clearAiTranslationCache() {
   return invokeDesktop<AiTranslationCacheStats>(HOST_COMMANDS.clearAiTranslationCache, undefined, {
     kind: 'exclusiveMutation',

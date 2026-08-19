@@ -1,3 +1,5 @@
+//! Asset path helpers: locale suffix splitting, localized variant resolution and CP asset keys.
+
 use std::path::{Path, PathBuf};
 
 fn is_locale_suffix(value: &str) -> bool {

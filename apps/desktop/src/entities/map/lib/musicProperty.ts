@@ -1,6 +1,6 @@
 /**
- * Pure parsing/serialization of the map `Music` property and the game clock
- * values its time-range form uses.
+ * @file Pure parsing/serialization of the map `Music` property and the game
+ * clock values its time-range form uses.
  *
  * The game reads the property three ways (matching GameLocation):
  * - absent           → follows the game default (previous track keeps playing);

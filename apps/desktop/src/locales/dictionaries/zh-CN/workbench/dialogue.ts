@@ -143,6 +143,7 @@ const dialogueEditor: DialogueEditorCopy = {
   addPageEndAction: '新对话页（$e）',
   addPageBreakAction: '续页（$b）',
   removePageAction: '删除此页',
+  selectPageAction: '选择此页',
   pagePropsTitle: '对话页属性',
   emotionFieldLabel: '情绪 / 头像',
   emotionNeutral: '平静（默认）',

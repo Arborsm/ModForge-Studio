@@ -1,3 +1,5 @@
+//! Mod config schema parsing: Content Patcher ConfigSchema, config.json/options.json field construction, and i18n discovery.
+
 // Reading & parsing a mod's config: path/JSON safety, Content Patcher ConfigSchema,
 // assets/options.json and config.json field construction, plus i18n / content-pack
 // translation discovery for the parsed field copy.

@@ -1,3 +1,5 @@
+//! Attached API registry: loads built-in attached API descriptors for Content Patcher compatibility.
+
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 
 pub(crate) mod scaleup;

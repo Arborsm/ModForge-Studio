@@ -56,6 +56,7 @@ export function MapPatchRowThumbnail({ patch }: { patch: DraftPatch }) {
           locale,
           width: THUMBNAIL_WIDTH,
           height: THUMBNAIL_HEIGHT,
+          gameRootPath,
         }),
       )
       .then((url) => {

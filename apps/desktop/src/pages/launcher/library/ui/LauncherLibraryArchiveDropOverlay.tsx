@@ -1,3 +1,6 @@
+/**
+ * @file Mod library archive drop overlay: shows visual feedback when dragging an archive onto it.
+ */
 import { FolderArchive } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 

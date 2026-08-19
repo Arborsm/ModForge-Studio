@@ -1,3 +1,8 @@
+/**
+ * @file World lighting overlay renderer: bakes a `WorldLightingState` into an
+ * opaque canvas for a `mix-blend-mode: multiply` layer over the map viewport.
+ */
+
 import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { computeLightingOverlayChannel, getLightingGlowTextureSize, type LightingColor, type WorldLightingState } from '../model/lighting'

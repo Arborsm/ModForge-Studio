@@ -1,3 +1,5 @@
+/** @file Normalization helpers for the minimal app shell state slice (mode, launcher page, debug/sound toggles). */
+
 import type { AppMode, LauncherPage } from '@locales/api'
 
 /** Minimal app shell state kept for legacy/local callers that do not need full AppUiState. */

@@ -1,3 +1,5 @@
+//! CP Maker project asset storage: atomic writes, renames, deletes, imports and dependency tracking.
+
 use super::storage::validate_draft_storage_key;
 use super::types::{
     ProjectAssetDependency, ProjectAssetPayload, ProjectAssetRef, ProjectAssetSource,

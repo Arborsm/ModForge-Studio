@@ -1,3 +1,5 @@
+//! EditImage patch application: overlay, replace, crop and pad operations on image targets.
+
 use super::super::assets::{crop_image_area, expand_image_to_fit, load_image_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::ContentPatcherProjectSnapshot;
@@ -140,7 +142,6 @@ pub fn apply_edit_image_patch(
     snapshot: &ContentPatcherProjectSnapshot,
     base: &mut RgbaImage,
     patch: &serde_json::Map<String, Value>,
-    source_path: &str,
 ) -> anyhow::Result<String> {
     let from_file = patch
         .get("FromFile")
@@ -149,7 +150,7 @@ pub fn apply_edit_image_patch(
         .filter(|value| !value.is_empty())
         .context("EditImage patch is missing a FromFile value.")?;
 
-    let mut source = load_image_patch_asset(snapshot, source_path, from_file)?;
+    let mut source = load_image_patch_asset(snapshot, from_file)?;
     if let Some((x, y, width, height)) =
         parse_area_value(patch.get("FromArea"), AreaDefaults::source())?
     {

@@ -1,3 +1,8 @@
+/**
+ * @file Main translation editor view — entry list, editing, AI translate/review, locale dropdowns, and context panel.
+ * @module features/translation-editor
+ */
+
 import { ArrowRight, Check, ChevronDown, ChevronUp, Languages, Plus, RefreshCw, Save, Search, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
@@ -40,6 +45,7 @@ import {
   REVIEW_BEHAVIOR_STORAGE_KEY,
 } from '../model/translationBehavior'
 
+/** Props for the `TranslationEditor` component. */
 export type TranslationEditorProps = {
   project: TranslationEditorProject | null
   i18nFiles: ContentPatcherI18nFile[]
@@ -63,6 +69,7 @@ export type TranslationEditorProps = {
   onOpenReviewCountChange?: (count: number) => void
 }
 
+/** Localization context identifying the project for scope binding and knowledge lookup. */
 export type TranslationLocalizationContext = {
   projectIdentity: { kind: 'cp-maker' | 'installed-mod'; stableId: string | null; fallbackPath: string | null }
   displayName: string
@@ -95,6 +102,7 @@ function reviewBehaviorLabel(copy: TranslationEditorCopy, mode: TranslationRevie
   return copy.reviewTranslated
 }
 
+/** Project info required by the translation editor — name and root path. */
 export type TranslationEditorProject = {
   name: string
   rootPath: string
@@ -516,6 +524,10 @@ function LocaleDropdown({
   )
 }
 
+/**
+ * Main translation editor view with entry list, inline editing, AI translate/review split-buttons,
+ * locale dropdowns, status filters, and optional context/knowledge panel.
+ */
 export function TranslationEditor({
   project,
   i18nFiles,
@@ -768,8 +780,10 @@ export function TranslationEditor({
     engineRef,
     applyResults: applyAiResults,
   })
-  // 流式预览只作用于正在生成的条目：文本区展示流式值并锁定编辑，正式结果
-  // 落地后（streamingValues 归 null）自动恢复可编辑与文件内容。
+  // Streaming preview only applies to entries currently being generated: the
+  // text area shows the streaming value and locks editing; once the
+  // authoritative result lands (streamingValues becomes null) it automatically
+  // restores editability and file content.
   const streamingEntryValue = activeEntry ? (streamingValues?.get(activeEntry.key) ?? null) : null
   const [reviewOpen, setReviewOpen] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'entries' | 'translation' | 'review'>('translation')

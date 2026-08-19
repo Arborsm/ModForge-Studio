@@ -1,4 +1,8 @@
-﻿use crate::domain::{assets, resource_registry};
+﻿//! Dev-only HTTP asset bridge for Electron/Vite dev mode: serves game asset
+//! lookups over a local TCP socket so the web preview can access Tauri-side
+//! asset loading without a full host command round trip.
+
+use crate::domain::{assets, resource_registry};
 use crate::support::logging::{LogEvent, targets, write_dev_asset_bridge_log};
 use std::collections::HashMap;
 use std::io::{Read, Write};

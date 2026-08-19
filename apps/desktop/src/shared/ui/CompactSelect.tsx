@@ -1,3 +1,5 @@
+/** @file Compact popover select with keyboard navigation and floating-ui positioning. */
+
 import {
   useEffect,
   useCallback,
@@ -11,6 +13,7 @@ import {
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import { cx } from '@shared/lib/helper'
 
+/** One selectable option in a CompactSelect, with optional description and disabled state. */
 export type CompactSelectOption<TValue extends string | number> = {
   value: TValue
   label: string

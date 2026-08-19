@@ -1,3 +1,5 @@
+/** @file Image placeholder skeleton with configurable aspect ratio and overlay mode. */
+
 import type { CSSProperties } from 'react'
 import { cx } from '@shared/lib/helper'
 
@@ -9,6 +11,7 @@ type ImageSkeletonProps = {
   overlay?: boolean
 }
 
+/** Image placeholder skeleton that respects a target aspect ratio while the real image loads. */
 export function ImageSkeleton({ className, style, aspectRatio, rounded = true, overlay = false }: ImageSkeletonProps) {
   return (
     <span

@@ -1,3 +1,8 @@
+/**
+ * @file Pre-warms shared caches (resource registry + item catalog) so the event
+ * editor mounts with data already loaded.
+ */
+
 import type { LocaleCode } from '@locales/api'
 import { loadResourceRegistry } from '@entities/game/api'
 import { loadItemWorkspaceEntries } from '@entities/item'

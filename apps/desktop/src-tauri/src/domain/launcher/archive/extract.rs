@@ -1,3 +1,5 @@
+//! Archive extraction: format detection, path-traversal-safe decompression for zip/7z/rar/tar/tar.gz.
+
 use crate::domain::launcher::install_manager::normalize_relative_path;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::text_encoding::decode_text_bytes;

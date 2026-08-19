@@ -1,7 +1,13 @@
+/**
+ * @file Sizing helpers for the workbench dock layout — usable width, resolved side-panel widths, rail bounds, and split spans.
+ * @module shared/workspace
+ */
+
 import { COLUMN_GAP, MIN_CENTER_HEIGHT, MIN_CENTER_WIDTH, ROOT_PADDING, SPLIT_GAP } from './layoutConstants'
 import type { PanelRect, WorkspacePanelConfig, WorkspaceSize, WorkspaceStoredState } from '@shared/contracts'
 import { clamp } from './layoutState'
 
+/** Returns the usable horizontal width after subtracting root padding and visible side-panel gaps. */
 export function getHorizontalUsableWidth(size: WorkspaceSize, leftPanelVisible: boolean, rightPanelVisible: boolean) {
   const horizontalGaps = (leftPanelVisible ? COLUMN_GAP : 0) + (rightPanelVisible ? COLUMN_GAP : 0)
   return Math.max(0, size.width - ROOT_PADDING * 2 - horizontalGaps)
@@ -11,6 +17,11 @@ function getPanelForArea(panels: WorkspacePanelConfig[], area: WorkspacePanelCon
   return panels.find((panel) => panel.area === area) ?? null
 }
 
+/**
+ * Resolves left/center/right widths from persisted proportions, clamping each side to its minimum
+ * and redistributing overflow so the center never collapses below its minimum.
+ * @returns Resolved `{ left, center, right }` widths in pixels.
+ */
 export function getResolvedSidePanelWidths(
   panels: WorkspacePanelConfig[],
   chrome: Pick<WorkspaceStoredState['chrome'], 'leftWidth' | 'rightWidth'>,
@@ -70,6 +81,7 @@ export function getResolvedSidePanelWidths(
   return { left: 0, center: Math.max(0, usable - right), right }
 }
 
+/** Returns the min/max pixel bounds for a resize rail (left, right, or bottom) given current panels and size. */
 export function getRailEdgeSizeBounds(
   rail: 'left' | 'right' | 'bottom',
   panels: WorkspacePanelConfig[],
@@ -99,6 +111,11 @@ export function getRailEdgeSizeBounds(
   }
 }
 
+/**
+ * Splits a span (height or width) into two parts by ratio, respecting per-part minimums and optional maximums.
+ * When minimums exceed the usable span, both are scaled proportionally so neither collapses to zero.
+ * @returns `{ first, second }` pixel sizes.
+ */
 export function splitSpan(
   total: number,
   ratio: number,
@@ -127,9 +144,11 @@ export function splitSpan(
   return { first, second }
 }
 
+/** Returns the vertical height available for the main row after subtracting root padding and the bottom dock. */
 export function getAvailableVerticalHeight(size: WorkspaceSize, bottomVisible: boolean, bottomHeight: number) {
   const bottomUsed = bottomVisible ? bottomHeight + COLUMN_GAP : 0
   return Math.max(0, size.height - ROOT_PADDING * 2 - bottomUsed)
 }
 
+/** Re-exports `PanelRect` for convenience alongside the sizing helpers. */
 export type { PanelRect }

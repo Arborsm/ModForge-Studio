@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { DoorOpen, MapPin, Pencil, Plus, SunMoon, Trash2 } from 'lucide-react'
 import {
   DAY_TILES_PROPERTY_KEY,
@@ -194,39 +195,54 @@ function CollapsibleEntryList({
   return (
     <div className="map-asset-card-list">
       {visibleCards.map((card, index) => (
-        <div
-          key={index}
-          className="map-asset-entry-card"
-          onPointerEnter={onHighlightEntry ? () => onHighlightEntry(index) : undefined}
-          onPointerLeave={onClearHighlight}
-        >
-          <span className="map-asset-entry-icon" aria-hidden="true">
-            {icon}
-          </span>
-          <div className="map-asset-entry-card-body">{card}</div>
-          <div className="map-asset-entry-card-actions">
-            {onEdit ? (
-              <button
-                type="button"
-                className="icon-button map-asset-entry-card-action"
-                aria-label={editLabel}
-                title={editLabel}
-                onClick={() => onEdit(index)}
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="icon-button is-danger map-asset-entry-card-action"
-              aria-label={deleteLabel}
-              title={deleteLabel}
-              onClick={() => onDelete(index)}
+        <ContextMenu.Root key={index}>
+          <ContextMenu.Trigger asChild>
+            <div
+              className="map-asset-entry-card"
+              onPointerEnter={onHighlightEntry ? () => onHighlightEntry(index) : undefined}
+              onPointerLeave={onClearHighlight}
             >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+              <span className="map-asset-entry-icon" aria-hidden="true">
+                {icon}
+              </span>
+              <div className="map-asset-entry-card-body">{card}</div>
+              <div className="map-asset-entry-card-actions">
+                {onEdit ? (
+                  <button
+                    type="button"
+                    className="icon-button map-asset-entry-card-action"
+                    aria-label={editLabel}
+                    title={editLabel}
+                    onClick={() => onEdit(index)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="icon-button is-danger map-asset-entry-card-action"
+                  aria-label={deleteLabel}
+                  title={deleteLabel}
+                  onClick={() => onDelete(index)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </ContextMenu.Trigger>
+          <ContextMenu.Portal>
+            <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+              {onEdit ? (
+                <ContextMenu.Item className="context-menu-item" onSelect={() => onEdit(index)}>
+                  {editLabel}
+                </ContextMenu.Item>
+              ) : null}
+              <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => onDelete(index)}>
+                {deleteLabel}
+              </ContextMenu.Item>
+            </ContextMenu.Content>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
       ))}
       {cards.length > threshold ? (
         <button type="button" className="map-asset-more-link" onClick={() => setExpanded((current) => !current)}>
@@ -318,6 +334,8 @@ type TileIndexPreviewProps = {
   label: string
   /** When set, crops from the named tileset directly instead of resolving the owner from the layer cell. */
   tilesetName?: string
+  /** Game root used to resolve dynamically referenced vanilla sheets; null leaves their previews blank. */
+  gameRootPath?: string | null
 }
 
 /**
@@ -329,7 +347,7 @@ type TileIndexPreviewProps = {
  * document/prop change, so tile edits and property edits reflect
  * immediately; loading and failure render a placeholder square.
  */
-function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, tilesetName }: TileIndexPreviewProps) {
+function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, tilesetName, gameRootPath = null }: TileIndexPreviewProps) {
   const locale = useLocale()
   const viewportCopy = useEditorCopy().viewportLabels
   const tileset = tilesetName
@@ -341,7 +359,7 @@ function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, t
     if (!tileset) return undefined
     let cancelled = false
     setImageUrl(null)
-    const imagePath = resolveTilesetImagePath(renderDocument, tileset)
+    const imagePath = resolveTilesetImagePath(renderDocument, tileset, gameRootPath)
     if (!imagePath) return undefined
     void loadImage(imagePath, locale, (failedPath) => viewportCopy.failedToLoadTilesetImage(failedPath))
       .then((image) => {
@@ -354,7 +372,7 @@ function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, t
     return () => {
       cancelled = true
     }
-  }, [locale, renderDocument, tileIndex, tileset, viewportCopy])
+  }, [gameRootPath, locale, renderDocument, tileIndex, tileset, viewportCopy])
 
   if (!tileset || !imageUrl) {
     return <span className="map-asset-tile-ref-ph" aria-hidden="true" />
@@ -393,7 +411,7 @@ function WarpCard({
   accentColor: string
   mapOptions: readonly WarpDialogMapOption[]
   loadTargetDocument: (target: string) => Promise<MapDocument>
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -480,16 +498,26 @@ function WarpCard({
   }
 
   const carrierOptions: readonly WarpCarrierOption[] = [
-    { value: 'property', label: copy.warpCarrierProperty },
-    { value: 'touch', label: copy.warpCarrierTouch, disabled: !perCellCarrierEnabled('Back') },
-    { value: 'action', label: copy.warpCarrierAction, disabled: !perCellCarrierEnabled('Buildings') },
+    { value: 'property', label: copy.warpCarrierProperty, description: copy.warpCarrierPropertyHint },
+    {
+      value: 'touch',
+      label: perCellCarrierEnabled('Back') ? copy.warpCarrierTouch : `${copy.warpCarrierTouch}${copy.warpCarrierTouchDisabledHint}`,
+      description: copy.warpCarrierTouchHint,
+      disabled: !perCellCarrierEnabled('Back'),
+    },
+    {
+      value: 'action',
+      label: perCellCarrierEnabled('Buildings') ? copy.warpCarrierAction : `${copy.warpCarrierAction}${copy.warpCarrierActionDisabledHint}`,
+      description: copy.warpCarrierActionHint,
+      disabled: !perCellCarrierEnabled('Buildings'),
+    },
   ]
 
   return (
     <CardSection
       title={copy.warpsTitle}
       countLabel={warpEntries.length > 0 ? String(warpEntries.length) : null}
-      addTitle={copy.addWarpTitle}
+      addTitle={selectedTile == null ? copy.addWarpDisabledNoCell : copy.addWarpTitle}
       addDisabled={selectedTile == null}
       onAdd={openAdd}
     >
@@ -523,8 +551,8 @@ function WarpCard({
           onEdit={openEdit}
           deleteLabel={copy.deleteEntry}
           onDelete={deleteEntry}
-          onHighlightEntry={(index) => onHighlightInspector(warpHighlightTarget(document, warpEntries[index] ?? null))}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onHighlightEntry={(index) => onHighlightInspector?.(warpHighlightTarget(document, warpEntries[index] ?? null))}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       <WarpDialog
@@ -564,6 +592,7 @@ function DoorsCard({
   selectedTile,
   mapOptions,
   onHighlightInspector,
+  gameRootPath = null,
 }: CardProps & {
   document: MapDocument
   onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
@@ -571,7 +600,8 @@ function DoorsCard({
   activeLayer?: MapLayer | null
   selectedTile: { x: number; y: number } | null
   mapOptions: readonly WarpDialogMapOption[]
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
+  gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -630,7 +660,8 @@ function DoorsCard({
     <CardSection
       title={copy.doorsTitle}
       countLabel={groups.length > 0 ? String(groups.length) : null}
-      addTitle={copy.addDoorTitle}
+      addTitle={selectedTile == null ? copy.addDoorDisabledNoCell : copy.addDoorTitle}
+      addDisabled={selectedTile == null}
       onAdd={() => {
         setDraft({ setTarget: false, toMap: '', toX: 0, toY: 0 })
         setFormOpen(true)
@@ -657,6 +688,7 @@ function DoorsCard({
                     y={door.y}
                     tileIndex={door.tileIndex}
                     label={copy.doorTileIndex}
+                    gameRootPath={gameRootPath}
                   />
                 </div>
               </div>
@@ -666,9 +698,9 @@ function DoorsCard({
           onDelete={(index) => commit(groups.filter((_, groupIndex) => groupIndex !== index))}
           onHighlightEntry={(index) => {
             const door = groups[index]
-            onHighlightInspector(door ? { tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }], objectIds: [] } : null)
+            onHighlightInspector?.(door ? { tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }], objectIds: [] } : null)
           }}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       {formOpen ? (
@@ -694,6 +726,7 @@ function DoorsCard({
                 y={selectedTile.y}
                 tileIndex={doorTileIndex}
                 label={copy.doorTileAuto}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
@@ -765,13 +798,15 @@ function DayNightCard({
   selectedTile,
   paletteSelection,
   onHighlightInspector,
+  gameRootPath = null,
 }: CardProps & {
   document: MapDocument
   renderDocument: MapDocument
   activeLayer?: MapLayer | null
   selectedTile: { x: number; y: number } | null
   paletteSelection: MapTilesetPaletteSelection | null
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
+  gameRootPath?: string | null
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
@@ -868,6 +903,7 @@ function DayNightCard({
                   y={rect.y}
                   tileIndex={rect.dayTile}
                   label={copy.dayNightDayTile}
+                  gameRootPath={gameRootPath}
                 />
               </div>
             ) : null}
@@ -881,6 +917,7 @@ function DayNightCard({
                   y={rect.y}
                   tileIndex={rect.nightTile}
                   label={copy.dayNightNightTile}
+                  gameRootPath={gameRootPath}
                 />
               </div>
             ) : null}
@@ -894,7 +931,8 @@ function DayNightCard({
     <CardSection
       title={copy.dayNightTitle}
       countLabel={rects.length > 0 ? copy.dayNightCount(rects.length) : null}
-      addTitle={copy.addDayNightTitle}
+      addTitle={selectedTile == null ? copy.addDayNightDisabledNoCell : copy.addDayNightTitle}
+      addDisabled={selectedTile == null}
       onAdd={() => {
         setDraft({ layer: activeLayer?.name ?? document.layers[0]?.name ?? '' })
         setFormOpen(true)
@@ -908,11 +946,11 @@ function DayNightCard({
           onDelete={removeEntry}
           onHighlightEntry={(index) => {
             const rect = rects[index]
-            onHighlightInspector(
+            onHighlightInspector?.(
               rect ? { tileRects: [{ x: rect.x, y: rect.y, width: rect.width, height: rect.height }], objectIds: [] } : null,
             )
           }}
-          onClearHighlight={() => onHighlightInspector(null)}
+          onClearHighlight={() => onHighlightInspector?.(null)}
         />
       ) : null}
       {formOpen ? (
@@ -944,6 +982,7 @@ function DayNightCard({
                 y={selectedTile.y}
                 tileIndex={dayTile}
                 label={copy.dayTileAuto}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
@@ -960,6 +999,7 @@ function DayNightCard({
                 y={selectedTile.y}
                 tileIndex={paletteSelection.startIndex}
                 label={copy.dayNightNightTile}
+                gameRootPath={gameRootPath}
               />
             ) : (
               <span className="map-asset-picked-warn">{copy.nightTileNone}</span>
@@ -999,7 +1039,9 @@ export type MapAssetMapCardsProps = {
   /** Loads a target map document for the warp destination preview. */
   loadTargetDocument: (target: string) => Promise<MapDocument>
   /** Reports the hovered entry's canvas highlight (cells/objects); null clears it. */
-  onHighlightInspector: (target: MapInspectorHighlight | null) => void
+  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
+  /** Game root used to resolve dynamically referenced vanilla sheets in tile previews. */
+  gameRootPath?: string | null
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
@@ -1023,6 +1065,7 @@ export function MapAssetMapCards({
   mapOptions,
   loadTargetDocument,
   onHighlightInspector,
+  gameRootPath = null,
   locale,
   theme,
   accentColor,
@@ -1059,6 +1102,7 @@ export function MapAssetMapCards({
         selectedTile={selectedTile}
         mapOptions={mapOptions}
         onHighlightInspector={onHighlightInspector}
+        gameRootPath={gameRootPath}
       />
       <DayNightCard
         properties={document.properties}
@@ -1069,6 +1113,7 @@ export function MapAssetMapCards({
         selectedTile={selectedTile}
         paletteSelection={paletteSelection}
         onHighlightInspector={onHighlightInspector}
+        gameRootPath={gameRootPath}
       />
     </>
   )

@@ -336,6 +336,7 @@ const settings: SettingsMenuCopy = {
       loadError: 'The default translation engine could not be loaded.',
       saveError: 'The default translation engine could not be saved.',
       noneSelected: 'No default engine selected',
+      noKeyLabel: 'No key',
     },
     title: 'AI translation',
     description: 'Provider profiles, models, credentials, and persistent translation cache.',

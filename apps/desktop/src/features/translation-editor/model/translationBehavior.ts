@@ -1,3 +1,8 @@
+/**
+ * @file Persistence keys and type guards for AI-translate and review split-button behaviors.
+ * @module features/translation-editor
+ */
+
 import type { TranslationAiMode } from './useLocalizationTranslation'
 import type { TranslationReviewMode } from './useTranslationReview'
 

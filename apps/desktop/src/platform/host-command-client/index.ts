@@ -1,3 +1,8 @@
+/**
+ * @file UI-side host command client — applies request lifecycle policies (dedup, stale-drop, queue, throttle) on top of the raw platform transport.
+ * @module platform/host-command-client
+ */
+
 import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
 import type { PlatformPorts } from '@shared/contracts'
 import type { HostCommandName } from '@platform/host-commands'
@@ -22,6 +27,7 @@ export type HostCommandPolicy =
   | { kind: 'parallelPool'; pool: string; limit?: number }
   | { kind: 'serviceGate'; key: string }
 
+/** Typed request envelope carrying the command name, args, lifecycle policy and optional cancellation. */
 export type HostCommandRequest<TArgs> = {
   command: HostCommandName
   args?: TArgs
@@ -30,6 +36,7 @@ export type HostCommandRequest<TArgs> = {
   scope?: TaskScope
 }
 
+/** Entry point for invoking typed desktop commands through the configured platform ports and task runtime. */
 export interface HostCommandClient {
   invoke<TArgs, TResult>(request: HostCommandRequest<TArgs>): Promise<TResult>
 }
@@ -55,6 +62,7 @@ function linkAbortSignal(scope: TaskScope, signal?: AbortSignal) {
   return () => signal.removeEventListener('abort', abort)
 }
 
+/** Creates a `HostCommandClient` that routes typed commands through the given platform ports and task runtime. */
 export function createHostCommandClient(ports: PlatformPorts): HostCommandClient {
   async function rawInvoke<TArgs, TResult>(request: HostCommandRequest<TArgs>, scope: TaskScope) {
     throwIfAborted(request.signal)

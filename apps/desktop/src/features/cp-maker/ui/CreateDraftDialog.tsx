@@ -1,3 +1,7 @@
+/**
+ * @file Dialog for creating a new CP Maker draft from a pack template.
+ * @module features/cp-maker
+ */
 import { useState, type FormEvent } from 'react'
 import { useId } from 'react'
 import { useEditorCopy } from '@locales/provider'
@@ -8,6 +12,7 @@ import type { CpMakerDraft } from '../model/types'
 import { deriveUniqueId, emptyManifestFormValue, formValueToMetadata, type ManifestMetadataFormValue } from '../model/manifestFormState'
 import { ManifestMetadataForm } from './ManifestMetadataForm'
 
+/** Input produced by the create-draft dialog: manifest metadata plus chosen template. */
 export type CreateDraftInput = {
   metadata: Partial<CpMakerDraft['projectMetadata']>
   templateId: PackTemplateId
@@ -19,6 +24,7 @@ interface CreateDraftDialogProps {
   onCreate: (input: CreateDraftInput) => void
 }
 
+/** Modal dialog for creating a new CP Maker draft with template and metadata selection. */
 export function CreateDraftDialog({ open, onClose, onCreate }: CreateDraftDialogProps) {
   const copy = useEditorCopy().studioDesk.createDialog
   const titleId = useId()

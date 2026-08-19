@@ -1,4 +1,9 @@
 /**
+ * @file Progress accounting for streaming AI translation jobs, deduplicating chunked item ids.
+ * @module entities/ai
+ */
+
+/**
  * Progress accounting for streaming AI translation jobs.
  *
  * The batching layer can split oversized items into chunks (ids get a

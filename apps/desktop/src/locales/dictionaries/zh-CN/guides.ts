@@ -134,6 +134,39 @@ const guides: GuidesCopy = {
         },
       },
     },
+    'workbench-map': {
+      title: '地图编辑器',
+      steps: {
+        welcome: {
+          title: '地图编辑器',
+          description: '编辑星露谷物语地图：绘制图块、添加传送门和门、管理图层，并将改动导出为 Content Patcher 补丁或直接编辑地图素材。',
+        },
+        'map-catalog-card': {
+          title: '选择游戏地图',
+          description: '点击地图卡片创建补丁，或使用"导入并编辑文件"直接编辑地图文件。',
+        },
+        'map-layer-list': {
+          title: '选择图层',
+          description: '地图由多个图层组成（Back、Buildings、Front 等）。选择要绘制的图层。',
+        },
+        'map-tileset-palette': {
+          title: '选择图块',
+          description: '在调色板标签页中从图块表选择一个图块或图块区域作为画笔。',
+        },
+        'map-canvas': {
+          title: '在画布上绘制',
+          description: '在画布上拖拽以用选中的图块绘制。使用工具栏切换画笔、填充、橡皮擦等工具。',
+        },
+        'map-inspector-map': {
+          title: '添加传送门和门',
+          description: 'Inspector > 地图 标签页提供传送门、门、昼夜图块替换、音乐和环境光的语义化卡片。',
+        },
+        'map-save-button': {
+          title: '保存改动',
+          description: '按 Ctrl+S 或点击保存按钮，将改动写回补丁或地图素材。',
+        },
+      },
+    },
   },
 }
 

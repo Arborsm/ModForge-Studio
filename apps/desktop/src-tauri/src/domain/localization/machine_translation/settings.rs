@@ -1,3 +1,6 @@
+//! Machine translation settings persistence — profiles, credentials and
+//! keychain/environment credential resolution.
+
 use super::presets::{preset, presets};
 use crate::domain::app_paths::machine_translation_settings_path;
 use crate::domain::localization::types::*;
@@ -259,6 +262,8 @@ fn snapshot(value: StoredProfile) -> anyhow::Result<MachineTranslationProfile> {
     })
 }
 
+/// Loads machine translation settings, resolving credential sources for
+/// each profile.
 pub fn load() -> anyhow::Result<MachineTranslationSettingsSnapshot> {
     let value = read(&machine_translation_settings_path()?)?;
     Ok(MachineTranslationSettingsSnapshot {
@@ -273,6 +278,8 @@ pub fn load() -> anyhow::Result<MachineTranslationSettingsSnapshot> {
     })
 }
 
+/// Saves machine translation settings, persisting credentials to the keychain
+/// and rolling back on failure.
 pub fn save(
     request: SaveMachineTranslationSettingsRequest,
 ) -> anyhow::Result<MachineTranslationSettingsSnapshot> {

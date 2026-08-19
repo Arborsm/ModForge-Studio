@@ -1,5 +1,6 @@
 /**
- * `Data/Buildings` field schema.
+ * @file `Data/Buildings` field schema declaration and registration.
+ * @module entities/building
  *
  * Declares every known BuildingData key as a control, group and validation
  * rule, so the shared `AssetEntryCanvas` renders the whole form and the codex
@@ -132,7 +133,7 @@ const PLACEMENT_TILE_ITEM_SCHEMA: readonly AssetFieldSchema[] = [
 ]
 
 const FIELDS: readonly AssetFieldSchema[] = [
-  // 基础信息
+  // Basics
   {
     key: 'Name',
     group: 'basics',
@@ -160,7 +161,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'MagicalConstruction', group: 'basics', control: 'tri_bool', labelKey: 'building.magicalConstruction' },
   { key: 'DefaultAction', group: 'basics', control: 'text', labelKey: 'building.defaultAction' },
 
-  // 建造
+  // Construction
   { key: 'Builder', group: 'construction', control: 'text', labelKey: 'building.builder', suggestions: BUILDER_SUGGESTIONS },
   { key: 'BuildCondition', group: 'construction', control: 'gsq', labelKey: 'building.buildCondition', wide: true },
   { key: 'BuildDays', group: 'construction', control: 'number', min: 0, step: 1, labelKey: 'building.buildDays' },
@@ -175,10 +176,10 @@ const FIELDS: readonly AssetFieldSchema[] = [
   },
   { key: 'AddMailOnBuild', group: 'construction', control: 'string_list', labelKey: 'building.addMailOnBuild', wide: true },
 
-  // 皮肤
+  // Skins
   { key: 'Skins', group: 'skins', control: 'nested_list', labelKey: 'building.skins', wide: true, itemSchema: SKIN_ITEM_SCHEMA },
 
-  // 放置
+  // Placement
   { key: 'Size', group: 'placement', control: 'point', labelKey: 'building.size', required: true, validate: validateSize },
   { key: 'CollisionMap', group: 'placement', control: 'textarea', labelKey: 'building.collisionMap', wide: true },
   {
@@ -207,12 +208,12 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'ActionTiles', group: 'placement', control: 'raw', rawShape: 'array', labelKey: 'building.actionTiles', wide: true },
   { key: 'TileProperties', group: 'placement', control: 'raw', rawShape: 'array', labelKey: 'building.tileProperties', wide: true },
 
-  // 升级链
+  // Upgrade chain
   { key: 'BuildingToUpgrade', group: 'upgrade', control: 'building_ref', labelKey: 'building.buildingToUpgrade' },
   { key: 'UpgradeSignTile', group: 'upgrade', control: 'point', labelKey: 'building.upgradeSignTile' },
   { key: 'UpgradeSignHeight', group: 'upgrade', control: 'number', step: 1, labelKey: 'building.upgradeSignHeight' },
 
-  // 室内地图
+  // Indoor map
   { key: 'IndoorMap', group: 'indoor', control: 'map_ref', labelKey: 'building.indoorMap' },
   { key: 'IndoorMapType', group: 'indoor', control: 'text', labelKey: 'building.indoorMapType', suggestions: INDOOR_MAP_TYPE_SUGGESTIONS },
   { key: 'NonInstancedIndoorLocation', group: 'indoor', control: 'location_ref', labelKey: 'building.nonInstancedIndoorLocation' },
@@ -231,7 +232,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'IndoorItemMoves', group: 'indoor', control: 'raw', rawShape: 'array', labelKey: 'building.indoorItemMoves', wide: true },
   { key: 'Chests', group: 'indoor', control: 'raw', rawShape: 'array', labelKey: 'building.chests', wide: true },
 
-  // 纹理
+  // Texture
   { key: 'Texture', group: 'texture', control: 'texture_ref', labelKey: 'building.texture' },
   { key: 'SourceRect', group: 'texture', control: 'rect', labelKey: 'building.sourceRect' },
   { key: 'SeasonOffset', group: 'texture', control: 'point', labelKey: 'building.seasonOffset' },
@@ -242,7 +243,7 @@ const FIELDS: readonly AssetFieldSchema[] = [
   { key: 'FadeWhenBehind', group: 'texture', control: 'tri_bool', labelKey: 'building.fadeWhenBehind' },
   { key: 'DrawLayers', group: 'texture', control: 'raw', rawShape: 'array', labelKey: 'building.drawLayers', wide: true },
 
-  // 高级与自定义
+  // Advanced & custom
   { key: 'ItemConversions', group: 'advanced', control: 'raw', rawShape: 'array', labelKey: 'building.itemConversions', wide: true },
   { key: 'Metadata', group: 'advanced', control: 'key_value_list', labelKey: 'building.metadata', wide: true },
   { key: 'ModData', group: 'advanced', control: 'key_value_list', labelKey: 'building.modData', wide: true },

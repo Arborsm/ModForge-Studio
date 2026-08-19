@@ -1,3 +1,8 @@
+/**
+ * @file Structured `When` condition editor with token catalog completion,
+ * domain chips, and quick-add presets.
+ * @module features/cp-maker
+ */
 import { useId, useState } from 'react'
 import { ChevronDown, Plus, Trash2, X } from 'lucide-react'
 import { cx } from '@shared/lib/helper'

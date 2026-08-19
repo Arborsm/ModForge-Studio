@@ -178,6 +178,12 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
           editorState: withCardMapTiles(sessionPatch.editorState, mapTilesSession.cardId, edits),
         })
       }
+      const tilesSessionCopy = mapAuthoringCopy.tilesSession
+      publishNotification({
+        level: 'success',
+        title: tilesSessionCopy.completedNotificationTitle,
+        description: tilesSessionCopy.completedNotificationDescription,
+      })
     }
     closeMapTilesSession()
   }

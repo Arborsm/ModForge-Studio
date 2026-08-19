@@ -1,9 +1,11 @@
-// 参数胶囊 — 嵌入自然语言句子中的可编辑参数
+/**
+ * @file Parameter pill component: editable parameters embedded in natural-language sentences.
+ */
 
 import { useState, useRef, useEffect, type SyntheticEvent } from 'react'
 import { Film, MapPin, MessageSquareText, Minus, Package, Plus, Route, User, Music, Volume2, Smile, Palette } from 'lucide-react'
 import { cx, formatCopyTemplate } from '@shared/lib/helper'
-import { useDialogueScriptFieldCopy } from '@locales/provider'
+import { useDialogueScriptFieldCopy, useEventStageCopy } from '@locales/provider'
 import { DialogueScriptField, parseDialogueScript } from '@entities/dialogue'
 import type { UIControlType, OptionItem } from '../workflow-model/commandSchema'
 import { ResourcePicker } from '@features/resource-browser'
@@ -57,17 +59,6 @@ function optionToResource(kind: EventResourceKind, option: OptionItem): EventRes
     kind,
     subtitle: 'Schema',
   }
-}
-
-const DIRECTION_LABELS: Record<string, string> = {
-  '0': '上',
-  '1': '右',
-  '2': '下',
-  '3': '左',
-  up: '上',
-  right: '右',
-  down: '下',
-  left: '左',
 }
 
 const FRAME_SEQUENCE_PRESETS = [
@@ -130,11 +121,21 @@ function stripOuterQuotes(value: string) {
   return trimmed
 }
 
-function directionLabel(value: string) {
-  return DIRECTION_LABELS[value] ?? value
+function directionLabel(value: string, labels: { up: string; right: string; down: string; left: string }) {
+  const map: Record<string, string> = {
+    '0': labels.up,
+    '1': labels.right,
+    '2': labels.down,
+    '3': labels.left,
+    up: labels.up,
+    right: labels.right,
+    down: labels.down,
+    left: labels.left,
+  }
+  return map[value] ?? value
 }
 
-function directionTokenLabel(value: string) {
+function directionTokenLabel(value: string, labels: { up: string; right: string; down: string; left: string }) {
   const arrows: Record<string, string> = {
     '0': '↑',
     '1': '→',
@@ -146,7 +147,7 @@ function directionTokenLabel(value: string) {
     left: '←',
   }
   const arrow = arrows[value]
-  return arrow ? `${arrow} ${directionLabel(value)}` : directionLabel(value)
+  return arrow ? `${arrow} ${directionLabel(value, labels)}` : directionLabel(value, labels)
 }
 
 function actorInitial(value: string) {
@@ -249,6 +250,7 @@ export function ParamPill({
   variant = 'default',
 }: ParamPillProps) {
   const dialogueCopy = useDialogueScriptFieldCopy()
+  const eventStageCopy = useEventStageCopy()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -278,13 +280,16 @@ export function ParamPill({
       const summary = formatCopyTemplate(dialogueCopy.pageCountTemplate, { count: pages.length })
       return pages.length > 1 ? `${lead} · ${summary}` : lead || summary
     }
-    if (control === 'direction') return variant === 'script' ? directionTokenLabel(rawValue) : directionLabel(rawValue)
+    if (control === 'direction')
+      return variant === 'script'
+        ? directionTokenLabel(rawValue, eventStageCopy.directionLabels)
+        : directionLabel(rawValue, eventStageCopy.directionLabels)
     if (control === 'toggle') {
-      return rawValue === 'true' ? '是' : rawValue === 'false' ? '否' : rawValue
+      return rawValue === 'true' ? eventStageCopy.toggleTrue : rawValue === 'false' ? eventStageCopy.toggleFalse : rawValue
     }
     if (control === 'path_picker') {
       const stepCount = Math.floor(rawValue.trim().split(/\s+/u).filter(Boolean).length / 3)
-      return stepCount > 0 ? `${stepCount} 个路径点` : placeholder || label
+      return stepCount > 0 ? eventStageCopy.pathPointCount(stepCount) : placeholder || label
     }
     if (control === 'animation_frames') {
       const frameCount = rawValue.trim().split(/\s+/u).filter(Boolean).length
@@ -437,7 +442,7 @@ export function ParamPill({
               setEditing(false)
             }}
           >
-            是
+            {eventStageCopy.toggleTrue}
           </button>
           <button
             type="button"
@@ -450,7 +455,7 @@ export function ParamPill({
               setEditing(false)
             }}
           >
-            否
+            {eventStageCopy.toggleFalse}
           </button>
         </span>
       )
@@ -479,7 +484,7 @@ export function ParamPill({
                 setEditing(false)
               }}
             >
-              {directionLabel(dir)}
+              {directionLabel(dir, eventStageCopy.directionLabels)}
             </button>
           ))}
         </span>
@@ -930,7 +935,7 @@ export function ParamPill({
       )
     }
 
-    // 带选项列表的可过滤输入（用于 npc_selector / music / sound / text 等）
+    // Filterable input with an options list (for npc_selector / music / sound / text, etc.)
     const hasOptions = options && options.length > 0
     const filteredOptions = hasOptions ? options.filter((opt) => optionMatchesFilter(opt, draft)).slice(0, 20) : []
 
@@ -972,7 +977,7 @@ export function ParamPill({
                 setEditing(false)
                 onPickMode()
               }}
-              title={control === 'path_picker' ? '从地图选择路径' : '从地图拾取'}
+              title={control === 'path_picker' ? eventStageCopy.pickFromMapPath : eventStageCopy.pickFromMap}
             >
               {control === 'path_picker' ? <Route className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
             </button>

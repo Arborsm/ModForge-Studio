@@ -1,3 +1,8 @@
+/**
+ * @file Dev lab for the resource browser: loads game assets, item/map/building
+ * catalogs, and renders ResourcePicker cards for each resource kind.
+ * @module dev
+ */
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Building2, Image as ImageIcon, Map, Music, Package, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
 import type { LocaleCode } from '@locales'
@@ -283,6 +288,7 @@ function countDesktopRegistryResources(desktopRegistry: ResourceRegistry) {
   return desktopRegistry.entries.filter((entry) => ['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)).length
 }
 
+/** Dev resource browser lab: loads and displays all resource kinds with pickers. */
 export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }: DevResourceBrowserLabProps) {
   const copy = useResourceBrowserCopy().lab
   const sourceLabels = useEventStageCopy().workflow.resourceSources

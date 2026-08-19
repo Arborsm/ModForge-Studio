@@ -1,13 +1,17 @@
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeedMode, LoadingMotionStyleId } from './loadingMotion'
 import type { WorkbenchLocation, WorkbenchNavigationSection } from '../registry'
 
+/** Window border accent tone — matches the active theme or stays neutral. */
 export type WindowBorderTone = 'accent' | 'neutral'
+/** Window border thickness preset. */
 export type WindowBorderWeight = 'standard' | 'thin' | 'none'
+/** Behavior when the user closes the desktop window — quit the app or minimize to tray. */
 export type WindowCloseBehavior = 'quit' | 'minimizeToTray'
 
 /** Full color theme ids. Each owns its accent + neutral scale + status colors in `styles/tokens.css`. */
 export type ThemeId = 'warm-paper' | 'neutral-tool' | 'slate-blue' | 'forest' | 'twilight' | 'stardew-wood' | 'crimson' | 'blossom'
 
+/** Shell-level UI state — app mode, launcher page, debug, notification sound, and close behavior. */
 export type AppUiShellState = {
   appMode: string
   launcherPage: string
@@ -17,6 +21,7 @@ export type AppUiShellState = {
   rememberCloseChoice: boolean
 }
 
+/** Appearance-related UI state — locale, theme, window border, recent game dirs, player profile, loading motion. */
 export type AppUiAppearanceState = {
   locale: string
   themeId: string
@@ -36,6 +41,7 @@ export type AppUiAppearanceState = {
   }
 }
 
+/** Session state for the i18n generator tool — prefix, target prefixes, enabled targets, expanded paths. */
 export type AppUiI18nGeneratorSession = {
   prefix: string
   targetPrefixes: Record<string, string>
@@ -43,6 +49,7 @@ export type AppUiI18nGeneratorSession = {
   expandedPaths: string[]
 }
 
+/** Workbench-level UI state — location, navigation expansion, expert mode, and per-module state. */
 export type AppUiWorkspaceState = {
   location: WorkbenchLocation
   navigation: {
@@ -53,6 +60,7 @@ export type AppUiWorkspaceState = {
   modules: Record<string, Record<string, unknown>>
 }
 
+/** Launcher-level UI state — discover toolbar settings, force-offline, and force-non-premium flags. */
 export type AppUiLauncherState = {
   discoverToolbar: {
     sort: string
@@ -65,6 +73,7 @@ export type AppUiLauncherState = {
   forceNonPremium: boolean
 }
 
+/** Root persisted UI state — shell, appearance, workspace, and launcher sections. */
 export type AppUiState = {
   version: number
   shell: AppUiShellState
@@ -73,6 +82,7 @@ export type AppUiState = {
   launcher: AppUiLauncherState
 }
 
+/** Patch request for partial UI state updates — only provided sections are merged. */
 export type PatchAppUiStateRequest = {
   shell?: AppUiShellState
   appearance?: Partial<AppUiAppearanceState> & {

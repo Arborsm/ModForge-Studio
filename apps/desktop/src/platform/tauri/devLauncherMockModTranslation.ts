@@ -1,3 +1,8 @@
+/**
+ * @file Browser-only mod translation mock handler — mod catalog, i18n file loading/saving and game directory validation.
+ * @module platform/tauri/devLauncherMockModTranslation
+ */
+
 type MockCommandResult = { handled: true; result: unknown } | { handled: false }
 
 // Structural mirrors of the entities/game and entities/mod contracts. The

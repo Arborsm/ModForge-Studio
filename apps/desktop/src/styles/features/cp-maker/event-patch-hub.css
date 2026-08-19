@@ -258,39 +258,6 @@
     line-height: 1.5;
   }
 
-  .event-patch-context-menu button {
-    @apply text-text-primary flex cursor-pointer items-center text-left;
-    gap: 0.5rem;
-    width: 100%;
-    min-height: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    background: transparent;
-    padding: 0 0.5625rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    transition:
-      background-color 120ms ease,
-      color 120ms ease;
-  }
-
-  .event-patch-context-menu button:disabled {
-    @apply cursor-not-allowed;
-    opacity: 0.45;
-  }
-
-  .event-patch-context-menu button.danger {
-    @apply text-danger;
-  }
-
-  .event-patch-context-menu button svg {
-    @apply text-text-tertiary;
-  }
-
-  .event-patch-context-menu button.danger svg {
-    @apply text-danger;
-  }
-
   .event-patch-tree-title {
     @apply flex items-center justify-between;
     gap: 0.5rem;
