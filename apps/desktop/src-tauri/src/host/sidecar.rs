@@ -561,6 +561,9 @@ pub(crate) fn resolve_command(
             crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
         >(ctx, id, args),
         // domain::modding::commands
+        crate::host_command_wire!(get_compat_plugin_roots) => resolve_typed::<
+            crate::domain::modding::commands::GetCompatPluginRootsParams,
+        >(ctx, id, args),
         crate::host_command_wire!(list_compat_plugin_entries) => resolve_typed::<
             crate::domain::modding::commands::ListCompatPluginEntriesParams,
         >(ctx, id, args),
@@ -676,13 +679,36 @@ pub fn run_stdio() -> Result<(), String> {
     // Resolve packaged compat-plugin roots relative to the sidecar's working
     // directory. The Electron host spawns the sidecar with cwd set to
     // process.resourcesPath (packaged) or the repo root (dev), so
-    // compat-plugins live at <cwd>/compat-plugins. The dev anchor is also
-    // checked by resolve_plugin_roots, but registering the cwd-relative path
-    // here ensures packaged builds find bundled plugins.
+    // compat-plugins live at <cwd>/compat-plugins. Built-in plugins are synced
+    // to the app data directory so users have a writable plugin folder.
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let cwd_plugins = cwd.join("compat-plugins");
-    if cwd_plugins.is_dir() {
-        crate::domain::modding::compat_plugin::set_plugin_roots(vec![cwd_plugins]);
+
+    // Sync built-in plugins to app data dir and use it as the primary root.
+    let app_data_dir = dirs::data_dir();
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(data_dir) = &app_data_dir {
+        let data_plugins = data_dir.join("ModForgeStudio").join("compat-plugins");
+        if cwd_plugins.is_dir() {
+            if let Err(err) =
+                crate::domain::modding::compat_plugin::sync_builtin_plugins_to_data_dir(
+                    &data_dir.join("ModForgeStudio"),
+                    &cwd_plugins,
+                )
+            {
+                eprintln!("[compat-plugins] Failed to sync built-in plugins to data dir: {err}");
+            }
+        }
+        if data_plugins.is_dir() {
+            roots.push(data_plugins);
+        }
+    }
+    // Fallback: if app data dir is unavailable, use cwd-relative path.
+    if roots.is_empty() && cwd_plugins.is_dir() {
+        roots.push(cwd_plugins);
+    }
+    if !roots.is_empty() {
+        crate::domain::modding::compat_plugin::set_plugin_roots(roots);
     }
 
     let ctx = DispatchContext {

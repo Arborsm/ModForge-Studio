@@ -143,6 +143,17 @@ describe('buildCompatRegistrations', () => {
     expect(registrations[0].projectAccess).toBe('none')
   })
 
+  test('skips code-package plugins (their pages come from activate, not the manifest)', () => {
+    const registrations = buildCompatRegistrations([
+      plugin({
+        hasCodeEntry: true,
+        entry: 'index.js',
+        sdkVersion: '1.0.0',
+      }),
+    ])
+    expect(registrations).toHaveLength(0)
+  })
+
   test('returns empty for plugins with no pages', () => {
     const registrations = buildCompatRegistrations([plugin({ pages: [], pageIds: [] })])
     expect(registrations).toHaveLength(0)

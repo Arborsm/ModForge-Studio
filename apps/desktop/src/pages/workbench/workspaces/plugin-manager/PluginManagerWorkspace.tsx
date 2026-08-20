@@ -12,11 +12,11 @@ import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 import {
   listCompatPlugins,
   reloadCompatPlugins,
+  getCompatPluginRoots,
   loadCodePlugins,
-  createCompatRuntime,
   useCompatPluginStore,
 } from '@features/compat-plugins'
-import type { CompatPluginSummary, CodePluginLoadDiagnostic } from '@features/compat-plugins'
+import type { CompatPluginSummary } from '@features/compat-plugins'
 import { openLauncherPath } from '@features/launcher/api'
 
 /** Plugin manager workspace: lists plugins, shows errors, supports reload. */
@@ -33,7 +33,7 @@ export function PluginManagerWorkspace() {
       setPlugins(summaries)
       // Load code plugins and collect diagnostics
       try {
-        const result = await loadCodePlugins(summaries, createCompatRuntime)
+        const result = await loadCodePlugins(summaries)
         setDiagnostics(result.diagnostics)
       } catch {
         // Code plugin loading failure is non-fatal; diagnostics stay empty
@@ -50,7 +50,7 @@ export function PluginManagerWorkspace() {
     }
   }, [status, loadPlugins])
 
-  const handleReload = useCallback(async () => {
+  const handleReload = async () => {
     setReloading(true)
     setReloadMessage(null)
     try {
@@ -58,7 +58,7 @@ export function PluginManagerWorkspace() {
       setPlugins(summaries)
       // Reload code plugins and collect diagnostics
       try {
-        const result = await loadCodePlugins(summaries, createCompatRuntime)
+        const result = await loadCodePlugins(summaries)
         setDiagnostics(result.diagnostics)
       } catch {
         setDiagnostics([])
@@ -70,20 +70,18 @@ export function PluginManagerWorkspace() {
     } finally {
       setReloading(false)
     }
-  }, [setPlugins, setDiagnostics, copy.reloadSuccess, copy.reloadError, setError])
+  }
 
-  const handleOpenPluginDirectory = useCallback(async () => {
-    // Open the first plugin root directory
-    if (plugins.length > 0) {
-      // The plugin directory is the parent of the plugin's directory
-      // We open the first plugin's directory as a representative
-      try {
-        await openLauncherPath({ path: 'compat-plugins' })
-      } catch {
-        // Fallback: try opening the first plugin's root
+  const handleOpenPluginDirectory = async () => {
+    try {
+      const roots = await getCompatPluginRoots()
+      if (roots.length > 0) {
+        await openLauncherPath({ path: roots[0] })
       }
+    } catch {
+      // Plugin roots not available; silently ignore
     }
-  }, [plugins])
+  }
 
   if (status === 'loading' && plugins.length === 0) {
     return (
@@ -150,7 +148,7 @@ export function PluginManagerWorkspace() {
         </div>
         <div className="plugin-manager-list">
           {plugins.map((plugin) => (
-            <PluginManagerRow key={plugin.id} plugin={plugin} copy={copy} />
+            <PluginManagerRow key={plugin.id} plugin={plugin} />
           ))}
         </div>
         {diagnostics.length > 0 && (
@@ -183,10 +181,10 @@ export function PluginManagerWorkspace() {
 
 type PluginManagerRowProps = {
   plugin: CompatPluginSummary
-  copy: ReturnType<typeof usePluginManagerCopy>
 }
 
-function PluginManagerRow({ plugin, copy }: PluginManagerRowProps) {
+function PluginManagerRow({ plugin }: PluginManagerRowProps) {
+  const copy = usePluginManagerCopy()
   const hasError = plugin.loadError !== null && plugin.loadError !== undefined
   return (
     <div className={`plugin-manager-row ${hasError ? 'has-error' : ''}`}>

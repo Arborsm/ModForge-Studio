@@ -56,6 +56,15 @@ export function createTauriPlatformPorts(): PlatformPorts {
       toAssetUrl(filePath: string, protocol?: string) {
         return convertFileSrc(filePath, protocol)
       },
+      resolvePluginUrl(pluginId: string, relativePath: string) {
+        // Mirrors the URL forms the Rust `plugin` scheme handler expects (same
+        // convention as convertFileSrc): Windows WebView2 serves custom schemes
+        // as `http://plugin.localhost/...`, macOS/Linux as
+        // `plugin://localhost/...`. Path segments are encoded individually so
+        // the handler's segment-based parsing keeps working.
+        const segments = [pluginId, ...relativePath.split('/').filter(Boolean)].map(encodeURIComponent).join('/')
+        return navigator.userAgent.includes('Windows') ? `http://plugin.localhost/${segments}` : `plugin://localhost/${segments}`
+      },
     },
     desktopWindow: {
       async minimize() {

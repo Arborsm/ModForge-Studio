@@ -64,7 +64,7 @@ export function mergePluginAssetSchema(contribution: AssetSchemaContribution): A
   const groupId = 'plugin-fields'
   const group: AssetGroupSchema = {
     id: groupId,
-    labelKey: groupId as AssetGroupLabelKey,
+    labelKey: groupId as AssetGroupSchema['labelKey'],
   }
   const fields = contribution.fields.map((field) => convertField(field, groupId))
   return {

@@ -23,6 +23,14 @@ export type SaveDialogOptions = {
 export interface FileSystemPort {
   invokeCommand: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
   toAssetUrl: (filePath: string, protocol?: string) => string
+  /**
+   * Resolves a `plugin://` resource URL for the current host. The concrete URL
+   * form differs per webview (Tauri maps custom schemes to
+   * `http://plugin.localhost/...` on Windows and `plugin://localhost/...`
+   * elsewhere; Electron uses a real privileged scheme), so callers must never
+   * build these URLs by hand.
+   */
+  resolvePluginUrl: (pluginId: string, relativePath: string) => string
 }
 
 /** Cancellation function returned by platform event listeners. */

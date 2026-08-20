@@ -3,7 +3,7 @@
  * building, and plugin locale resolution.
  * @module features/compat-plugins
  */
-export { listCompatPlugins, reloadCompatPlugins } from './api/listCompatPlugins'
+export { listCompatPlugins, reloadCompatPlugins, getCompatPluginRoots } from './api/listCompatPlugins'
 export type {
   CompatPluginSummary,
   CompatPluginPageSummary,

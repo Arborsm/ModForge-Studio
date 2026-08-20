@@ -1,33 +1,9 @@
 {
   "format": 1,
   "id": "modforge.example-code-plugin",
-  "name": "Example Code Plugin",
-  "targets": [],
+  "name": "Memory Match Example",
+  "targets": ["ModForge.ExampleCodePlugin"],
   "sdkVersion": "1.0.0",
   "entry": "index.js",
-  "contributions": {
-    "pages": [
-      {
-        "id": "example-code-page",
-        "navigation": { "section": "tools", "order": 990, "icon": "code" },
-        "titleKey": "example.page.title",
-        "presentation": "standalone",
-        "projectAccess": "none"
-      }
-    ],
-    "i18n": {
-      "zh-CN": {
-        "example.page.title": "代码包示例",
-        "example.greeting": "欢迎使用 ModForge 代码包插件 SDK",
-        "example.capability": "插件 ID: {pluginId}",
-        "example.component.demo": "设计系统组件演示"
-      },
-      "en-US": {
-        "example.page.title": "Code Plugin Example",
-        "example.greeting": "Welcome to the ModForge code plugin SDK",
-        "example.capability": "Plugin ID: {pluginId}",
-        "example.component.demo": "Design system component demo"
-      }
-    }
-  }
+  "contributions": {}
 }

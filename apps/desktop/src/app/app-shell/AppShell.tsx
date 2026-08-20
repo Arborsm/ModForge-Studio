@@ -105,6 +105,11 @@ async function importWorkbenchPage() {
   }
   const pluginRegistrations = compatPluginsModule.buildCompatRegistrations(plugins)
 
+  // Register plugin i18n bundles in the plugin locale store for sidebar label
+  // resolution. This must happen before loadCodePlugins: activation captures
+  // the plugin's i18n bundle for its PluginContext.
+  compatPluginsModule.registerPluginI18nBundles(plugins)
+
   // Register plugin-contributed asset schemas so the CP editor renderer resolves
   // them through the same `getAssetSchema` lookup as the built-in schemas.
   for (const schema of compatPluginsModule.mergePluginAssetSchemas(plugins)) {
@@ -117,7 +122,7 @@ async function importWorkbenchPage() {
   // their own pages via the SDK's PluginContext.registerPage.
   let codePluginRegistrations: typeof pluginRegistrations = []
   try {
-    const codeResult = await compatPluginsModule.loadCodePlugins(plugins, compatPluginsModule.createCompatRuntime)
+    const codeResult = await compatPluginsModule.loadCodePlugins(plugins)
     codePluginRegistrations = codeResult.registrations
     if (codeResult.diagnostics.length > 0) {
       console.warn('[compat-plugins] Code plugin load diagnostics:', codeResult.diagnostics)
@@ -129,9 +134,6 @@ async function importWorkbenchPage() {
   const mergedRegistry = registryModule.createAppRegistry({
     workbenchModules: [...registrySetupModule.staticWorkbenchModules, ...pluginRegistrations, ...codePluginRegistrations],
   })
-
-  // Register plugin i18n bundles in the plugin locale store for sidebar label resolution.
-  compatPluginsModule.registerPluginI18nBundles(plugins)
 
   // Register plugin condition syntax contributions so the When/GSQ editors can
   // offer plugin-provided condition keys in autocomplete alongside built-ins.

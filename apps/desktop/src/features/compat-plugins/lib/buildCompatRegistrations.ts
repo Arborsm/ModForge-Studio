@@ -72,6 +72,10 @@ export function createCompatRuntime(moduleId: string): LazyExoticComponent<Compo
  *
  * - Plugin module ids are prefixed with `compat-` to avoid collisions with
  *   built-in modules.
+ * - Code-package plugins (`hasCodeEntry`) are skipped entirely: their pages are
+ *   registered by the plugin's own `activate(ctx)` via `loadCodePlugins`, so
+ *   manifest `contributions.pages` must not double-register the same module id
+ *   (validateWorkbenchModules rejects duplicates).
  * - Sections outside the valid set are clamped to `tools`.
  * - Browser + write project access is rejected by `validateWorkbenchModules`.
  * - Duplicate ids are rejected by `validateWorkbenchModules`.
@@ -80,11 +84,13 @@ export function buildCompatRegistrations(plugins: readonly CompatPluginSummary[]
   // Register page descriptors so the runtime can look them up by module id.
   const descriptorStore = usePageDescriptorStore.getState()
   for (const plugin of plugins) {
+    if (plugin.hasCodeEntry) continue
     descriptorStore.registerPages(plugin.id, plugin.pages, plugin.targets)
   }
 
   const registrations: WorkbenchModuleRegistration[] = []
   for (const plugin of plugins) {
+    if (plugin.hasCodeEntry) continue
     for (const page of plugin.pages) {
       const moduleId = `compat-${plugin.id}:${page.id}`
       registrations.push({

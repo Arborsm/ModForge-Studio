@@ -515,10 +515,12 @@ if (isMain) {
       process.exitCode = 1
     }
   } else {
-    // Validate the sidecar dispatch before writing any generated output.
+    // Generate mode: write all three artifacts. Validation is skipped here
+    // because adding/removing commands inherently makes the sidecar dispatch
+    // drift until regenerated — validating before writing would block the
+    // very regeneration that fixes the drift. Use --check (or build.rs) to
+    // verify sync after generation.
     const sidecarSource = await readFile(sidecarPath, 'utf8')
-    validateSidecarDispatch(sidecarSource, commands)
-
     const libRsSource = await readFile(libRsPath, 'utf8')
     const nextLibRs = regenerateLibRsHandler(libRsSource, commands)
     const nextSidecar = regenerateSidecarDispatch(sidecarSource, commands)

@@ -11,17 +11,23 @@
 
 // ── Page registration ───────────────────────────────────────────────────────
 
-/** Navigation section for a plugin page. */
-export type PluginPageSection = 'tools' | 'editors' | 'settings'
+/** Navigation section for a plugin page. Mirrors the host's WorkbenchNavigationSection. */
+export type PluginPageSection = 'browse' | 'authoring' | 'translation' | 'tools' | 'development'
 
-/** Navigation icon name (clamped to the host's known icon set). */
-export type PluginPageIcon = 'images' | 'package' | 'code' | 'palette' | 'settings'
+/**
+ * Navigation icon name. The host clamps unknown icons to a fallback, so any
+ * string is accepted; prefer the host's known set (`map`, `events`,
+ * `characters`, `buildings`, `items`, `audio`, `package`, `languages`,
+ * `files`, `beaker`, `book-open-check`, `book-open`, `dialogue`, `schedule`,
+ * `mail`, `bug`, `settings`, `images`).
+ */
+export type PluginPageIcon = string
 
-/** Presentation mode for a plugin page. */
-export type PluginPagePresentation = 'standalone' | 'embedded'
+/** Presentation mode for a plugin page. Mirrors the host's registration contract. */
+export type PluginPagePresentation = 'browser' | 'authoring' | 'standalone'
 
-/** Project access level for a plugin page. */
-export type PluginProjectAccess = 'none' | 'read' | 'readWrite'
+/** Project access level for a plugin page. Mirrors the host's registration contract. */
+export type PluginProjectAccess = 'none' | 'read' | 'write'
 
 /** A page contribution registered by a plugin via `PluginContext.registerPage`. */
 export interface PluginPageContribution {
@@ -46,12 +52,37 @@ export interface PluginPageContribution {
 // ── Host commands ────────────────────────────────────────────────────────────
 
 /** Allowlisted host command names available to plugins. */
-export type PluginCommandName = 'readModFile' | 'writeModFile' | 'listModDirectory' | 'readPluginAsset' | 'resolveTargetModRoot'
+export type PluginCommandName =
+  | 'readModFile'
+  | 'writeModFile'
+  | 'listModDirectory'
+  | 'readPluginAsset'
+  | 'resolveTargetModRoot'
+  | 'resolveGameRoot'
+  | 'loadGameDataAsset'
+  | 'loadGameImage'
+  | 'scanGameAudio'
+  | 'loadGameAudioCue'
 
 /** Allowlisted host command interface. */
 export interface PluginCommands {
   /** Invokes an allowlisted host command. Not a generic invoke passthrough. */
   invoke<T>(name: PluginCommandName, args?: unknown): Promise<T>
+}
+
+// ── Game asset payloads (returned by the game asset commands) ────────────────
+
+/** Parsed text/data asset payload from `loadGameDataAsset`; `content` is the asset body (JSON-parseable for data assets). */
+export interface PluginGameDataAsset {
+  absolutePath: string
+  relativePath: string
+  content: string
+}
+
+/** Audio cue summary from `scanGameAudio`. */
+export interface PluginAudioCueSummary {
+  cue: string
+  kind: 'music' | 'sound'
 }
 
 // ── Capabilities ─────────────────────────────────────────────────────────────
@@ -83,6 +114,32 @@ export interface PluginComponents {
   EmptyStateCard: ReactComponentType
 }
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+/** Notification severity; mirrors the host's shared notification levels. */
+export type PluginNotificationLevel = 'success' | 'info' | 'warning' | 'error'
+
+/** Notification payload for `PluginNotifications.publish`. */
+export interface PluginNotificationRequest {
+  /** Stable id within the plugin (auto-namespaced with the plugin id); reused ids replace the previous notification. */
+  id?: string
+  /** Severity; unknown values fall back to `info`. */
+  level?: PluginNotificationLevel
+  title: string
+  summary?: string
+  note?: string
+  /** Auto-dismiss delay in ms; null pins the notification. Defaults to a short toast. */
+  autoDismissMs?: number | null
+}
+
+/** Host notification surface; published notifications are dismissed on plugin dispose. */
+export interface PluginNotifications {
+  /** Publishes a notification and returns its namespaced id. */
+  publish(request: PluginNotificationRequest): string
+  /** Dismisses a notification by plugin-local or namespaced id. */
+  dismiss(id: string): void
+}
+
 // ── Plugin context ───────────────────────────────────────────────────────────
 
 /** The context passed to a plugin's `activate` function. */
@@ -91,12 +148,14 @@ export interface PluginContext {
   registerPage(page: PluginPageContribution): void
   /** Design-system component subset (token-styled). */
   components: PluginComponents
-  /** Allowlisted host commands; paths scoped to mod/project roots. */
+  /** Allowlisted host commands; paths scoped to mod/project roots and the game directory. */
   commands: PluginCommands
-  /** Built-in capability lookup by id. */
+  /** Built-in capability lookup by id (`plugin.id`, `plugin.targets`, `host.sdkVersion`, `host.locale`). */
   capabilities: PluginCapabilities
   /** Plugin locale lookup (bundle registered from manifest i18n). */
   i18n: PluginI18n
+  /** Host notification surface (namespaced per plugin, dismissed on dispose). */
+  notifications: PluginNotifications
   /** Registers a cleanup function run on plugin unload/reload. */
   onDispose(fn: () => void): void
 }

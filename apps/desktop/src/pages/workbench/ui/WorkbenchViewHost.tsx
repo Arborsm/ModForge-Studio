@@ -8,6 +8,7 @@ type ModuleErrorBoundaryProps = {
   title: string
   detail: string
   retryLabel: string
+  moduleId: string
   children: ReactNode
 }
 
@@ -20,7 +21,12 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
     return { error }
   }
 
-  componentDidCatch(_error: Error, _info: ErrorInfo) {}
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // The webview console bridge drops the Error object argument from React's
+    // default caught-error logging, so log the message and component stack
+    // explicitly to keep module crashes diagnosable from the terminal log.
+    console.error(`[workbench] Module ${this.props.moduleId} crashed:`, error, info.componentStack)
+  }
 
   render() {
     if (this.state.error) {
@@ -73,6 +79,7 @@ export function WorkbenchViewHost({ module }: { module: WorkbenchModuleRegistrat
   return (
     <ModuleErrorBoundary
       key={module.id}
+      moduleId={module.id}
       title={copy.messages.workbenchModuleErrorTitle}
       detail={copy.messages.workbenchModuleErrorDetail}
       retryLabel={copy.messages.workbenchModuleRetry}

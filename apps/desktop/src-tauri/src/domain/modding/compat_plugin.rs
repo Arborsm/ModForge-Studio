@@ -499,10 +499,18 @@ fn leak_static(value: &str) -> &'static str {
 ///
 /// Each root is scanned for immediate child directories containing a
 /// `manifest.json`. A parse or validation failure for one plugin is recorded in
-/// `errors` and does not affect the others.
+/// `errors` and does not affect the others. The same plugin id appearing in
+/// multiple roots is deduplicated: the first (highest-priority) root wins and
+/// later duplicates are logged with `compatPlugin.duplicateId`.
 pub(crate) fn load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport {
     let mut report = PluginLoadReport::default();
     let id_re = regex::Regex::new(PLUGIN_ID_PATTERN).expect("plugin id regex is valid");
+    // Roots are priority-ordered (user data dir first, bundled source tree
+    // second); the same plugin id can appear in multiple roots (e.g. the
+    // built-in sync copies plugins into the data dir while the dev source
+    // tree is also scanned). First occurrence wins; later duplicates are
+    // skipped so consumers never see the same plugin twice.
+    let mut seen_ids = std::collections::HashSet::new();
 
     for root in roots {
         let entries = match std::fs::read_dir(root) {
@@ -532,7 +540,20 @@ pub(crate) fn load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport {
 
             let plugin_dir = path.display().to_string();
             match load_single_manifest(&manifest_path, &path, &id_re) {
-                Ok(manifest) => report.manifests.push(manifest),
+                Ok(manifest) => {
+                    if !seen_ids.insert(manifest.id.clone()) {
+                        log::warn!(
+                            target: targets::APP_UI,
+                            "{}",
+                            LogEvent::new("compatPlugin.duplicateId")
+                                .field("pluginDir", plugin_dir)
+                                .field("pluginId", manifest.id)
+                                .render()
+                        );
+                        continue;
+                    }
+                    report.manifests.push(manifest);
+                }
                 Err(reason) => report.errors.push(PluginLoadError {
                     plugin_dir,
                     plugin_id: None,
@@ -620,8 +641,13 @@ fn validate_manifest(
         }
     }
 
-    // V6: at least one contribution key non-empty
-    let has_contrib = manifest.contributions.attached_api.is_some()
+    // V6: at least one contribution channel non-empty. A code entry counts on
+    // its own: code packages register pages via `activate(ctx)` at runtime, so
+    // their manifest legitimately has no `contributions` keys (and must NOT
+    // re-declare pages — the frontend skips manifest pages for code plugins to
+    // avoid double registration).
+    let has_contrib = has_entry
+        || manifest.contributions.attached_api.is_some()
         || !manifest.contributions.pages.is_empty()
         || !manifest.contributions.asset_schemas.is_empty()
         || !manifest.contributions.condition_syntax.is_empty();
@@ -776,6 +802,76 @@ static CACHED_SUMMARIES: Mutex<Option<Vec<CompatPluginSummary>>> = Mutex::new(No
 /// override is `None`, so callers only need to supply the packaged paths.
 pub(crate) fn set_plugin_roots(roots: Vec<PathBuf>) {
     let _ = PLUGIN_ROOTS.set(roots);
+}
+
+/// Copies built-in compat plugins from a source directory (typically the
+/// bundled resource dir or dev source tree) into the app data directory's
+/// `compat-plugins` subfolder. Existing files are overwritten only if the
+/// source file is newer. This makes built-in plugins available in the user's
+/// data directory so that `open_launcher_path` can open a real folder and
+/// users can drop their own plugins alongside the built-in ones.
+///
+/// Returns the destination directory path on success.
+pub(crate) fn sync_builtin_plugins_to_data_dir(
+    app_data_dir: &Path,
+    builtin_source: &Path,
+) -> std::io::Result<PathBuf> {
+    let dest = app_data_dir.join("compat-plugins");
+    std::fs::create_dir_all(&dest)?;
+
+    if !builtin_source.is_dir() {
+        return Ok(dest);
+    }
+
+    for entry in std::fs::read_dir(builtin_source)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        if !src_path.is_dir() {
+            continue;
+        }
+        let plugin_name = match entry.file_name().to_str() {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+        let dest_plugin = dest.join(&plugin_name);
+        sync_plugin_dir(&src_path, &dest_plugin)?;
+    }
+
+    Ok(dest)
+}
+
+/// Recursively syncs a single plugin directory from src to dest, overwriting
+/// files only if the source is newer. Creates dest if it does not exist.
+fn sync_plugin_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dest_path = dest.join(entry.file_name());
+
+        if src_path.is_dir() {
+            sync_plugin_dir(&src_path, &dest_path)?;
+        } else {
+            let should_copy = match std::fs::metadata(&dest_path) {
+                Ok(dest_meta) => {
+                    let src_time = entry.metadata()?.modified()?;
+                    let dest_time = dest_meta.modified()?;
+                    src_time > dest_time
+                }
+                Err(_) => true,
+            };
+            if should_copy {
+                std::fs::copy(&src_path, &dest_path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Returns the plugin roots that are currently registered, for the
+/// `get_compat_plugin_roots` host command.
+pub(crate) fn get_plugin_roots() -> Vec<PathBuf> {
+    resolve_plugin_roots(None)
 }
 
 /// Loads plugin summaries from the resolved plugin roots, including inline i18n

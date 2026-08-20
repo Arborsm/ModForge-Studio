@@ -4,22 +4,37 @@
  * with a PluginContext, and collects registered pages into the module registry.
  * @module features/compat-plugins
  */
-import type { PluginContext, PluginModule, PluginPageContribution } from '@modforge/plugin-sdk'
+import type { PluginContext, PluginModule, PluginNotificationRequest, PluginPageContribution } from '@modforge/plugin-sdk'
 import { isSdkVersionCompatible, parseSdkMajor } from '@modforge/plugin-sdk'
-import type { ComponentType, LazyExoticComponent } from 'react'
+import { lazy, type ComponentType } from 'react'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelSection } from '@shared/ui/PanelSection'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
+import { dismissNotification, publishNotification, type NotificationLevel } from '@shared/ui/notifications'
+import { detectDefaultGameDirectory, loadImageDataUrl, loadTextAsset, loadXactAudioDataUrl, scanAudioAssets } from '@entities/game/api'
 import type { CompatPluginSummary } from '../api/types'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import { clampIcon, clampPresentation, clampProjectAccess, clampSection } from '../lib/buildCompatRegistrations'
 import { getImportMapSupport } from '../lib/importMapSupport'
+import { resolveTargetModRoot } from '../lib/resolveTargetModRoot'
+import { listCompatPluginEntries, readCompatPluginEntry, writeCompatPluginEntry } from '../api/directoryPackApi'
 import { usePluginLocaleStore } from '../model/pluginLocaleStore'
 import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
+import { getPlatformPorts } from '@platform/host/runtime'
 
 /** The host's SDK major version. Plugins must match this to be loaded. */
 export const HOST_SDK_MAJOR_VERSION = 1
+
+/**
+ * Resolves a `plugin://` resource URL through the platform port. The concrete
+ * URL form is host-specific (Tauri Windows uses `http://plugin.localhost`,
+ * Tauri macOS/Linux uses `plugin://localhost`, Electron uses a real scheme), so
+ * this must never be string-built inline.
+ */
+function resolvePluginResourceUrl(pluginId: string, relativePath: string): string {
+  return getPlatformPorts().fileSystem.resolvePluginUrl(pluginId, relativePath)
+}
 
 /** Diagnostic entry for a plugin that failed to load. */
 export type CodePluginLoadDiagnostic = {
@@ -58,6 +73,26 @@ function createPluginContext(
   // This is used by commands that need to read/write mod files.
   const targetUniqueId = pluginTargets[0] ?? null
 
+  // Game directory lookups are shared by the game asset commands and cached
+  // per plugin so repeated asset loads only resolve once.
+  let gameRootPromise: Promise<string | null> | null = null
+  const resolveGameRoot = () => {
+    gameRootPromise ??= detectDefaultGameDirectory().catch(() => null)
+    return gameRootPromise
+  }
+
+  // Notifications published by this plugin are tracked so dispose can retract
+  // everything the plugin left on screen.
+  const publishedNotificationIds: string[] = []
+  const namespaceNotificationId = (id: string) => (id.startsWith(`plugin:${pluginId}:`) ? id : `plugin:${pluginId}:${id}`)
+  const notificationLevels = new Set<NotificationLevel>(['success', 'info', 'warning', 'error'])
+  disposeHooks.push(() => {
+    for (const id of publishedNotificationIds) {
+      dismissNotification(id)
+    }
+    publishedNotificationIds.length = 0
+  })
+
   return {
     registerPage(page: PluginPageContribution) {
       collectedPages.push({ pluginId, page })
@@ -74,14 +109,11 @@ function createPluginContext(
         switch (name) {
           case 'resolveTargetModRoot': {
             if (!targetUniqueId) return null as T
-            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
             return (await resolveTargetModRoot(targetUniqueId)) as T
           }
           case 'listModDirectory': {
-            const { listCompatPluginEntries } = await import('../api/directoryPackApi')
             const params = (args ?? {}) as { rootSubdir: string; entryFile: string; entryImage?: string }
             if (!targetUniqueId) return [] as T
-            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
             const modRoot = await resolveTargetModRoot(targetUniqueId)
             if (!modRoot) return [] as T
             return (await listCompatPluginEntries({
@@ -92,10 +124,8 @@ function createPluginContext(
             })) as T
           }
           case 'readModFile': {
-            const { readCompatPluginEntry } = await import('../api/directoryPackApi')
             const params = (args ?? {}) as { rootSubdir: string; entryId: string; entryFile: string }
             if (!targetUniqueId) return null as T
-            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
             const modRoot = await resolveTargetModRoot(targetUniqueId)
             if (!modRoot) return null as T
             return (await readCompatPluginEntry({
@@ -106,10 +136,8 @@ function createPluginContext(
             })) as T
           }
           case 'writeModFile': {
-            const { writeCompatPluginEntry } = await import('../api/directoryPackApi')
             const params = (args ?? {}) as { rootSubdir: string; entryId: string; entryFile: string; content: Record<string, unknown> }
             if (!targetUniqueId) return undefined as T
-            const { resolveTargetModRoot } = await import('../lib/resolveTargetModRoot')
             const modRoot = await resolveTargetModRoot(targetUniqueId)
             if (!modRoot) return undefined as T
             await writeCompatPluginEntry({
@@ -125,9 +153,38 @@ function createPluginContext(
             // Plugin assets are served via the plugin:// protocol; the host
             // resolves the URL and fetches it. This is a read-only operation.
             const assetPath = (args as { path?: string })?.path ?? ''
-            const url = `plugin://${pluginId}/${assetPath}`
+            const url = resolvePluginResourceUrl(pluginId, assetPath)
             const response = await fetch(url)
             return (await response.text()) as T
+          }
+          case 'resolveGameRoot': {
+            return (await resolveGameRoot()) as T
+          }
+          case 'loadGameDataAsset': {
+            // Plugin-facing arg is a Content Patcher-style asset key (e.g.
+            // 'Data/Objects'); the host maps it onto Content/<key>.xnb.
+            const params = (args ?? {}) as { assetPath: string; locale?: string }
+            const root = await resolveGameRoot()
+            if (!root) throw new Error('Game directory not found')
+            const relative = /\.(xnb|json)$/i.test(params.assetPath) ? params.assetPath : `${params.assetPath}.xnb`
+            return (await loadTextAsset(root, `Content/${relative}`, params.locale)) as T
+          }
+          case 'loadGameImage': {
+            const params = (args ?? {}) as { contentPath: string; locale?: string }
+            const root = await resolveGameRoot()
+            if (!root) throw new Error('Game directory not found')
+            return (await loadImageDataUrl(`${root}/Content/${params.contentPath}.xnb`, params.locale)) as T
+          }
+          case 'scanGameAudio': {
+            const root = await resolveGameRoot()
+            if (!root) return [] as T
+            return (await scanAudioAssets(root)) as T
+          }
+          case 'loadGameAudioCue': {
+            const params = (args ?? {}) as { cue: string }
+            const root = await resolveGameRoot()
+            if (!root) throw new Error('Game directory not found')
+            return (await loadXactAudioDataUrl(root, params.cue)) as T
           }
           default:
             throw new Error(`Unknown plugin command: ${name}`)
@@ -145,6 +202,8 @@ function createPluginContext(
             return pluginTargets
           case 'host.sdkVersion':
             return String(HOST_SDK_MAJOR_VERSION)
+          case 'host.locale':
+            return usePreferencesStore.getState().locale ?? 'en-US'
           default:
             return undefined
         }
@@ -159,6 +218,25 @@ function createPluginContext(
         return entries?.[key] ?? key
       },
     },
+    notifications: {
+      publish(request: PluginNotificationRequest): string {
+        const id = namespaceNotificationId(request.id?.trim() || crypto.randomUUID())
+        const level = notificationLevels.has(request.level as NotificationLevel) ? (request.level as NotificationLevel) : 'info'
+        publishNotification({
+          id,
+          level,
+          title: String(request.title ?? ''),
+          summary: request.summary ?? null,
+          note: request.note ?? null,
+          autoDismissMs: request.autoDismissMs ?? 4000,
+        })
+        publishedNotificationIds.push(id)
+        return id
+      },
+      dismiss(id: string) {
+        dismissNotification(namespaceNotificationId(id))
+      },
+    },
     onDispose(fn: () => void) {
       disposeHooks.push(fn)
     },
@@ -166,11 +244,11 @@ function createPluginContext(
 }
 
 /** Converts a registered plugin page to a WorkbenchModuleRegistration. */
-function registeredPageToModuleRegistration(
-  registered: RegisteredPage,
-  createRuntime: (moduleId: string) => () => LazyExoticComponent<ComponentType>,
-): WorkbenchModuleRegistration {
+function registeredPageToModuleRegistration(registered: RegisteredPage): WorkbenchModuleRegistration {
   const moduleId = `compat-${registered.pluginId}:${registered.page.id}`
+  // Code-package pages render the plugin's own component (supplied via
+  // `registerPage`), wrapped in lazy so the registry contract is honoured.
+  const component = registered.page.component as ComponentType
   return {
     id: moduleId,
     navigation: {
@@ -181,7 +259,7 @@ function registeredPageToModuleRegistration(
     },
     presentation: clampPresentation(registered.page.presentation),
     projectAccess: clampProjectAccess(registered.page.projectAccess),
-    createRuntime: createRuntime(moduleId),
+    createRuntime: () => lazy(async () => ({ default: component })),
     persistenceKey: moduleId,
   }
 }
@@ -206,10 +284,7 @@ export function disposeCodePlugins(disposeHooks: (() => void)[]): void {
  *
  * Returns the collected module registrations and diagnostics for failed plugins.
  */
-export async function loadCodePlugins(
-  plugins: readonly CompatPluginSummary[],
-  createRuntime: (moduleId: string) => () => LazyExoticComponent<ComponentType>,
-): Promise<CodePluginLoadResult> {
+export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): Promise<CodePluginLoadResult> {
   const registrations: WorkbenchModuleRegistration[] = []
   const diagnostics: CodePluginLoadDiagnostic[] = []
   const collectedPages: RegisteredPage[] = []
@@ -249,7 +324,7 @@ export async function loadCodePlugins(
 
     // Entry path from manifest; fall back to "index.js" if missing.
     const entryFile = plugin.entry ?? 'index.js'
-    const entryPath = `plugin://${pluginId}/${entryFile}`
+    const entryPath = resolvePluginResourceUrl(pluginId, entryFile)
 
     try {
       const module = (await import(/* @vite-ignore */ entryPath)) as { default?: PluginModule }
@@ -270,7 +345,7 @@ export async function loadCodePlugins(
 
       // Convert collected pages for this plugin to module registrations.
       for (const registered of collectedPages.filter((p) => p.pluginId === pluginId)) {
-        registrations.push(registeredPageToModuleRegistration(registered, createRuntime))
+        registrations.push(registeredPageToModuleRegistration(registered))
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)

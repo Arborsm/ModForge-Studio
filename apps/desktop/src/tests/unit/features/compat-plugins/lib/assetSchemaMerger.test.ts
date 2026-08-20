@@ -8,7 +8,7 @@ function contribution(overrides: Partial<AssetSchemaContribution> = {}): AssetSc
     fields: [
       { id: 'name', path: 'Name', type: 'text', labelKey: 'spacecore.name' },
       { id: 'price', path: 'Price', type: 'number' },
-      { id: 'category', path: 'Category', type: 'choice', allowValues: ['Cooking', 'Crafting'] },
+      { id: 'category', path: 'Category', type: 'choice' },
       { id: 'edible', path: 'IsEdible', type: 'bool' },
       { id: 'tags', path: 'Tags', type: 'string-list' },
       { id: 'buffs', path: 'Buffs', type: 'record-list' },

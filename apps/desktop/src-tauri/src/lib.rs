@@ -133,7 +133,8 @@ fn handle_plugin_uri_scheme(
     //   macOS/Linux → `plugin://localhost/<pluginId>/<relativePath>`
     //   Windows     → `http://plugin.localhost/<pluginId>/<relativePath>`
     // `url::Url` extracts the path segments uniformly in both cases.
-    let parsed = match url::Url::parse(&request.uri().to_string()) {
+    let request_uri = request.uri().to_string();
+    let parsed = match url::Url::parse(&request_uri) {
         Ok(url) => url,
         Err(_) => return plugin_protocol_not_found(),
     };
@@ -164,6 +165,9 @@ fn handle_plugin_uri_scheme(
     let Some(resolved) =
         domain::modding::compat_plugin::resolve_plugin_protocol_path(&plugin_id, &relative_path)
     else {
+        eprintln!(
+            "[plugin-protocol] 404 plugin_id={plugin_id} relative_path={relative_path} uri={request_uri}"
+        );
         return plugin_protocol_not_found();
     };
 
@@ -222,21 +226,47 @@ pub fn run() {
                 .unwrap_or(false);
             domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host, force_offline);
 
-            // Resolve packaged compat-plugin roots (resource_dir + app_data_dir)
-            // and register them process-wide so domain code without an AppHandle
-            // (e.g. load_attached_api_registry) can locate plugins in packaged
-            // builds. The dev-build anchor is added by resolve_plugin_roots.
+            // Resolve packaged compat-plugin roots and sync built-in plugins
+            // into the app data directory. The app data dir is the user-facing
+            // plugin folder (opened by the plugin manager's "open plugin
+            // directory" button); built-in plugins from resource_dir or the
+            // dev source tree are copied there on startup.
             let mut packaged_roots: Vec<std::path::PathBuf> = Vec::new();
+            let mut builtin_source: Option<std::path::PathBuf> = None;
             if let Ok(resource_dir) = app.path().resource_dir() {
                 let plugin_dir = resource_dir.join("compat-plugins");
-                if plugin_dir.is_dir() && !packaged_roots.contains(&plugin_dir) {
+                if plugin_dir.is_dir() {
+                    builtin_source = Some(plugin_dir);
+                }
+            }
+            // Dev build anchor: CARGO_MANIFEST_DIR points at apps/desktop/src-tauri.
+            let dev_builtin = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("compat-plugins");
+            if dev_builtin.is_dir() && builtin_source.is_none() {
+                builtin_source = Some(dev_builtin);
+            }
+
+            if let Ok(app_data_dir) = app.path().app_data_dir() {
+                if let Some(source) = &builtin_source {
+                    if let Err(err) = domain::modding::compat_plugin::sync_builtin_plugins_to_data_dir(
+                        &app_data_dir,
+                        source,
+                    ) {
+                        eprintln!("[compat-plugins] Failed to sync built-in plugins to data dir: {err}");
+                    }
+                }
+                let plugin_dir = app_data_dir.join("compat-plugins");
+                if plugin_dir.is_dir() {
                     packaged_roots.push(plugin_dir);
                 }
             }
-            if let Ok(app_data_dir) = app.path().app_data_dir() {
-                let plugin_dir = app_data_dir.join("compat-plugins");
-                if plugin_dir.is_dir() && !packaged_roots.contains(&plugin_dir) {
-                    packaged_roots.push(plugin_dir);
+            // In dev builds, also add the source-tree compat-plugins directory
+            // as a fallback root so plugins are found even if the data-dir
+            // sync failed or the data dir is not writable.
+            if let Some(source) = &builtin_source {
+                if !packaged_roots.contains(source) {
+                    packaged_roots.push(source.clone());
                 }
             }
             if !packaged_roots.is_empty() {
@@ -471,6 +501,7 @@ pub fn run() {
             domain::localization::machine_translation::commands::test_machine_translation_profile,
             domain::localization::machine_translation::commands::translate_machine_translation_batch,
             // domain::modding::commands
+            domain::modding::commands::get_compat_plugin_roots,
             domain::modding::commands::list_compat_plugin_entries,
             domain::modding::commands::list_compat_plugins,
             domain::modding::commands::read_compat_plugin_entry,

@@ -36,6 +36,7 @@ export const HOST_COMMANDS = {
   fetchAiModelsDevCatalog: 'fetch_ai_models_dev_catalog',
   findSmapiInstallerDownloads: 'find_smapi_installer_downloads',
   getAiTranslationCacheStats: 'get_ai_translation_cache_stats',
+  getCompatPluginRoots: 'get_compat_plugin_roots',
   getDebugBridgeModState: 'get_debug_bridge_mod_state',
   getDebugBridgeStatus: 'get_debug_bridge_status',
   getFileCacheStats: 'get_file_cache_stats',

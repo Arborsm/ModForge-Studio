@@ -30,3 +30,8 @@ export async function reloadCompatPlugins(): Promise<CompatPluginSummary[]> {
   compatPluginCache.delete('default')
   return summaries
 }
+
+/** Returns the resolved compat plugin root directory paths (user-facing data dir). */
+export function getCompatPluginRoots() {
+  return invokeDesktop<string[]>(HOST_COMMANDS.getCompatPluginRoots, undefined, { kind: 'latest', key: 'compat-plugin-roots' })
+}

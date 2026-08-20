@@ -34,6 +34,19 @@ pub async fn reload_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSum
     )
 }
 
+/// Returns the resolved compat plugin root directories. Used by the plugin
+/// manager page's "open plugin directory" button to open the user-facing
+/// plugin folder (app data dir) in the file explorer.
+#[host_command(control)]
+pub async fn get_compat_plugin_roots(app: AppHandle) -> Result<Vec<String>, String> {
+    Ok::<Vec<String>, String>(
+        domain::modding::compat_plugin::get_plugin_roots()
+            .into_iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect(),
+    )
+}
+
 /// Lists pack entries under a directory-pack source. Scans `<mod_root>/<root_subdir>`
 /// for subdirectories containing the declared entry file, returning one summary
 /// per entry. Used by stage 2 `directory-pack` source adapters.

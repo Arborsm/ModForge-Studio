@@ -225,6 +225,61 @@ fn v6_rejects_empty_contributions() {
     assert!(report.errors[0].reason.contains("contributions"));
 }
 
+#[test]
+fn v6_accepts_code_entry_with_empty_contributions() {
+    // A code package contributes its pages via `activate(ctx)` at runtime, so
+    // `entry` + `sdkVersion` alone satisfies the non-empty contribution rule.
+    let root = create_temp_dir("compat-plugin-v6-code-entry");
+    let body = r#"{
+  "format": 1,
+  "id": "arborsm.scaleup-unofficial",
+  "name": "ScaleUp (Unofficial) 兼容",
+  "targets": ["Arborsm.ScaleUpUnofficial"],
+  "sdkVersion": "1.0.0",
+  "entry": "index.js",
+  "contributions": {}
+}"#;
+    let dir = write_plugin(&root, "arborsm.scaleup-unofficial", body);
+    fs::write(dir.join("index.js"), "export default {};").unwrap();
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert_eq!(report.manifests.len(), 1);
+    assert!(report.errors.is_empty());
+    assert!(report.manifests[0].entry.is_some());
+}
+
+// ── cross-root dedupe ─────────────────────────────────────────────────────────
+
+#[test]
+fn duplicate_plugin_id_across_roots_first_root_wins() {
+    // The built-in sync copies plugins into the data dir while the dev source
+    // tree is also scanned, so the same id can appear under two roots. The
+    // first (highest-priority) root must win and the duplicate must not reach
+    // consumers (the frontend registry rejects duplicate module ids).
+    let priority_root = create_temp_dir("compat-plugin-dup-priority");
+    let shadowed_root = create_temp_dir("compat-plugin-dup-shadowed");
+    write_plugin(
+        &priority_root,
+        "arborsm.scaleup-unofficial",
+        &valid_manifest_body(),
+    );
+    write_plugin(
+        &shadowed_root,
+        "arborsm.scaleup-unofficial",
+        &valid_manifest_body(),
+    );
+
+    let report = load_plugin_manifests(&[priority_root.clone(), shadowed_root.clone()]);
+
+    assert_eq!(report.manifests.len(), 1);
+    assert!(report.errors.is_empty());
+    assert_eq!(
+        report.manifests[0].plugin_dir,
+        priority_root.join("arborsm.scaleup-unofficial")
+    );
+}
+
 // ── V7: attachedApi providerUniqueId + assetKind ─────────────────────────────
 
 #[test]

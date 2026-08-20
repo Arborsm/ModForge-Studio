@@ -61,17 +61,17 @@
 
 校验器在加载时对每个 manifest 独立执行；任一规则失败 → 该插件整体拒绝，错误进加载报告，**不影响其他插件**。
 
-| #   | 规则                                                                                                 | 失败行为                                        |
-| --- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| V1  | `format` 为整数且 ∈ {1}                                                                              | 拒绝，报"未知 manifest 版本"                    |
-| V2  | `id` 匹配 `^[a-z0-9][a-z0-9.-]*$` 且与目录名一致                                                     | 拒绝                                            |
-| V3  | `targets` 非空，每个 UniqueID 非空白                                                                 | 拒绝                                            |
-| V4  | `entry` 与 `sdkVersion` 必须同时出现/同时缺失                                                        | 拒绝                                            |
-| V5  | `entry` 指向的文件存在且扩展名为 `.js`                                                               | 拒绝                                            |
-| V6  | `contributions` 至少一个键非空                                                                       | 拒绝                                            |
-| V7  | `attachedApi.providerUniqueId` 非空；`assetKind` ∈ {json, image, map}（复用 `normalize_asset_kind`） | 拒绝                                            |
-| V8  | `capabilities` 引用的 id 在宿主 capability 表中存在                                                  | 拒绝（阶段 1 起生效）                           |
-| V9  | 未知顶层字段                                                                                         | 警告不拒绝（对齐 SMAPI ExtraFields 的宽容策略） |
+| #   | 规则                                                                                                                                                | 失败行为                                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| V1  | `format` 为整数且 ∈ {1}                                                                                                                             | 拒绝，报"未知 manifest 版本"                    |
+| V2  | `id` 匹配 `^[a-z0-9][a-z0-9.-]*$` 且与目录名一致                                                                                                    | 拒绝                                            |
+| V3  | `targets` 非空，每个 UniqueID 非空白                                                                                                                | 拒绝                                            |
+| V4  | `entry` 与 `sdkVersion` 必须同时出现/同时缺失                                                                                                       | 拒绝                                            |
+| V5  | `entry` 指向的文件存在且扩展名为 `.js`                                                                                                              | 拒绝                                            |
+| V6  | `contributions` 至少一个键非空；**有 `entry` 的代码包视为已满足**（页面由 `activate` 运行时注册，manifest 不重复声明 `pages`，否则前端双注册撞 id） | 拒绝                                            |
+| V7  | `attachedApi.providerUniqueId` 非空；`assetKind` ∈ {json, image, map}（复用 `normalize_asset_kind`）                                                | 拒绝                                            |
+| V8  | `capabilities` 引用的 id 在宿主 capability 表中存在                                                                                                 | 拒绝（阶段 1 起生效）                           |
+| V9  | 未知顶层字段                                                                                                                                        | 警告不拒绝（对齐 SMAPI ExtraFields 的宽容策略） |
 
 ### 0.3 后端改动清单
 
@@ -103,6 +103,8 @@ pub(crate) struct CompatPluginContributions {
 
 // load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport
 //   逐目录扫描 */manifest.json → 解析 → 校验 → 成功进 manifests、失败进 errors
+//   跨根去重：同一 id 出现在多个根（内置同步会把插件复制进数据目录，而 dev
+//   源码树也在扫描）时按根优先级取第一个，其余记 compatPlugin.duplicateId 警告
 ```
 
 **修改 `src/domain/content_patcher/attached.rs`**：
@@ -403,22 +405,27 @@ v1 只实现 `directory-pack`；`mod-config`、`cp-assets` 留接口不实现（
 
 ### 3.2 React 单例：import map
 
-宿主 bootstrap 在任何代码包加载前注入：
+宿主 bootstrap 在任何代码包加载前注入（`pluginImportMapHtmlPlugin`，见 `apps/desktop/vite.config.ts`）：
 
 ```html
 <script type="importmap">
   {
     "imports": {
-      "react": "/vendor/react.js",
-      "react-dom": "/vendor/react-dom.js",
-      "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
-      "@modforge/plugin-sdk": "/vendor/plugin-sdk.js"
+      "react": "./vendor/react.js",
+      "react-dom": "./vendor/react-dom.js",
+      "react/jsx-runtime": "./vendor/react-jsx-runtime.js",
+      "@modforge/plugin-sdk": "./vendor/plugin-sdk.js"
     }
   }
 </script>
 ```
 
-`/vendor/*` 由宿主构建产物暴露：vite `rollupOptions.output` 把 react/jsx-runtime/SDK 打成**固定文件名**的独立 ESM chunk（不能用默认 hash 文件名，import map 需要稳定 URL），经 `plugin` 协议或 asset 协议提供。**注入失败（webview 不支持 import map）→ 全部代码包拒绝加载**，数据包不受影响。WebView2（Chromium）与 WKWebView 16.4+ 均支持 import map；Linux webkitgtk 需要实测，不支持则该平台仅数据包。
+`./vendor/*` 是宿主构建产物中的**固定文件名 facade 入口**（`rolldownOptions.input` + `entryFileNames: vendor/[name].js`）。两个实现要点（都是实测得出的硬约束，不要回退）：
+
+- **不能指向内部 chunk**：`assets/react-vendor-*.js` 是 rolldown 模块注册表格式，没有 export 语句，import map 指过去会让插件 `import React from 'react'` 链接失败。facade 入口必须从宿主模块图 re-export，保证插件与宿主共享同一个 React 实例（否则 dual-React → invalid hook call）。
+- **CJS 包需要显式具名 re-export**：react / react-dom / react-jsx-runtime 是 CJS，rolldown 无法静态枚举 `export *` 的名字；且 app 构建会 treeshake 入口导出。因此生产入口由 `pluginVendorFacadePlugin` 生成虚拟模块（构建时从已安装包读取导出名，React 升级自动跟随），并设 `preserveEntrySignatures: 'exports-only'`。dev 模式由 `pluginVendorDevMiddleware` 把 `/vendor/*.js` 302 到静态 `apps/desktop/vendor/*.ts`（dev 预打包产物本身是完整 ESM，`export *` 足够）。
+
+**注入失败（webview 不支持 import map）→ 全部代码包拒绝加载**，数据包不受影响。WebView2（Chromium）与 WKWebView 16.4+ 均支持 import map；Linux webkitgtk 需要实测，不支持则该平台仅数据包。
 
 ### 3.3 Plugin SDK 契约
 
@@ -430,12 +437,14 @@ export interface PluginContext {
   registerPage(page: PluginPageContribution): void
   /** Design-system component subset (token-styled). */
   components: { CompactSelect; PanelFrame; PanelSection; EmptyStateCard /* ... */ }
-  /** Allowlisted host commands; paths scoped to mod/project roots. */
+  /** Allowlisted host commands; paths scoped to mod/project roots and the game directory. */
   commands: { invoke<T>(name: PluginCommandName, args?: unknown): Promise<T> }
   /** Built-in capability lookup by id. */
   capabilities: { get(id: string): unknown }
   /** Plugin locale lookup (bundle registered from manifest i18n). */
   i18n: { t(key: string): string }
+  /** Host notification surface (ids namespaced per plugin, retracted on dispose). */
+  notifications: PluginNotifications
   /** Registers cleanup run on plugin unload/reload. */
   onDispose(fn: () => void): void
 }
@@ -446,19 +455,36 @@ export interface PluginModule {
 
 semver 纪律：SDK 面只增不改；破坏性变更升主版本，宿主按 manifest `sdkVersion` 精确匹配主版本，不符拒绝加载。
 
-`PluginCommandName` 是显式字符串联合（如 `'readModFile' | 'writeModFile' | 'listModDirectory'`），由宿主侧白名单表实现——**不是通用 invoke 透传**。
+`PluginCommandName` 是显式字符串联合，由宿主侧白名单表实现——**不是通用 invoke 透传**。当前白名单：
+
+| 命令                                                | 说明                                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `resolveTargetModRoot`                              | 按 UniqueID 解析已安装模组根目录                                                          |
+| `listModDirectory` / `readModFile` / `writeModFile` | 目标模组目录包的列举/读/写（路径锁定在模组根内）                                          |
+| `readPluginAsset`                                   | 读插件自身目录内的资源（`plugin://`）                                                     |
+| `resolveGameRoot`                                   | 解析游戏安装目录（无则 null），结果按插件缓存                                             |
+| `loadGameDataAsset`                                 | 按 CP 资产键读取游戏数据（`Data/Objects` → `Content/Data/Objects.xnb`，XNB 已解析为文本） |
+| `loadGameImage`                                     | 解码 Content 下的贴图 XNB 为 PNG data URL（后端有磁盘缓存）                               |
+| `scanGameAudio`                                     | 列出游戏音频 cue（music/sound 分类）                                                      |
+| `loadGameAudioCue`                                  | 解码 XACT cue 为可播放 data URL                                                           |
+
+`capabilities` 内置 id：`plugin.id`、`plugin.targets`、`host.sdkVersion`、`host.locale`。`notifications.publish` 的 id 自动以 `plugin:<pluginId>:` 为前缀，level 收敛到 success/info/warning/error，插件 dispose 时宿主统一撤回其全部通知。
 
 ### 3.4 加载器流程
 
 ```
 bootstrap（import map 注入成功）
  └─ list_compat_plugins → 筛出 hasCodeEntry
- └─ for each: import(`plugin://${id}/${entry}`)
+ └─ for each: import(host 解析后的 plugin 资源 URL)
      ├─ sdkVersion 主版本不符 → 拒绝，进诊断
      ├─ import/activate 抛错 → 该插件禁用，其余继续
      └─ activate(ctx)：ctx.registerPage 产物经 buildCompatRegistrations 同款校验进 registry
 reload：全部 onDispose → 清空插件注册 → 重新执行上述流程（整树重建，不做单插件热替换）
 ```
+
+> 运行时重载的落地计划见 [compat-plugin-hot-reload.md](./compat-plugin-hot-reload.md)。
+
+`plugin://` 的具体 URL 形态因宿主而异，前端**禁止手拼字符串**，一律走 `FileSystemPort.resolvePluginUrl`（Tauri Windows → `http://plugin.localhost/<id>/<path>`，Tauri macOS/Linux → `plugin://localhost/<id>/<path>`，Electron → `plugin://<id>/<path>`；与 Rust/Electron handler 的解析一一对应）。
 
 ### 3.5 CSP 的诚实评估
 
@@ -695,14 +721,14 @@ conditionSyntax 贡献是纯 key 列表，并入条件自动补全。机制简�
 
 现状：Tauri 侧 `plugin://` 协议已注册且路径安全有测试（保留），其余全部要补。
 
-| #   | 事项                 | 改动要点                                                                                                                                                                                                                                                                                         | 验证                                                           |
-| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| C1  | vendor chunk 固定名  | vite `rollupOptions.output` 把 `react`、`react-dom`、`react/jsx-runtime`、`@modforge/plugin-sdk` 打成固定文件名 ESM chunk（不用 hash）；产物经 asset/plugin 协议可访问                                                                                                                           | 构建产物含固定名文件；浏览器 `import('react')` 命中 import map |
-| C2  | import map 注入      | `index.html` 注入 importmap；宿主 bootstrap 探测注入失败（webview 不支持）→ 整体拒绝代码包、数据包不受影响；Linux webkitgtk 实测记录结论                                                                                                                                                         | 手动验证 + loader 单测（降级路径）                             |
-| C3  | Electron `plugin://` | `registerSchemesAsPrivileged`（app ready 前，`stream/supportFetchAPI/corsEnabled`）+ `protocol.handle`；路径解析经 sidecar 复用 Rust `resolve_plugin_protocol_path`，Electron main 只做字节转发                                                                                                  | Linux 构建手动验证；路径安全用例复用 Rust 侧测试               |
-| C4  | bootstrap 接线       | `importWorkbenchPage` 在 `listCompatPlugins` 后调用 `loadCodePlugins`，其 registrations 与数据包一起进 `createAppRegistry`；diagnostics 进插件管理页数据源                                                                                                                                       | 单元测试（mock import）+ 手动验证                              |
-| C5  | SDK 面真实实现       | `components` 映射真实 shared/ui 组件；`commands` 白名单表（`readModFile`/`writeModFile`/`listModDirectory` 映射现有 host command，路径限 mod/project 根）；`capabilities.get` 接宿主 capability 表；`i18n.t` 接 pluginLocaleStore；`onDispose` 已在，补 reload 全流程（dispose → 清注册 → 重建） | 每面至少一个单测；占位 throw 全部移除                          |
-| C6  | 验收代码包           | `packages/plugin-sdk/template/` 出最小可用示例页（或直接做 FS 画布页雏形），走通 放置目录 → 加载 → 渲染 → 管理页重载 全流程                                                                                                                                                                      | 手动验证 + 截图                                                |
+| #   | 事项                 | 改动要点                                                                                                                                                                                                                                                                                                                            | 验证                                                                                  |
+| --- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| C1  | vendor facade 入口   | vite `rolldownOptions.input` 为 `react`、`react-dom`、`react/jsx-runtime`、`@modforge/plugin-sdk` 注册固定文件名 facade 入口（`vendor/[name].js`；CJS 包用 `pluginVendorFacadePlugin` 生成的显式具名 re-export 虚拟模块 + `preserveEntrySignatures: 'exports-only'`，dev 由 `pluginVendorDevMiddleware` 服务；机制与硬约束见 §3.2） | 构建产物 `dist/vendor/*.js` 含真实 ESM 导出；浏览器 `import('react')` 命中 import map |
+| C2  | import map 注入      | `index.html` 注入 importmap；宿主 bootstrap 探测注入失败（webview 不支持）→ 整体拒绝代码包、数据包不受影响；Linux webkitgtk 实测记录结论                                                                                                                                                                                            | 手动验证 + loader 单测（降级路径）                                                    |
+| C3  | Electron `plugin://` | `registerSchemesAsPrivileged`（app ready 前，`stream/supportFetchAPI/corsEnabled`）+ `protocol.handle`；路径解析经 sidecar 复用 Rust `resolve_plugin_protocol_path`，Electron main 只做字节转发                                                                                                                                     | Linux 构建手动验证；路径安全用例复用 Rust 侧测试                                      |
+| C4  | bootstrap 接线       | `importWorkbenchPage` 在 `listCompatPlugins` 后调用 `loadCodePlugins`，其 registrations 与数据包一起进 `createAppRegistry`；diagnostics 进插件管理页数据源                                                                                                                                                                          | 单元测试（mock import）+ 手动验证                                                     |
+| C5  | SDK 面真实实现       | `components` 映射真实 shared/ui 组件；`commands` 白名单表（`readModFile`/`writeModFile`/`listModDirectory` 映射现有 host command，路径限 mod/project 根）；`capabilities.get` 接宿主 capability 表；`i18n.t` 接 pluginLocaleStore；`onDispose` 已在，补 reload 全流程（dispose → 清注册 → 重建）                                    | 每面至少一个单测；占位 throw 全部移除                                                 |
+| C6  | 验收代码包           | `packages/plugin-sdk/template/` 出最小可用示例页（或直接做 FS 画布页雏形），走通 放置目录 → 加载 → 渲染 → 管理页重载 全流程                                                                                                                                                                                                         | 手动验证 + 截图                                                                       |
 
 ### 10.4 D 批：阶段 4 收尾（扩展贡献接消费端）
 

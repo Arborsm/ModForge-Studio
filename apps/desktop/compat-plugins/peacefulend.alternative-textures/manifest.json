@@ -150,7 +150,7 @@
                 "type": "object",
                 "labelKey": "at.field.animation",
                 "visibleWhen": { "kind": "field-eq", "field": "EnableAnimation", "value": true },
-                "fields": [
+                "subFields": [
                   {
                     "id": "frameDuration",
                     "path": "FrameDuration",
@@ -183,7 +183,7 @@
                 "type": "object",
                 "labelKey": "at.field.tints",
                 "visibleWhen": { "kind": "field-eq", "field": "EnableTints", "value": true },
-                "fields": [
+                "subFields": [
                   {
                     "id": "redTint",
                     "path": "RedTint",

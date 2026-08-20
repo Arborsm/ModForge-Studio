@@ -24,6 +24,7 @@ function createPorts(invokeCommand: PlatformPorts['fileSystem']['invokeCommand']
     fileSystem: {
       invokeCommand,
       toAssetUrl: vi.fn((path: string) => path),
+      resolvePluginUrl: vi.fn((pluginId: string, relativePath: string) => `plugin://${pluginId}/${relativePath}`),
     },
     desktopWindow: {
       minimize: vi.fn(),

@@ -33,6 +33,12 @@ export function createElectronPlatformPorts(): PlatformPorts {
       toAssetUrl(filePath: string) {
         return getElectronApi().toAssetUrl(filePath)
       },
+      resolvePluginUrl(pluginId: string, relativePath: string) {
+        // Electron registers a real privileged `plugin` scheme; the main-side
+        // handler accepts the plugin id in the URL authority.
+        const path = relativePath.split('/').filter(Boolean).map(encodeURIComponent).join('/')
+        return `plugin://${encodeURIComponent(pluginId)}/${path}`
+      },
     },
     desktopWindow: {
       minimize: () => getElectronApi().minimize(),
