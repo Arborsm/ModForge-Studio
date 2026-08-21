@@ -5,6 +5,7 @@ import { createInterface, type Interface as ReadlineInterface } from 'node:readl
 import path from 'node:path'
 import type { OpenDialogOptions, SaveDialogOptions } from '../src/shared/contracts/platform'
 import { resolveLinuxOrtSidecar } from './linux-cuda-runtime.mjs'
+import { stripPluginEpochPrefix } from '../src/shared/lib/pluginEpochPrefix'
 
 type RpcResponse = {
   id?: number
@@ -129,52 +130,16 @@ function mimeTypeFromPath(filePath: string) {
 }
 
 // ── plugin:// protocol (Linux host) ─────────────────────────────────────────
-// This is a TypeScript mirror of the Rust `resolve_plugin_protocol_path` in
-// src-tauri/src/domain/modding/compat_plugin.rs. The design doc (3.1 §C3)
-// prescribes delegating path resolution to the sidecar to avoid dual-
-// implementation drift, but the sidecar IPC surface does not yet expose a
-// `resolve_plugin_protocol_path` command. Until that command is added, this
-// mirror carries the identical path-safety rules (extension whitelist, lexical
-// normalization, traversal rejection) and MUST be kept in sync with the Rust
-// source of truth.
+// Path resolution and file reading are delegated to the sidecar's
+// `read_plugin_asset` host command so all path-safety logic (plugin id
+// validation, extension whitelist, traversal rejection) lives in the single
+// Rust source of truth (compat_plugin.rs). This handler is pure transport:
+// it parses the URL, forwards the request over sidecar IPC, and wraps the
+// response in a fetch Response. See design doc §3.1/§10.3 C3.
 
-const pluginAssetExtensions = new Set(['js', 'json', 'png', 'jpg', 'webp', 'svg', 'css'])
-
-function resolvePluginRoots(): string[] {
-  // Mirror the sidecar's cwd-relative root resolution (sidecar.rs sets
-  // PLUGIN_ROOTS to <cwd>/compat-plugins). The Electron host spawns the
-  // sidecar with cwd = apps/desktop (dev) or process.resourcesPath (packaged),
-  // so the same anchor applies here.
-  const root = isDev ? path.resolve(__dirname, '..', 'compat-plugins') : path.join(process.resourcesPath, 'compat-plugins')
-  return [root]
-}
-
-function cleanPluginInputPath(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^"+|"+$/g, '')
-    .replace(/\\/g, '/')
-}
-
-function pluginProtocolContentType(filePath: string): string {
-  switch (path.extname(filePath).toLowerCase()) {
-    case '.js':
-      return 'application/javascript'
-    case '.json':
-      return 'application/json'
-    case '.png':
-      return 'image/png'
-    case '.jpg':
-      return 'image/jpeg'
-    case '.webp':
-      return 'image/webp'
-    case '.svg':
-      return 'image/svg+xml'
-    case '.css':
-      return 'text/css'
-    default:
-      return 'application/octet-stream'
-  }
+type ReadPluginAssetResult = {
+  bytesBase64: string
+  contentType: string
 }
 
 function pluginProtocolNotFound(): Response {
@@ -182,78 +147,6 @@ function pluginProtocolNotFound(): Response {
     status: 404,
     headers: { 'Access-Control-Allow-Origin': '*' },
   })
-}
-
-/// Lexically normalizes `joined` relative to `base`, rejecting any `..`
-/// segment that would escape `base`. No filesystem access is performed.
-/// Mirrors `lexically_normalize_within` in compat_plugin.rs.
-function lexicallyNormalizeWithin(joined: string, base: string): string | null {
-  const baseParts = base.split('/').filter(Boolean)
-  const joinedParts = joined.split('/').filter(Boolean)
-  const normalized = [...baseParts]
-
-  for (const part of joinedParts.slice(baseParts.length)) {
-    if (part === '..') {
-      if (normalized.length === baseParts.length) {
-        return null
-      }
-      normalized.pop()
-    } else if (part === '.') {
-      // current dir — no-op
-    } else {
-      normalized.push(part)
-    }
-  }
-
-  const result = '/' + normalized.join('/')
-  const baseNormalized = '/' + baseParts.join('/')
-  if (result === baseNormalized || result.startsWith(baseNormalized + '/')) {
-    return result
-  }
-  return null
-}
-
-/// Resolves a `plugin://<pluginId>/<relativePath>` URL to an absolute file
-/// path, mirroring `resolve_plugin_protocol_path` in compat_plugin.rs.
-/// Returns `null` when the path is unsafe or no plugin directory matches.
-async function resolvePluginProtocolPath(pluginId: string, relativePath: string): Promise<string | null> {
-  const cleanedRelative = cleanPluginInputPath(relativePath)
-
-  // Reject absolute paths: leading slash or backslash (already normalized to /).
-  if (cleanedRelative.startsWith('/')) {
-    return null
-  }
-
-  // Validate extension whitelist before touching the filesystem.
-  const ext = path.extname(cleanedRelative).toLowerCase().replace(/^\./, '')
-  if (!pluginAssetExtensions.has(ext)) {
-    return null
-  }
-
-  const cleanedId = cleanPluginInputPath(pluginId)
-  if (!cleanedId) {
-    return null
-  }
-
-  for (const root of resolvePluginRoots()) {
-    const pluginDir = path.join(root, cleanedId)
-    try {
-      const stat = await fs.stat(pluginDir)
-      if (!stat.isDirectory()) {
-        continue
-      }
-    } catch {
-      continue
-    }
-
-    const joined = path.join(pluginDir, cleanedRelative)
-    const normalized = lexicallyNormalizeWithin(joined, pluginDir)
-    if (normalized) {
-      return normalized
-    }
-  }
-
-  return null
 }
 
 function registerPluginProtocol() {
@@ -277,22 +170,34 @@ function registerPluginProtocol() {
       relativePath = pathSegments.slice(1).join('/')
     }
 
-    const resolved = await resolvePluginProtocolPath(pluginId, relativePath)
-    if (!resolved) {
+    // Strip the hot-reload epoch prefix (`__v<N>/`) before forwarding. The
+    // prefix is only inserted by the frontend loader to bypass the webview
+    // module cache; it carries no on-disk meaning. The sidecar strips it too,
+    // but stripping here keeps the IPC payload minimal and matches the Tauri
+    // handler's ordering.
+    relativePath = stripPluginEpochPrefix(relativePath)
+
+    let result: ReadPluginAssetResult
+    try {
+      result = (await sidecarTransport.invoke('read_plugin_asset', {
+        pluginId,
+        relativePath,
+      })) as ReadPluginAssetResult
+    } catch {
+      // Sidecar rejected the path (unsafe id/traversal/non-whitelisted
+      // extension) or the file was missing — both surface as a bare 404 so
+      // no filesystem layout leaks to the webview.
       return pluginProtocolNotFound()
     }
 
-    try {
-      const bytes = await fs.readFile(resolved)
-      return new Response(bytes, {
-        headers: {
-          'Content-Type': pluginProtocolContentType(resolved),
-          'Access-Control-Allow-Origin': '*',
-        },
-      })
-    } catch {
-      return pluginProtocolNotFound()
-    }
+    const bytes = Uint8Array.from(Buffer.from(result.bytesBase64, 'base64'))
+    return new Response(bytes, {
+      headers: {
+        'Content-Type': result.contentType,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache',
+      },
+    })
   })
 }
 

@@ -5,6 +5,8 @@ const compatModule: CompatModuleCopy = {
   loadingDetail: '正在从目标模组目录读取数据，请稍候。',
   emptyTitle: '暂无条目',
   emptyDetail: '目标模组目录下未找到任何条目。请先在游戏中创建条目后再编辑。',
+  modNotInstalledTitle: '未安装目标模组',
+  modNotInstalledDetail: '在 Mods 目录中没有找到 {mod}。安装该模组后即可在这里编辑它的内容。',
   entryListTitle: '条目列表',
   entryListEmpty: '没有可编辑的条目',
   unsavedChanges: '有未保存的更改',

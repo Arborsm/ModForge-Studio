@@ -120,95 +120,9 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{RunEvent, generate_context};
 
-/// Handles a `plugin://<pluginId>/<relativePath>` request for the custom URI
-/// scheme protocol. Resolves the path via
-/// [`compat_plugin::resolve_plugin_protocol_path`], reads the file and returns
-/// it with the correct Content-Type and CORS headers. Unsafe paths and missing
-/// files return a bare 404 without error details.
-fn handle_plugin_uri_scheme(
-    _ctx: tauri::UriSchemeContext<'_, AppRuntime>,
-    request: tauri::http::Request<Vec<u8>>,
-) -> tauri::http::Response<Vec<u8>> {
-    // Parse the request URI. Tauri normalises the host across platforms:
-    //   macOS/Linux → `plugin://localhost/<pluginId>/<relativePath>`
-    //   Windows     → `http://plugin.localhost/<pluginId>/<relativePath>`
-    // `url::Url` extracts the path segments uniformly in both cases.
-    let request_uri = request.uri().to_string();
-    let parsed = match url::Url::parse(&request_uri) {
-        Ok(url) => url,
-        Err(_) => return plugin_protocol_not_found(),
-    };
-
-    let segments: Vec<&str> = parsed
-        .path_segments()
-        .map(|segments| segments.collect())
-        .unwrap_or_default();
-
-    // First segment is the plugin id; the remainder is the relative path.
-    if segments.is_empty() {
-        return plugin_protocol_not_found();
-    }
-    let plugin_id = match percent_encoding::percent_decode_str(segments[0]).decode_utf8() {
-        Ok(id) => id,
-        Err(_) => return plugin_protocol_not_found(),
-    };
-    let relative_path = segments[1..]
-        .iter()
-        .map(|segment| {
-            percent_encoding::percent_decode_str(segment)
-                .decode_utf8_lossy()
-                .into_owned()
-        })
-        .collect::<Vec<_>>()
-        .join("/");
-
-    let Some(resolved) =
-        domain::modding::compat_plugin::resolve_plugin_protocol_path(&plugin_id, &relative_path)
-    else {
-        eprintln!(
-            "[plugin-protocol] 404 plugin_id={plugin_id} relative_path={relative_path} uri={request_uri}"
-        );
-        return plugin_protocol_not_found();
-    };
-
-    let bytes = match std::fs::read(&resolved) {
-        Ok(bytes) => bytes,
-        Err(_) => return plugin_protocol_not_found(),
-    };
-
-    let content_type = plugin_protocol_content_type(&resolved);
-
-    tauri::http::Response::builder()
-        .status(tauri::http::StatusCode::OK)
-        .header("Content-Type", content_type)
-        .header("Access-Control-Allow-Origin", "*")
-        .body(bytes)
-        .unwrap_or_else(|_| plugin_protocol_not_found())
-}
-
-/// Returns a bare 404 response for rejected `plugin://` requests. No error
-/// details are exposed to avoid leaking filesystem layout information.
-fn plugin_protocol_not_found() -> tauri::http::Response<Vec<u8>> {
-    tauri::http::Response::builder()
-        .status(tauri::http::StatusCode::NOT_FOUND)
-        .header("Access-Control-Allow-Origin", "*")
-        .body(Vec::new())
-        .expect("static 404 response is always constructible")
-}
-
-/// Maps a file extension to its MIME type for `plugin://` responses.
-fn plugin_protocol_content_type(path: &std::path::Path) -> &'static str {
-    match path.extension().and_then(|e| e.to_str()) {
-        Some("js") => "application/javascript",
-        Some("json") => "application/json",
-        Some("png") => "image/png",
-        Some("jpg") => "image/jpeg",
-        Some("webp") => "image/webp",
-        Some("svg") => "image/svg+xml",
-        Some("css") => "text/css",
-        _ => "application/octet-stream",
-    }
-}
+// Re-exported so unit tests can keep using `crate::strip_plugin_epoch_prefix`.
+#[allow(unused_imports)]
+pub(crate) use crate::host::plugin_protocol::strip_plugin_epoch_prefix;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -226,47 +140,22 @@ pub fn run() {
                 .unwrap_or(false);
             domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host, force_offline);
 
-            // Resolve packaged compat-plugin roots and sync built-in plugins
-            // into the app data directory. The app data dir is the user-facing
-            // plugin folder (opened by the plugin manager's "open plugin
-            // directory" button); built-in plugins from resource_dir or the
-            // dev source tree are copied there on startup.
+            // Extract the embedded built-in compat plugins into the app data
+            // directory (first launch and after app updates), then scan that
+            // single directory. The data dir is the user-facing plugin folder
+            // (opened by the plugin manager's "open plugin directory" button);
+            // the source tree under apps/desktop/compat-plugins is only
+            // consulted when MODFORGE_COMPAT_PLUGIN_ROOT points at it.
             let mut packaged_roots: Vec<std::path::PathBuf> = Vec::new();
-            let mut builtin_source: Option<std::path::PathBuf> = None;
-            if let Ok(resource_dir) = app.path().resource_dir() {
-                let plugin_dir = resource_dir.join("compat-plugins");
-                if plugin_dir.is_dir() {
-                    builtin_source = Some(plugin_dir);
-                }
-            }
-            // Dev build anchor: CARGO_MANIFEST_DIR points at apps/desktop/src-tauri.
-            let dev_builtin = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("compat-plugins");
-            if dev_builtin.is_dir() && builtin_source.is_none() {
-                builtin_source = Some(dev_builtin);
-            }
-
             if let Ok(app_data_dir) = app.path().app_data_dir() {
-                if let Some(source) = &builtin_source {
-                    if let Err(err) = domain::modding::compat_plugin::sync_builtin_plugins_to_data_dir(
-                        &app_data_dir,
-                        source,
-                    ) {
-                        eprintln!("[compat-plugins] Failed to sync built-in plugins to data dir: {err}");
-                    }
+                if let Err(err) =
+                    domain::modding::compat_plugin::extract_builtin_plugins_if_needed(&app_data_dir)
+                {
+                    eprintln!("[compat-plugins] Failed to extract built-in plugins to data dir: {err}");
                 }
                 let plugin_dir = app_data_dir.join("compat-plugins");
                 if plugin_dir.is_dir() {
                     packaged_roots.push(plugin_dir);
-                }
-            }
-            // In dev builds, also add the source-tree compat-plugins directory
-            // as a fallback root so plugins are found even if the data-dir
-            // sync failed or the data dir is not writable.
-            if let Some(source) = &builtin_source {
-                if !packaged_roots.contains(source) {
-                    packaged_roots.push(source.clone());
                 }
             }
             if !packaged_roots.is_empty() {
@@ -327,7 +216,7 @@ pub fn run() {
 
             Ok(())
         })
-        .register_uri_scheme_protocol("plugin", handle_plugin_uri_scheme)
+        .register_uri_scheme_protocol("plugin", crate::host::plugin_protocol::handle_plugin_uri_scheme)
         .invoke_handler(tauri::generate_handler![
             // Generated by apps/desktop/scripts/generate-host-commands.mjs. Do not edit by hand.
             // domain::ai::commands
@@ -501,11 +390,14 @@ pub fn run() {
             domain::localization::machine_translation::commands::test_machine_translation_profile,
             domain::localization::machine_translation::commands::translate_machine_translation_batch,
             // domain::modding::commands
+            domain::modding::commands::delete_compat_plugin,
             domain::modding::commands::get_compat_plugin_roots,
             domain::modding::commands::list_compat_plugin_entries,
             domain::modding::commands::list_compat_plugins,
             domain::modding::commands::read_compat_plugin_entry,
+            domain::modding::commands::read_plugin_asset,
             domain::modding::commands::reload_compat_plugins,
+            domain::modding::commands::toggle_compat_plugin,
             domain::modding::commands::write_compat_plugin_entry,
             // domain::mods::commands
             domain::mods::commands::inspect_mod_archive,

@@ -561,6 +561,9 @@ pub(crate) fn resolve_command(
             crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
         >(ctx, id, args),
         // domain::modding::commands
+        crate::host_command_wire!(delete_compat_plugin) => resolve_typed::<
+            crate::domain::modding::commands::DeleteCompatPluginParams,
+        >(ctx, id, args),
         crate::host_command_wire!(get_compat_plugin_roots) => resolve_typed::<
             crate::domain::modding::commands::GetCompatPluginRootsParams,
         >(ctx, id, args),
@@ -573,8 +576,14 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(read_compat_plugin_entry) => resolve_typed::<
             crate::domain::modding::commands::ReadCompatPluginEntryParams,
         >(ctx, id, args),
+        crate::host_command_wire!(read_plugin_asset) => resolve_typed::<
+            crate::domain::modding::commands::ReadPluginAssetParams,
+        >(ctx, id, args),
         crate::host_command_wire!(reload_compat_plugins) => resolve_typed::<
             crate::domain::modding::commands::ReloadCompatPluginsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(toggle_compat_plugin) => resolve_typed::<
+            crate::domain::modding::commands::ToggleCompatPluginParams,
         >(ctx, id, args),
         crate::host_command_wire!(write_compat_plugin_entry) => resolve_typed::<
             crate::domain::modding::commands::WriteCompatPluginEntryParams,
@@ -676,29 +685,23 @@ pub fn run_stdio() -> Result<(), String> {
         .unwrap_or(false);
     domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&app, force_offline);
 
-    // Resolve packaged compat-plugin roots relative to the sidecar's working
-    // directory. The Electron host spawns the sidecar with cwd set to
-    // process.resourcesPath (packaged) or the repo root (dev), so
-    // compat-plugins live at <cwd>/compat-plugins. Built-in plugins are synced
-    // to the app data directory so users have a writable plugin folder.
+    // Extract the embedded built-in compat plugins into the app data
+    // directory (first launch and after app updates), then scan that single
+    // directory. The source tree next to the sidecar binary is only consulted
+    // when MODFORGE_COMPAT_PLUGIN_ROOT points at it.
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let cwd_plugins = cwd.join("compat-plugins");
 
-    // Sync built-in plugins to app data dir and use it as the primary root.
     let app_data_dir = dirs::data_dir();
     let mut roots: Vec<std::path::PathBuf> = Vec::new();
     if let Some(data_dir) = &app_data_dir {
-        let data_plugins = data_dir.join("ModForgeStudio").join("compat-plugins");
-        if cwd_plugins.is_dir() {
-            if let Err(err) =
-                crate::domain::modding::compat_plugin::sync_builtin_plugins_to_data_dir(
-                    &data_dir.join("ModForgeStudio"),
-                    &cwd_plugins,
-                )
-            {
-                eprintln!("[compat-plugins] Failed to sync built-in plugins to data dir: {err}");
-            }
+        let modforge_data_dir = data_dir.join("ModForgeStudio");
+        if let Err(err) = crate::domain::modding::compat_plugin::extract_builtin_plugins_if_needed(
+            &modforge_data_dir,
+        ) {
+            eprintln!("[compat-plugins] Failed to extract built-in plugins to data dir: {err}");
         }
+        let data_plugins = modforge_data_dir.join("compat-plugins");
         if data_plugins.is_dir() {
             roots.push(data_plugins);
         }

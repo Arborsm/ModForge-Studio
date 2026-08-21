@@ -5,9 +5,13 @@ import { cx } from '@shared/lib/helper'
 
 /** A rectangle in source-image pixels. */
 export type SheetRegion = {
+  /** Left edge in source pixels. */
   x: number
+  /** Top edge in source pixels. */
   y: number
+  /** Region width in source pixels. */
   width: number
+  /** Region height in source pixels. */
   height: number
 }
 
@@ -105,16 +109,21 @@ export function regionForCellIndex(index: number, cellSize: number, imageWidth: 
 }
 
 type SheetRegionPickerProps = {
+  /** Image URL rendered as the selectable stage. */
   imageUrl: string
+  /** Image width in source pixels. */
   imageWidth: number
+  /** Image height in source pixels. */
   imageHeight: number
   /** Current selection in source pixels, or null. */
   value: SheetRegion | null
+  /** Called with the new selection on drag end or, in cellPick mode, on click. */
   onChange: (region: SheetRegion) => void
   /** Snap grid size in source pixels (e.g. 16 for tiles); freehand when omitted. */
   snap?: number
   /** Click-to-pick single cells instead of dragging rectangles. */
   cellPick?: boolean
+  /** Extra class applied to the picker stage. */
   className?: string
 }
 

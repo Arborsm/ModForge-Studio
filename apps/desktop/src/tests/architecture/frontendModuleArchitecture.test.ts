@@ -257,9 +257,12 @@ describe('frontend module architecture', () => {
     expect(appEntry).toContain("from '@app/providers/LauncherPlatformProvider'")
     expect(appEntry).not.toContain('CpMakerPlatformProvider')
     expect(appShellSource).not.toContain("from '@app/registry-setup'")
-    expect(appShellSource).toContain("import('@app/registry-setup')")
     expect(appShellSource).not.toContain("from '../providers/CpMakerPlatformProvider'")
-    expect(appShellSource).toContain("import('../providers/CpMakerPlatformProvider')")
+    // The registry build and the registry-backed page wrapper are dynamically
+    // imported so the heavy compat-plugins/registry graph stays out of the
+    // launcher entry chunk. CpMakerPlatformProvider now lives in the wrapper.
+    expect(appShellSource).toContain("import('./WorkbenchPageWithRegistry')")
+    expect(appShellSource).toContain("import('../buildWorkbenchRegistry')")
     expect(appShellBridge).toContain("from './AppShell'")
   })
 
@@ -1338,6 +1341,24 @@ describe('frontend module architecture', () => {
       const isAllowed = allowedDirs.some((dir) => rel.startsWith(dir))
       if (!isAllowed) {
         violations.push(rel)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('prevents the compat-plugins feature from reverse-importing the app layer', async () => {
+    const compatFiles = await collectSourceFiles(sourcePath('src/features/compat-plugins'))
+    const blockedSpecifiers = ['@app/', "'../app", "'../../app", "'../../../app"]
+    const violations: string[] = []
+
+    for (const filePath of compatFiles) {
+      const source = await readFile(filePath, 'utf8')
+      for (const specifier of blockedSpecifiers) {
+        if (source.includes(`from ${specifier}`) || source.includes(`import(${specifier}`)) {
+          const rel = relative(sourcePath(), filePath).replace(/\\/g, '/')
+          violations.push(`${rel} imports ${specifier}`)
+        }
       }
     }
 

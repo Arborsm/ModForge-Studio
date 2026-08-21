@@ -78,19 +78,21 @@ fn from_test_descriptors_registers_compatible_ids_and_asset_kinds() {
     );
 }
 
-/// Verifies that `load_attached_api_registry(None)` resolves plugin roots from
-/// the build configuration (dev anchor or packaged roots set at startup) and
-/// returns the ScaleUp compatibility descriptor. This is the production code
-/// path used by `scan_mods`, `scan_mod_asset_index`, `inspect_project` and
-/// Content Patcher — it must not return an empty registry in any build.
+/// Verifies the production built-in plugin chain end to end: the embedded
+/// archive is extracted into a (temp) app data directory exactly like the
+/// startup hook does, and the extracted manifests yield the ScaleUp
+/// compatibility descriptor. This is the production code path used by
+/// `scan_mods`, `scan_mod_asset_index`, `inspect_project` and Content
+/// Patcher — it must not return an empty registry.
 #[test]
-fn load_attached_api_registry_with_none_resolves_roots_and_returns_scaleup() {
-    let registry = load_attached_api_registry(None);
+fn load_attached_api_registry_from_extracted_builtins_returns_scaleup() {
+    let data_dir = create_temp_dir("attached-api-extracted-builtins");
+    let plugin_root =
+        crate::domain::modding::compat_plugin::extract_builtin_plugins_if_needed(&data_dir)
+            .expect("built-in plugin extraction must succeed");
 
-    // The dev build anchors on CARGO_MANIFEST_DIR/../compat-plugins which
-    // contains the ScaleUp plugin manifest. In a packaged build the roots are
-    // set at startup via set_plugin_roots. Either way, the registry must
-    // contain the ScaleUp compatibility descriptor.
+    let registry = load_attached_api_registry(Some(&plugin_root.to_string_lossy()));
+
     assert_eq!(
         registry.provided_unique_ids_for("Arborsm.ScaleUpUnofficial"),
         vec![

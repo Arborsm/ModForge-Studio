@@ -3,7 +3,15 @@
  * building, and plugin locale resolution.
  * @module features/compat-plugins
  */
-export { listCompatPlugins, reloadCompatPlugins, getCompatPluginRoots } from './api/listCompatPlugins'
+export {
+  listCompatPlugins,
+  reloadCompatPluginsFromBackend,
+  getCompatPluginRoots,
+  toggleCompatPlugin,
+  deleteCompatPlugin,
+} from './api/listCompatPlugins'
+export { loadCompatPlugins, reloadCompatPlugins } from './api/compatPluginRuntime'
+export type { CompatPluginRuntimeResult } from './api/compatPluginRuntime'
 export type {
   CompatPluginSummary,
   CompatPluginPageSummary,
@@ -21,7 +29,7 @@ export type {
 export { listCompatPluginEntries, readCompatPluginEntry, writeCompatPluginEntry } from './api/directoryPackApi'
 export type { CompatPluginEntrySummary, ReadCompatPluginEntryResult } from './api/directoryPackApi'
 export { buildCompatRegistrations, createCompatRuntime } from './lib/buildCompatRegistrations'
-export { mergePluginAssetSchemas, mergePluginAssetSchema } from './lib/assetSchemaMerger'
+export { mergePluginAssetSchemas, mergePluginAssetSchema, registerPluginAssetSchemas } from './lib/assetSchemaMerger'
 export { resolveModuleLabel } from './lib/resolveModuleLabel'
 export { loadCodePlugins } from './runtime/codePluginLoader'
 export type { CodePluginLoadResult, CodePluginLoadDiagnostic } from './runtime/codePluginLoader'

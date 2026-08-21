@@ -22,6 +22,11 @@ export function registerAssetSchema(schema: AssetSchema) {
   schemaRegistry.set(normalizeAssetId(schema.assetId), schema)
 }
 
+/** Removes a registered asset schema; returns true when an entry was removed. */
+export function unregisterAssetSchema(assetId: string): boolean {
+  return schemaRegistry.delete(normalizeAssetId(assetId))
+}
+
 /**
  * Returns the schema of an asset target, or undefined when the asset has no
  * structured editor yet. Matching ignores case and slash direction, mirroring

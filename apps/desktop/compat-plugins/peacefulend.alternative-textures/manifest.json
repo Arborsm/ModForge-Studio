@@ -2,6 +2,11 @@
   "format": 1,
   "id": "peacefulend.alternative-textures",
   "name": "Alternative Textures 兼容",
+  "description": "为 Alternative Textures 模组提供纹理编辑器页面与资产模式定义。",
+  "author": "PeacefulEnd",
+  "version": "1.0.0",
+  "category": "visual",
+  "tags": ["textures", "alternative-textures", "editor"],
   "targets": ["PeacefulAlternativeTextures.AlternativeTextures"],
   "contributions": {
     "pages": [

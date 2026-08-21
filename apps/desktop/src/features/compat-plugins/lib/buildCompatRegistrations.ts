@@ -82,7 +82,10 @@ export function createCompatRuntime(moduleId: string): LazyExoticComponent<Compo
  */
 export function buildCompatRegistrations(plugins: readonly CompatPluginSummary[]): WorkbenchModuleRegistration[] {
   // Register page descriptors so the runtime can look them up by module id.
+  // Clear first so descriptors from deleted plugins vanish on hot-reload;
+  // on initial load the map is empty so the clear is a no-op.
   const descriptorStore = usePageDescriptorStore.getState()
+  descriptorStore.clearPages()
   for (const plugin of plugins) {
     if (plugin.hasCodeEntry) continue
     descriptorStore.registerPages(plugin.id, plugin.pages, plugin.targets)

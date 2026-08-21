@@ -29,8 +29,13 @@ export interface FileSystemPort {
    * `http://plugin.localhost/...` on Windows and `plugin://localhost/...`
    * elsewhere; Electron uses a real privileged scheme), so callers must never
    * build these URLs by hand.
+   *
+   * When `epoch` is provided, a `__v<N>/` path segment is inserted after the
+   * plugin id so hot-reload bypasses the webview module cache for the entry and
+   * every relative sub-import. Runtime asset reads omit `epoch`. Host handlers
+   * strip the `__v<N>/` prefix before resolving the on-disk path.
    */
-  resolvePluginUrl: (pluginId: string, relativePath: string) => string
+  resolvePluginUrl: (pluginId: string, relativePath: string, epoch?: number) => string
 }
 
 /** Cancellation function returned by platform event listeners. */

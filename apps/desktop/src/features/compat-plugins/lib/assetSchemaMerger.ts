@@ -4,7 +4,14 @@
  * same `registerAssetSchema` path as the built-in schemas.
  * @module features/compat-plugins
  */
-import type { AssetFieldSchema, AssetSchema, AssetGroupSchema, FieldControl } from '@entities/asset-schema'
+import {
+  registerAssetSchema,
+  unregisterAssetSchema,
+  type AssetFieldSchema,
+  type AssetSchema,
+  type AssetGroupSchema,
+  type FieldControl,
+} from '@entities/asset-schema'
 import type { AssetSchemaContribution, AssetSchemaField } from '../api/types'
 
 /**
@@ -87,4 +94,27 @@ export function mergePluginAssetSchemas(plugins: ReadonlyArray<{ assetSchemas: r
     }
   }
   return schemas
+}
+
+/**
+ * Asset ids currently registered as plugin-contributed. Tracked so hot-reload
+ * can unregister schemas from deleted plugins before re-registering the new
+ * set, keeping the entity registry in sync with the live plugin tree.
+ */
+const registeredPluginSchemaIds = new Set<string>()
+
+/**
+ * Replaces all plugin-contributed asset schemas in the entity registry with the
+ * schemas derived from the given plugin set. Schemas from plugins that are no
+ * longer present are unregistered; updated schemas overwrite in place.
+ */
+export function registerPluginAssetSchemas(plugins: ReadonlyArray<{ assetSchemas: readonly AssetSchemaContribution[] }>): void {
+  for (const id of registeredPluginSchemaIds) {
+    unregisterAssetSchema(id)
+  }
+  registeredPluginSchemaIds.clear()
+  for (const schema of mergePluginAssetSchemas(plugins)) {
+    registerAssetSchema(schema)
+    registeredPluginSchemaIds.add(schema.assetId)
+  }
 }

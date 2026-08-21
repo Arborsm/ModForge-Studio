@@ -16,10 +16,15 @@ import {
 } from '@floating-ui/react'
 
 type TooltipProps = {
+  /** Tooltip content rendered in the floating popup. */
   label: ReactNode
+  /** The wrapped element the tooltip attaches to; its behavior is not modified. */
   children: ReactNode
+  /** Disables the tooltip so hover/focus never opens it. */
   disabled?: boolean
+  /** Extra class applied to the trigger wrapper span. */
   className?: string
+  /** Popover placement relative to the trigger; defaults to top. */
   placement?: 'top' | 'right' | 'bottom' | 'left'
 }
 

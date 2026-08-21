@@ -16,7 +16,12 @@ export function evaluateVisibleWhen(condition: CompatPluginFieldVisibleWhen | un
     const allowed = condition.values ?? []
     return allowed.some((v) => v === fieldValue)
   }
-  return true
+  // Unknown condition kind: fail closed (hide the field) rather than silently
+  // showing a field the manifest intended to gate. A new backend condition kind
+  // the frontend does not yet understand should not leak the field; the plugin
+  // author sees the field missing and updates the host, instead of the host
+  // quietly bypassing the condition.
+  return false
 }
 
 /** Filters fields that are visible given the current values. */

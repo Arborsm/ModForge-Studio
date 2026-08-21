@@ -13,7 +13,7 @@ import path from 'node:path'
  * Screenshots are archived for manual review.
  */
 
-const fallbackUrls = ['http://127.0.0.1:5175', 'http://127.0.0.1:5176', 'http://localhost:5173']
+const fallbackUrls = ['http://127.0.0.1:5175', 'http://127.0.0.1:5176', 'http://127.0.0.1:5173', 'http://localhost:5173']
 const mockQuery = '/?mfLauncherMock=1&mfSettingsMock=1'
 const screenshotDir = process.env.MODFORGE_COMPAT_SCREENSHOT_DIR ?? path.join(os.tmpdir(), 'modforge-compat-plugin-page')
 const executablePath = [
@@ -28,7 +28,9 @@ const executablePath = [
 
 async function main() {
   mkdirSync(screenshotDir, { recursive: true })
-  const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) })
+  // --no-proxy-server: machines with a system proxy (e.g. mihomo) would
+  // otherwise route the loopback dev server through it and fail to connect.
+  const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'], ...(executablePath ? { executablePath } : {}) })
   const page = await browser.newPage({ viewport: { width: 1680, height: 1000 } })
   const failures = []
   page.on('pageerror', (error) => failures.push(`uncaught page error: ${error.message}`))

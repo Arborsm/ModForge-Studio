@@ -1,38 +1,21 @@
-/**
- * Example code plugin: a Stardew item-dex memory match game.
- * Exercises the full SDK surface in one real interaction flow:
- * - registerPage with a stateful React component (shared React instance)
- * - components (PanelFrame / PanelSection / EmptyStateCard / CompactSelect)
- * - game asset commands: loadGameDataAsset (Data/Objects), loadGameImage
- *   (Maps/springobjects atlas, cropped and upscaled 4x with smoothing off),
- *   scanGameAudio + loadGameAudioCue (XACT music cues as BGM, sound cues as SFX)
- * - resolveGameRoot fallback: without a game directory the game deals emoji
- *   faces from the bundled cards.json (readPluginAsset)
- * - notifications (win toast with session-best note; retracted on dispose)
- * - capabilities (plugin.id, host.locale for localized item names)
- * - i18n (t) for all user-visible copy
- * - module state + onDispose (session bests and the audio cache are cleared)
- * Styling is inline but token-based (var(--…)) — plugins have no stylesheet
- * entry, so colors must come from the design tokens.
- */
 import React from 'react'
-
-const h = React.createElement
-
-const SPRITE_SIZE = 16
-const RENDER_SCALE = 4
-const SHOWCASE_SCALE = 6
+import { jsx, jsxs } from 'react/jsx-runtime'
+//#region compat-plugins/modforge.example-code-plugin/src/constants.ts
 const BGM_VOLUME = 0.35
-const MISMATCH_REVEAL_MS = 700
-const MAX_PAIRS = 10
-
 const DIFFICULTIES = {
-  easy: { pairs: 6, columns: 4 },
-  normal: { pairs: 8, columns: 4 },
-  hard: { pairs: 10, columns: 5 },
+  easy: {
+    pairs: 6,
+    columns: 4,
+  },
+  normal: {
+    pairs: 8,
+    columns: 4,
+  },
+  hard: {
+    pairs: 10,
+    columns: 5,
+  },
 }
-
-// Iconic items preferred as card faces; remaining slots fill from Data/Objects order.
 const PREFERRED_ITEMS = [
   'Parsnip',
   'Potato',
@@ -47,13 +30,16 @@ const PREFERRED_ITEMS = [
   'Fiddlehead Fern',
   'Red Cabbage',
 ]
-
-// Module-scoped session state: survives page unmounts because the plugin module
-// stays loaded; cleared via ctx.onDispose when the plugin is torn down.
-const sessionBest = new Map()
-const audioCache = new Map()
-const audioState = { bgm: null, bgmCue: null }
-
+//#endregion
+//#region compat-plugins/modforge.example-code-plugin/src/audio.ts
+const audioCache = /* @__PURE__ */ new Map()
+const audioState = {
+  bgm: null,
+  bgmCue: null,
+}
+function getBgmCue() {
+  return audioState.bgmCue
+}
 function stopBgm() {
   if (audioState.bgm) {
     audioState.bgm.pause()
@@ -62,7 +48,9 @@ function stopBgm() {
   audioState.bgm = null
   audioState.bgmCue = null
 }
-
+function clearAudioCache() {
+  audioCache.clear()
+}
 async function ensureAudio(ctx, cue) {
   let audio = audioCache.get(cue)
   if (!audio) {
@@ -72,7 +60,6 @@ async function ensureAudio(ctx, cue) {
   }
   return audio
 }
-
 async function playBgm(ctx, cue) {
   if (!cue || audioState.bgmCue === cue) return
   stopBgm()
@@ -83,11 +70,8 @@ async function playBgm(ctx, cue) {
     await audio.play()
     audioState.bgm = audio
     audioState.bgmCue = cue
-  } catch {
-    // BGM is best-effort; autoplay policies may still block it.
-  }
+  } catch {}
 }
-
 async function playSfx(ctx, cue, volume = 0.5) {
   if (!cue) return
   try {
@@ -96,11 +80,8 @@ async function playSfx(ctx, cue, volume = 0.5) {
     audio.volume = volume
     audio.currentTime = 0
     await audio.play()
-  } catch {
-    // SFX are best-effort.
-  }
+  } catch {}
 }
-
 function pickCue(cues, patterns, kind) {
   for (const pattern of patterns) {
     const hit = cues.find((entry) => entry.kind === kind && pattern.test(entry.cue))
@@ -108,49 +89,37 @@ function pickCue(cues, patterns, kind) {
   }
   return null
 }
-
 function pickDefaultTrack(musicCues) {
-  const preferred = [/stardew/i, /spring/i, /overture|main|theme/i]
-  for (const pattern of preferred) {
+  for (const pattern of [/stardew/i, /spring/i, /overture|main|theme/i]) {
     const hit = musicCues.find((cue) => pattern.test(cue))
     if (hit) return hit
   }
   return musicCues[0] ?? null
 }
-
+//#endregion
+//#region compat-plugins/modforge.example-code-plugin/src/sprites.ts
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('image decode failed'))
+    image.onerror = () => reject(/* @__PURE__ */ new Error('image decode failed'))
     image.src = src
   })
 }
-
 /** Crops one 16x16 sprite from the atlas and returns it upscaled with smoothing off. */
-function renderSprite(atlas, columns, spriteIndex, scale = RENDER_SCALE) {
+function renderSprite(atlas, columns, spriteIndex, scale = 4) {
   const canvas = document.createElement('canvas')
-  canvas.width = SPRITE_SIZE * scale
-  canvas.height = SPRITE_SIZE * scale
+  canvas.width = 16 * scale
+  canvas.height = 16 * scale
   const context = canvas.getContext('2d')
+  if (!context) throw new Error('2d context unavailable')
   context.imageSmoothingEnabled = false
-  context.drawImage(
-    atlas,
-    (spriteIndex % columns) * SPRITE_SIZE,
-    Math.floor(spriteIndex / columns) * SPRITE_SIZE,
-    SPRITE_SIZE,
-    SPRITE_SIZE,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  )
+  context.drawImage(atlas, (spriteIndex % columns) * 16, Math.floor(spriteIndex / columns) * 16, 16, 16, 0, 0, canvas.width, canvas.height)
   return canvas.toDataURL()
 }
-
 /** Picks card faces from parsed Data/Objects and renders their atlas sprites. */
 function extractItemFaces(objects, atlas, count) {
-  const columns = Math.max(1, Math.floor(atlas.width / SPRITE_SIZE))
+  const columns = Math.max(1, Math.floor(atlas.width / 16))
   const items = []
   for (const [id, data] of Object.entries(objects)) {
     if (!data || typeof data !== 'object') continue
@@ -159,7 +128,7 @@ function extractItemFaces(objects, atlas, count) {
     items.push({
       key: id,
       label: data.DisplayName || data.Name,
-      name: data.Name,
+      name: String(data.Name),
       spriteIndex: data.SpriteIndex,
       price: typeof data.Price === 'number' ? data.Price : null,
     })
@@ -181,35 +150,57 @@ function extractItemFaces(objects, atlas, count) {
     price: item.price,
     emoji: null,
     image: renderSprite(atlas, columns, item.spriteIndex),
-    showcaseImage: renderSprite(atlas, columns, item.spriteIndex, SHOWCASE_SCALE),
+    showcaseImage: renderSprite(atlas, columns, item.spriteIndex, 6),
   }))
 }
-
 /** Loads card faces from the game, falling back to bundled emoji without one. */
 async function loadFaces(ctx, locale) {
   try {
     const [objectsAsset, atlasUrl] = await Promise.all([
-      ctx.commands.invoke('loadGameDataAsset', { assetPath: 'Data/Objects', locale }),
-      ctx.commands.invoke('loadGameImage', { contentPath: 'Maps/springobjects', locale }),
+      ctx.commands.invoke('loadGameDataAsset', {
+        assetPath: 'Data/Objects',
+        locale,
+      }),
+      ctx.commands.invoke('loadGameImage', {
+        contentPath: 'Maps/springobjects',
+        locale,
+      }),
     ])
     const atlas = await loadImage(atlasUrl)
-    const faces = extractItemFaces(JSON.parse(objectsAsset.content), atlas, MAX_PAIRS)
-    if (faces.length >= DIFFICULTIES.easy.pairs) return { faces, usedFallback: false }
+    const faces = extractItemFaces(JSON.parse(objectsAsset.content), atlas, 10)
+    if (faces.length >= DIFFICULTIES.easy.pairs)
+      return {
+        faces,
+        usedFallback: false,
+      }
     throw new Error('not enough item sprites')
   } catch {
     const raw = await ctx.commands.invoke('readPluginAsset', { path: 'cards.json' })
-    const faces = JSON.parse(raw).faces.map((emoji) => ({
-      key: emoji,
-      label: emoji,
-      price: null,
-      emoji,
-      image: null,
-      showcaseImage: null,
-    }))
-    return { faces, usedFallback: true }
+    return {
+      faces: JSON.parse(raw).faces.map((emoji) => ({
+        key: emoji,
+        label: emoji,
+        price: null,
+        emoji,
+        image: null,
+        showcaseImage: null,
+      })),
+      usedFallback: true,
+    }
   }
 }
-
+//#endregion
+//#region compat-plugins/modforge.example-code-plugin/src/game.ts
+const sessionBest = /* @__PURE__ */ new Map()
+function getBest(difficulty) {
+  return sessionBest.get(difficulty)
+}
+function setBest(difficulty, record) {
+  sessionBest.set(difficulty, record)
+}
+function clearBests() {
+  sessionBest.clear()
+}
 function shuffle(items) {
   const copy = [...items]
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -220,93 +211,31 @@ function shuffle(items) {
   }
   return copy
 }
-
 function dealDeck(faces, pairs) {
   return shuffle(faces.slice(0, pairs).flatMap((face) => [face, face]))
 }
-
 function formatSeconds(total) {
   const minutes = Math.floor(total / 60)
   const seconds = total % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
-
-// Token-based inline styles — no hardcoded colors, everything follows the theme.
-const styles = {
-  toolbar: { display: 'flex', alignItems: 'center', gap: 8 },
-  button: {
-    padding: '6px 12px',
-    borderRadius: 6,
-    border: '1px solid var(--border-color)',
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-primary)',
-    cursor: 'pointer',
-    fontSize: 12,
-  },
-  primaryButton: {
-    padding: '6px 14px',
-    borderRadius: 6,
-    border: '1px solid transparent',
-    background: 'var(--accent)',
-    color: 'var(--accent-contrast)',
-    cursor: 'pointer',
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  columns: { display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' },
-  boardColumn: { flex: '1 1 380px', minWidth: 320 },
-  sideColumn: { flex: '0 0 240px', display: 'flex', flexDirection: 'column', gap: 12 },
-  stats: {
-    display: 'flex',
-    gap: 16,
-    marginBottom: 12,
-    fontSize: 12,
-    color: 'var(--text-secondary)',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  fallbackNote: { marginBottom: 12, fontSize: 12, color: 'var(--warning)' },
-  grid: (columns) => ({
-    display: 'grid',
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    gap: 8,
-    maxWidth: 560,
-  }),
-  card: (faceUp, matched) => ({
-    aspectRatio: '1',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 30,
-    borderRadius: 8,
-    border: '1px solid var(--border-color)',
-    background: matched ? 'var(--success-soft)' : faceUp ? 'var(--bg-elevated)' : 'var(--bg-panel-muted)',
-    color: faceUp ? 'var(--text-primary)' : 'var(--text-secondary)',
-    cursor: matched ? 'default' : 'pointer',
-    transition: 'background 120ms ease, transform 120ms ease',
-    userSelect: 'none',
-    padding: 6,
-  }),
-  cardImage: { width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated' },
-  showcaseBody: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 96 },
-  showcaseImage: { width: 96, height: 96, imageRendering: 'pixelated', flexShrink: 0 },
-  showcaseEmoji: { fontSize: 64, lineHeight: 1, flexShrink: 0 },
-  showcaseName: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
-  showcasePrice: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 },
-  showcaseEmpty: { fontSize: 12, color: 'var(--text-secondary)' },
-  soundtrackStatus: { marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' },
+//#endregion
+//#region compat-plugins/modforge.example-code-plugin/src/MemoryMatchPage.tsx
+/** Memory Match game page component. */
+/** Dynamic grid columns must stay inline (depends on the chosen difficulty). */
+function gridStyle(columns) {
+  return { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
 }
-
 function MemoryMatchPage({ ctx }) {
-  const { PanelFrame, PanelSection, EmptyStateCard, CompactSelect } = ctx.components
-  const t = ctx.i18n.t
-
+  const { PanelFrame, EmptyStateCard, CompactSelect, WorkspaceSplitView } = ctx.components
+  const t = (key) => ctx.i18n.t(key)
   const [faces, setFaces] = React.useState(null)
   const [usedFallback, setUsedFallback] = React.useState(false)
   const [loadFailed, setLoadFailed] = React.useState(false)
   const [difficulty, setDifficulty] = React.useState('easy')
   const [deck, setDeck] = React.useState([])
   const [flipped, setFlipped] = React.useState([])
-  const [matched, setMatched] = React.useState(() => new Set())
+  const [matched, setMatched] = React.useState(() => /* @__PURE__ */ new Set())
   const [locked, setLocked] = React.useState(false)
   const [moves, setMoves] = React.useState(0)
   const [seconds, setSeconds] = React.useState(0)
@@ -315,16 +244,16 @@ function MemoryMatchPage({ ctx }) {
   const [musicCues, setMusicCues] = React.useState([])
   const [selectedTrack, setSelectedTrack] = React.useState(null)
   const [musicOn, setMusicOn] = React.useState(true)
-  const sfxRef = React.useRef({ flip: null, match: null, win: null })
-
+  const sfxRef = React.useRef({
+    flip: null,
+    match: null,
+    win: null,
+  })
   const won = deck.length > 0 && matched.size === deck.length
-  const best = sessionBest.get(difficulty)
-
-  // Load card faces (game items, or the bundled emoji fallback) and audio cues.
+  const best = getBest(difficulty)
   React.useEffect(() => {
     let alive = true
-    const locale = String(ctx.capabilities.get('host.locale') || 'en-US')
-    loadFaces(ctx, locale)
+    loadFaces(ctx, String(ctx.capabilities.get('host.locale') || 'en-US'))
       .then((result) => {
         if (!alive) return
         setFaces(result.faces)
@@ -351,59 +280,53 @@ function MemoryMatchPage({ ctx }) {
       alive = false
     }
   }, [ctx])
-
-  // Deal a fresh deck once faces arrive or the difficulty changes.
   React.useEffect(() => {
     if (!faces) return
     setDeck(dealDeck(faces, DIFFICULTIES[difficulty].pairs))
     setFlipped([])
-    setMatched(new Set())
+    setMatched(/* @__PURE__ */ new Set())
     setLocked(false)
     setMoves(0)
     setSeconds(0)
     setStarted(false)
     setLastMatch(null)
   }, [faces, difficulty])
-
-  // Game clock: runs from the first flip until the board is cleared.
   React.useEffect(() => {
-    if (!started || won) return undefined
-    const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
+    if (!started || won) return void 0
+    const timer = setInterval(() => setSeconds((value) => value + 1), 1e3)
     return () => clearInterval(timer)
   }, [started, won])
-
-  // Stop the BGM when the page unmounts.
   React.useEffect(() => () => stopBgm(), [])
-
-  // Victory: record the session best, play the jingle, raise a toast.
   React.useEffect(() => {
     if (!won) return
     void playSfx(ctx, sfxRef.current.win, 0.6)
-    const previous = sessionBest.get(difficulty)
+    const previous = getBest(difficulty)
     const isNewBest = !previous || moves < previous.moves
-    if (isNewBest) sessionBest.set(difficulty, { moves, seconds })
+    if (isNewBest)
+      setBest(difficulty, {
+        moves,
+        seconds,
+      })
     ctx.notifications.publish({
       id: 'memory-match-win',
       level: 'success',
       title: t('game.win.title'),
       summary: t('game.win.detail').replace('{time}', formatSeconds(seconds)).replace('{moves}', String(moves)),
-      note: isNewBest ? t('game.win.newBest') : undefined,
-      autoDismissMs: 5000,
+      note: isNewBest ? t('game.win.newBest') : void 0,
+      autoDismissMs: 5e3,
     })
-  }, [won]) // fire once per victory; ctx/t/moves/seconds are fresh in the winning render
-
+  }, [won])
   const restart = () => {
     if (!faces) return
     setDeck(dealDeck(faces, DIFFICULTIES[difficulty].pairs))
     setFlipped([])
-    setMatched(new Set())
+    setMatched(/* @__PURE__ */ new Set())
     setLocked(false)
     setMoves(0)
     setSeconds(0)
     setStarted(false)
     setLastMatch(null)
   }
-
   const toggleMusic = () => {
     if (musicOn) {
       setMusicOn(false)
@@ -413,17 +336,14 @@ function MemoryMatchPage({ ctx }) {
     setMusicOn(true)
     if (started && selectedTrack) void playBgm(ctx, selectedTrack)
   }
-
   const changeTrack = (cue) => {
     setSelectedTrack(cue)
     if (musicOn && started) void playBgm(ctx, cue)
   }
-
   const flipCard = (index) => {
     if (locked || won || flipped.includes(index) || matched.has(index)) return
     if (!started) {
       setStarted(true)
-      // First click doubles as the audio autoplay gesture.
       if (musicOn && selectedTrack) void playBgm(ctx, selectedTrack)
     }
     void playSfx(ctx, sfxRef.current.flip, 0.4)
@@ -432,7 +352,7 @@ function MemoryMatchPage({ ctx }) {
     if (next.length < 2) return
     setMoves((value) => value + 1)
     if (deck[next[0]].key === deck[next[1]].key) {
-      setMatched((current) => new Set([...current, next[0], next[1]]))
+      setMatched((current) => /* @__PURE__ */ new Set([...current, next[0], next[1]]))
       setLastMatch(deck[next[0]])
       setFlipped([])
       void playSfx(ctx, sfxRef.current.match, 0.5)
@@ -442,147 +362,363 @@ function MemoryMatchPage({ ctx }) {
     setTimeout(() => {
       setFlipped([])
       setLocked(false)
-    }, MISMATCH_REVEAL_MS)
+    }, 700)
   }
-
-  if (loadFailed) {
-    return h(PanelFrame, {
+  if (loadFailed)
+    return /* @__PURE__ */ jsx(PanelFrame, {
+      flat: true,
       title: t('game.error.title'),
-      children: h(EmptyStateCard, { title: t('game.error.title'), detail: t('game.error.detail'), density: 'compact' }),
+      children: /* @__PURE__ */ jsx(EmptyStateCard, {
+        title: t('game.error.title'),
+        detail: t('game.error.detail'),
+        density: 'compact',
+      }),
     })
-  }
-  if (!faces) {
-    return h(PanelFrame, {
+  if (!faces)
+    return /* @__PURE__ */ jsx(PanelFrame, {
+      flat: true,
       title: t('game.loading.title'),
-      children: h(EmptyStateCard, { title: t('game.loading.title'), detail: t('game.loading.detail'), density: 'compact' }),
+      children: /* @__PURE__ */ jsx(EmptyStateCard, {
+        title: t('game.loading.title'),
+        detail: t('game.loading.detail'),
+        density: 'compact',
+      }),
     })
-  }
-
-  const headerAction = h(
-    'div',
-    { style: styles.toolbar },
-    h(CompactSelect, {
-      value: difficulty,
-      ariaLabel: t('game.difficulty'),
-      options: Object.keys(DIFFICULTIES).map((key) => ({ value: key, label: t(`game.difficulty.${key}`) })),
-      onChange: setDifficulty,
+  const pairsDone = matched.size / 2
+  const pairsTotal = deck.length / 2
+  const progressPct = pairsTotal > 0 ? (pairsDone / pairsTotal) * 100 : 0
+  const sidebar = /* @__PURE__ */ jsx('div', {
+    children: /* @__PURE__ */ jsxs('div', {
+      className: 'mmg-sidebar-section',
+      children: [
+        /* @__PURE__ */ jsx('p', {
+          className: 'panel-title mmg-section-title',
+          children: t('game.board'),
+        }),
+        /* @__PURE__ */ jsxs('div', {
+          className: 'mmg-stat-grid',
+          children: [
+            /* @__PURE__ */ jsxs('div', {
+              className: 'metric-card compact-metric-card',
+              children: [
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-label',
+                  children: t('game.moves'),
+                }),
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-value',
+                  children: moves,
+                }),
+              ],
+            }),
+            /* @__PURE__ */ jsxs('div', {
+              className: 'metric-card compact-metric-card',
+              children: [
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-label',
+                  children: t('game.time'),
+                }),
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-value',
+                  children: formatSeconds(seconds),
+                }),
+              ],
+            }),
+            /* @__PURE__ */ jsxs('div', {
+              className: 'metric-card compact-metric-card mmg-stat-card-has-bar',
+              children: [
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-label',
+                  children: t('game.pairs'),
+                }),
+                /* @__PURE__ */ jsxs('div', {
+                  className: 'metric-value',
+                  children: [
+                    pairsDone,
+                    /* @__PURE__ */ jsxs('span', {
+                      className: 'mmg-stat-unit',
+                      children: ['/', pairsTotal],
+                    }),
+                  ],
+                }),
+                /* @__PURE__ */ jsx('div', {
+                  className: 'mmg-stat-mini-bar',
+                  children: /* @__PURE__ */ jsx('div', {
+                    className: 'mmg-stat-mini-fill',
+                    style: { width: `${progressPct}%` },
+                  }),
+                }),
+              ],
+            }),
+            /* @__PURE__ */ jsxs('div', {
+              className: 'metric-card compact-metric-card',
+              children: [
+                /* @__PURE__ */ jsx('div', {
+                  className: 'metric-label',
+                  children: t('game.best'),
+                }),
+                /* @__PURE__ */ jsxs('div', {
+                  className: 'metric-value',
+                  children: [
+                    best ? best.moves : '—',
+                    best
+                      ? /* @__PURE__ */ jsx('span', {
+                          className: 'mmg-stat-unit',
+                          children: t('game.best.moves'),
+                        })
+                      : null,
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
     }),
-    h(
-      'button',
-      {
-        type: 'button',
-        style: { ...styles.button, opacity: musicCues.length === 0 ? 0.5 : 1 },
-        onClick: toggleMusic,
-        disabled: musicCues.length === 0,
-      },
-      musicOn ? t('game.soundtrack.on') : t('game.soundtrack.off'),
-    ),
-    h('button', { type: 'button', style: styles.button, onClick: restart }, t('game.restart')),
-  )
-
-  const stats = h(
-    'div',
-    { style: styles.stats },
-    h('span', null, `${t('game.moves')}: ${moves}`),
-    h('span', null, `${t('game.time')}: ${formatSeconds(seconds)}`),
-    h('span', null, `${t('game.pairs')}: ${matched.size / 2}/${deck.length / 2}`),
-    h('span', null, `${t('game.best')}: ${best ? `${best.moves} ${t('game.best.moves')}` : '—'}`),
-  )
-
-  const grid = h(
-    'div',
-    { style: styles.grid(DIFFICULTIES[difficulty].columns) },
-    deck.map((face, index) => {
-      const faceUp = flipped.includes(index) || matched.has(index)
-      return h(
+  })
+  const grid = /* @__PURE__ */ jsx('div', {
+    className: 'mmg-grid',
+    style: gridStyle(DIFFICULTIES[difficulty].columns),
+    children: deck.map((face, index) => {
+      const isMatched = matched.has(index)
+      const faceUp = flipped.includes(index) || isMatched
+      return /* @__PURE__ */ jsx(
         'button',
         {
-          key: index,
           type: 'button',
-          style: styles.card(faceUp, matched.has(index)),
+          className: `mmg-card${faceUp ? ' is-up' : ''}${isMatched ? ' is-matched' : ''}`,
           onClick: () => flipCard(index),
           'aria-label': faceUp ? face.label : t('game.card.hidden'),
+          children: /* @__PURE__ */ jsxs('span', {
+            className: 'mmg-card-inner',
+            children: [
+              /* @__PURE__ */ jsx('span', {
+                className: 'mmg-card-face mmg-card-back',
+                'aria-hidden': 'true',
+                children: /* @__PURE__ */ jsx('span', {
+                  className: 'mmg-card-glyph',
+                  children: '✦',
+                }),
+              }),
+              /* @__PURE__ */ jsx('span', {
+                className: 'mmg-card-face mmg-card-front',
+                children: face.image
+                  ? /* @__PURE__ */ jsx('img', {
+                      src: face.image,
+                      alt: face.label,
+                    })
+                  : /* @__PURE__ */ jsx('span', {
+                      className: 'mmg-card-emoji',
+                      children: face.emoji,
+                    }),
+              }),
+            ],
+          }),
         },
-        faceUp ? (face.image ? h('img', { src: face.image, alt: face.label, style: styles.cardImage }) : face.emoji) : '✦',
+        index,
       )
     }),
-  )
-
-  const board = h(
-    'div',
-    { style: styles.boardColumn },
-    h(
-      PanelSection,
-      { title: t('game.board') },
-      usedFallback ? h('div', { style: styles.fallbackNote }, t('game.fallbackNote')) : null,
-      stats,
-      won
-        ? h(EmptyStateCard, {
-            title: t('game.win.title'),
-            detail: t('game.win.detail').replace('{time}', formatSeconds(seconds)).replace('{moves}', String(moves)),
-            density: 'compact',
-            primaryAction: h('button', { type: 'button', style: styles.primaryButton, onClick: restart }, t('game.win.action')),
+  })
+  const board = /* @__PURE__ */ jsx('div', {
+    className: 'mmg-board-wrap',
+    children: /* @__PURE__ */ jsxs('div', {
+      className: 'mmg-board-card',
+      children: [
+        usedFallback
+          ? /* @__PURE__ */ jsx('div', {
+              className: 'status-pill status-pill-warning mmg-fallback-note',
+              children: t('game.fallbackNote'),
+            })
+          : null,
+        won
+          ? /* @__PURE__ */ jsx(EmptyStateCard, {
+              title: t('game.win.title'),
+              detail: t('game.win.detail').replace('{time}', formatSeconds(seconds)).replace('{moves}', String(moves)),
+              density: 'compact',
+              primaryAction: /* @__PURE__ */ jsx('button', {
+                type: 'button',
+                className: 'control-button control-button-primary',
+                onClick: restart,
+                children: t('game.win.action'),
+              }),
+            })
+          : grid,
+      ],
+    }),
+  })
+  const showcase = /* @__PURE__ */ jsxs('div', {
+    className: 'mmg-right-section',
+    children: [
+      /* @__PURE__ */ jsx('p', {
+        className: 'panel-title mmg-section-title',
+        children: t('game.showcase'),
+      }),
+      lastMatch
+        ? /* @__PURE__ */ jsxs('div', {
+            className: 'mmg-showcase-body',
+            children: [
+              /* @__PURE__ */ jsx('div', {
+                className: 'mmg-showcase-tile',
+                children: lastMatch.showcaseImage
+                  ? /* @__PURE__ */ jsx('img', {
+                      src: lastMatch.showcaseImage,
+                      alt: lastMatch.label,
+                    })
+                  : /* @__PURE__ */ jsx('span', {
+                      className: 'mmg-showcase-emoji',
+                      children: lastMatch.emoji,
+                    }),
+              }),
+              /* @__PURE__ */ jsxs('div', {
+                children: [
+                  /* @__PURE__ */ jsx('div', {
+                    className: 'mmg-showcase-name',
+                    children: lastMatch.label,
+                  }),
+                  lastMatch.price != null
+                    ? /* @__PURE__ */ jsx('div', {
+                        className: 'mmg-showcase-price',
+                        children: t('game.price').replace('{price}', String(lastMatch.price)),
+                      })
+                    : null,
+                ],
+              }),
+            ],
           })
-        : grid,
-    ),
-  )
-
-  const showcase = h(
-    PanelSection,
-    { title: t('game.showcase') },
-    lastMatch
-      ? h(
-          'div',
-          { style: styles.showcaseBody },
-          lastMatch.showcaseImage
-            ? h('img', { src: lastMatch.showcaseImage, alt: lastMatch.label, style: styles.showcaseImage })
-            : h('span', { style: styles.showcaseEmoji }, lastMatch.emoji),
-          h(
-            'div',
-            null,
-            h('div', { style: styles.showcaseName }, lastMatch.label),
-            lastMatch.price != null
-              ? h('div', { style: styles.showcasePrice }, t('game.price').replace('{price}', String(lastMatch.price)))
-              : null,
-          ),
-        )
-      : h('div', { style: styles.showcaseEmpty }, t('game.showcase.empty')),
-  )
-
-  const soundtrack = h(
-    PanelSection,
-    { title: t('game.soundtrack') },
-    musicCues.length > 0
-      ? h(CompactSelect, {
-          value: selectedTrack ?? '',
-          ariaLabel: t('game.soundtrack.track'),
-          placeholder: t('game.soundtrack.track'),
-          options: musicCues.map((cue) => ({ value: cue, label: cue })),
-          onChange: changeTrack,
-        })
-      : h('div', { style: styles.showcaseEmpty }, t('game.soundtrack.none')),
-    h(
-      'div',
-      { style: styles.soundtrackStatus },
-      musicCues.length > 0
-        ? musicOn && audioState.bgmCue
-          ? t('game.soundtrack.nowPlaying').replace('{cue}', audioState.bgmCue)
-          : t('game.soundtrack.idle')
-        : null,
-    ),
-  )
-
-  return h(
-    PanelFrame,
-    {
-      title: t('example.page.title'),
-      subtitle: t('game.subtitle').replace('{pluginId}', String(ctx.capabilities.get('plugin.id'))),
-      headerAction,
-    },
-    h('div', { style: styles.columns }, board, h('div', { style: styles.sideColumn }, showcase, soundtrack)),
-  )
+        : /* @__PURE__ */ jsx('div', {
+            className: 'mmg-muted',
+            children: t('game.showcase.empty'),
+          }),
+    ],
+  })
+  const nowPlaying = musicCues.length > 0 && musicOn && getBgmCue()
+  return /* @__PURE__ */ jsx('div', {
+    className: 'mmg-root',
+    children: /* @__PURE__ */ jsx(WorkspaceSplitView, {
+      sidebar,
+      rightPanel: /* @__PURE__ */ jsxs('div', {
+        children: [
+          /* @__PURE__ */ jsxs('div', {
+            className: 'mmg-right-section',
+            children: [
+              /* @__PURE__ */ jsx('p', {
+                className: 'panel-title mmg-section-title',
+                children: t('game.difficulty'),
+              }),
+              /* @__PURE__ */ jsxs('div', {
+                className: 'mmg-control-row',
+                children: [
+                  /* @__PURE__ */ jsx('span', {
+                    className: 'mmg-control-label',
+                    children: t('game.difficulty'),
+                  }),
+                  /* @__PURE__ */ jsx(CompactSelect, {
+                    value: difficulty,
+                    ariaLabel: t('game.difficulty'),
+                    options: Object.keys(DIFFICULTIES).map((key) => ({
+                      value: key,
+                      label: t(`game.difficulty.${key}`),
+                    })),
+                    onChange: setDifficulty,
+                  }),
+                ],
+              }),
+              /* @__PURE__ */ jsxs('div', {
+                className: 'mmg-control-row',
+                children: [
+                  /* @__PURE__ */ jsx('span', {
+                    className: 'mmg-control-label',
+                    children: t('game.soundtrack'),
+                  }),
+                  /* @__PURE__ */ jsx('button', {
+                    type: 'button',
+                    className: `control-button${musicOn ? ' control-button-primary' : ''}`,
+                    onClick: toggleMusic,
+                    disabled: musicCues.length === 0,
+                    children: musicOn ? t('game.soundtrack.on') : t('game.soundtrack.off'),
+                  }),
+                ],
+              }),
+            ],
+          }),
+          showcase,
+          /* @__PURE__ */ jsxs('div', {
+            className: 'mmg-right-section',
+            children: [
+              /* @__PURE__ */ jsx('p', {
+                className: 'panel-title mmg-section-title',
+                children: t('game.soundtrack'),
+              }),
+              musicCues.length > 0
+                ? /* @__PURE__ */ jsx(CompactSelect, {
+                    value: selectedTrack ?? '',
+                    ariaLabel: t('game.soundtrack.track'),
+                    placeholder: t('game.soundtrack.track'),
+                    options: musicCues.map((cue) => ({
+                      value: cue,
+                      label: cue,
+                    })),
+                    onChange: changeTrack,
+                  })
+                : /* @__PURE__ */ jsx('div', {
+                    className: 'mmg-muted',
+                    children: t('game.soundtrack.none'),
+                  }),
+              musicCues.length > 0
+                ? /* @__PURE__ */ jsxs('div', {
+                    className: 'mmg-now-playing',
+                    children: [
+                      nowPlaying
+                        ? /* @__PURE__ */ jsx('span', {
+                            className: 'mmg-now-playing-dot',
+                            'aria-hidden': 'true',
+                          })
+                        : null,
+                      nowPlaying ? t('game.soundtrack.nowPlaying').replace('{cue}', getBgmCue() ?? '') : t('game.soundtrack.idle'),
+                    ],
+                  })
+                : null,
+            ],
+          }),
+          /* @__PURE__ */ jsx('div', {
+            className: 'mmg-right-section',
+            children: /* @__PURE__ */ jsx('button', {
+              type: 'button',
+              className: 'control-button control-button-primary mmg-block-btn',
+              onClick: restart,
+              children: t('game.restart'),
+            }),
+          }),
+        ],
+      }),
+      sidebarWidth: '15rem',
+      rightPanelWidth: '16rem',
+      sidebarLabel: t('game.board'),
+      rightPanelLabel: t('game.difficulty'),
+      children: board,
+    }),
+  })
 }
-
+//#endregion
+//#region compat-plugins/modforge.example-code-plugin/src/index.tsx
+/**
+ * Example code plugin: a Stardew item-dex memory match game.
+ * Exercises the full SDK surface in one real interaction flow:
+ * - registerPage with a stateful React component (shared React instance)
+ * - components (PanelFrame / EmptyStateCard / CompactSelect)
+ * - game asset commands: loadGameDataAsset (Data/Objects), loadGameImage
+ *   (Maps/springobjects atlas, cropped and upscaled 4x with smoothing off),
+ *   scanGameAudio + loadGameAudioCue (XACT music cues as BGM, sound cues as SFX)
+ * - resolveGameRoot fallback: without a game directory the game deals emoji
+ *   faces from the bundled cards.json (readPluginAsset)
+ * - notifications (win toast with session-best note; retracted on dispose)
+ * - capabilities (plugin.id, host.locale for localized item names)
+ * - i18n (t) for all user-visible copy
+ * - module state + onDispose (session bests and the audio cache are cleared)
+ * Styling lives in styles.css (declared via the manifest "styles" field; the
+ * host injects it and removes it on unload) with all colors from the host
+ * design tokens (var(--…)).
+ */
 const pluginModule = {
   sdkVersion: '1.0.0',
   activate(ctx) {
@@ -594,16 +730,14 @@ const pluginModule = {
       titleKey: 'example.page.title',
       presentation: 'standalone',
       projectAccess: 'none',
-      component: () => h(MemoryMatchPage, { ctx }),
+      component: () => /* @__PURE__ */ jsx(MemoryMatchPage, { ctx }),
     })
-
-    // Session bests and decoded audio live in module scope; dispose clears them.
     ctx.onDispose(() => {
-      sessionBest.clear()
+      clearBests()
       stopBgm()
-      audioCache.clear()
+      clearAudioCache()
     })
   },
 }
-
-export default pluginModule
+//#endregion
+export { pluginModule as default }

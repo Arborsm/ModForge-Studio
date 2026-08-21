@@ -7,6 +7,7 @@ use crate::domain::modding::compat_plugin::{
     CompatPluginEntrySummary, CompatPluginSummary, ReadCompatPluginEntryRequest,
     ReadCompatPluginEntryResult, WriteCompatPluginEntryRequest,
 };
+use base64::Engine as _;
 use host_command_macros::host_command;
 
 /// Lists installed compat plugins with inline i18n bundles and page ids.
@@ -24,7 +25,13 @@ pub async fn list_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSumma
 /// Reloads compat plugins from disk, clearing all caches. Returns the refreshed
 /// plugin summaries. Used by the stage 4 plugin management page's manual reload
 /// button.
-#[host_command(io)]
+///
+/// Mutation lane + `CompatPluginState` resource lock: clearing caches and
+/// re-scanning mutates the shared plugin state, so it must serialize against
+/// `toggle_compat_plugin` / `delete_compat_plugin` (which also clear caches and
+/// re-scan) to avoid a reload reading a half-written marker or a toggle reading
+/// pre-clear stale state.
+#[host_command(mutation, resources(CompatPluginState))]
 pub async fn reload_compat_plugins(app: AppHandle) -> Result<Vec<CompatPluginSummary>, String> {
     // Clear the plugin summaries cache and the attached API registry cache,
     // then re-scan from disk.
@@ -96,4 +103,113 @@ pub struct ListCompatPluginEntriesRequest {
     pub entry_file: String,
     /// Optional companion image file name (e.g. "texture.png").
     pub entry_image: Option<String>,
+}
+
+/// Request payload for `toggle_compat_plugin`.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleCompatPluginRequest {
+    /// Plugin id (matches the directory name).
+    pub plugin_id: String,
+    /// `true` to disable, `false` to enable.
+    pub disabled: bool,
+}
+
+/// Toggles a compat plugin's enabled state by creating or removing a
+/// `.disabled` marker file in the plugin directory. After toggling, the plugin
+/// caches are cleared and refreshed summaries are returned so the frontend can
+/// update the registry in place.
+#[host_command(mutation, resources(CompatPluginState))]
+pub async fn toggle_compat_plugin(
+    app: AppHandle,
+    request: ToggleCompatPluginRequest,
+) -> Result<Vec<CompatPluginSummary>, String> {
+    domain::modding::compat_plugin::set_plugin_disabled(&request.plugin_id, request.disabled)?;
+    domain::modding::compat_plugin::clear_plugin_caches();
+    Ok::<Vec<CompatPluginSummary>, String>(
+        domain::modding::compat_plugin::list_summaries_from_resolved_roots(),
+    )
+}
+
+/// Request payload for `delete_compat_plugin`.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteCompatPluginRequest {
+    /// Plugin id (matches the directory name).
+    pub plugin_id: String,
+}
+
+/// Deletes a compat plugin directory entirely. After deletion, the plugin
+/// caches are cleared and refreshed summaries are returned so the frontend can
+/// update the registry in place. The caller should confirm the deletion with
+/// the user before invoking this command.
+#[host_command(mutation, resources(CompatPluginState))]
+pub async fn delete_compat_plugin(
+    app: AppHandle,
+    request: DeleteCompatPluginRequest,
+) -> Result<Vec<CompatPluginSummary>, String> {
+    domain::modding::compat_plugin::delete_plugin(&request.plugin_id)?;
+    domain::modding::compat_plugin::clear_plugin_caches();
+    Ok::<Vec<CompatPluginSummary>, String>(
+        domain::modding::compat_plugin::list_summaries_from_resolved_roots(),
+    )
+}
+
+/// Request payload for `read_plugin_asset`.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadPluginAssetRequest {
+    /// Plugin id (matches the directory name under a plugin root).
+    pub plugin_id: String,
+    /// Relative path within the plugin directory (e.g. "index.js",
+    /// "assets/icon.png"). Must end with a whitelisted extension.
+    pub relative_path: String,
+}
+
+/// Result of reading a plugin asset via the `plugin://` protocol. The file
+/// bytes are base64-encoded so they can travel over the sidecar's JSON-RPC
+/// transport; the content type lets the host set the correct `Content-Type`
+/// header without re-deriving it.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadPluginAssetResult {
+    /// File bytes base64-encoded (standard alphabet, with padding).
+    pub bytes_base64: String,
+    /// MIME content type derived from the file extension.
+    pub content_type: String,
+}
+
+/// Reads a plugin asset file for the `plugin://` custom URI scheme. Resolves
+/// the path via [`compat_plugin::resolve_plugin_protocol_path`] (plugin id
+/// validation, extension whitelist, traversal rejection — the single Rust
+/// source of truth) and returns the file bytes base64-encoded with its MIME
+/// content type.
+///
+/// Used by the Linux Electron host's `plugin://` protocol handler so all path
+/// safety stays in Rust (design doc §3.1/§10.3 C3: single implementation).
+/// The Electron handler becomes a pure transport layer: it forwards the
+/// request over sidecar IPC and wraps the response in a `fetch` `Response`.
+#[host_command(io)]
+pub async fn read_plugin_asset(
+    app: AppHandle,
+    request: ReadPluginAssetRequest,
+) -> Result<ReadPluginAssetResult, String> {
+    let resolved = domain::modding::compat_plugin::resolve_plugin_protocol_path(
+        &request.plugin_id,
+        &request.relative_path,
+    )
+    .ok_or_else(|| {
+        format!(
+            "plugin asset not found: {}/{}",
+            request.plugin_id, request.relative_path
+        )
+    })?;
+    let bytes = std::fs::read(&resolved)
+        .map_err(|e| format!("failed to read plugin asset {}: {e}", resolved.display()))?;
+    let content_type =
+        domain::modding::compat_plugin::plugin_asset_content_type(&resolved).to_string();
+    Ok::<ReadPluginAssetResult, String>(ReadPluginAssetResult {
+        bytes_base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+        content_type,
+    })
 }

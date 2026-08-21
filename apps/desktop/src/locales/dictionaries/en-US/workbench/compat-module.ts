@@ -5,6 +5,8 @@ const compatModule: CompatModuleCopy = {
   loadingDetail: 'Reading data from the target mod directory. Please wait.',
   emptyTitle: 'No entries found',
   emptyDetail: 'No entries were found in the target mod directory. Create entries in-game before editing.',
+  modNotInstalledTitle: 'Target mod not installed',
+  modNotInstalledDetail: 'Could not find {mod} in the Mods directory. Install the mod to edit its content here.',
   entryListTitle: 'Entries',
   entryListEmpty: 'No entries to edit',
   unsavedChanges: 'Unsaved changes',

@@ -11,6 +11,8 @@ import type { PluginI18nBundle } from '../api/types'
 type PluginLocaleState = {
   bundles: Record<string, PluginI18nBundle>
   registerBundle: (pluginId: string, i18n: PluginI18nBundle) => void
+  /** Replaces the entire bundle map (hot-reload semantics); cleared entries vanish. */
+  setBundles: (bundles: Record<string, PluginI18nBundle>) => void
 }
 
 export const usePluginLocaleStore = create<PluginLocaleState>((set) => ({
@@ -20,6 +22,7 @@ export const usePluginLocaleStore = create<PluginLocaleState>((set) => ({
       if (state.bundles[pluginId] === i18n) return state
       return { bundles: { ...state.bundles, [pluginId]: i18n } }
     }),
+  setBundles: (bundles) => set({ bundles }),
 }))
 
 /** Resolves a plugin-provided label key for the current locale. */

@@ -8,6 +8,10 @@ export type CompatModuleCopy = {
   emptyTitle: string
   /** Empty state detail shown when no entries are found. */
   emptyDetail: string
+  /** Empty state title shown when the target mod is not installed. */
+  modNotInstalledTitle: string
+  /** Empty state detail when the target mod is missing; `{mod}` is the target UniqueID. */
+  modNotInstalledDetail: string
   /** Entry list sidebar title. */
   entryListTitle: string
   /** Entry list empty placeholder. */

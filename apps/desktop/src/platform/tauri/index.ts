@@ -56,13 +56,19 @@ export function createTauriPlatformPorts(): PlatformPorts {
       toAssetUrl(filePath: string, protocol?: string) {
         return convertFileSrc(filePath, protocol)
       },
-      resolvePluginUrl(pluginId: string, relativePath: string) {
+      resolvePluginUrl(pluginId: string, relativePath: string, epoch?: number) {
         // Mirrors the URL forms the Rust `plugin` scheme handler expects (same
         // convention as convertFileSrc): Windows WebView2 serves custom schemes
         // as `http://plugin.localhost/...`, macOS/Linux as
         // `plugin://localhost/...`. Path segments are encoded individually so
         // the handler's segment-based parsing keeps working.
-        const segments = [pluginId, ...relativePath.split('/').filter(Boolean)].map(encodeURIComponent).join('/')
+        //
+        // When `epoch` is set, a `__v<N>/` segment is inserted after the plugin
+        // id so hot-reload bypasses the webview module cache (the entry and all
+        // relative sub-imports resolve under the versioned path). The host
+        // handler strips the prefix before resolving the on-disk path.
+        const pathSegments = relativePath.split('/').filter(Boolean)
+        const segments = [pluginId, ...(epoch !== undefined ? [`__v${epoch}`] : []), ...pathSegments].map(encodeURIComponent).join('/')
         return navigator.userAgent.includes('Windows') ? `http://plugin.localhost/${segments}` : `plugin://localhost/${segments}`
       },
     },

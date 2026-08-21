@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vite-plus/test'
-import { HOST_SDK_MAJOR_VERSION, disposeCodePlugins } from '@features/compat-plugins/runtime/codePluginLoader'
+import { HOST_SDK_MAJOR_VERSION, disposeCodePlugins, injectPluginStyles } from '@features/compat-plugins/runtime/codePluginLoader'
 import { isSdkVersionCompatible, parseSdkMajor } from '@modforge/plugin-sdk'
 
 describe('parseSdkMajor', () => {
@@ -30,6 +30,42 @@ describe('isSdkVersionCompatible', () => {
 describe('HOST_SDK_MAJOR_VERSION', () => {
   test('is 1 for the current SDK generation', () => {
     expect(HOST_SDK_MAJOR_VERSION).toBe(1)
+  })
+})
+
+describe('injectPluginStyles', () => {
+  test('appends one style element keyed by plugin id and the hook removes it', () => {
+    const appended: unknown[] = []
+    const removed: string[] = []
+    const host = {
+      createElement(_tag: 'style') {
+        return {
+          textContent: '',
+          attrs: {} as Record<string, string>,
+          setAttribute(name: string, value: string) {
+            this.attrs[name] = value
+          },
+          remove() {
+            removed.push(this.attrs['data-compat-plugin-styles'])
+          },
+        }
+      },
+      head: {
+        appendChild(el: unknown) {
+          appended.push(el)
+        },
+      },
+    }
+
+    const dispose = injectPluginStyles(host, 'author.demo', '.demo { color: red; }')
+
+    expect(appended).toHaveLength(1)
+    const el = appended[0] as { textContent: string; attrs: Record<string, string> }
+    expect(el.textContent).toBe('.demo { color: red; }')
+    expect(el.attrs['data-compat-plugin-styles']).toBe('author.demo')
+
+    dispose()
+    expect(removed).toEqual(['author.demo'])
   })
 })
 

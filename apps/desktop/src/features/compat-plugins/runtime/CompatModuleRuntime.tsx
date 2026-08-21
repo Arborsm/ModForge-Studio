@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Images } from 'lucide-react'
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { useCompatModuleCopy, useLocale } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
@@ -27,7 +27,7 @@ type CompatModuleRuntimeProps = {
   moduleId: string
 }
 
-type LoadState = 'loading' | 'loaded' | 'error' | 'empty'
+type LoadState = 'loading' | 'loaded' | 'error' | 'empty' | 'no-mod'
 
 /** Schema-rendering runtime for compat plugin data-pack pages. */
 export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = function CompatModuleRuntime({
@@ -87,7 +87,7 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
         if (!modRoot) {
           setTargetModRoot(null)
           setEntries([])
-          setLoadState('empty')
+          setLoadState('no-mod')
           return
         }
         setTargetModRoot(modRoot)
@@ -160,37 +160,49 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
     )
   }
 
+  // Loading / error / empty states keep the page frame so the user always
+  // sees which compat page they are on instead of a bare floating card.
+  const frameTitle = t(pageDescriptor.titleKey)
+  const framedState = (card: ReactNode) => (
+    <PanelFrame title={frameTitle}>
+      <div className="empty-state-card-fill">{card}</div>
+    </PanelFrame>
+  )
+
   if (loadState === 'loading') {
-    return (
-      <div className="empty-state-card-fill">
-        <EmptyStateCard title={copy.loadingTitle} detail={copy.loadingDetail} density="compact" />
-      </div>
-    )
+    return framedState(<EmptyStateCard title={copy.loadingTitle} detail={copy.loadingDetail} density="compact" />)
   }
 
   if (loadState === 'error') {
-    return (
-      <div className="empty-state-card-fill">
-        <EmptyStateCard
-          title={copy.errorTitle}
-          detail={copy.errorDetail}
-          illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
-          density="compact"
-        />
-      </div>
+    return framedState(
+      <EmptyStateCard
+        title={copy.errorTitle}
+        detail={copy.errorDetail}
+        illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
+        density="compact"
+      />,
+    )
+  }
+
+  if (loadState === 'no-mod') {
+    return framedState(
+      <EmptyStateCard
+        title={copy.modNotInstalledTitle}
+        detail={copy.modNotInstalledDetail.replace('{mod}', targets[0] ?? '')}
+        illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
+        density="compact"
+      />,
     )
   }
 
   if (loadState === 'empty' || entries.length === 0) {
-    return (
-      <div className="empty-state-card-fill">
-        <EmptyStateCard
-          title={copy.emptyTitle}
-          detail={copy.emptyDetail}
-          illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
-          density="compact"
-        />
-      </div>
+    return framedState(
+      <EmptyStateCard
+        title={copy.emptyTitle}
+        detail={copy.emptyDetail}
+        illustrationIcon={<Images className="h-8 w-8" aria-hidden="true" />}
+        density="compact"
+      />,
     )
   }
 
@@ -290,7 +302,6 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
                     label={t(field.labelKey ?? field.id)}
                     error={validationErrors.find((error) => error.fieldId === field.id)}
                     t={t}
-                    copy={copy}
                   />
                 ))}
               </div>

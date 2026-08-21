@@ -7,9 +7,9 @@
  * name list from the installed package at build time. The list is explicit
  * because `@types/react` uses `export =` (no `export *`), and React is CJS so
  * rolldown cannot enumerate star-export names statically. Undocumented runtime
- * internals not present in the types (e.g. `__COMPILER_RUNTIME`) are omitted on
+ * internals (`__`-prefixed, e.g. `__COMPILER_RUNTIME`) are omitted on
  * purpose — plugins must not import them. When upgrading React, sync this list
- * with the generated facade's names.
+ * with the generated facade's names; the pluginVendorFacades unit test pins it.
  */
 export {
   Activity,
@@ -20,8 +20,10 @@ export {
   PureComponent,
   StrictMode,
   Suspense,
+  act,
   cache,
   cacheSignal,
+  captureOwnerStack,
   cloneElement,
   createContext,
   createElement,
@@ -31,6 +33,9 @@ export {
   lazy,
   memo,
   startTransition,
+  // Runtime-only export: react still exports it, @types/react does not.
+  // @ts-expect-error -- see above
+  unstable_useCacheRefresh,
   use,
   useActionState,
   useCallback,

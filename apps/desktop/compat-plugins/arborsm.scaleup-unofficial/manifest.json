@@ -2,6 +2,11 @@
   "format": 1,
   "id": "arborsm.scaleup-unofficial",
   "name": "ScaleUp (Unofficial) 兼容",
+  "description": "为 ScaleUp (Unofficial) 提供兼容性适配，支持资产缩放与预览纹理。",
+  "author": "Arborsm",
+  "version": "1.0.0",
+  "category": "visual",
+  "tags": ["scale", "textures", "compat"],
   "targets": ["Arborsm.ScaleUpUnofficial"],
   "contributions": {
     "attachedApi": {

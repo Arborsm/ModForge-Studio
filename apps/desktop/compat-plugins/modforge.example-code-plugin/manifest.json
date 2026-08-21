@@ -2,8 +2,14 @@
   "format": 1,
   "id": "modforge.example-code-plugin",
   "name": "Memory Match Example",
+  "description": "示例代码包插件，演示 SDK 页面注册与生命周期钩子。",
+  "author": "ModForge",
+  "version": "1.0.0",
+  "category": "example",
+  "tags": ["example", "code", "demo"],
   "targets": ["ModForge.ExampleCodePlugin"],
   "sdkVersion": "1.0.0",
   "entry": "index.js",
+  "styles": "styles.css",
   "contributions": {}
 }

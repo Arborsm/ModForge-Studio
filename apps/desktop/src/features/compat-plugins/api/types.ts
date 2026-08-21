@@ -123,6 +123,8 @@ export type CompatPluginSummary = {
   hasCodeEntry: boolean
   /** Code-package entry file path relative to plugin root (e.g. "index.js"); null for data-pack plugins. */
   entry: string | null
+  /** Optional stylesheet path relative to plugin root (e.g. "styles.css"); only code packages may declare one. */
+  styles?: string | null
   /** SDK version declared in manifest (e.g. "1.0.0"); null for data-pack plugins. */
   sdkVersion: string | null
   targets: string[]
@@ -134,4 +136,16 @@ export type CompatPluginSummary = {
   assetSchemas: AssetSchemaContribution[]
   /** Stage 4: condition syntax contributions for When/GSQ editor autocomplete. */
   conditionSyntax: ConditionSyntaxContribution[]
+  /** Optional human-readable description from the manifest. */
+  description?: string
+  /** Optional author name from the manifest. */
+  author?: string
+  /** Optional plugin version string from the manifest. */
+  version?: string
+  /** Optional category for grouping in the plugin manager. */
+  category?: string
+  /** Optional tags for search/filter. */
+  tags?: string[]
+  /** Whether the plugin is currently disabled (skips registration). */
+  disabled?: boolean
 }

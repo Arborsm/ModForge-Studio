@@ -1,6 +1,6 @@
 # Compat 插件运行时重载（热加载）落地计划
 
-状态：待实施。前置方案见 `compat-plugin-system-landing.md` §3.4 / C5；本文档把它收敛成可执行的切片。
+状态：已实施（S1–S3 全部落地）。前置方案见 `compat-plugin-system-landing.md` §3.4 / C5；本文档把它收敛成可执行的切片。
 
 ## 1. 目标
 

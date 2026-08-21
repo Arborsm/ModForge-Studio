@@ -53,6 +53,7 @@ import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
+import { listenCompatPluginReloadRequests } from '@shared/lib/compat-plugin-reload-events'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { AiSettingsTab, PendingWorkbenchCommandIntent, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
@@ -83,79 +84,24 @@ function preloadWorkbenchStyles() {
 }
 
 async function importWorkbenchPage() {
-  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule, compatPluginsModule, assetSchemaModule] =
-    await Promise.all([
-      import('@pages/workbench'),
-      import('@app/registry-setup'),
-      import('@app/registry'),
-      import('../providers/CpMakerPlatformProvider'),
-      import('@features/compat-plugins'),
-      import('@entities/asset-schema'),
-      preloadWorkbenchStyles(),
-    ])
+  const [workbenchModule, pageWithRegistryModule, buildModule] = await Promise.all([
+    import('@pages/workbench'),
+    import('./WorkbenchPageWithRegistry'),
+    import('../buildWorkbenchRegistry'),
+    preloadWorkbenchStyles(),
+  ])
   await workbenchModule.preloadWorkbenchExperience()
-
-  // Load compat plugins and merge their registrations with the static set.
-  // On failure, fall back to the static-only registry (today's behaviour).
-  let plugins: Awaited<ReturnType<typeof compatPluginsModule.listCompatPlugins>> = []
-  try {
-    plugins = await compatPluginsModule.listCompatPlugins()
-  } catch (error) {
-    console.error('[compat-plugins] Failed to load compat plugins, falling back to static registry', error)
-  }
-  const pluginRegistrations = compatPluginsModule.buildCompatRegistrations(plugins)
-
-  // Register plugin i18n bundles in the plugin locale store for sidebar label
-  // resolution. This must happen before loadCodePlugins: activation captures
-  // the plugin's i18n bundle for its PluginContext.
-  compatPluginsModule.registerPluginI18nBundles(plugins)
-
-  // Register plugin-contributed asset schemas so the CP editor renderer resolves
-  // them through the same `getAssetSchema` lookup as the built-in schemas.
-  for (const schema of compatPluginsModule.mergePluginAssetSchemas(plugins)) {
-    assetSchemaModule.registerAssetSchema(schema)
-  }
-
-  // Load code-package plugins (stage 3). Code packages are loaded via the
-  // `plugin://` protocol with import map resolution. Data-pack plugins are
-  // already handled by buildCompatRegistrations above; code packages register
-  // their own pages via the SDK's PluginContext.registerPage.
-  let codePluginRegistrations: typeof pluginRegistrations = []
-  try {
-    const codeResult = await compatPluginsModule.loadCodePlugins(plugins)
-    codePluginRegistrations = codeResult.registrations
-    if (codeResult.diagnostics.length > 0) {
-      console.warn('[compat-plugins] Code plugin load diagnostics:', codeResult.diagnostics)
-    }
-  } catch (error) {
-    console.error('[compat-plugins] Failed to load code plugins, falling back to data-pack only', error)
-  }
-
-  const mergedRegistry = registryModule.createAppRegistry({
-    workbenchModules: [...registrySetupModule.staticWorkbenchModules, ...pluginRegistrations, ...codePluginRegistrations],
+  // Build the initial workbench registry (static modules + compat plugins) and
+  // publish it to the workbench registry store before the page renders. On
+  // failure fall back to a static-only registry so the workbench — including
+  // the plugin manager that surfaces the failure — stays reachable instead of
+  // being stuck on the skeleton screen. The compat plugin error remains
+  // available via the compat plugin store for the plugin manager to display.
+  await buildModule.buildWorkbenchRegistry(false).catch((error) => {
+    console.error('[workbench] Initial registry build failed', error)
+    buildModule.buildStaticFallbackRegistry()
   })
-
-  // Register plugin condition syntax contributions so the When/GSQ editors can
-  // offer plugin-provided condition keys in autocomplete alongside built-ins.
-  compatPluginsModule.registerPluginConditionSyntax(plugins)
-
-  return {
-    default: function WorkbenchPageWithRegistry(
-      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchModuleRegistration' | 'workbenchModules'>,
-    ) {
-      const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
-
-      return (
-        <CpMakerPlatformProvider>
-          <workbenchModule.WorkbenchPage
-            {...props}
-            getWorkbenchModuleRegistration={(moduleId) => registryModule.getWorkbenchModuleRegistration(mergedRegistry, moduleId)}
-            workbenchModules={mergedRegistry.workbenchModules}
-          />
-        </CpMakerPlatformProvider>
-      )
-    },
-  }
+  return { default: pageWithRegistryModule.WorkbenchPageWithRegistry }
 }
 
 function preloadWorkbenchPage() {
@@ -222,6 +168,10 @@ export default function App() {
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
   const appMountedRef = useRef(true)
   const windowCloseRequestRef = useRef<() => boolean | Promise<boolean>>(() => false)
+  const compatReloadStateRef = useRef<{ inFlight: Promise<void> | null; pending: boolean }>({
+    inFlight: null,
+    pending: false,
+  })
 
   const copy = editorCopy[locale]
   const launcherPort = useLauncherPort()
@@ -684,6 +634,49 @@ export default function App() {
     const handler = (event: MouseEvent) => event.preventDefault()
     document.addEventListener('contextmenu', handler)
     return () => document.removeEventListener('contextmenu', handler)
+  }, [])
+
+  useEffect(() => {
+    // Lower FSD layers (plugin manager) request compat-plugin hot-reload via
+    // the typed shared event bridge; the app shell owns the registry store and
+    // rebuilds it here. On failure the previous registry is preserved and the
+    // error surfaces through the compat plugin store.
+    //
+    // Concurrent requests (e.g. toggle and delete both firing reload, or a
+    // reload button click landing while a toggle-induced reload is in flight)
+    // are serialized: while one reload is running, additional requests set a
+    // `pending` flag and a single trailing reload runs after the in-flight one
+    // settles. This prevents epoch/double-increment races, dispose-hook
+    // interleaving and last-writer-wins registry overwrites.
+    const reloadStateRef = compatReloadStateRef
+    const runReload = (): Promise<void> =>
+      import('../buildWorkbenchRegistry')
+        .then((module) => module.buildWorkbenchRegistry(true))
+        .catch((error) => {
+          reportAppEvent({
+            level: 'error',
+            title: 'Compat plugin reload failed',
+            description: error instanceof Error ? error.message : String(error),
+            notify: false,
+          })
+        })
+        .then(() => undefined)
+    const drainReload = () => {
+      const state = reloadStateRef.current
+      if (state.inFlight) {
+        state.pending = true
+        return
+      }
+      state.inFlight = runReload().finally(() => {
+        const s = reloadStateRef.current
+        s.inFlight = null
+        if (s.pending) {
+          s.pending = false
+          drainReload()
+        }
+      })
+    }
+    return listenCompatPluginReloadRequests(drainReload)
   }, [])
 
   useEffect(() => {

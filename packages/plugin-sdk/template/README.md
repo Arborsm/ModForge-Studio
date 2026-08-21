@@ -6,7 +6,10 @@ A template for creating ModForge Studio compat plugins with custom code-package 
 
 1. Copy this template to your plugin directory
 2. Update `package.json` with your plugin name
-3. Write your plugin entry point in `src/index.ts`
+3. Write your plugin entry point in `src/index.tsx` (JSX is supported — the
+   build uses the automatic runtime, and `react` / `react-dom` /
+   `react/jsx-runtime` / `@modforge/plugin-sdk` stay external and resolve to
+   the host singletons via the webview import map)
 4. Create a `manifest.json` in your plugin directory (see ModForge docs)
 5. Build with `npm run build` — this produces `dist/index.js`
 6. Symlink or copy `dist/index.js` to your plugin directory as `index.js`
@@ -54,3 +57,15 @@ See `@modforge/plugin-sdk` for the full API:
 - `ctx.commands` — allowlisted host commands
 - `ctx.i18n` — plugin locale lookup
 - `ctx.onDispose(fn)` — cleanup on unload/reload
+
+The example in `src/index.tsx` renders a page from `ctx.components` (PanelFrame,
+PanelSection, CompactSelect, EmptyStateCard) and reads every label through
+`ctx.i18n.t(...)`; the template ships without an i18n bundle, so copy the keys
+listed in that file's header comment into your manifest `i18n` when adapting it.
+
+## Design Guide
+
+Read [DESIGN.md](DESIGN.md) before writing any UI: theme tokens, host
+components, the scoped-stylesheet pattern, i18n, notifications, and the
+shipping checklist. The bundled `modforge.example-code-plugin` implements
+every pattern in it.

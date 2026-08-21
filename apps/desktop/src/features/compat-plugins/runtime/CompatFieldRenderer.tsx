@@ -5,7 +5,7 @@
  */
 import type { ComponentType } from 'react'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import type { CompatModuleCopy } from '@locales'
+import { useCompatModuleCopy } from '@locales/provider'
 import type { CompatPluginField } from '../api/types'
 import type { FieldValidationError } from '../lib/schemaEvaluator'
 
@@ -16,7 +16,6 @@ type CompatFieldRendererProps = {
   label: string
   error: FieldValidationError | undefined
   t: (key: string) => string
-  copy: CompatModuleCopy
 }
 
 /** Renders a single compat plugin form field based on its schema type. */
@@ -27,8 +26,8 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
   label,
   error,
   t,
-  copy,
 }: CompatFieldRendererProps) {
+  const copy = useCompatModuleCopy()
   const fieldId = `compat-field-${field.id}`
   const errorId = `${fieldId}-error`
   const isRequired = field.required ?? false

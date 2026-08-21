@@ -33,6 +33,15 @@ describe('evaluateVisibleWhen', () => {
     expect(evaluateVisibleWhen({ kind: 'field-in', field: 'Type', values: ['Crop', 'FruitTree'] }, { Type: 'Crop' })).toBe(true)
     expect(evaluateVisibleWhen({ kind: 'field-in', field: 'Type', values: ['Crop', 'FruitTree'] }, { Type: 'Grass' })).toBe(false)
   })
+
+  test('unknown condition kind fails closed (hides the field)', () => {
+    // An unrecognized condition kind must not silently show the field; the
+    // host fails closed so a new backend condition kind does not leak a field
+    // the manifest intended to gate.
+    expect(evaluateVisibleWhen({ kind: 'future-kind' as unknown as 'field-eq', field: 'Type', value: 'Crop' }, { Type: 'Crop' })).toBe(
+      false,
+    )
+  })
 })
 
 describe('validateField', () => {

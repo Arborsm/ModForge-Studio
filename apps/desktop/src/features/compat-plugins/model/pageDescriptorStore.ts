@@ -17,6 +17,8 @@ type PageDescriptorEntry = {
 type PageDescriptorState = {
   descriptors: Record<string, PageDescriptorEntry>
   registerPages: (pluginId: string, pages: readonly CompatPluginPageSummary[], targets: readonly string[]) => void
+  /** Clears all descriptors (hot-reload rebuilds from the current plugin set). */
+  clearPages: () => void
   getPage: (pluginId: string, pageId: string) => CompatPluginPageSummary | null
   getEntry: (pluginId: string, pageId: string) => PageDescriptorEntry | null
 }
@@ -35,6 +37,7 @@ export const usePageDescriptorStore = create<PageDescriptorState>((set, get) => 
       }
       return { descriptors: next }
     }),
+  clearPages: () => set({ descriptors: {} }),
   getPage: (pluginId, pageId) => {
     const entry = get().descriptors[descriptorKey(pluginId, pageId)]
     return entry?.page ?? null

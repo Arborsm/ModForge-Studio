@@ -52,7 +52,16 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
 }
 
 function WorkbenchRuntime({ module }: { module: WorkbenchModuleRegistration }) {
-  const [Runtime] = useState(() => module.createRuntime())
+  // Re-create the lazy runtime when the module registration object reference
+  // changes (e.g. compat-plugin hot-reload swaps the module set). useState's
+  // initializer only runs once per mount, so we track the module identity and
+  // reset the Runtime when it changes.
+  const [Runtime, setRuntime] = useState(() => module.createRuntime())
+  const [trackedModule, setTrackedModule] = useState(module)
+  if (trackedModule !== module) {
+    setTrackedModule(module)
+    setRuntime(module.createRuntime())
+  }
 
   return (
     <LoadingMotionReveal itemId={`workbench-module:${module.id}`} index={0} className="h-full min-h-0">

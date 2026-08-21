@@ -5,15 +5,25 @@ import { SearchX } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 
 export type EmptyStateCardProps = {
+  /** Small label rendered above the title. */
   eyebrow?: string
+  /** Heading text. */
   title: string
+  /** Supporting text under the title. */
   detail: string
+  /** Primary action content (e.g. a `control-button control-button-primary` button). */
   primaryAction?: ReactNode
+  /** Secondary action rendered next to the primary one. */
   secondaryAction?: ReactNode
+  /** Custom icon replacing the default illustration core. */
   illustrationIcon?: ReactNode
+  /** Extra accent element overlaid on the illustration. */
   illustrationAccent?: ReactNode
+  /** `compact` shrinks paddings for inline/sidebar use. */
   density?: 'default' | 'compact'
+  /** @internal Host legacy theming hook; not part of the plugin-facing API. */
   legacyClassName?: string
+  /** Extra class on the root section. */
   className?: string
 }
 

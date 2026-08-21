@@ -1,18 +1,17 @@
 /**
  * @file Code plugin loader: imports code-package entry points via the
- * `plugin://` protocol, validates SDK version compatibility, activates plugins
- * with a PluginContext, and collects registered pages into the module registry.
+ * `plugin://` protocol, injects manifest-declared stylesheets, validates SDK
+ * version compatibility, activates plugins with a PluginContext, and collects
+ * registered pages into the module registry.
  * @module features/compat-plugins
  */
 import type { PluginContext, PluginModule, PluginNotificationRequest, PluginPageContribution } from '@modforge/plugin-sdk'
 import { isSdkVersionCompatible, parseSdkMajor } from '@modforge/plugin-sdk'
 import { lazy, type ComponentType } from 'react'
-import { CompactSelect } from '@shared/ui/CompactSelect'
-import { PanelFrame } from '@shared/ui/PanelFrame'
-import { PanelSection } from '@shared/ui/PanelSection'
-import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
+import { pluginHostComponents } from './pluginHostComponents.generated'
 import { dismissNotification, publishNotification, type NotificationLevel } from '@shared/ui/notifications'
 import { detectDefaultGameDirectory, loadImageDataUrl, loadTextAsset, loadXactAudioDataUrl, scanAudioAssets } from '@entities/game/api'
+import { resolveGameAudioCueKind } from '@entities/map/lib/musicCues'
 import type { CompatPluginSummary } from '../api/types'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import { clampIcon, clampPresentation, clampProjectAccess, clampSection } from '../lib/buildCompatRegistrations'
@@ -31,16 +30,22 @@ export const HOST_SDK_MAJOR_VERSION = 1
  * URL form is host-specific (Tauri Windows uses `http://plugin.localhost`,
  * Tauri macOS/Linux uses `plugin://localhost`, Electron uses a real scheme), so
  * this must never be string-built inline.
+ *
+ * When `epoch` is provided, a `__v<N>/` path segment is inserted after the
+ * plugin id so the webview module cache misses on hot-reload (the entry URL and
+ * every relative sub-import resolve under the new versioned path). Runtime
+ * asset reads (`readPluginAsset`) omit `epoch` since they fetch current disk
+ * content and do not participate in the module cache.
  */
-function resolvePluginResourceUrl(pluginId: string, relativePath: string): string {
-  return getPlatformPorts().fileSystem.resolvePluginUrl(pluginId, relativePath)
+function resolvePluginResourceUrl(pluginId: string, relativePath: string, epoch?: number): string {
+  return getPlatformPorts().fileSystem.resolvePluginUrl(pluginId, relativePath, epoch)
 }
 
 /** Diagnostic entry for a plugin that failed to load. */
 export type CodePluginLoadDiagnostic = {
   pluginId: string
   reason: string
-  phase: 'import' | 'sdkVersion' | 'activate' | 'other'
+  phase: 'import' | 'sdkVersion' | 'styles' | 'activate' | 'other'
 }
 
 /** Result of loading all code-package plugins. */
@@ -49,6 +54,8 @@ export type CodePluginLoadResult = {
   registrations: WorkbenchModuleRegistration[]
   /** Diagnostics for plugins that failed to load. */
   diagnostics: CodePluginLoadDiagnostic[]
+  /** Dispose hooks collected from activated plugins; the caller owns their lifecycle. */
+  disposeHooks: (() => void)[]
 }
 
 /** Registered page from a plugin's `activate` call. */
@@ -93,17 +100,17 @@ function createPluginContext(
     publishedNotificationIds.length = 0
   })
 
+  // Real design-system components from shared/ui (token-styled), wired by the
+  // generated pluginHostComponents module. Its `PluginComponents` annotation is
+  // the drift guard: host tsc fails when a real component's props no longer
+  // satisfy the SDK's plugin-facing declarations.
+  const components = pluginHostComponents
+
   return {
     registerPage(page: PluginPageContribution) {
       collectedPages.push({ pluginId, page })
     },
-    // Real design-system components from shared/ui (token-styled).
-    components: {
-      CompactSelect: CompactSelect as never,
-      PanelFrame: PanelFrame as never,
-      PanelSection: PanelSection as never,
-      EmptyStateCard: EmptyStateCard as never,
-    },
+    components,
     commands: {
       async invoke<T>(name: string, args?: unknown): Promise<T> {
         switch (name) {
@@ -155,6 +162,9 @@ function createPluginContext(
             const assetPath = (args as { path?: string })?.path ?? ''
             const url = resolvePluginResourceUrl(pluginId, assetPath)
             const response = await fetch(url)
+            if (!response.ok) {
+              throw new Error(`readPluginAsset failed (HTTP ${response.status}): ${assetPath}`)
+            }
             return (await response.text()) as T
           }
           case 'resolveGameRoot': {
@@ -178,7 +188,14 @@ function createPluginContext(
           case 'scanGameAudio': {
             const root = await resolveGameRoot()
             if (!root) return [] as T
-            return (await scanAudioAssets(root)) as T
+            const assets = await scanAudioAssets(root)
+            // The XACT scanner cannot distinguish music from sound effects
+            // (both live in the same sound bank), so reclassify with the known
+            // vanilla music cue list — the same source the audio workspace uses.
+            return assets.map((asset) => ({
+              ...asset,
+              kind: resolveGameAudioCueKind(asset.cue, asset.kind === 'music' ? 'music' : 'sound'),
+            })) as T
           }
           case 'loadGameAudioCue': {
             const params = (args ?? {}) as { cue: string }
@@ -264,6 +281,39 @@ function registeredPageToModuleRegistration(registered: RegisteredPage): Workben
   }
 }
 
+/** Minimal DOM surface needed to host a plugin stylesheet (injectable for tests). */
+export type PluginStyleHost = {
+  createElement(tag: 'style'): { textContent: string; remove(): void; setAttribute(name: string, value: string): void }
+  head: { appendChild(el: unknown): void }
+}
+
+/**
+ * Injects a plugin's manifest-declared stylesheet as one `<style>` element and
+ * returns the dispose hook that removes it. Element identity is keyed by
+ * plugin id so reloads and other plugins never collide; scoping the selectors
+ * themselves remains the plugin author's responsibility (prefixed classes).
+ */
+export function injectPluginStyles(host: PluginStyleHost, pluginId: string, cssText: string): () => void {
+  const el = host.createElement('style')
+  el.setAttribute('data-compat-plugin-styles', pluginId)
+  el.textContent = cssText
+  host.head.appendChild(el)
+  return () => el.remove()
+}
+
+/**
+ * Fetches and injects the plugin's declared stylesheet via the plugin://
+ * protocol. `epoch` versions the URL so hot-reload bypasses the webview fetch
+ * cache the same way it busts the module cache for the entry.
+ */
+async function loadPluginStyles(pluginId: string, stylesPath: string, epoch?: number): Promise<() => void> {
+  const response = await fetch(resolvePluginResourceUrl(pluginId, stylesPath, epoch))
+  if (!response.ok) {
+    throw new Error(`styles fetch failed (HTTP ${response.status}): ${stylesPath}`)
+  }
+  return injectPluginStyles(document, pluginId, await response.text())
+}
+
 /** Disposes all previously loaded code plugins by running their onDispose hooks. */
 export function disposeCodePlugins(disposeHooks: (() => void)[]): void {
   for (const fn of disposeHooks) {
@@ -282,9 +332,14 @@ export function disposeCodePlugins(disposeHooks: (() => void)[]): void {
  * validates SDK version compatibility, and activates the plugin with a
  * PluginContext. Data-pack plugins (hasCodeEntry: false) are skipped.
  *
- * Returns the collected module registrations and diagnostics for failed plugins.
+ * When `epoch` is provided, the entry URL is versioned with a `__v<N>/` path
+ * segment so hot-reload bypasses the webview module cache for the entry and all
+ * relative sub-imports. Initial load omits `epoch` (cache is cold).
+ *
+ * Returns the collected module registrations, diagnostics for failed plugins,
+ * and the dispose hooks the caller must run on unload/reload.
  */
-export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): Promise<CodePluginLoadResult> {
+export async function loadCodePlugins(plugins: readonly CompatPluginSummary[], epoch?: number): Promise<CodePluginLoadResult> {
   const registrations: WorkbenchModuleRegistration[] = []
   const diagnostics: CodePluginLoadDiagnostic[] = []
   const collectedPages: RegisteredPage[] = []
@@ -303,7 +358,7 @@ export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): 
         phase: 'other',
       })
     }
-    return { registrations, diagnostics }
+    return { registrations, diagnostics, disposeHooks }
   }
 
   for (const plugin of plugins) {
@@ -324,7 +379,25 @@ export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): 
 
     // Entry path from manifest; fall back to "index.js" if missing.
     const entryFile = plugin.entry ?? 'index.js'
-    const entryPath = resolvePluginResourceUrl(pluginId, entryFile)
+    const entryPath = resolvePluginResourceUrl(pluginId, entryFile, epoch)
+
+    // Manifest-declared stylesheet: injected before activation so pages never
+    // render unstyled. A missing/unreadable stylesheet is non-fatal — the page
+    // still loads and the failure surfaces as a diagnostic in the manager.
+    // Hooks land in a per-plugin bucket first: if activation below fails, they
+    // run immediately so a rejected plugin leaves no styles behind.
+    const pluginDisposeHooks: (() => void)[] = []
+    if (plugin.styles) {
+      try {
+        pluginDisposeHooks.push(await loadPluginStyles(pluginId, plugin.styles, epoch))
+      } catch (error) {
+        diagnostics.push({
+          pluginId,
+          reason: error instanceof Error ? error.message : String(error),
+          phase: 'styles',
+        })
+      }
+    }
 
     try {
       const module = (await import(/* @vite-ignore */ entryPath)) as { default?: PluginModule }
@@ -336,18 +409,29 @@ export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): 
           reason: 'Plugin module has no default export',
           phase: 'import',
         })
+        disposeCodePlugins(pluginDisposeHooks)
         continue
       }
 
-      // Activate the plugin with a context that collects registrations.
-      const ctx = createPluginContext(pluginId, plugin.targets, collectedPages, disposeHooks)
+      // Activate the plugin with a context that collects registrations into a
+      // per-plugin dispose bucket. If activate() throws mid-way, any onDispose
+      // hooks the plugin already registered are cleaned up immediately so a
+      // rejected plugin leaves no notification-retraction / BGM-stop / style
+      // hooks behind. Only on successful activation do the hooks graduate to
+      // the global bucket that the caller owns for the plugin's lifetime.
+      const ctx = createPluginContext(pluginId, plugin.targets, collectedPages, pluginDisposeHooks)
       pluginModule.activate(ctx)
+
+      // Activation succeeded: the plugin's hooks (styles + onDispose) stay
+      // mounted until unload.
+      disposeHooks.push(...pluginDisposeHooks)
 
       // Convert collected pages for this plugin to module registrations.
       for (const registered of collectedPages.filter((p) => p.pluginId === pluginId)) {
         registrations.push(registeredPageToModuleRegistration(registered))
       }
     } catch (error) {
+      disposeCodePlugins(pluginDisposeHooks)
       const reason = error instanceof Error ? error.message : String(error)
       diagnostics.push({
         pluginId,
@@ -357,5 +441,5 @@ export async function loadCodePlugins(plugins: readonly CompatPluginSummary[]): 
     }
   }
 
-  return { registrations, diagnostics }
+  return { registrations, diagnostics, disposeHooks }
 }

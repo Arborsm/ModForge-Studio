@@ -8,6 +8,8 @@
  * the major version; the host rejects plugins whose manifest `sdkVersion` major
  * does not match.
  */
+import type { ReactComponentType } from './primitives'
+import type { PluginGeneratedComponents } from './host-components.generated'
 
 // ── Page registration ───────────────────────────────────────────────────────
 
@@ -103,16 +105,24 @@ export interface PluginI18n {
 
 // ── Components ───────────────────────────────────────────────────────────────
 
-/** Minimal React component type (avoids hard react dependency in type-only position). */
-export type ReactComponentType<P = Record<string, unknown>> = (props: P) => unknown
+/**
+ * The `Plugin*` component props types and the `PluginGeneratedComponents`
+ * surface are generated from the JSDoc and prop declarations of the real host
+ * components in `apps/desktop/src/shared/ui/*.tsx` — see
+ * `./host-components.generated.ts`. Regenerate with
+ * `vp run --filter @modforge/desktop gen:plugin-docs`; hand edits to that file
+ * are overwritten.
+ *
+ * `PluginReactNode` / `ReactComponentType` (the shared primitives) live in
+ * `./primitives` so both the hand-written surface and the generated file can
+ * import them without circular dependencies.
+ */
+
+export * from './primitives'
+export * from './host-components.generated'
 
 /** Design-system component subset exposed to plugins (token-styled). */
-export interface PluginComponents {
-  CompactSelect: ReactComponentType
-  PanelFrame: ReactComponentType
-  PanelSection: ReactComponentType
-  EmptyStateCard: ReactComponentType
-}
+export interface PluginComponents extends PluginGeneratedComponents {}
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 

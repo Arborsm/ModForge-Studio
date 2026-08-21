@@ -103,8 +103,9 @@ pub(crate) struct CompatPluginContributions {
 
 // load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport
 //   逐目录扫描 */manifest.json → 解析 → 校验 → 成功进 manifests、失败进 errors
-//   跨根去重：同一 id 出现在多个根（内置同步会把插件复制进数据目录，而 dev
-//   源码树也在扫描）时按根优先级取第一个，其余记 compatPlugin.duplicateId 警告
+//   跨根去重：同一 id 出现在多个根（用户插件与内置释放目录撞 id，或
+//   MODFORGE_COMPAT_PLUGIN_ROOT 覆盖目录与数据目录撞 id）时按根优先级取
+//   第一个，其余记 compatPlugin.duplicateId 警告
 ```
 
 **修改 `src/domain/content_patcher/attached.rs`**：
@@ -121,15 +122,15 @@ pub(crate) fn load_attached_api_registry(
 
 **目录解析规则**（`resolve_plugin_roots`）：
 
-| 场景                                | 根目录                                                                                  |
-| ----------------------------------- | --------------------------------------------------------------------------------------- |
-| `plugin_root_override = Some(path)` | 仅该路径（测试与 dev 调试）                                                             |
-| dev 构建                            | `<repo>/apps/desktop/compat-plugins/`                                                   |
-| 打包产物                            | `<resource_dir>/compat-plugins/` + `<app_data_dir>/compat-plugins/`（用户目录，可为空） |
+| 场景                                   | 根目录                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `plugin_root_override = Some(path)`    | 仅该路径（测试与 dev 调试）                                                      |
+| `MODFORGE_COMPAT_PLUGIN_ROOT` 环境变量 | 该路径，最高优先级（插件开发者免重编译迭代内置插件源码；改完点插件管理的"重载"） |
+| 正常运行（dev / 打包一致）             | 仅 `<app_data_dir>/compat-plugins/`                                              |
 
-dev 路径的锚定机制：用编译期 `env!("CARGO_MANIFEST_DIR")`（指向 `apps/desktop/src-tauri`）向上拼 `../compat-plugins`，不依赖运行时 cwd——sidecar 模式下进程工作目录不可控。打包侧 `resource_dir` / `app_data_dir` 走 Tauri path API（Linux 由 sidecar 的启动参数传入，Electron main 只转发路径不掺策略）。
+内置插件不再扫描源码树或 resource_dir：`build.rs` 把 `apps/desktop/compat-plugins/` 打成 `builtin_compat_plugins.zip` 嵌入二进制（`include_bytes!`），启动时 `extract_builtin_plugins_if_needed` 按 sha256 marker（`.builtin-archive-sha256`）决定是否释放——marker 一致直接跳过；不一致（首次启动 / 应用升级）先删除旧内置插件目录再整包释放，用户自建插件目录不受影响。修改内置插件源码会触发 build script 重打包（`cargo:rerun-if-changed` 指向整棵目录树），下一次启动自动更新数据目录。Electron（Linux）的 `plugin://` 协议镜像同一套根解析（XDG data home + env override）。
 
-**资源打包**：`src-tauri/tauri.conf.json` 的 `bundle.resources` 由 `["target/release/gmcm-probe/*"]` 改为 `["target/release/gmcm-probe/*", "../compat-plugins/*"]`（以 conf 文件位置为基准的相对路径，以实际构建验证为准）。
+**资源打包**：内置插件已嵌入二进制，`src-tauri/tauri.conf.json` 的 `bundle.resources` 不再包含 `../compat-plugins/**`。
 
 **删除** `src/domain/content_patcher/attached/scaleup.rs`，`attached.rs` 移除 `mod scaleup;`。
 
