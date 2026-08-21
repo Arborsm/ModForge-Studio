@@ -22,7 +22,14 @@ export {
   type AssetEditorState,
   type AssetEntryDraft,
 } from './model/entryDraft'
-export { getAssetSchema, getEnumCatalog, listAssetSchemaIds, registerAssetSchema, registerEnumCatalog } from './model/registry'
+export {
+  getAssetSchema,
+  getEnumCatalog,
+  listAssetSchemaIds,
+  registerAssetSchema,
+  registerEnumCatalog,
+  unregisterAssetSchema,
+} from './model/registry'
 export { findTexturePatchState, type AssetTexturePatchInput, type AssetTexturePatchState } from './model/texturePatch'
 export { countAssetIssues, formatIssuePath, validateAssetEntries, validateAssetEntry } from './model/validation'
 export { VANILLA_DATA_TARGETS, VANILLA_IMAGE_TARGETS, VANILLA_MAP_TARGETS } from './model/vanillaAssets'

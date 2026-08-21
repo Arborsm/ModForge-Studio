@@ -33,6 +33,16 @@ export function createElectronPlatformPorts(): PlatformPorts {
       toAssetUrl(filePath: string) {
         return getElectronApi().toAssetUrl(filePath)
       },
+      resolvePluginUrl(pluginId: string, relativePath: string, epoch?: number) {
+        // Electron registers a real privileged `plugin` scheme; the main-side
+        // handler accepts the plugin id in the URL authority. When `epoch` is
+        // set, a `__v<N>/` segment is inserted after the plugin id so
+        // hot-reload bypasses the webview module cache; the main-side handler
+        // strips the prefix before resolving the on-disk path.
+        const pathSegments = relativePath.split('/').filter(Boolean)
+        const segments = [...(epoch !== undefined ? [`__v${epoch}`] : []), ...pathSegments].map(encodeURIComponent).join('/')
+        return `plugin://${encodeURIComponent(pluginId)}/${segments}`
+      },
     },
     desktopWindow: {
       minimize: () => getElectronApi().minimize(),

@@ -179,6 +179,9 @@ const WORKBENCH_HOME_SOURCE_SEGMENT = /\/workbench\/ui\/WorkbenchHomePage\.tsx$/
 const SHARED_DIALOG_IMPORT = /from ['"]@shared\/ui\/Dialog['"]/
 const PLATFORM_IMPORT_ALLOWLIST = new Set([
   'src/features/cp-maker/api/cpMakerDesktopApi.ts',
+  'src/features/compat-plugins/api/listCompatPlugins.ts',
+  'src/features/compat-plugins/api/directoryPackApi.ts',
+  'src/features/compat-plugins/runtime/codePluginLoader.ts',
   'src/features/launcher/api/launcherDesktopApi.ts',
   'src/features/launcher/model/useLauncherDiscover.ts',
   'src/features/launcher/model/useLauncherLibrary.ts',
@@ -254,9 +257,12 @@ describe('frontend module architecture', () => {
     expect(appEntry).toContain("from '@app/providers/LauncherPlatformProvider'")
     expect(appEntry).not.toContain('CpMakerPlatformProvider')
     expect(appShellSource).not.toContain("from '@app/registry-setup'")
-    expect(appShellSource).toContain("import('@app/registry-setup')")
     expect(appShellSource).not.toContain("from '../providers/CpMakerPlatformProvider'")
-    expect(appShellSource).toContain("import('../providers/CpMakerPlatformProvider')")
+    // The registry build and the registry-backed page wrapper are dynamically
+    // imported so the heavy compat-plugins/registry graph stays out of the
+    // launcher entry chunk. CpMakerPlatformProvider now lives in the wrapper.
+    expect(appShellSource).toContain("import('./WorkbenchPageWithRegistry')")
+    expect(appShellSource).toContain("import('../buildWorkbenchRegistry')")
     expect(appShellBridge).toContain("from './AppShell'")
   })
 
@@ -1318,5 +1324,44 @@ describe('frontend module architecture', () => {
     await expect(
       access(sourcePath('src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx')),
     ).rejects.toThrow()
+  }, 30000)
+
+  it('confines plugin locale runtime lookups to compat-plugins and workbench-shell', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src'))
+    const allowedDirs = ['src/features/compat-plugins/', 'src/widgets/workbench-shell/']
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const importsPluginLocale =
+        source.includes('usePluginLocaleStore') || source.includes('resolvePluginText') || source.includes('pluginLocaleStore')
+      if (!importsPluginLocale) continue
+
+      const rel = relative(sourcePath(), filePath).replace(/\\/g, '/')
+      const isAllowed = allowedDirs.some((dir) => rel.startsWith(dir))
+      if (!isAllowed) {
+        violations.push(rel)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('prevents the compat-plugins feature from reverse-importing the app layer', async () => {
+    const compatFiles = await collectSourceFiles(sourcePath('src/features/compat-plugins'))
+    const blockedSpecifiers = ['@app/', "'../app", "'../../app", "'../../../app"]
+    const violations: string[] = []
+
+    for (const filePath of compatFiles) {
+      const source = await readFile(filePath, 'utf8')
+      for (const specifier of blockedSpecifiers) {
+        if (source.includes(`from ${specifier}`) || source.includes(`import(${specifier}`)) {
+          const rel = relative(sourcePath(), filePath).replace(/\\/g, '/')
+          violations.push(`${rel} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
   }, 30000)
 })

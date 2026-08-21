@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadResourceRegistry, type GameDirectoryInfo, type ResourceRegistryEntry } from '@entities/game/api'
+import { resolveGameAudioCueKind } from '@entities/map/lib/musicCues'
 import type { LocaleCode } from '@locales/api'
-import { MUSIC_OPTIONS, SOUND_OPTIONS } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/commandOptions'
+import { SOUND_OPTIONS } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/commandOptions'
 import { scheduleDeferred } from '@shared/lib/react'
 import { buildQuickPlayRequest, filterAudioCues, type AudioKindFilter, type AudioQuickPlayRequest } from './audioCatalog'
 
@@ -67,7 +68,8 @@ function isXactPath(absolutePath: string | null): boolean {
 }
 
 function resolveKind(cue: string, fallback: 'music' | 'sound'): 'music' | 'sound' {
-  if (MUSIC_OPTIONS.includes(cue)) return 'music'
+  const kind = resolveGameAudioCueKind(cue, fallback)
+  if (kind === 'music') return kind
   if (SOUND_OPTIONS.includes(cue)) return 'sound'
   return fallback
 }

@@ -18,3 +18,10 @@ export {
   type CpTokenDefinition,
   type CpTokenGroup,
 } from './model/tokens'
+export {
+  findPluginConditionSyntaxKey,
+  getPluginConditionSyntaxKeys,
+  pluginConditionSyntaxToTokens,
+  usePluginConditionSyntaxStore,
+  type PluginConditionSyntaxKey,
+} from './model/pluginConditionSyntaxStore'

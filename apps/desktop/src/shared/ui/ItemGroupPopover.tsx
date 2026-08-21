@@ -18,10 +18,15 @@ import {
 } from '@floating-ui/react'
 
 type ItemGroupPopoverProps<T> = {
+  /** Trigger icon; can also be a function receiving the current open state. */
   groupIcon: ReactNode | ((isOpen: boolean) => ReactNode)
+  /** Items rendered in the popover grid. */
   items: T[]
+  /** Renders one item cell; receives the item and its grid index. */
   renderItem: (item: T, index: number) => ReactNode
+  /** Optional heading above the grid. */
   title?: string
+  /** Optional supporting text under the heading. */
   subtitle?: string
 }
 

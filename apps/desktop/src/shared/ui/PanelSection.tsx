@@ -4,13 +4,21 @@ import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
 type PanelSectionProps = {
+  /** Section header title; header renders when title, subtitle or action is set. */
   title?: string
+  /** Secondary line in the section header. */
   subtitle?: string
+  /** Right-aligned header content. */
   action?: ReactNode
+  /** Extra class on the root section. */
   className?: string
+  /** Extra class on the header element. */
   headerClassName?: string
+  /** Extra class on the body wrapper. */
   bodyClassName?: string
+  /** Surface treatment: `default`, `muted` (recessed) or `accent` (accent-tinted). */
   variant?: 'default' | 'muted' | 'accent'
+  /** Section body content. */
   children: ReactNode
 }
 

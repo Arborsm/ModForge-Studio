@@ -13,6 +13,8 @@
     "cleanup:shmem": "vp run --filter @modforge/desktop cleanup:shmem",
     "react:devtools": "vp run --filter @modforge/desktop react:devtools",
     "build": "vp run --filter @modforge/desktop build",
+    "build:compat-plugins": "vp run --filter @modforge/desktop build:compat-plugins",
+    "gen:plugin-docs": "vp run --filter @modforge/desktop gen:plugin-docs",
     "lint": "vp run --filter @modforge/desktop lint",
     "benchmark:localization-search": "vp run --filter @modforge/desktop benchmark:localization-search",
     "benchmark:localization-lexical": "vp run --filter @modforge/desktop benchmark:localization-lexical",

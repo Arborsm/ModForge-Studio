@@ -35,6 +35,11 @@
     @apply text-success;
   }
 
+  .status-pill-warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+
   .status-pill-error {
     background: color-mix(in srgb, var(--danger) 14%, transparent);
     @apply text-danger;

@@ -186,3 +186,10 @@ export const devResourceBrowserRegistration = registration(
   'none',
   () => import('./ui/module-runtimes/DevResourceBrowserModuleRuntime'),
 )
+export const pluginManagerRegistration = registration(
+  'plugin-manager',
+  { section: 'tools', order: 200, icon: 'package', labelKey: 'plugin-manager' },
+  'standalone',
+  'none',
+  () => import('./ui/module-runtimes/PluginManagerModuleRuntime'),
+)

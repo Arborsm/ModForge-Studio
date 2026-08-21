@@ -5,11 +5,17 @@ import { ChevronRight } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 
 type DisclosureProps = {
+  /** Toggle row heading text. */
   title: string
+  /** Optional secondary text on the toggle row. */
   subtitle?: string
+  /** Starts open; the host owns the local open state. */
   defaultOpen?: boolean
+  /** Extra class applied to the outer wrapper. */
   className?: string
+  /** Extra class applied to the body region. */
   bodyClassName?: string
+  /** Section body content, rendered only while the section is open. */
   children: ReactNode
 }
 

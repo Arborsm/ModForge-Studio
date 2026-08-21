@@ -241,6 +241,7 @@ const shell: WorkbenchShellCopy = {
       'mail-editor': '邮件制作',
       'game-debugger': '游戏调试器',
       'dev-resource-browser': '资源浏览器',
+      'plugin-manager': '插件管理',
     },
     shellHistoryBack: '后退',
     shellHistoryForward: '前进',

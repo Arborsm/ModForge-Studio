@@ -1,4 +1,9 @@
 import { createServer } from 'node:net'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const DEFAULT_PORT = 5173
 const DEFAULT_HMR_PORT = 5174
@@ -118,6 +123,14 @@ export async function resolveTauriDevRuntime(env = process.env, isPortAvailable 
   }
 
   const runtimeEnv = withResolvedPorts(env, { port, hmrPort })
+
+  // In dev, load compat plugins directly from the source tree so edits to
+  // apps/desktop/compat-plugins/** take effect on hot-reload without copying
+  // to the app data directory. Production keeps the default (extracted
+  // built-in plugins under the app data dir).
+  if (!runtimeEnv.MODFORGE_COMPAT_PLUGIN_ROOT) {
+    runtimeEnv.MODFORGE_COMPAT_PLUGIN_ROOT = path.resolve(__dirname, '..', 'compat-plugins')
+  }
 
   return {
     env: runtimeEnv,

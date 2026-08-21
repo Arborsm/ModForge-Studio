@@ -4,6 +4,7 @@
 pub mod host_commands;
 pub mod host_handle;
 pub mod host_runtime;
+pub mod plugin_protocol;
 pub mod sidecar;
 
 #[cfg(any(debug_assertions, feature = "dev-asset-bridge"))]

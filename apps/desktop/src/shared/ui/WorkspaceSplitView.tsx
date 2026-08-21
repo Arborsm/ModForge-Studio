@@ -3,10 +3,15 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
+/** Empty-state hint rendered in the main column when it has no children. */
 export type WorkspaceSplitViewEmptyState = {
+  /** Icon rendered above the empty-state title. */
   icon: ReactNode
+  /** Empty-state heading text. */
   title: string
+  /** Supporting detail text under the title. */
   hint: string
+  /** Optional action rendered below the hint. */
   action?: ReactNode
 }
 
@@ -29,11 +34,16 @@ export type WorkspaceSplitViewProps = Omit<HTMLAttributes<HTMLDivElement>, 'chil
   sidebarWidth?: string
   /** Right panel width, defaults to 18rem. */
   rightPanelWidth?: string
+  /** Extra class applied to the sidebar element. */
   sidebarClassName?: string
+  /** Extra class applied to the main content element. */
   mainClassName?: string
+  /** Extra class applied to the right panel element. */
   rightPanelClassName?: string
   /** Main content canvas grid background toggle (for editor views); off by default for directory/list pages. */
   canvas?: boolean
+  /** Extra class applied to the outer wrapper. */
+  className?: string
 }
 
 /**

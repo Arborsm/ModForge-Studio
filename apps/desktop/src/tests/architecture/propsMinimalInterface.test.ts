@@ -18,7 +18,7 @@ const IMPERATIVE_LOCALE_GETTER_PATTERN =
   /\b(?:getSettingsMenuCopy|getEditorCopy|getLauncherCopy|getViewMenuCopy|getModWorkspaceCopy|getNotificationCopy)\b/g
 const PROPS_DECLARATION_PATTERN = /\b(?:type|interface)\s+(\w*Props)\b[^=]*=?\s*\{/g
 const PROPS_LOCALE_COPY_FIELD_PATTERN =
-  /\b(?:copy|labels)\??\s*:\s*(?:EditorCopy|SettingsMenuCopy|LauncherCopy|ViewMenuCopy|ModWorkspaceCopy|NotificationCopy|[\w.[\]'"]+Labels)\b/g
+  /\b(?:copy|labels)\??\s*:\s*(?:EditorCopy|SettingsMenuCopy|LauncherCopy|ViewMenuCopy|ModWorkspaceCopy|NotificationCopy|CompatModuleCopy|PluginManagerCopy|[\w.[\]'"]+Labels|ReturnType<typeof\s+\w+Copy>)\b/g
 const PROPS_LABEL_OBJECT_FIELD_PATTERN = /\blabels\??\s*:\s*\w*Labels\b/g
 
 function isProductionSource(filePath: string) {

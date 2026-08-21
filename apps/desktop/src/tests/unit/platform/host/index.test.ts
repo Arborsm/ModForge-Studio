@@ -27,6 +27,7 @@ async function loadConfiguredDesktop() {
     fileSystem: {
       invokeCommand: invokeCommand as PlatformPorts['fileSystem']['invokeCommand'],
       toAssetUrl: vi.fn((filePath: string, protocol?: string) => `${protocol ?? 'asset'}://${filePath}`),
+      resolvePluginUrl: vi.fn((pluginId: string, relativePath: string) => `plugin://${pluginId}/${relativePath}`),
     },
     desktopWindow,
     storage: {

@@ -90,6 +90,8 @@ pub enum HostCommandResource {
     MapPngExport,
     FileExport,
     DebugBridgeInstall,
+    CompatPluginEntry,
+    CompatPluginState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -513,6 +515,8 @@ pub struct HostCommandResourceLocks {
     map_png_export: Mutex<()>,
     file_export: Mutex<()>,
     debug_bridge_install: Mutex<()>,
+    compat_plugin_entry: Mutex<()>,
+    compat_plugin_state: Mutex<()>,
     dynamic: Mutex<BTreeMap<HostCommandResource, &'static Mutex<()>>>,
 }
 
@@ -544,6 +548,8 @@ impl HostCommandResourceLocks {
             map_png_export: Mutex::new(()),
             file_export: Mutex::new(()),
             debug_bridge_install: Mutex::new(()),
+            compat_plugin_entry: Mutex::new(()),
+            compat_plugin_state: Mutex::new(()),
             dynamic: Mutex::new(BTreeMap::new()),
         }
     }
@@ -603,6 +609,8 @@ impl HostCommandResourceLocks {
             HostCommandResource::MapPngExport => &self.map_png_export,
             HostCommandResource::FileExport => &self.file_export,
             HostCommandResource::DebugBridgeInstall => &self.debug_bridge_install,
+            HostCommandResource::CompatPluginEntry => &self.compat_plugin_entry,
+            HostCommandResource::CompatPluginState => &self.compat_plugin_state,
         };
         match lock.lock() {
             Ok(guard) => guard,

@@ -4,13 +4,21 @@ import type { ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
 type PanelFrameProps = {
+  /** Header title text. */
   title: string
+  /** Secondary line rendered under the title. */
   subtitle?: string
+  /** Right-aligned header content (buttons, selects). */
   headerAction?: ReactNode
+  /** Extra class on the root section. */
   className?: string
+  /** Extra class on the scrollable body region. */
   bodyClassName?: string
+  /** Render without the header. */
   hideHeader?: boolean
+  /** Flat surface without the panel shadow/bevel. */
   flat?: boolean
+  /** Body content. */
   children: ReactNode
 }
 

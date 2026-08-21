@@ -560,6 +560,34 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(translate_machine_translation_batch) => resolve_typed::<
             crate::domain::localization::machine_translation::commands::TranslateMachineTranslationBatchParams,
         >(ctx, id, args),
+        // domain::modding::commands
+        crate::host_command_wire!(delete_compat_plugin) => resolve_typed::<
+            crate::domain::modding::commands::DeleteCompatPluginParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(get_compat_plugin_roots) => resolve_typed::<
+            crate::domain::modding::commands::GetCompatPluginRootsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_compat_plugin_entries) => resolve_typed::<
+            crate::domain::modding::commands::ListCompatPluginEntriesParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(list_compat_plugins) => resolve_typed::<
+            crate::domain::modding::commands::ListCompatPluginsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(read_compat_plugin_entry) => resolve_typed::<
+            crate::domain::modding::commands::ReadCompatPluginEntryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(read_plugin_asset) => resolve_typed::<
+            crate::domain::modding::commands::ReadPluginAssetParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(reload_compat_plugins) => resolve_typed::<
+            crate::domain::modding::commands::ReloadCompatPluginsParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(toggle_compat_plugin) => resolve_typed::<
+            crate::domain::modding::commands::ToggleCompatPluginParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_compat_plugin_entry) => resolve_typed::<
+            crate::domain::modding::commands::WriteCompatPluginEntryParams,
+        >(ctx, id, args),
         // domain::mods::commands
         crate::host_command_wire!(inspect_mod_archive) => resolve_typed::<
             crate::domain::mods::commands::InspectModArchiveParams,
@@ -656,6 +684,35 @@ pub fn run_stdio() -> Result<(), String> {
         .map(|state| state.launcher.force_offline)
         .unwrap_or(false);
     domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&app, force_offline);
+
+    // Extract the embedded built-in compat plugins into the app data
+    // directory (first launch and after app updates), then scan that single
+    // directory. The source tree next to the sidecar binary is only consulted
+    // when MODFORGE_COMPAT_PLUGIN_ROOT points at it.
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let cwd_plugins = cwd.join("compat-plugins");
+
+    let app_data_dir = dirs::data_dir();
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(data_dir) = &app_data_dir {
+        let modforge_data_dir = data_dir.join("ModForgeStudio");
+        if let Err(err) = crate::domain::modding::compat_plugin::extract_builtin_plugins_if_needed(
+            &modforge_data_dir,
+        ) {
+            eprintln!("[compat-plugins] Failed to extract built-in plugins to data dir: {err}");
+        }
+        let data_plugins = modforge_data_dir.join("compat-plugins");
+        if data_plugins.is_dir() {
+            roots.push(data_plugins);
+        }
+    }
+    // Fallback: if app data dir is unavailable, use cwd-relative path.
+    if roots.is_empty() && cwd_plugins.is_dir() {
+        roots.push(cwd_plugins);
+    }
+    if !roots.is_empty() {
+        crate::domain::modding::compat_plugin::set_plugin_roots(roots);
+    }
 
     let ctx = DispatchContext {
         app,

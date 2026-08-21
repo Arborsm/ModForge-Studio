@@ -8,6 +8,7 @@ type ModuleErrorBoundaryProps = {
   title: string
   detail: string
   retryLabel: string
+  moduleId: string
   children: ReactNode
 }
 
@@ -20,7 +21,12 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
     return { error }
   }
 
-  componentDidCatch(_error: Error, _info: ErrorInfo) {}
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // The webview console bridge drops the Error object argument from React's
+    // default caught-error logging, so log the message and component stack
+    // explicitly to keep module crashes diagnosable from the terminal log.
+    console.error(`[workbench] Module ${this.props.moduleId} crashed:`, error, info.componentStack)
+  }
 
   render() {
     if (this.state.error) {
@@ -46,7 +52,16 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
 }
 
 function WorkbenchRuntime({ module }: { module: WorkbenchModuleRegistration }) {
-  const [Runtime] = useState(() => module.createRuntime())
+  // Re-create the lazy runtime when the module registration object reference
+  // changes (e.g. compat-plugin hot-reload swaps the module set). useState's
+  // initializer only runs once per mount, so we track the module identity and
+  // reset the Runtime when it changes.
+  const [Runtime, setRuntime] = useState(() => module.createRuntime())
+  const [trackedModule, setTrackedModule] = useState(module)
+  if (trackedModule !== module) {
+    setTrackedModule(module)
+    setRuntime(module.createRuntime())
+  }
 
   return (
     <LoadingMotionReveal itemId={`workbench-module:${module.id}`} index={0} className="h-full min-h-0">
@@ -73,6 +88,7 @@ export function WorkbenchViewHost({ module }: { module: WorkbenchModuleRegistrat
   return (
     <ModuleErrorBoundary
       key={module.id}
+      moduleId={module.id}
       title={copy.messages.workbenchModuleErrorTitle}
       detail={copy.messages.workbenchModuleErrorDetail}
       retryLabel={copy.messages.workbenchModuleRetry}

@@ -18,6 +18,8 @@ import dialogueScriptField from './dialogue-script'
 import scheduleEditor from './schedule'
 import mailEditor from './mail'
 import gameDebugger from './debugger'
+import pluginManager from './plugin-manager'
+import compatModule from './compat-module'
 import { authoringShell } from './authoring-shell'
 import assetLibrary from './asset-library'
 import resourceBrowser from './resource-browser'
@@ -46,6 +48,8 @@ const editor: EditorCopy = {
   scheduleEditor,
   mailEditor,
   gameDebugger,
+  pluginManager,
+  compatModule,
   authoringShell,
   assetLibrary,
   resourceBrowser,

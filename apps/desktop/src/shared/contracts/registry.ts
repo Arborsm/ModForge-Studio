@@ -73,6 +73,7 @@ export type WorkbenchModuleLocaleKey =
   | 'mail-editor'
   | 'game-debugger'
   | 'dev-resource-browser'
+  | 'plugin-manager'
 
 /** Current workbench location — either the home screen or a specific module. */
 export type WorkbenchLocation = { kind: 'home' } | { kind: 'module'; moduleId: string }
@@ -84,7 +85,10 @@ export type WorkbenchModuleRegistration = {
     section: WorkbenchNavigationSection
     order: number
     icon: WorkbenchNavigationIcon
-    labelKey: WorkbenchModuleLocaleKey
+    /** Built-in module label key; mutually exclusive with pluginLabel. */
+    labelKey?: WorkbenchModuleLocaleKey
+    /** Plugin-provided label, resolved through the plugin locale store. */
+    pluginLabel?: { pluginId: string; key: string }
   }
   presentation: 'browser' | 'authoring' | 'standalone'
   projectAccess: 'none' | 'read' | 'write'

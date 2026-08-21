@@ -15,23 +15,36 @@ import { cx } from '@shared/lib/helper'
 
 /** One selectable option in a CompactSelect, with optional description and disabled state. */
 export type CompactSelectOption<TValue extends string | number> = {
+  /** Option value handed to `onChange`. */
   value: TValue
+  /** Visible option label. */
   label: string
+  /** Secondary line under the label. */
   description?: string
+  /** Renders the option non-interactive. */
   disabled?: boolean
 }
 
 type CompactSelectProps<TValue extends string | number> = {
+  /** Currently selected value. */
   value: TValue
+  /** Options to display. */
   options: readonly CompactSelectOption<TValue>[]
+  /** Called with the value of the picked option. */
   onChange: (value: TValue) => void
+  /** Accessible label for the trigger. */
   ariaLabel: string
   /** Shown on the trigger when the value matches no option; without it the first option is displayed instead. */
   placeholder?: string
+  /** Extra class on the root wrapper. */
   className?: string
+  /** Extra class on the trigger button. */
   triggerClassName?: string
+  /** Extra class on the popover menu. */
   menuClassName?: string
+  /** Renders the trigger non-interactive. */
   disabled?: boolean
+  /** Popover placement relative to the trigger. */
   placement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end'
 }
 

@@ -57,3 +57,12 @@ export const GAME_MUSIC_COMMON_CUES: string[] = [
   'Kindling in the Snow…',
   'jaunty',
 ]
+
+/**
+ * Resolves the effective kind of a scanned game audio cue. The XACT scanner
+ * cannot tell music from sound effects (both live in the same sound bank), so
+ * known vanilla music cue names win over the scanner's path-based fallback.
+ */
+export function resolveGameAudioCueKind(cue: string, fallback: 'music' | 'sound'): 'music' | 'sound' {
+  return GAME_MUSIC_COMMON_CUES.includes(cue) ? 'music' : fallback
+}

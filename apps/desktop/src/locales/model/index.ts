@@ -27,6 +27,7 @@ export type {
   ResourceBrowserKindKey,
   BuildingsPanelCopy,
   ItemsPanelCopy,
+  CompatModuleCopy,
   EditorCopy,
   ModWorkspaceCopy,
   TranslationEditorCopy,

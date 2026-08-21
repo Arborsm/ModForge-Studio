@@ -29,6 +29,7 @@ describe('registry setup', () => {
       'audio-browser',
       'mod-browser',
       'mod-translation',
+      'plugin-manager',
       'i18n-generator',
       'ai-localization',
       'game-debugger',
