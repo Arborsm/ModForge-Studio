@@ -1,5 +1,5 @@
 // Type-check + frontend bundle for the installer, resolving the vp/tsc binaries
-// from this package's node_modules (mirrors apps/desktop/scripts/build-web.cjs).
+// from this package's node_modules (mirrors apps/desktop/scripts/build/build-web.cjs).
 const { spawnSync } = require('node:child_process')
 const path = require('node:path')
 

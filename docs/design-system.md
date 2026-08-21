@@ -4,7 +4,7 @@
 
 ## 📄 核心文件
 
-- **[DESIGN.md](../DESIGN.md)** - 设计系统主文件（机器可读的 YAML token + 人类可读的设计说明）
+- **[DESIGN.md](./design/DESIGN.md)** - 设计系统主文件（机器可读的 YAML token + 人类可读的设计说明）
 - **[tokens.css](../apps/desktop/src/styles/tokens.css)** - 实际的 CSS 变量实现
 
 ## 🎨 设计主题
@@ -33,7 +33,7 @@ npm install -D @google/design.md
 ### 验证设计系统
 
 ```bash
-npx -p "@google/design.md" designmd lint DESIGN.md
+npx -p "@google/design.md" designmd lint docs/design/DESIGN.md
 ```
 
 检查：
@@ -46,16 +46,16 @@ npx -p "@google/design.md" designmd lint DESIGN.md
 
 ```bash
 # JSON 格式（Tailwind v3）
-npx -p "@google/design.md" designmd export --format json-tailwind DESIGN.md > tailwind-tokens.json
+npx -p "@google/design.md" designmd export --format json-tailwind docs/design/DESIGN.md > tailwind-tokens.json
 
 # CSS 格式（Tailwind v4）
-npx -p "@google/design.md" designmd export --format css-tailwind DESIGN.md > theme.css
+npx -p "@google/design.md" designmd export --format css-tailwind docs/design/DESIGN.md > theme.css
 ```
 
 ### 导出为 W3C DTCG
 
 ```bash
-npx -p "@google/design.md" designmd export --format dtcg DESIGN.md > tokens.json
+npx -p "@google/design.md" designmd export --format dtcg docs/design/DESIGN.md > tokens.json
 ```
 
 ### 对比设计变更
@@ -152,7 +152,7 @@ components:
 然后运行验证：
 
 ```bash
-npx -p "@google/design.md" designmd lint DESIGN.md
+npx -p "@google/design.md" designmd lint docs/design/DESIGN.md
 ```
 
 ## 🔄 同步 DESIGN.md 与 tokens.css
@@ -165,7 +165,7 @@ DESIGN.md 是**设计意图的单一来源**，但实际实现在 `tokens.css` �
 ### 更新流程
 
 1. **修改 DESIGN.md** - 更新设计 token 或组件定义
-2. **验证** - `npx -p "@google/design.md" designmd lint DESIGN.md`
+2. **验证** - `npx -p "@google/design.md" designmd lint docs/design/DESIGN.md`
 3. **同步到 tokens.css** - 手动或通过 AI 助手更新对应的 CSS 变量
 4. **测试** - 在所有主题下验证视觉效果
 

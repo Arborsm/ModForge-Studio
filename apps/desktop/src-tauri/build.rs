@@ -50,7 +50,7 @@ fn main() {
     // table match the scanned `commands.rs` bindings. Drift fails the build;
     // regenerate with `vp run --filter @modforge/desktop gen:host-commands`.
     let desktop_root = manifest_dir.join("..");
-    let generator = desktop_root.join("scripts/generate-host-commands.mjs");
+    let generator = desktop_root.join("scripts/gen/generate-host-commands.mjs");
     println!("cargo:rerun-if-changed={}", generator.display());
     println!(
         "cargo:rerun-if-changed={}",

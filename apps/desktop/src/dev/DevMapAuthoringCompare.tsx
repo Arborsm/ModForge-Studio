@@ -4,8 +4,8 @@
  * @module dev
  */
 import { useState } from 'react'
-import mapEditorMock from '../../../../prototype/map-editor-workbench.html?raw'
-import patchEditorMock from '../../../../prototype/patch-editor-workbench.html?raw'
+import mapEditorMock from '../../../../docs/design/prototypes/map-editor-workbench.html?raw'
+import patchEditorMock from '../../../../docs/design/prototypes/patch-editor-workbench.html?raw'
 import '../styles/workbench.css'
 
 type ComparePage = 'map-asset-editor' | 'map-patch-editor'
@@ -42,7 +42,7 @@ export function DevMapAuthoringCompare() {
         <section>
           <header>
             <strong>Mock</strong>
-            <span>prototype/{activePage === 'map-asset-editor' ? 'map-editor-workbench' : 'patch-editor-workbench'}.html</span>
+            <span>docs/design/prototypes/{activePage === 'map-asset-editor' ? 'map-editor-workbench' : 'patch-editor-workbench'}.html</span>
           </header>
           <iframe key={`mock:${activePage}`} title={`${current.label} mock`} srcDoc={current.mock} />
         </section>

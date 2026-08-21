@@ -165,7 +165,7 @@ Responsibilities:
 - File system, dialog, window, storage, and shell ports.
 - Desktop host feature detection.
 - Host bridge helpers under `platform/host`.
-- Generated host command constants (`platform/host-commands`, produced by `apps/desktop/scripts/generate-host-commands.mjs`; never edit by hand), `HostCommandClient`, and frontend observability adapters. The shared task runtime itself lives in `shared/lib/task-runtime.ts` and is imported by `HostCommandClient`.
+- Generated host command constants (`platform/host-commands`, produced by `apps/desktop/scripts/gen/generate-host-commands.mjs`; never edit by hand), `HostCommandClient`, and frontend observability adapters. The shared task runtime itself lives in `shared/lib/task-runtime.ts` and is imported by `HostCommandClient`.
 
 Rules:
 

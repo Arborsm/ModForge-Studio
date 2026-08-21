@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test'
 
 describe('resolveTauriDevRuntime', () => {
   it('uses safe defaults when no overrides are provided', async () => {
-    const { resolveDevServerPorts } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveDevServerPorts } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     expect(resolveDevServerPorts({})).toEqual({
       port: 5173,
@@ -11,7 +11,7 @@ describe('resolveTauriDevRuntime', () => {
   })
 
   it('respects explicit port overrides', async () => {
-    const { resolveDevServerPorts } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveDevServerPorts } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     expect(
       resolveDevServerPorts({
@@ -25,7 +25,7 @@ describe('resolveTauriDevRuntime', () => {
   })
 
   it('falls back to the next available dev ports when defaults are unavailable', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveTauriDevRuntime } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     const result = await resolveTauriDevRuntime({}, async (port: number) => port >= 5239)
 
@@ -41,7 +41,7 @@ describe('resolveTauriDevRuntime', () => {
   })
 
   it('keeps the default dev ports when they are available', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveTauriDevRuntime } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     const result = await resolveTauriDevRuntime({}, async () => true)
 
@@ -57,7 +57,7 @@ describe('resolveTauriDevRuntime', () => {
   })
 
   it('keeps explicit port overrides without probing for a replacement', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveTauriDevRuntime } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
     let probeCalls = 0
 
     const result = await resolveTauriDevRuntime(
@@ -84,13 +84,13 @@ describe('resolveTauriDevRuntime', () => {
 
 describe('dev server host helpers', () => {
   it('trims configured TAURI_DEV_HOST before returning it', async () => {
-    const { resolveDevServerHost } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveDevServerHost } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     expect(resolveDevServerHost({ TAURI_DEV_HOST: ' 0.0.0.0 ' })).toBe('0.0.0.0')
   })
 
   it('falls back to the default host when none is configured', async () => {
-    const { resolveDevServerHost } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { resolveDevServerHost } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     expect(resolveDevServerHost({})).toBe('127.0.0.1')
   })
@@ -98,7 +98,7 @@ describe('dev server host helpers', () => {
 
 describe('buildTauriDevConfigOverride', () => {
   it('uses the trimmed host when constructing devUrl', async () => {
-    const { buildTauriDevConfigOverride } = await import('../../../scripts/tauriDevRuntime.mjs')
+    const { buildTauriDevConfigOverride } = await import('../../../scripts/dev/tauriDevRuntime.mjs')
 
     expect(buildTauriDevConfigOverride({ TAURI_DEV_HOST: ' 0.0.0.0 ' })).toEqual({
       build: {

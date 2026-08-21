@@ -18,7 +18,7 @@
 - `AssetGlyph`：`'map'` → `MapIcon`。
 - locales：`filters` 增加 `map`（zh `'地图'`、en `'Maps'`、`locales/model/workbench/asset-library.ts` 类型同步）。下拉选项由 `copy.filters` 驱动，自动出现。
 - 单测：扩展 `src/tests/unit/pages/workbench/workspaces/asset-library/projectAssets.test.ts`（tmx/tbin → map，png → image，json → data，无 MIME → 按扩展名兜底）。
-- Playwright：`scripts/verify-asset-library-ui.mjs` 种子加一张 `.tmx` 素材，断言其 meta 行以「地图」开头且不显示「其他」。
+- Playwright：`scripts/verify/verify-asset-library-ui.mjs` 种子加一张 `.tmx` 素材，断言其 meta 行以「地图」开头且不显示「其他」。
 
 ## 切片 2：网格按类型分组（纯前端）
 

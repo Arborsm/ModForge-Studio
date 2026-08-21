@@ -377,7 +377,7 @@ v1 只实现 `directory-pack`；`mod-config`、`cp-assets` 留接口不实现（
 
 - 单元：`CompatModuleRuntime` 的字段映射与求值逻辑（`visibleWhen`、validate、默认值填充）——纯逻辑 `.ts`，不渲染组件
 - 单元：`directoryPack` adapter 的数据变换
-- Playwright：新增 `apps/desktop/scripts/verify-compat-plugin-page.mjs`（mock launcher + settings），断言导航项出现、页面打开、字段渲染、校验错误态；截图归档
+- Playwright：新增 `apps/desktop/scripts/verify/verify-compat-plugin-page.mjs`（mock launcher + settings），断言导航项出现、页面打开、字段渲染、校验错误态；截图归档
 - `vp run lint`、`vp run build`、受影响 vitest
 
 ---

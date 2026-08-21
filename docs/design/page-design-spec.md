@@ -2,7 +2,7 @@
 
 > 适用范围：`apps/desktop` 所有工作区/页面  
 > 最后更新：2026-07-29  
-> 相关：产品级视觉与术语见 [`../DESIGN.md`](../DESIGN.md)；导航模块注册见 `apps/desktop/src/pages/workbench/module-registrations.ts`（旧文档 `workbench-shell-migration.md` 已删除，静态原型 `prototype/workbench-shell-mock.html` 已不存在，壳 IA 以本规范 §0 为准）
+> 相关：产品级视觉与术语见 [`./DESIGN.md`](./DESIGN.md)；导航模块注册见 `apps/desktop/src/pages/workbench/module-registrations.ts`（旧文档 `workbench-shell-migration.md` 已删除，静态原型 `docs/design/prototypes/workbench-shell-mock.html` 已不存在，壳 IA 以本规范 §0 为准）
 
 本文档从物品工作区（Item Workspace）的重设计中抽象出通用规则，并补充工作台壳与主页 IA。用于统一 ModForge Studio 的页面视觉与布局。
 

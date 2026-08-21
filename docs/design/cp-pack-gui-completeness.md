@@ -85,7 +85,7 @@
 ## 3. 验证约束
 
 - 前端测试 `vp test run --configLoader runner`；`src/tests/unit/**` 只放纯逻辑 `.ts`。
-- UI 变更用截图 / Playwright `getBoundingClientRect()` 证明，按 ≥1440 / ≥1680 验证；本轮的验证脚本是 `apps/desktop/scripts/verify-workbench-authoring.mjs` 与 `verify-workbench-project-flow.mjs`。
+- UI 变更用截图 / Playwright `getBoundingClientRect()` 证明，按 ≥1440 / ≥1680 验证；本轮的验证脚本是 `apps/desktop/scripts/verify/verify-workbench-authoring.mjs` 与 `apps/desktop/scripts/verify/verify-workbench-project-flow.mjs`。
 - 改 Rust 侧跑 `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`。
 - 新增 host command 后跑 `vp run --filter @modforge/desktop gen:host-commands`（本轮未新增）。
 

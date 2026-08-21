@@ -402,7 +402,7 @@ ScaleUp 是最理想的首个迁移对象，因为它的兼容**已经是纯数�
 | 新增 | `src/features/compat-plugins/runtime/sources/directoryPack.ts`            | 第一个 source adapter：按目录约定读取内容包（走现有 Io command 列目录/读 JSON/读图片）                                            |
 | 新增 | `compat-plugins/peacefulend.alternative-textures/manifest.json` + `i18n/` | AT 的 texture.json 字段模型 → page descriptor                                                                                     |
 | 新增 | `src/tests/unit/features/compat-plugins/runtime/`                         | 字段渲染映射、source adapter 数据变换（纯逻辑，不渲染组件）                                                                       |
-| 新增 | `apps/desktop/scripts/verify-compat-plugin-page.mjs`                      | Playwright：mock 环境挂载 → 打开 AT 兼容页 → 列表/表单/校验态截图断言                                                             |
+| 新增 | `apps/desktop/scripts/verify/verify-compat-plugin-page.mjs`               | Playwright：mock 环境挂载 → 打开 AT 兼容页 → 列表/表单/校验态截图断言                                                             |
 
 **验证**：单元测试 + Playwright 脚本 + `vp run lint && vp run build`。
 

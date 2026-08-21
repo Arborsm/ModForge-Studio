@@ -18,7 +18,7 @@
     "lint": "vp run --filter @modforge/desktop lint",
     "benchmark:localization-search": "vp run --filter @modforge/desktop benchmark:localization-search",
     "benchmark:localization-lexical": "vp run --filter @modforge/desktop benchmark:localization-lexical",
-    "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
+    "desktop:build": "node apps/desktop/scripts/dev/desktop-host-dispatch.cjs build",
     "installer:build": "node apps/installer/scripts/build-installer.cjs",
     "release:linux": "vp run --filter @modforge/desktop release:linux",
     "release:linux:deb": "vp run --filter @modforge/desktop release:linux:deb",
@@ -29,15 +29,15 @@
     "release:collect": "vp run --filter @modforge/desktop release:collect",
     "format": "vp fmt .",
     "format:check": "vp fmt . --check",
-    "design:lint": "npx -p @google/design.md designmd lint DESIGN.md",
-    "design:export": "npx -p @google/design.md designmd export --format json-tailwind DESIGN.md > design-tokens.json",
-    "design:export:css": "npx -p @google/design.md designmd export --format css-tailwind DESIGN.md > design-tokens.css",
-    "design:export:dtcg": "npx -p @google/design.md designmd export --format dtcg DESIGN.md > design-tokens.dtcg.json",
+    "design:lint": "npx -p @google/design.md designmd lint docs/design/DESIGN.md",
+    "design:export": "npx -p @google/design.md designmd export --format json-tailwind docs/design/DESIGN.md > docs/design/design-tokens.json",
+    "design:export:css": "npx -p @google/design.md designmd export --format css-tailwind docs/design/DESIGN.md > docs/design/design-tokens.css",
+    "design:export:dtcg": "npx -p @google/design.md designmd export --format dtcg docs/design/DESIGN.md > docs/design/design-tokens.dtcg.json",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,md,mdx,ts,tsx,yaml,yml}": "vp fmt .",
-    "*.rs": "node apps/desktop/scripts/fmt-rust-staged.cjs"
+    "*.rs": "node apps/desktop/scripts/test/fmt-rust-staged.cjs"
   },
   "devDependencies": {
     "husky": "9.1.7",

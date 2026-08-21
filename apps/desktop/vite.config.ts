@@ -6,7 +6,7 @@ import type { CodeSplittingGroup } from 'rolldown'
 import { defineConfig, type Plugin } from 'vite-plus'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
-import { resolveDevServerHost, resolveDevServerPorts } from './scripts/tauriDevRuntime.mjs'
+import { resolveDevServerHost, resolveDevServerPorts } from './scripts/dev/tauriDevRuntime.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

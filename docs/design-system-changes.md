@@ -29,7 +29,7 @@
 所有组件通过 WCAG AA 验证：
 
 ```bash
-npx -p "@google/design.md" designmd lint DESIGN.md
+npx -p "@google/design.md" designmd lint docs/design/DESIGN.md
 ```
 
 **结果：**
@@ -111,8 +111,8 @@ npm run design:export
 ```json
 {
   "scripts": {
-    "design:lint": "designmd lint DESIGN.md",
-    "design:export": "designmd export --format json-tailwind DESIGN.md > design-tokens.json",
+    "design:lint": "designmd lint docs/design/DESIGN.md",
+    "design:export": "designmd export --format json-tailwind docs/design/DESIGN.md > docs/design/design-tokens.json",
     "design:diff": "designmd diff DESIGN-old.md DESIGN.md"
   }
 }

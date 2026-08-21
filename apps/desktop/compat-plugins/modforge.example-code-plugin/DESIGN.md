@@ -1,4 +1,4 @@
-<!-- Generated from packages/plugin-sdk/DESIGN.md by apps/desktop/scripts/generate-plugin-docs.mjs — do not edit by hand. -->
+<!-- Generated from packages/plugin-sdk/DESIGN.md by apps/desktop/scripts/gen/generate-plugin-docs.mjs — do not edit by hand. -->
 
 # ModForge Plugin Design Guide
 

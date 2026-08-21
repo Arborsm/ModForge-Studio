@@ -62,7 +62,7 @@ Linux 构建使用 Electron 包。发布自动化已经接入，但平台签名�
 ## 文档入口
 
 - [前端架构](frontend-architecture.md) - 分层边界和依赖规则。
-- [产品设计](../DESIGN.md) - 产品形态、视觉语言与设计目标。
+- [产品设计](./design/DESIGN.md) - 产品形态、视觉语言与设计目标。
 - [设计系统](design-system.md) - 面向 AI 编码助手的视觉设计 token 与规则。
 - [页面设计规范](design/page-design-spec.md) - 工作区视觉规则与工作台壳 / 主页 IA。
 - [工作台项目构建重组方案](design/workbench-authoring-rework.md) - 以事件页为质量基准重组各项目构建页的方案。
