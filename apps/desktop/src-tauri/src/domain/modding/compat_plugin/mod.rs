@@ -81,9 +81,10 @@ use protocol::resolve_plugin_protocol_path_in_roots;
 // ── re-exports: directory_pack ───────────────────────────────────────────────
 
 pub(crate) use directory_pack::{
-    CompatPluginEntrySummary, ReadCompatPluginEntryRequest, ReadCompatPluginEntryResult,
-    WriteCompatPluginEntryRequest, list_directory_pack_entries, read_directory_pack_entry,
-    write_directory_pack_entry,
+    CompatPluginEntrySummary, DeleteCompatPluginEntryRequest, ReadCompatPluginEntryRequest,
+    ReadCompatPluginEntryResult, WriteCompatPluginEntryImageRequest, WriteCompatPluginEntryRequest,
+    delete_directory_pack_entry, list_directory_pack_entries, read_directory_pack_entry,
+    write_directory_pack_entry, write_directory_pack_entry_image,
 };
 
 #[cfg(test)]

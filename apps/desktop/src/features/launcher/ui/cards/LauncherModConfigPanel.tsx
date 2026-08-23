@@ -6,6 +6,7 @@ import { Info, RotateCcw, Save, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorCopy, useLocale } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type { LauncherConfigItemOption, LauncherModConfigField, LauncherModConfigResult } from '../../model/launcherContracts'
 import type { LauncherPort } from '../../model/launcherPort'
 import {
@@ -320,6 +321,10 @@ export function LauncherModConfigPanel({ modPath, launcherPort, toolbarTarget, o
       return true
     } catch (saveError: unknown) {
       setError(saveError instanceof Error ? saveError.message : String(saveError))
+      appEvent('error', 'Launcher mod config save failed')
+        .error(saveError)
+        .context({ source: 'launcher-mod-config', operation: 'save-config' })
+        .emit({ notify: false })
       setState('error')
       return false
     }

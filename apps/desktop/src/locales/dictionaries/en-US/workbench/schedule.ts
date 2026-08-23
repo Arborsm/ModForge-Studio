@@ -158,6 +158,7 @@ const scheduleEditor: ScheduleEditorCopy = {
     loadFailedTemplate: 'Map failed to load: {message}',
     unsupportedFormatTemplate: 'Map format {format} cannot be previewed here.',
     spriteUnavailableTemplate: 'NPC sprite unavailable, showing a numbered marker instead: {message}',
+    spriteMissingAsset: 'The game content has no sprite asset for this NPC.',
     retryAction: 'Retry',
     markerTooltipTemplate: '#{ordinal} at {time} - tile {x}, {y}',
     departsToTemplate: 'Leaves for {location}',

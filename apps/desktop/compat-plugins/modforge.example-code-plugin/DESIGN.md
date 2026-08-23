@@ -397,26 +397,38 @@ plugin unloads.
 
 ## Host commands (`ctx.commands.invoke`)
 
-| Command                | Args                                          | Returns                                                                                     |
-| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `resolveTargetModRoot` | —                                             | absolute path of the first target mod, or `null`                                            |
-| `listModDirectory`     | `{ rootSubdir, entryFile, entryImage? }`      | entries under the target mod                                                                |
-| `readModFile`          | `{ rootSubdir, entryId, entryFile }`          | file content, or `null`                                                                     |
-| `writeModFile`         | `{ rootSubdir, entryId, entryFile, content }` | —                                                                                           |
-| `readPluginAsset`      | `{ path }`                                    | text content of a file shipped inside your plugin package                                   |
-| `resolveGameRoot`      | —                                             | detected game directory, or `null`                                                          |
-| `loadGameDataAsset`    | `{ assetPath, locale? }`                      | parsed text/data asset (`Content Patcher`-style key like `Data/Objects`)                    |
-| `loadGameImage`        | `{ contentPath, locale? }`                    | `data:` URL of a game texture                                                               |
-| `scanGameAudio`        | —                                             | `{ cue, kind: 'music' \| 'sound', ... }[]`, music cues classified from the vanilla cue list |
-| `loadGameAudioCue`     | `{ cue }`                                     | `data:audio/wav;base64,...` URL for playback                                                |
+| Command                | Args                                                           | Returns                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `resolveTargetModRoot` | —                                                              | absolute path of the first target mod, or `null`                                                                                     |
+| `listModDirectory`     | `{ rootSubdir, entryFile, entryImage?, includeContentPacks? }` | entries under the target mod (plus its content packs when `includeContentPacks`), each tagged with `sourceModRoot` / `sourceModName` |
+| `readModFile`          | `{ rootSubdir, entryId, entryFile, sourceModRoot? }`           | file content, or `null`                                                                                                              |
+| `writeModFile`         | `{ rootSubdir, entryId, entryFile, content, sourceModRoot? }`  | —                                                                                                                                    |
+| `readPluginAsset`      | `{ path }`                                                     | text content of a file shipped inside your plugin package                                                                            |
+| `resolveGameRoot`      | —                                                              | detected game directory, or `null`                                                                                                   |
+| `loadGameDataAsset`    | `{ assetPath, locale? }`                                       | parsed text/data asset (`Content Patcher`-style key like `Data/Objects`)                                                             |
+| `loadGameImage`        | `{ contentPath, locale? }`                                     | `data:` URL of a game texture                                                                                                        |
+| `scanGameAudio`        | —                                                              | `{ cue, kind: 'music' \| 'sound', ... }[]`, music cues classified from the vanilla cue list                                          |
+| `loadGameAudioCue`     | `{ cue }`                                                      | `data:audio/wav;base64,...` URL for playback                                                                                         |
 
 All commands reject on failure — surface errors with `EmptyStateCard` or a
 notification instead of swallowing them.
 
+Entry identity for directory-pack listings is the (`sourceModRoot`, `id`)
+pair: `id` alone is only unique within one mod directory. When
+`includeContentPacks: true` aggregates content packs into the listing, pass an
+entry's `sourceModRoot` back to `readModFile`/`writeModFile` so the operation
+hits the pack the entry came from. `sourceModRoot` must nest under the game's
+`Mods` directory; anything else is rejected.
+
 ## Capabilities
 
-`ctx.capabilities.get(id)`: `plugin.id`, `plugin.targets`,
-`host.sdkVersion`, `host.locale`.
+`ctx.capabilities.get(id)`: built-in ids `plugin.id`, `plugin.targets`,
+`host.sdkVersion`, `host.locale` are always available. Host capabilities are
+pure-function implementations owned by the host core (they serve ≥2 plugins or
+are clearly generic); to reach one, declare its id in the manifest
+`contributions.capabilities` array, e.g.
+`"capabilities": ["scaleup-frame-math"]`. Undeclared or unknown ids return
+`undefined`.
 
 ## Checklist before shipping
 

@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from 'react'
 import { createResourceCache } from '@shared/lib/resources'
+import { appEvent } from '@platform/observability'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherPort } from './launcherPort'
 
@@ -66,8 +67,12 @@ export function useLauncherImage(url: string | null, modKey: string | null = nul
           setLoadedImage({ url, imageUrl: result })
         }
       } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        appEvent('debug', 'Launcher image load failed')
+          .context({ source: 'launcher-image-loader', operation: 'load', url, modKey: normalizedModKey || undefined, error: message })
+          .dedupe(`launcher-image:${url}`)
+          .emit({ notify: false })
         if (active) {
-          const message = error instanceof Error ? error.message : 'Image load failed'
           setLoadError({ url, error: message })
         }
       }

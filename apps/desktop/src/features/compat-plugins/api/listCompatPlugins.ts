@@ -54,7 +54,7 @@ const compatPluginTogglePolicy = compatPluginStatePolicy
 export async function toggleCompatPlugin(pluginId: string, disabled: boolean): Promise<CompatPluginSummary[]> {
   const summaries = await invokeDesktop<CompatPluginSummary[]>(
     HOST_COMMANDS.toggleCompatPlugin,
-    { pluginId, disabled },
+    { request: { pluginId, disabled } },
     compatPluginTogglePolicy,
   )
   compatPluginCache.delete('default')
@@ -66,7 +66,11 @@ export async function toggleCompatPlugin(pluginId: string, disabled: boolean): P
  * The caller is responsible for triggering the runtime rebuild after deletion.
  */
 export async function deleteCompatPlugin(pluginId: string): Promise<CompatPluginSummary[]> {
-  const summaries = await invokeDesktop<CompatPluginSummary[]>(HOST_COMMANDS.deleteCompatPlugin, { pluginId }, compatPluginTogglePolicy)
+  const summaries = await invokeDesktop<CompatPluginSummary[]>(
+    HOST_COMMANDS.deleteCompatPlugin,
+    { request: { pluginId } },
+    compatPluginTogglePolicy,
+  )
   compatPluginCache.delete('default')
   return summaries
 }

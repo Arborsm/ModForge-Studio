@@ -3,6 +3,7 @@ import { Loader2, Map as MapIcon } from 'lucide-react'
 import type { DraftPatch } from '@features/cp-maker'
 import { loadMapThumbnail } from '@entities/map'
 import { useLocale } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { useWorkbenchEnvironment } from '../../../model/workbenchModuleContexts'
 import { loadGameMapDocument } from '../model/gameMapLoad'
 import { resolvePatchThumbnailTarget } from '../state/mapAuthoringCatalog'
@@ -62,8 +63,14 @@ export function MapPatchRowThumbnail({ patch }: { patch: DraftPatch }) {
       .then((url) => {
         if (!cancelled) setThumbnailUrl(url)
       })
-      .catch(() => {
-        if (!cancelled) setFailed(true)
+      .catch((error) => {
+        if (!cancelled) {
+          appEvent('warning', 'Failed to render map patch thumbnail')
+            .error(error)
+            .context({ source: 'map-patch-thumbnail', operation: 'render', patchId: patch.id })
+            .emit({ notify: false })
+          setFailed(true)
+        }
       })
     return () => {
       cancelled = true

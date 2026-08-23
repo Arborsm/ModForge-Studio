@@ -1,7 +1,7 @@
 /**
  * @file Launcher mod library display state hook: derives the sorted list, lookup maps, and display labels from library state.
  */
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import type { LauncherCopy } from '@locales/model'
 import { LAUNCHER_ARCHIVE_FILE_SUFFIXES } from '@platform/host'
 import { buildChildModLookup, buildParentModLookup } from '@features/launcher/model/childModRelations'
@@ -50,37 +50,21 @@ export function useLauncherLibraryDisplayState({
   readyLibraryFolderIds,
   closingLibraryFolderIds,
 }: LauncherLibraryDisplayStateInput) {
-  const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
-  const childGroupLookup = useMemo(() => buildChildModLookup(library.childModGroups), [library.childModGroups])
-  const childParentLookup = useMemo(() => buildParentModLookup(library.childModGroups), [library.childModGroups])
-  const viewKey = useMemo(
-    () =>
-      deriveLibraryViewKey({
-        hiddenViewOpen,
-        scopeMode: library.scopeMode,
-        currentPackId: library.currentPackId,
-      }),
-    [hiddenViewOpen, library.currentPackId, library.scopeMode],
-  )
-  const hiddenModKeyLookup = useMemo(
-    () => new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value))),
-    [library.hiddenModKeys],
-  )
-  const hiddenMods = useMemo(
-    () => library.mods.filter((item) => hiddenModKeyLookup.has(normalizeLookupKey(getModKey(item)))),
-    [hiddenModKeyLookup, library.mods],
-  )
-  const hiddenLibraryFolders = useMemo(
-    () => library.libraryFolders.filter((folder) => !folder.packId && folder.hidden),
-    [library.libraryFolders],
-  )
+  const packLookup = buildPackLookup(library.packPresets)
+  const childGroupLookup = buildChildModLookup(library.childModGroups)
+  const childParentLookup = buildParentModLookup(library.childModGroups)
+  const viewKey = deriveLibraryViewKey({
+    hiddenViewOpen,
+    scopeMode: library.scopeMode,
+    currentPackId: library.currentPackId,
+  })
+  const hiddenModKeyLookup = new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value)))
+  const hiddenMods = library.mods.filter((item) => hiddenModKeyLookup.has(normalizeLookupKey(getModKey(item))))
+  const hiddenLibraryFolders = library.libraryFolders.filter((folder) => !folder.packId && folder.hidden)
   const hiddenLibraryItemCount = hiddenMods.length + hiddenLibraryFolders.length
-  const selectedDetailMod = useMemo(
-    () => (detailModId ? (library.mods.find((item) => item.id === detailModId) ?? null) : null),
-    [detailModId, library.mods],
-  )
+  const selectedDetailMod = detailModId ? (library.mods.find((item) => item.id === detailModId) ?? null) : null
   const detailMod = detailModId ? selectedDetailMod : null
-  const effectivelyHiddenFolderLookup = useMemo(() => {
+  const effectivelyHiddenFolderLookup = (() => {
     const folderById = new Map(library.libraryFolders.map((folder) => [normalizeLookupKey(folder.id), folder]))
     const hiddenById = new Map<string, boolean>()
     const isEffectivelyHidden = (folder: LauncherVirtualFolder, seen = new Set<string>()): boolean => {
@@ -110,8 +94,8 @@ export function useLauncherLibraryDisplayState({
       }
     }
     return lookup
-  }, [library.libraryFolders])
-  const hiddenFolderModKeyLookup = useMemo(() => {
+  })()
+  const hiddenFolderModKeyLookup = (() => {
     const lookup = new Set<string>()
     for (const folder of library.libraryFolders) {
       if (!effectivelyHiddenFolderLookup.has(normalizeLookupKey(folder.id))) {
@@ -122,16 +106,12 @@ export function useLauncherLibraryDisplayState({
       }
     }
     return lookup
-  }, [effectivelyHiddenFolderLookup, library.libraryFolders])
-  const visibleLibraryModsCount = useMemo(
-    () =>
-      library.mods.filter((mod) => {
-        const modLookup = normalizeLookupKey(getModKey(mod))
-        return !hiddenModKeyLookup.has(modLookup) && !hiddenFolderModKeyLookup.has(modLookup)
-      }).length,
-    [hiddenFolderModKeyLookup, hiddenModKeyLookup, library.mods],
-  )
-  const currentPackFolderModLookup = useMemo(() => {
+  })()
+  const visibleLibraryModsCount = library.mods.filter((mod) => {
+    const modLookup = normalizeLookupKey(getModKey(mod))
+    return !hiddenModKeyLookup.has(modLookup) && !hiddenFolderModKeyLookup.has(modLookup)
+  }).length
+  const currentPackFolderModLookup = (() => {
     const lookup = new Set<string>()
     if (!library.currentPackId) {
       return lookup
@@ -146,9 +126,9 @@ export function useLauncherLibraryDisplayState({
       }
     }
     return lookup
-  }, [library.currentPackId, library.libraryFolders])
+  })()
 
-  const visibleMods = useMemo(() => {
+  const visibleMods = (() => {
     const matchesActiveFilters = (item: LauncherLibraryItem) =>
       includesLibraryFilter(item, library.filterText) && (!library.enabledOnly || item.enabled) && (!library.configOnly || item.hasConfig)
 
@@ -176,48 +156,25 @@ export function useLauncherLibraryDisplayState({
     return applyCustomOrder(sorted, library.customOrders[getLibraryViewOrderContainerKey(viewKey)], (item) =>
       encodeCustomItemKey('mod', getModKey(item)),
     )
-  }, [
-    editMode,
-    currentPackFolderModLookup,
-    hiddenFolderModKeyLookup,
-    hiddenMods,
-    hiddenViewOpen,
-    library.customOrders,
-    library.configOnly,
-    library.currentPack?.folderClassificationMode,
-    library.currentPackId,
-    library.enabledOnly,
-    library.filterText,
-    library.filteredMods,
-    library.mods,
-    sortMode,
-    viewKey,
-  ])
+  })()
 
-  const modByKeyLookup = useMemo(() => {
+  const modByKeyLookup = (() => {
     const lookup = new Map<string, LauncherLibraryItem>()
     for (const mod of library.mods) {
       lookup.set(normalizeLookupKey(getModKey(mod)), mod)
     }
     return lookup
-  }, [library.mods])
+  })()
 
-  const visibleModKeyLookup = useMemo(() => new Set(visibleMods.map((mod) => normalizeLookupKey(getModKey(mod)))), [visibleMods])
-  const visibleFolderMods = useMemo(
-    () =>
-      hiddenViewOpen
-        ? library.mods
-            .filter((item) => includesLibraryFilter(item, library.filterText))
-            .filter((item) => !library.enabledOnly || item.enabled)
-            .filter((item) => !library.configOnly || item.hasConfig)
-        : visibleMods,
-    [hiddenViewOpen, library.configOnly, library.enabledOnly, library.filterText, library.mods, visibleMods],
-  )
-  const visibleFolderModKeyLookup = useMemo(
-    () => new Set(visibleFolderMods.map((mod) => normalizeLookupKey(getModKey(mod)))),
-    [visibleFolderMods],
-  )
-  const visibleFolders = useMemo(() => {
+  const visibleModKeyLookup = new Set(visibleMods.map((mod) => normalizeLookupKey(getModKey(mod))))
+  const visibleFolderMods = hiddenViewOpen
+    ? library.mods
+        .filter((item) => includesLibraryFilter(item, library.filterText))
+        .filter((item) => !library.enabledOnly || item.enabled)
+        .filter((item) => !library.configOnly || item.hasConfig)
+    : visibleMods
+  const visibleFolderModKeyLookup = new Set(visibleFolderMods.map((mod) => normalizeLookupKey(getModKey(mod))))
+  const visibleFolders = (() => {
     if (hiddenViewOpen) {
       return library.libraryFolders.filter((folder) => effectivelyHiddenFolderLookup.has(normalizeLookupKey(folder.id)))
     }
@@ -233,61 +190,40 @@ export function useLauncherLibraryDisplayState({
         (includeGlobalFolders && !folder.packId && !effectivelyHiddenFolderLookup.has(normalizeLookupKey(folder.id)))
       )
     })
-  }, [
-    effectivelyHiddenFolderLookup,
-    hiddenViewOpen,
-    library.currentPack?.folderClassificationMode,
-    library.currentPackId,
-    library.libraryFolders,
-  ])
-  const visibleFolderByIdLookup = useMemo(
-    () => new Map(visibleFolders.map((folder) => [normalizeLookupKey(folder.id), folder])),
-    [visibleFolders],
-  )
-  const getDisplayFolderModKeys = useCallback(
-    (folder: LauncherVirtualFolder) =>
-      folder.modKeys.filter((modKey) => {
-        const modLookup = normalizeLookupKey(modKey)
-        if (!visibleFolderModKeyLookup.has(modLookup)) {
-          return false
-        }
-        if (hiddenViewOpen) {
-          return true
-        }
-        return Boolean(folder.packId) || !currentPackFolderModLookup.has(modLookup)
-      }),
-    [currentPackFolderModLookup, hiddenViewOpen, visibleFolderModKeyLookup],
-  )
-  const getVisibleChildFolders = useCallback(
-    (folderId: string) =>
-      visibleFolders.filter((childFolder) => normalizeLookupKey(childFolder.parentFolderId ?? '') === normalizeLookupKey(folderId)),
-    [visibleFolders],
-  )
-  const folderHasVisibleContent = useCallback(
-    (folder: LauncherVirtualFolder, seen = new Set<string>()): boolean => {
-      const folderLookup = normalizeLookupKey(folder.id)
-      if (seen.has(folderLookup)) {
+  })()
+  const visibleFolderByIdLookup = new Map(visibleFolders.map((folder) => [normalizeLookupKey(folder.id), folder]))
+  const getDisplayFolderModKeys = (folder: LauncherVirtualFolder) =>
+    folder.modKeys.filter((modKey) => {
+      const modLookup = normalizeLookupKey(modKey)
+      if (!visibleFolderModKeyLookup.has(modLookup)) {
         return false
       }
-      seen.add(folderLookup)
-      if (getDisplayFolderModKeys(folder).length > 0) {
+      if (hiddenViewOpen) {
         return true
       }
-      return getVisibleChildFolders(folder.id).some((childFolder) => folderHasVisibleContent(childFolder, new Set(seen)))
-    },
-    [getDisplayFolderModKeys, getVisibleChildFolders],
-  )
-  const visibleNonEmptyFolders = useMemo(() => {
+      return Boolean(folder.packId) || !currentPackFolderModLookup.has(modLookup)
+    })
+  const getVisibleChildFolders = (folderId: string) =>
+    visibleFolders.filter((childFolder) => normalizeLookupKey(childFolder.parentFolderId ?? '') === normalizeLookupKey(folderId))
+  const folderHasVisibleContent = (folder: LauncherVirtualFolder, seen = new Set<string>()): boolean => {
+    const folderLookup = normalizeLookupKey(folder.id)
+    if (seen.has(folderLookup)) {
+      return false
+    }
+    seen.add(folderLookup)
+    if (getDisplayFolderModKeys(folder).length > 0) {
+      return true
+    }
+    return getVisibleChildFolders(folder.id).some((childFolder) => folderHasVisibleContent(childFolder, new Set(seen)))
+  }
+  const visibleNonEmptyFolders = (() => {
     if (hiddenViewOpen || !library.currentPackId) {
       return visibleFolders
     }
     return visibleFolders.filter((folder) => folderHasVisibleContent(folder))
-  }, [folderHasVisibleContent, hiddenViewOpen, library.currentPackId, visibleFolders])
-  const visibleNonEmptyFolderByIdLookup = useMemo(
-    () => new Map(visibleNonEmptyFolders.map((folder) => [normalizeLookupKey(folder.id), folder])),
-    [visibleNonEmptyFolders],
-  )
-  const libraryFolderModLookup = useMemo(() => {
+  })()
+  const visibleNonEmptyFolderByIdLookup = new Map(visibleNonEmptyFolders.map((folder) => [normalizeLookupKey(folder.id), folder]))
+  const libraryFolderModLookup = (() => {
     const lookup = new Map<string, string>()
     for (const folder of visibleNonEmptyFolders) {
       for (const modKey of getDisplayFolderModKeys(folder)) {
@@ -295,67 +231,55 @@ export function useLauncherLibraryDisplayState({
       }
     }
     return lookup
-  }, [getDisplayFolderModKeys, visibleNonEmptyFolders])
+  })()
 
-  const buildFolderDisplayItem = useCallback(
-    (folder: LauncherVirtualFolder): LauncherLibraryDisplayItem => ({
-      kind: 'folder',
-      folder,
-      mods: getDisplayFolderModKeys(folder)
-        .map((modKey) => modByKeyLookup.get(normalizeLookupKey(modKey)))
-        .filter((item): item is LauncherLibraryItem => Boolean(item)),
-      childFolders: getVisibleChildFolders(folder.id).filter((childFolder) =>
-        visibleNonEmptyFolderByIdLookup.has(normalizeLookupKey(childFolder.id)),
-      ),
-    }),
-    [getDisplayFolderModKeys, getVisibleChildFolders, modByKeyLookup, visibleNonEmptyFolderByIdLookup],
-  )
+  const buildFolderDisplayItem = (folder: LauncherVirtualFolder): LauncherLibraryDisplayItem => ({
+    kind: 'folder',
+    folder,
+    mods: getDisplayFolderModKeys(folder)
+      .map((modKey) => modByKeyLookup.get(normalizeLookupKey(modKey)))
+      .filter((item): item is LauncherLibraryItem => Boolean(item)),
+    childFolders: getVisibleChildFolders(folder.id).filter((childFolder) =>
+      visibleNonEmptyFolderByIdLookup.has(normalizeLookupKey(childFolder.id)),
+    ),
+  })
 
-  const getLibraryFolderItemCount = useCallback(
-    (folderId: string) => {
-      const countFolder = (nextFolderId: string, seen = new Set<string>()): number => {
-        const folderLookup = normalizeLookupKey(nextFolderId)
-        if (seen.has(folderLookup)) {
-          return 0
-        }
-        seen.add(folderLookup)
-        const folder = visibleFolderByIdLookup.get(folderLookup)
-        if (!folder) {
-          return 0
-        }
-        const childFolderCount = visibleFolders.filter((candidate) => {
-          if (normalizeLookupKey(candidate.parentFolderId ?? '') !== folderLookup) {
-            return false
-          }
-          return countFolder(candidate.id, new Set(seen)) > 0
-        }).length
-        const modCount = getDisplayFolderModKeys(folder).length
-        return modCount + childFolderCount
+  const getLibraryFolderItemCount = (folderId: string) => {
+    const countFolder = (nextFolderId: string, seen = new Set<string>()): number => {
+      const folderLookup = normalizeLookupKey(nextFolderId)
+      if (seen.has(folderLookup)) {
+        return 0
       }
-      const folderLookup = normalizeLookupKey(folderId)
-      return countFolder(folderLookup)
-    },
-    [getDisplayFolderModKeys, visibleFolderByIdLookup, visibleFolders],
-  )
+      seen.add(folderLookup)
+      const folder = visibleFolderByIdLookup.get(folderLookup)
+      if (!folder) {
+        return 0
+      }
+      const childFolderCount = visibleFolders.filter((candidate) => {
+        if (normalizeLookupKey(candidate.parentFolderId ?? '') !== folderLookup) {
+          return false
+        }
+        return countFolder(candidate.id, new Set(seen)) > 0
+      }).length
+      const modCount = getDisplayFolderModKeys(folder).length
+      return modCount + childFolderCount
+    }
+    const folderLookup = normalizeLookupKey(folderId)
+    return countFolder(folderLookup)
+  }
 
-  const openLibraryFolderIdLookup = useMemo(() => new Set(openLibraryFolderIds.map((id) => normalizeLookupKey(id))), [openLibraryFolderIds])
-  const closingLibraryFolderIdLookup = useMemo(
-    () => new Set(closingLibraryFolderIds.map((id) => normalizeLookupKey(id))),
-    [closingLibraryFolderIds],
-  )
-  const isLibraryFolderOpen = useCallback(
-    (folderId: string) => {
-      const lookup = normalizeLookupKey(folderId)
-      return openLibraryFolderIdLookup.has(lookup) || closingLibraryFolderIdLookup.has(lookup)
-    },
-    [closingLibraryFolderIdLookup, openLibraryFolderIdLookup],
-  )
+  const openLibraryFolderIdLookup = new Set(openLibraryFolderIds.map((id) => normalizeLookupKey(id)))
+  const closingLibraryFolderIdLookup = new Set(closingLibraryFolderIds.map((id) => normalizeLookupKey(id)))
+  const isLibraryFolderOpen = (folderId: string) => {
+    const lookup = normalizeLookupKey(folderId)
+    return openLibraryFolderIdLookup.has(lookup) || closingLibraryFolderIdLookup.has(lookup)
+  }
   const isClosingLibraryFolder = useCallback(
     (folderId: string) => closingLibraryFolderIdLookup.has(normalizeLookupKey(folderId)),
     [closingLibraryFolderIdLookup],
   )
 
-  const visibleDisplayItems = useMemo<LauncherLibraryDisplayItem[]>(() => {
+  const visibleDisplayItems = (() => {
     const items: LauncherLibraryDisplayItem[] = []
     const rootFolders = visibleNonEmptyFolders
       .filter((folder) => !folder.parentFolderId || !visibleNonEmptyFolderByIdLookup.has(normalizeLookupKey(folder.parentFolderId)))
@@ -386,31 +310,14 @@ export function useLauncherLibraryDisplayState({
     return sortMode === 'custom'
       ? applyCustomOrder(items, library.customOrders[getLibraryViewOrderContainerKey(viewKey)], getDisplayItemCustomOrderKey)
       : items
-  }, [
-    buildFolderDisplayItem,
-    childGroupLookup,
-    childParentLookup,
-    isLibraryFolderOpen,
-    library.customOrders,
-    libraryFolderModLookup,
-    modByKeyLookup,
-    visibleNonEmptyFolderByIdLookup,
-    visibleModKeyLookup,
-    visibleNonEmptyFolders,
-    visibleMods,
-    sortMode,
-    viewKey,
-  ])
+  })()
 
-  const getLibraryFolderModIds = useCallback(
-    (folder: LauncherVirtualFolder) => {
-      const folderModLookup = new Set(folder.modKeys.map((value) => normalizeLookupKey(value)))
-      return library.mods.filter((mod) => folderModLookup.has(normalizeLookupKey(getModKey(mod)))).map((mod) => mod.id)
-    },
-    [library.mods],
-  )
+  const getLibraryFolderModIds = (folder: LauncherVirtualFolder) => {
+    const folderModLookup = new Set(folder.modKeys.map((value) => normalizeLookupKey(value)))
+    return library.mods.filter((mod) => folderModLookup.has(normalizeLookupKey(getModKey(mod)))).map((mod) => mod.id)
+  }
 
-  const openLibraryFolderItemsById = useMemo(() => {
+  const openLibraryFolderItemsById = (() => {
     const itemsById = new Map<string, LauncherLibraryDisplayItem[]>()
     if (!readyLibraryFolderIds.length) {
       return itemsById
@@ -444,33 +351,16 @@ export function useLauncherLibraryDisplayState({
       )
     }
     return itemsById
-  }, [
-    buildFolderDisplayItem,
-    childGroupLookup,
-    getDisplayFolderModKeys,
-    getVisibleChildFolders,
-    library.customOrders,
-    library.libraryFolders,
-    modByKeyLookup,
-    readyLibraryFolderIds,
-    sortMode,
-    visibleFolderMods,
-    visibleNonEmptyFolderByIdLookup,
-  ])
+  })()
 
-  const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
-  const sortOptions = useMemo(
-    () => [
-      { value: 'name' as const, label: copy.library.sortByName },
-      { value: 'enabled-first' as const, label: copy.library.sortByEnabled },
-      { value: 'custom' as const, label: copy.library.sortByCustom },
-    ],
-    [copy.library.sortByCustom, copy.library.sortByEnabled, copy.library.sortByName],
-  )
-  const currentSortLabel = sortOptions.find((option) => option.value === sortMode)?.label ?? copy.library.sortByName
+  const shortModsPath = shortenLibraryPath(settings.modsPath)
+  const sortOptions = [
+    { value: 'name' as const, label: copy.library.sortByName },
+    { value: 'enabled-first' as const, label: copy.library.sortByEnabled },
+    { value: 'custom' as const, label: copy.library.sortByCustom },
+  ]
   const editCount = editingSelectionIds.length
-  const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : library.currentPack ? library.currentPack.name : copy.library.allPacks
-  const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
+  const supportedArchiveFormatsLabel = LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', ')
 
   return {
     packLookup,
@@ -490,9 +380,7 @@ export function useLauncherLibraryDisplayState({
     openLibraryFolderItemsById,
     shortModsPath,
     sortOptions,
-    currentSortLabel,
     editCount,
-    currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
     isClosingLibraryFolder,

@@ -28,7 +28,7 @@ import { cx } from '@shared/lib/helper'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { useEditorCopy, useLocale } from '@locales/provider'
 import { loadEventAsset, type EventAssetSummary } from '@entities/game/api'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { buildEventPatchHubPatches, warmEventEditorResources, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
 import { EventPatchCreateDialog } from './EventPatchCreateDialog'
 import { EventVanillaImportDialog } from './EventVanillaImportDialog'
@@ -134,7 +134,6 @@ export function PatchListPage({
   const catalog = copy.patchCatalog
   const hub = copy.eventPatchHub
   const locale = useLocale()
-  const publishNotification = useNotificationPublisher()
   const [query, setQuery] = useState('')
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(patches[0]?.id ?? null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
@@ -158,10 +157,7 @@ export function PatchListPage({
 
   const hubPatches = useMemo(() => buildEventPatchHubPatches(patches), [patches])
   const normalizedQuery = query.trim().toLowerCase()
-  const visiblePatches = useMemo(
-    () => hubPatches.filter((patch) => !normalizedQuery || patch.searchText.includes(normalizedQuery)),
-    [hubPatches, normalizedQuery],
-  )
+  const visiblePatches = hubPatches.filter((patch) => !normalizedQuery || patch.searchText.includes(normalizedQuery))
   const existingEventTargets = patches
     .filter((patch) => patch.action === 'EditData')
     .map((patch) => patch.target.trim().replaceAll('\\', '/').toLowerCase())
@@ -229,8 +225,12 @@ export function PatchListPage({
         onPatchUpdate(patchId, {
           editorState: { entries: Object.fromEntries(parsed.events.map((event) => [event.key, event.rawScript])) },
         })
-      } catch {
-        publishNotification({ id: 'event-vanilla-import-error', level: 'error', title: hub.importVanilla.loadErrorLabel })
+      } catch (error) {
+        appEvent('error', hub.importVanilla.loadErrorLabel)
+          .error(error)
+          .noticeId('event-vanilla-import-error')
+          .context({ source: 'patch-list-page', operation: 'import vanilla event asset' })
+          .emit()
       }
     }
     setCreateOpen(false)
@@ -847,8 +847,6 @@ export function PatchListPage({
                   event={conditionBuilderEvent}
                   allEvents={conditionBuilderPatch.events}
                   alias={conditionBuilderAlias}
-                  hubCopy={hub}
-                  copy={hub.conditionBuilder}
                   onApply={applyConditionBuilder}
                   onCancel={() => setConditionBuilder(null)}
                 />

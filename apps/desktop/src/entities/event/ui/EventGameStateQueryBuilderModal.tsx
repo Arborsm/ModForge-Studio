@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { cx } from '@shared/lib/helper'
 import { Dialog } from '@shared/ui/Dialog'
 import type { EditorCopy } from '@locales'
+import { useEditorCopy } from '@locales/provider'
 import {
   createDefaultGameStateQueryClause,
   GAME_STATE_QUERY_DEFINITIONS,
@@ -22,7 +23,6 @@ import {
 import { formatGameStateQueryForHub, type GameStateQueryKey } from '../model/gameStateQuerySemantics'
 
 type HubCopy = EditorCopy['studioDesk']['eventPatchHub']
-type GameStateQueryBuilderCopy = HubCopy['conditionBuilder']['gameStateQueryBuilder']
 type ActiveCategory = GameStateQueryCategory | 'all'
 
 export interface GameStateQueryBuilderResult {
@@ -31,8 +31,6 @@ export interface GameStateQueryBuilderResult {
 }
 
 interface EventGameStateQueryBuilderModalProps {
-  copy: GameStateQueryBuilderCopy
-  hubCopy: HubCopy
   initialQuery?: string
   onApply: (result: GameStateQueryBuilderResult) => void
   onCancel: () => void
@@ -105,7 +103,9 @@ function compactLabelForClause(clause: GameStateQueryClauseDraft, label: string)
 }
 
 /** Renders the GameStateQuery clause builder modal with category browser and field editors. */
-export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, onApply, onCancel }: EventGameStateQueryBuilderModalProps) {
+export function EventGameStateQueryBuilderModal({ initialQuery, onApply, onCancel }: EventGameStateQueryBuilderModalProps) {
+  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
+  const copy = hubCopy.conditionBuilder.gameStateQueryBuilder
   const [activeCategory, setActiveCategory] = useState<ActiveCategory>('world')
   const [searchText, setSearchText] = useState('')
   const [draftsByKey, setDraftsByKey] = useState<Partial<Record<GameStateQueryKey, GameStateQueryClauseDraft>>>({})

@@ -1,6 +1,6 @@
-import type { ScaleUpImageDimensions } from './types'
+import type { SpriteSheetImageDimensions } from './types'
 
-type ScaleUpFrameLayout = {
+type SpriteSheetFrameLayout = {
   frameWidth: number
   frameHeight: number
   columns: number
@@ -8,15 +8,15 @@ type ScaleUpFrameLayout = {
   frameCount: number
 }
 
-type ScaleUpFrameOptions = {
+type SpriteSheetFrameOptions = {
   frameWidth?: number
   frameHeight?: number
   previewScale?: number
 }
 
-type ScaleUpImages = {
-  resultImage?: ScaleUpImageDimensions | null
-  originalImage?: ScaleUpImageDimensions | null
+type SpriteSheetImages = {
+  resultImage?: SpriteSheetImageDimensions | null
+  originalImage?: SpriteSheetImageDimensions | null
 }
 
 const DEFAULT_FRAME_WIDTH = 64
@@ -26,7 +26,7 @@ function sanitizePositiveDimension(value: number | null | undefined, fallback = 
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
 }
 
-function inferScaleUpImageMetrics(images?: ScaleUpImages) {
+function inferSpriteSheetImageMetrics(images?: SpriteSheetImages) {
   const resultWidth = sanitizePositiveDimension(images?.resultImage?.width)
   const resultHeight = sanitizePositiveDimension(images?.resultImage?.height)
   const originalWidth = sanitizePositiveDimension(images?.originalImage?.width)
@@ -53,10 +53,10 @@ function inferScaleUpImageMetrics(images?: ScaleUpImages) {
   }
 }
 
-function resolveScaleUpFrameLayout(images?: ScaleUpImages, options?: ScaleUpFrameOptions): ScaleUpFrameLayout {
+function resolveSpriteSheetFrameLayout(images?: SpriteSheetImages, options?: SpriteSheetFrameOptions): SpriteSheetFrameLayout {
   const baseFrameWidth = sanitizePositiveDimension(options?.frameWidth, DEFAULT_FRAME_WIDTH)
   const baseFrameHeight = sanitizePositiveDimension(options?.frameHeight, DEFAULT_FRAME_HEIGHT)
-  const metrics = inferScaleUpImageMetrics(images)
+  const metrics = inferSpriteSheetImageMetrics(images)
 
   if (metrics.hasOriginalDimensions) {
     const columns = Math.max(1, Math.floor(metrics.originalWidth / baseFrameWidth))
@@ -89,13 +89,17 @@ function resolveScaleUpFrameLayout(images?: ScaleUpImages, options?: ScaleUpFram
   return { frameWidth: baseFrameWidth, frameHeight: baseFrameHeight, columns, rows, frameCount: columns * rows }
 }
 
-/** Returns the number of fixed-size frames visible in a ScaleUp result sheet. */
-export function getScaleUpFrameCount(images?: ScaleUpImages, options?: ScaleUpFrameOptions) {
-  return resolveScaleUpFrameLayout(images, options).frameCount
+/**
+ * Returns the number of fixed-size frames visible in a sprite sheet, including
+ * ScaleUp-style enlarged sheets whose result is an integer multiple of the
+ * original. Returns 0 when no usable dimensions are available.
+ */
+export function getSpriteSheetFrameCount(images?: SpriteSheetImages, options?: SpriteSheetFrameOptions) {
+  return resolveSpriteSheetFrameLayout(images, options).frameCount
 }
 
-function getScaleUpFrameBounds(images: ScaleUpImages | undefined, frameIndex: number, options?: ScaleUpFrameOptions) {
-  const layout = resolveScaleUpFrameLayout(images, options)
+function getSpriteSheetFrameBounds(images: SpriteSheetImages | undefined, frameIndex: number, options?: SpriteSheetFrameOptions) {
+  const layout = resolveSpriteSheetFrameLayout(images, options)
   if (layout.frameCount <= 0) {
     return { frameWidth: layout.frameWidth, frameHeight: layout.frameHeight, frameX: 0, frameY: 0 }
   }
@@ -109,8 +113,8 @@ function getScaleUpFrameBounds(images: ScaleUpImages | undefined, frameIndex: nu
   }
 }
 
-function getScaleUpFramePreviewScale(images?: ScaleUpImages, options?: ScaleUpFrameOptions) {
-  const layout = resolveScaleUpFrameLayout(images, options)
+function getSpriteSheetFramePreviewScale(images?: SpriteSheetImages, options?: SpriteSheetFrameOptions) {
+  const layout = resolveSpriteSheetFrameLayout(images, options)
   const baseFrameWidth = sanitizePositiveDimension(options?.frameWidth, DEFAULT_FRAME_WIDTH)
   const baseFrameHeight = sanitizePositiveDimension(options?.frameHeight, DEFAULT_FRAME_HEIGHT)
   const previewScale =
@@ -121,12 +125,19 @@ function getScaleUpFramePreviewScale(images?: ScaleUpImages, options?: ScaleUpFr
   return previewScale * Math.min(baseFrameWidth / layout.frameWidth, baseFrameHeight / layout.frameHeight, 1)
 }
 
-/** Resolves crop and sheet dimensions for one ScaleUp preview frame. */
-export function getScaleUpFramePreviewMetrics(images: ScaleUpImages | undefined, frameIndex: number, options?: ScaleUpFrameOptions) {
-  const bounds = getScaleUpFrameBounds(images, frameIndex, options)
-  const layout = resolveScaleUpFrameLayout(images, options)
-  const metrics = inferScaleUpImageMetrics(images)
-  const previewScale = getScaleUpFramePreviewScale(images, options)
+/**
+ * Resolves crop and sheet dimensions for one preview frame of a sprite sheet.
+ * Frames are addressed by index in reading order over the sheet grid.
+ */
+export function getSpriteSheetFramePreviewMetrics(
+  images: SpriteSheetImages | undefined,
+  frameIndex: number,
+  options?: SpriteSheetFrameOptions,
+) {
+  const bounds = getSpriteSheetFrameBounds(images, frameIndex, options)
+  const layout = resolveSpriteSheetFrameLayout(images, options)
+  const metrics = inferSpriteSheetImageMetrics(images)
+  const previewScale = getSpriteSheetFramePreviewScale(images, options)
   const sheetWidth = (metrics.resultWidth > 0 ? metrics.resultWidth : layout.frameWidth * Math.max(1, layout.columns)) * previewScale
   const sheetHeight = (metrics.resultHeight > 0 ? metrics.resultHeight : layout.frameHeight * Math.max(1, layout.rows)) * previewScale
 

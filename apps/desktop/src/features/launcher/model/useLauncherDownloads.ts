@@ -1,10 +1,12 @@
+import { appEvent, ignoreError, reportRecovered } from '@platform/observability'
+
 /**
  * @file useLauncherDownloads hook: download queue state, concurrent download
  * scheduling, progress batching, persistence, and debug simulation.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { publishNotification } from '@shared/ui/notifications'
+
 import type { DownloadLauncherModResult, LauncherDownloadProgressPayload, LauncherSettings } from './launcherContracts'
 import { useLauncherPort } from './launcherPortContext'
 import type {
@@ -239,7 +241,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     debugSimulationTicksRef.current.clear()
   }, [])
 
-  const flushDownloadProgress = useCallback(() => {
+  const flushDownloadProgress = () => {
     if (progressFlushTimeoutRef.current) {
       clearTimeout(progressFlushTimeoutRef.current)
       progressFlushTimeoutRef.current = null
@@ -252,7 +254,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     }
 
     setItems((current) => applyDownloadProgressUpdates(current, progressUpdates))
-  }, [])
+  }
 
   const flushDownloadProgressToLatestItemsRef = useCallback(() => {
     if (progressFlushTimeoutRef.current) {
@@ -304,7 +306,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       const latestItems = latestItemsRef.current
       const downloadingItems = latestItems.filter((item) => item.status === 'downloading')
       downloadingItems.forEach((item) => {
-        void launcherPort.cancelDownload(item.id).catch(() => {})
+        void ignoreError(launcherPort.cancelDownload(item.id), 'launcherDownloads.cancel')
       })
       clearAllDebugSimulations()
       if (manualDownloadNotificationTimeoutRef.current) {
@@ -321,19 +323,18 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     }
   }, [clearAllDebugSimulations, flushDownloadProgressToLatestItemsRef, launcherPort])
 
-  const publishManualDownloadOpenedNotification = useCallback(() => {
+  const publishManualDownloadOpenedNotification = () => {
     if (manualDownloadNotificationVisibleRef.current) {
       return
     }
 
     manualDownloadNotificationVisibleRef.current = true
-    publishNotification({
-      id: MANUAL_DOWNLOAD_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.manualDownloadOpenedTitle,
-      description: copy.manualDownloadOpenedDetail,
-      autoDismissMs: MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS,
-    })
+    appEvent('info', copy.manualDownloadOpenedTitle)
+      .description(copy.manualDownloadOpenedDetail)
+      .noticeId(MANUAL_DOWNLOAD_NOTIFICATION_ID)
+      .autoDismiss(MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
+      .context({ source: 'launcher-downloads', operation: 'open-manual-download' })
+      .emit()
 
     if (manualDownloadNotificationTimeoutRef.current) {
       clearTimeout(manualDownloadNotificationTimeoutRef.current)
@@ -342,28 +343,25 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       manualDownloadNotificationVisibleRef.current = false
       manualDownloadNotificationTimeoutRef.current = null
     }, MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
-  }, [copy.manualDownloadOpenedDetail, copy.manualDownloadOpenedTitle])
+  }
 
-  const publishQueuedDownloadNotification = useCallback(
-    (queuedItems: LauncherDownloadQueueItem[]) => {
-      if (!queuedItems.length) {
-        return
-      }
+  const publishQueuedDownloadNotification = (queuedItems: LauncherDownloadQueueItem[]) => {
+    if (!queuedItems.length) {
+      return
+    }
 
-      publishNotification({
-        id: QUEUED_DOWNLOAD_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.backgroundQueuedTitle,
-        summary:
-          queuedItems.length === 1
-            ? (queuedItems[0]?.title ?? copy.backgroundQueuedSummary(1))
-            : copy.backgroundQueuedSummary(queuedItems.length),
-        description: copy.backgroundQueuedDetail,
-        autoDismissMs: QUEUED_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS,
-      })
-    },
-    [copy],
-  )
+    appEvent('info', copy.backgroundQueuedTitle)
+      .summary(
+        queuedItems.length === 1
+          ? (queuedItems[0]?.title ?? copy.backgroundQueuedSummary(1))
+          : copy.backgroundQueuedSummary(queuedItems.length),
+      )
+      .description(copy.backgroundQueuedDetail)
+      .noticeId(QUEUED_DOWNLOAD_NOTIFICATION_ID)
+      .autoDismiss(QUEUED_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
+      .context({ source: 'launcher-downloads', operation: 'queue-background-download' })
+      .emit()
+  }
 
   useLayoutEffect(() => {
     latestItemsRef.current = items
@@ -380,7 +378,10 @@ export function useLauncherDownloads(settings: LauncherSettings) {
 
     saveDownloadQueueTimeoutRef.current = setTimeout(() => {
       saveDownloadQueueTimeoutRef.current = null
-      void launcherPort.saveDownloadQueue({ items: normalizeInFlightQueueForPersistence(items) })
+      void ignoreError(
+        launcherPort.saveDownloadQueue({ items: normalizeInFlightQueueForPersistence(items) }),
+        'launcher-downloads.save-queue',
+      )
     }, SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS)
   }, [items, launcherPort])
 
@@ -400,7 +401,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         }
         unlisten = dispose
       })
-      .catch(() => {})
+      .catch((error) => reportRecovered(error, 'launcher-downloads.listen-progress'))
 
     return () => {
       disposed = true
@@ -408,7 +409,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     }
   }, [launcherPort, scheduleDownloadProgressFlush])
 
-  const refreshUpdatesAfterInstall = useCallback(() => {
+  const refreshUpdatesAfterInstall = () => {
     if (!settings.modsPath) {
       return
     }
@@ -418,56 +419,50 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         modsPath: settings.modsPath,
         forceRefresh: false,
       })
-      .catch(() => {})
-  }, [launcherPort, settings.modsPath])
+      .catch((error) => reportRecovered(error, 'launcher-downloads.refresh-updates-after-install'))
+  }
 
-  const queueDownloads = useCallback(
-    (inputs: QueueLauncherDownloadsInput) => {
-      const credentialError = getDownloadCredentialError(settings)
-      const normalizedInputs = inputs.filter(Boolean)
-      if (!normalizedInputs.length) {
-        return
+  const queueDownloads = (inputs: QueueLauncherDownloadsInput) => {
+    const credentialError = getDownloadCredentialError(settings)
+    const normalizedInputs = inputs.filter(Boolean)
+    if (!normalizedInputs.length) {
+      return
+    }
+    const optimisticQueuedItems = createQueueItems(normalizedInputs, latestItemsRef.current, credentialError)
+
+    setItems((current) => {
+      const nextItems = createQueueItems(normalizedInputs, current, credentialError)
+      if (!nextItems.length) {
+        return current
       }
-      const optimisticQueuedItems = createQueueItems(normalizedInputs, latestItemsRef.current, credentialError)
 
-      setItems((current) => {
-        const nextItems = createQueueItems(normalizedInputs, current, credentialError)
-        if (!nextItems.length) {
-          return current
-        }
+      return [...current, ...nextItems]
+    })
 
-        return [...current, ...nextItems]
-      })
+    if (!credentialError) {
+      publishQueuedDownloadNotification(optimisticQueuedItems)
+    }
+  }
 
-      if (!credentialError) {
-        publishQueuedDownloadNotification(optimisticQueuedItems)
-      }
-    },
-    [publishQueuedDownloadNotification, settings],
-  )
+  const queueDownload = (input: QueueLauncherDownloadInput) => queueDownloads([input])
 
-  const queueDownload = useCallback((input: QueueLauncherDownloadInput) => queueDownloads([input]), [queueDownloads])
+  const retryItem = (id: string) => {
+    const credentialError = getDownloadCredentialError(settings)
 
-  const retryItem = useCallback(
-    (id: string) => {
-      const credentialError = getDownloadCredentialError(settings)
+    setItems((current) =>
+      updateQueueItem(current, id, (item) => ({
+        ...item,
+        status: credentialError ? 'failed' : 'queued',
+        error: credentialError,
+        completedAt: credentialError ? Date.now() : null,
+        downloadedBytes: null,
+        totalBytes: null,
+        bytesPerSecond: null,
+      })),
+    )
+  }
 
-      setItems((current) =>
-        updateQueueItem(current, id, (item) => ({
-          ...item,
-          status: credentialError ? 'failed' : 'queued',
-          error: credentialError,
-          completedAt: credentialError ? Date.now() : null,
-          downloadedBytes: null,
-          totalBytes: null,
-          bytesPerSecond: null,
-        })),
-      )
-    },
-    [settings],
-  )
-
-  const retryFailed = useCallback(() => {
+  const retryFailed = () => {
     const credentialError = getDownloadCredentialError(settings)
 
     setItems((current) =>
@@ -485,7 +480,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           : item,
       ),
     )
-  }, [settings])
+  }
 
   useEffect(() => {
     if (!settings.nexusApiKey?.trim()) {
@@ -518,18 +513,15 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     return () => window.clearTimeout(handle)
   }, [settings.nexusApiKey])
 
-  const removeItem = useCallback(
-    (id: string) => {
-      clearDebugSimulation(id)
-      pendingProgressRef.current.delete(id)
-      processingIdsRef.current.delete(id)
-      void launcherPort.cancelDownload(id).catch(() => {})
-      setItems((current) => current.filter((item) => item.id !== id))
-    },
-    [clearDebugSimulation, launcherPort],
-  )
+  const removeItem = (id: string) => {
+    clearDebugSimulation(id)
+    pendingProgressRef.current.delete(id)
+    processingIdsRef.current.delete(id)
+    void ignoreError(launcherPort.cancelDownload(id), 'launcherDownloads.cancel')
+    setItems((current) => current.filter((item) => item.id !== id))
+  }
 
-  const removeCompleted = useCallback(() => {
+  const removeCompleted = () => {
     setItems((current) => {
       const removableIds = current
         .filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed')
@@ -537,20 +529,20 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       removableIds.forEach(clearDebugSimulation)
       return current.filter((item) => !removableIds.includes(item.id))
     })
-  }, [clearDebugSimulation])
+  }
 
-  const clearAll = useCallback(() => {
+  const clearAll = () => {
     latestItemsRef.current
       .filter((item) => item.status === 'downloading')
       .forEach((item) => {
-        void launcherPort.cancelDownload(item.id).catch(() => {})
+        void ignoreError(launcherPort.cancelDownload(item.id), 'launcherDownloads.cancel')
       })
     clearAllDebugSimulations()
     processingIdsRef.current.clear()
     setItems([])
-  }, [clearAllDebugSimulations, launcherPort])
+  }
 
-  const markArchivesInstalled = useCallback((archivePaths: string[]) => {
+  const markArchivesInstalled = (archivePaths: string[]) => {
     const installedLookup = new Set(archivePaths.map((path) => path.trim()).filter(Boolean))
     if (!installedLookup.size) {
       return
@@ -569,7 +561,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           : item,
       ),
     )
-  }, [])
+  }
 
   const beginDownload = useCallback(
     (queuedItem: LauncherDownloadQueueItem) => {
@@ -634,78 +626,75 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     [clearDebugSimulation, flushDownloadProgress, launcherPort, publishManualDownloadOpenedNotification, refreshUpdatesAfterInstall],
   )
 
-  const startDebugSimulation = useCallback(
-    (title = 'Launcher Debug Download') => {
-      const nextId = `debug-download:${Date.now()}`
-      const addedAt = Date.now()
+  const startDebugSimulation = (title = 'Launcher Debug Download') => {
+    const nextId = `debug-download:${Date.now()}`
+    const addedAt = Date.now()
 
+    setItems((current) => {
+      if (current.some((item) => item.source === 'debug' && item.status === 'downloading')) {
+        return current
+      }
+
+      return [
+        ...current,
+        {
+          id: nextId,
+          modId: -1,
+          fileId: null,
+          title,
+          version: 'debug-sim',
+          imageUrl: null,
+          source: 'debug',
+          status: 'downloading',
+          archivePath: null,
+          installedTargetPath: null,
+          error: null,
+          addedAt,
+          completedAt: null,
+          totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
+          downloadedBytes: 0,
+          bytesPerSecond: DEBUG_SIMULATION_BYTES_PER_SECOND,
+        },
+      ]
+    })
+
+    if (debugSimulationIntervalsRef.current.has(nextId)) {
+      clearDebugSimulation(nextId)
+    }
+
+    debugSimulationTicksRef.current.set(nextId, 0)
+    const intervalHandle = setInterval(() => {
+      const nextTick = (debugSimulationTicksRef.current.get(nextId) ?? 0) + 1
+      const downloadedBytes = Math.min(DEBUG_SIMULATION_TOTAL_BYTES, nextTick * DEBUG_SIMULATION_BYTES_PER_SECOND)
+      const isComplete = nextTick >= DEBUG_SIMULATION_DURATION_SECONDS
+
+      debugSimulationTicksRef.current.set(nextId, nextTick)
       setItems((current) => {
-        if (current.some((item) => item.source === 'debug' && item.status === 'downloading')) {
+        const target = current.find((item) => item.id === nextId)
+        if (!target) {
+          clearDebugSimulation(nextId)
           return current
         }
 
-        return [
-          ...current,
-          {
-            id: nextId,
-            modId: -1,
-            fileId: null,
-            title,
-            version: 'debug-sim',
-            imageUrl: null,
-            source: 'debug',
-            status: 'downloading',
-            archivePath: null,
-            installedTargetPath: null,
-            error: null,
-            addedAt,
-            completedAt: null,
-            totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
-            downloadedBytes: 0,
-            bytesPerSecond: DEBUG_SIMULATION_BYTES_PER_SECOND,
-          },
-        ]
+        return updateQueueItem(current, nextId, (item) => ({
+          ...item,
+          status: isComplete ? 'completed' : 'downloading',
+          archivePath: isComplete ? `debug-download-${item.addedAt}.zip` : null,
+          error: null,
+          completedAt: isComplete ? Date.now() : null,
+          totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
+          downloadedBytes,
+          bytesPerSecond: isComplete ? null : DEBUG_SIMULATION_BYTES_PER_SECOND,
+        }))
       })
 
-      if (debugSimulationIntervalsRef.current.has(nextId)) {
+      if (isComplete) {
         clearDebugSimulation(nextId)
       }
+    }, 1000)
 
-      debugSimulationTicksRef.current.set(nextId, 0)
-      const intervalHandle = setInterval(() => {
-        const nextTick = (debugSimulationTicksRef.current.get(nextId) ?? 0) + 1
-        const downloadedBytes = Math.min(DEBUG_SIMULATION_TOTAL_BYTES, nextTick * DEBUG_SIMULATION_BYTES_PER_SECOND)
-        const isComplete = nextTick >= DEBUG_SIMULATION_DURATION_SECONDS
-
-        debugSimulationTicksRef.current.set(nextId, nextTick)
-        setItems((current) => {
-          const target = current.find((item) => item.id === nextId)
-          if (!target) {
-            clearDebugSimulation(nextId)
-            return current
-          }
-
-          return updateQueueItem(current, nextId, (item) => ({
-            ...item,
-            status: isComplete ? 'completed' : 'downloading',
-            archivePath: isComplete ? `debug-download-${item.addedAt}.zip` : null,
-            error: null,
-            completedAt: isComplete ? Date.now() : null,
-            totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
-            downloadedBytes,
-            bytesPerSecond: isComplete ? null : DEBUG_SIMULATION_BYTES_PER_SECOND,
-          }))
-        })
-
-        if (isComplete) {
-          clearDebugSimulation(nextId)
-        }
-      }, 1000)
-
-      debugSimulationIntervalsRef.current.set(nextId, intervalHandle)
-    },
-    [clearDebugSimulation],
-  )
+    debugSimulationIntervalsRef.current.set(nextId, intervalHandle)
+  }
 
   useEffect(() => {
     if (!settings.nexusApiKey?.trim()) {
@@ -723,42 +712,32 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       .forEach((item) => beginDownload(item))
   }, [beginDownload, items, settings.nexusApiKey])
 
-  const queuedItems = useMemo(() => items.filter((item) => item.status === 'queued'), [items])
-  const activeItems = useMemo(() => items.filter((item) => item.status === 'downloading'), [items])
-  const readyToInstall = useMemo(() => items.filter((item) => item.status === 'completed' && Boolean(item.archivePath)), [items])
-  const installedItems = useMemo(() => items.filter((item) => item.status === 'installed'), [items])
-  const failedItems = useMemo(() => items.filter((item) => item.status === 'failed'), [items])
-  const removableItems = useMemo(
-    () => items.filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed'),
-    [items],
+  const queuedItems = items.filter((item) => item.status === 'queued')
+  const activeItems = items.filter((item) => item.status === 'downloading')
+  const readyToInstall = items.filter((item) => item.status === 'completed' && Boolean(item.archivePath))
+  const installedItems = items.filter((item) => item.status === 'installed')
+  const failedItems = items.filter((item) => item.status === 'failed')
+  const removableItems = items.filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed')
+
+  const counts = {
+    queued: queuedItems.length,
+    downloading: activeItems.length,
+    completed: readyToInstall.length + installedItems.length,
+    failed: failedItems.length,
+    readyToInstall: readyToInstall.length,
+  }
+
+  const progressItems = activeItems.filter(
+    (item) => typeof item.totalBytes === 'number' && item.totalBytes > 0 && typeof item.downloadedBytes === 'number',
   )
-
-  const counts = useMemo(() => {
-    return {
-      queued: queuedItems.length,
-      downloading: activeItems.length,
-      completed: readyToInstall.length + installedItems.length,
-      failed: failedItems.length,
-      readyToInstall: readyToInstall.length,
-    }
-  }, [activeItems.length, failedItems.length, installedItems.length, queuedItems.length, readyToInstall.length])
-
-  const downloadProgressPercent = useMemo(() => {
-    const progressItems = activeItems.filter(
-      (item) => typeof item.totalBytes === 'number' && item.totalBytes > 0 && typeof item.downloadedBytes === 'number',
-    )
-    if (!progressItems.length) {
-      return null
-    }
-
+  let downloadProgressPercent: number | null = null
+  if (progressItems.length) {
     const downloadedBytes = progressItems.reduce((total, item) => total + (item.downloadedBytes ?? 0), 0)
     const totalBytes = progressItems.reduce((total, item) => total + (item.totalBytes ?? 0), 0)
-    if (totalBytes <= 0) {
-      return null
+    if (totalBytes > 0) {
+      downloadProgressPercent = Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)))
     }
-
-    return Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)))
-  }, [activeItems])
+  }
 
   return {
     items,

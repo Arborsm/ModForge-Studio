@@ -35,10 +35,11 @@ import {
   type ResourceBrowserOption,
 } from '@features/resource-browser'
 import { useAssetLibraryCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { useWorkbenchAssetDraftPort } from '../../../model/useWorkbenchAssetDraftPort'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
@@ -128,7 +129,6 @@ export function AssetLibraryWorkspace() {
   const copy = useAssetLibraryCopy()
   // Operation failures surface through the shared notification system, not an
   // inline banner; stable ids make repeated failures replace each other.
-  const publishNotification = useNotificationPublisher()
   const replaceRef = useRef<HTMLInputElement>(null)
   const renameTitleId = useId()
   const deleteTitleId = useId()
@@ -209,13 +209,12 @@ export function AssetLibraryWorkspace() {
       dismissNotification('asset-library-map-scan')
       return
     }
-    publishNotification({
-      id: 'asset-library-map-scan',
-      level: 'error',
-      title: copy.mapScanFailed,
-      description: mapScanError,
-    })
-  }, [copy.mapScanFailed, mapScanError, publishNotification])
+    appEvent('error', copy.mapScanFailed)
+      .description(mapScanError)
+      .noticeId('asset-library-map-scan')
+      .context({ source: 'asset-library', operation: 'scan-map-assets' })
+      .emit()
+  }, [copy.mapScanFailed, mapScanError])
 
   // Image/audio/data scans follow the same contract: errors go to notifications
   // with the original message and are dismissed as soon as the scan recovers.
@@ -224,39 +223,36 @@ export function AssetLibraryWorkspace() {
       dismissNotification('asset-library-image-scan')
       return
     }
-    publishNotification({
-      id: 'asset-library-image-scan',
-      level: 'error',
-      title: copy.gameAssetScanFailed,
-      description: imageScan.error,
-    })
-  }, [copy.gameAssetScanFailed, imageScan.error, publishNotification])
+    appEvent('error', copy.gameAssetScanFailed)
+      .description(imageScan.error)
+      .noticeId('asset-library-image-scan')
+      .context({ source: 'asset-library', operation: 'scan-image-assets' })
+      .emit()
+  }, [copy.gameAssetScanFailed, imageScan.error])
 
   useEffect(() => {
     if (!audioScan.error) {
       dismissNotification('asset-library-audio-scan')
       return
     }
-    publishNotification({
-      id: 'asset-library-audio-scan',
-      level: 'error',
-      title: copy.gameAssetScanFailed,
-      description: audioScan.error,
-    })
-  }, [audioScan.error, copy.gameAssetScanFailed, publishNotification])
+    appEvent('error', copy.gameAssetScanFailed)
+      .description(audioScan.error)
+      .noticeId('asset-library-audio-scan')
+      .context({ source: 'asset-library', operation: 'scan-audio-assets' })
+      .emit()
+  }, [audioScan.error, copy.gameAssetScanFailed])
 
   useEffect(() => {
     if (!dataScan.error) {
       dismissNotification('asset-library-data-scan')
       return
     }
-    publishNotification({
-      id: 'asset-library-data-scan',
-      level: 'error',
-      title: copy.gameAssetScanFailed,
-      description: dataScan.error,
-    })
-  }, [copy.gameAssetScanFailed, dataScan.error, publishNotification])
+    appEvent('error', copy.gameAssetScanFailed)
+      .description(dataScan.error)
+      .noticeId('asset-library-data-scan')
+      .context({ source: 'asset-library', operation: 'scan-data-assets' })
+      .emit()
+  }, [copy.gameAssetScanFailed, dataScan.error])
 
   useEffect(() => {
     if (selectedPath && !assets.some((asset) => asset.relativePath === selectedPath)) {
@@ -394,11 +390,10 @@ export function AssetLibraryWorkspace() {
       })
       .catch(() => {
         if (current)
-          publishNotification({
-            id: 'asset-library-preview',
-            level: 'error',
-            title: copy.previewFailed,
-          })
+          appEvent('error', copy.previewFailed)
+            .noticeId('asset-library-preview')
+            .context({ source: 'asset-library', operation: 'preview-asset' })
+            .emit()
       })
       .finally(() => {
         if (current) setPreviewLoading(false)
@@ -406,7 +401,7 @@ export function AssetLibraryWorkspace() {
     return () => {
       current = false
     }
-  }, [copy.previewFailed, publishNotification, readProjectAsset, selected?.relativePath, selected?.sha256])
+  }, [copy.previewFailed, readProjectAsset, selected?.relativePath, selected?.sha256])
 
   async function importPaths(sourcePaths: string[]) {
     if (sourcePaths.length === 0) return
@@ -418,11 +413,10 @@ export function AssetLibraryWorkspace() {
       const firstImported = imported.projectAssets.find((asset) => !previousPaths.has(asset.relativePath.toLowerCase()))
       if (firstImported) setSelectedPath(firstImported.relativePath)
     } catch {
-      publishNotification({
-        id: 'asset-library-import',
-        level: 'error',
-        title: copy.importFailed,
-      })
+      appEvent('error', copy.importFailed)
+        .noticeId('asset-library-import')
+        .context({ source: 'asset-library-workspace', operation: 'import-asset' })
+        .emit()
     } finally {
       setImporting(false)
     }
@@ -494,11 +488,10 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(prepared.document.relativePath)
       setSelectedLoadBindingId(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-import-map',
-        level: 'error',
-        title: copy.importMapFailed,
-      })
+      appEvent('error', copy.importMapFailed)
+        .noticeId('asset-library-import-map')
+        .context({ source: 'asset-library-workspace', operation: 'import-map' })
+        .emit()
     }
   }
 
@@ -549,12 +542,12 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(prepared.relativePath)
       setSelectedLoadBindingId(null)
     } catch (error) {
-      publishNotification({
-        id: 'asset-library-import-game-asset',
-        level: 'error',
-        title: copy.importGameAssetFailed,
-        description: error instanceof Error ? error.message : String(error),
-      })
+      appEvent('error', copy.importGameAssetFailed)
+        .error(error)
+        .description(error instanceof Error ? error.message : String(error))
+        .noticeId('asset-library-import-game-asset')
+        .context({ source: 'asset-library-workspace', operation: 'import-game-asset' })
+        .emit()
     }
   }
 
@@ -582,11 +575,10 @@ export function AssetLibraryWorkspace() {
       if (others.length > 0) await project.importProjectAssets(others)
       setDismissedMissingSignature(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-dependency-repair',
-        level: 'error',
-        title: copy.missingDependencyImportFailed,
-      })
+      appEvent('error', copy.missingDependencyImportFailed)
+        .noticeId('asset-library-dependency-repair')
+        .context({ source: 'asset-library-workspace', operation: 'repair-asset-dependency' })
+        .emit()
     } finally {
       setRepairingKey(null)
     }
@@ -599,11 +591,10 @@ export function AssetLibraryWorkspace() {
       const staged = await fileToAsset(file, selected.relativePath)
       setReplaceStaging(staged)
     } catch {
-      publishNotification({
-        id: 'asset-library-replace',
-        level: 'error',
-        title: copy.replaceFailed,
-      })
+      appEvent('error', copy.replaceFailed)
+        .noticeId('asset-library-replace')
+        .context({ source: 'asset-library-workspace', operation: 'stage-asset-replacement' })
+        .emit()
     }
   }
 
@@ -620,11 +611,10 @@ export function AssetLibraryWorkspace() {
       await project.writeProjectAsset(replaceStaging, 'edited')
       setReplaceStaging(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-replace',
-        level: 'error',
-        title: copy.replaceFailed,
-      })
+      appEvent('error', copy.replaceFailed)
+        .noticeId('asset-library-replace')
+        .context({ source: 'asset-library-workspace', operation: 'replace-asset' })
+        .emit()
     }
   }
 
@@ -648,11 +638,10 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(nextPath)
       setRenamePath(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-rename',
-        level: 'error',
-        title: copy.renameFailed,
-      })
+      appEvent('error', copy.renameFailed)
+        .noticeId('asset-library-rename')
+        .context({ source: 'asset-library-workspace', operation: 'rename-asset' })
+        .emit()
     }
   }
 
@@ -662,11 +651,10 @@ export function AssetLibraryWorkspace() {
       await project.deleteProjectAsset(deletePath)
       setDeletePath(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-delete',
-        level: 'error',
-        title: copy.deleteFailed,
-      })
+      appEvent('error', copy.deleteFailed)
+        .noticeId('asset-library-delete')
+        .context({ source: 'asset-library-workspace', operation: 'delete-asset' })
+        .emit()
     }
   }
 
@@ -693,12 +681,11 @@ export function AssetLibraryWorkspace() {
       }
     }
     if (failed.length > 0) {
-      publishNotification({
-        id: 'asset-library-delete-selected',
-        level: 'error',
-        title: copy.deleteSelectedPartialFailed(failed.length),
-        description: failed.map((item) => `${item.path}: ${item.message}`).join('\n'),
-      })
+      appEvent('error', copy.deleteSelectedPartialFailed(failed.length))
+        .description(failed.map((item) => `${item.path}: ${item.message}`).join('\n'))
+        .noticeId('asset-library-delete-selected')
+        .context({ source: 'asset-library', operation: 'delete-selected-assets' })
+        .emit()
     }
     setSelectedAssetPaths(remaining)
     setDeleteSelectedOpen(false)
@@ -717,11 +704,10 @@ export function AssetLibraryWorkspace() {
       setSelectedPath(wantedPath)
       setPixelAsset(null)
     } catch {
-      publishNotification({
-        id: 'asset-library-pixel-save',
-        level: 'error',
-        title: copy.pixelSaveFailed,
-      })
+      appEvent('error', copy.pixelSaveFailed)
+        .noticeId('asset-library-pixel-save')
+        .context({ source: 'asset-library-workspace', operation: 'save-pixel-edit' })
+        .emit()
     }
   }
 

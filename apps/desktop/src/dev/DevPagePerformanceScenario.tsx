@@ -5,7 +5,6 @@
  */
 import { useDeferredValue, useEffect, useState, type ReactNode } from 'react'
 import '../styles/workbench.css'
-import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
 import { CpMakerPortContext } from '@features/cp-maker/model/cpMakerPortContext'
 import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
@@ -24,7 +23,7 @@ import { MapAssetEditor, MapCatalog, MapPatchEditor } from '@pages/workbench/wor
 import { AssetLibraryWorkspace } from '@pages/workbench/workspaces/asset-library'
 import type { MapDocument } from '@entities/map'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import {
   createAssetDraftPort,
   useCpMaker,
@@ -59,8 +58,6 @@ const pageScenarioIds: PageScenarioId[] = [
   'launcher-shell',
 ]
 
-const copy = localeBundles['en-US']
-const editorCopy = copy.editor
 const accentColor = '#f97316'
 const noop = () => {}
 const asyncNoop = async () => {}
@@ -759,7 +756,6 @@ function exposePerformanceLauncherLibraryState(state: LauncherLibraryState) {
 
 const performanceLauncherPort: LauncherPort = {
   loadSettings: async () => launcherSettings,
-  writeDebugLog: () => {},
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
   scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
@@ -1213,7 +1209,6 @@ function BuildingWorkspaceScenario() {
     <ScenarioFrame id="building-workspace">
       <BuildingWorkspace
         locale="en-US"
-        viewportLabels={editorCopy.viewportLabels}
         theme="dark"
         accentColor={accentColor}
         building={building}
@@ -1237,8 +1232,8 @@ function BuildingWorkspaceScenario() {
 function MapPatchEditorScenario() {
   const expertMode = new URLSearchParams(window.location.search).get('mfExpert') !== '0'
   useEffect(() => {
-    useEditorModeStore.setState({ expertMode })
-    return () => useEditorModeStore.setState({ expertMode: false })
+    usePreferencesStore.setState({ expertMode })
+    return () => usePreferencesStore.setState({ expertMode: false })
   }, [expertMode])
   const [patch, setPatch] = useState<DraftPatch>(() => {
     const mapDocument = createMapCatalogDocument(24)

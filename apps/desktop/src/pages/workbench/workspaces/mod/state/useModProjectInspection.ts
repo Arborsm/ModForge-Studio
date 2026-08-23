@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { loadModProject, type ModProjectDetail } from '@entities/mod/api'
+import { appEvent } from '@platform/observability'
 import { summarizeContentPatcherContent } from '../mods/content-patcher/content-model/contentPatcher'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
@@ -48,7 +49,11 @@ export function useModProjectInspection(projectPath: string | null, providedDeta
     if (!raw) return null
     try {
       return summarizeContentPatcherContent(JSON.parse(raw) as unknown)
-    } catch {
+    } catch (error) {
+      appEvent('warning', 'Failed to parse Content Patcher content')
+        .error(error)
+        .context({ source: 'mod-project-inspection', operation: 'parse-content' })
+        .emit({ notify: false })
       return null
     }
   })()

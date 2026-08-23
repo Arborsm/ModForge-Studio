@@ -387,6 +387,7 @@ const shell: WorkbenchShellCopy = {
     workbenchModuleRetry: 'Retry',
     onlyTmxSupported: 'Only XNB map loading is supported right now.',
     directorySelectionFailed: 'Directory selection failed.',
+    knownDirectoriesLoadFailed: 'Known game directories could not be loaded. There may be none, or loading may have failed.',
     detectedKnownPath: (path) => `Detected directory: ${path}`,
     validatedDirectory: (path) => `Validated directory: ${path}`,
     loadedMapAssets: (count, format) => `Loaded ${count} ${format.toUpperCase()} map assets.`,

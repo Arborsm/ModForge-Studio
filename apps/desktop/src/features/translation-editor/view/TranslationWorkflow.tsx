@@ -4,10 +4,12 @@
  */
 
 import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Languages, Save, Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
 import { useLocalization } from '@entities/localization'
 import { useTranslationEditorCopy } from '@locales/provider'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import { cx } from '@shared/lib/helper'
 import type { ConfirmedTranslation } from '@shared/contracts'
 import {
@@ -71,12 +73,9 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
   const semanticRuntimeLeaseId = useRef(crypto.randomUUID())
   const sourceFile = findFile(props.i18nFiles, props.sourceLocale)
   const targetFile = findFile(props.i18nFiles, props.targetLocale)
-  const entries = useMemo(() => buildTranslationEntries({ sourceFile, targetFile, query: '', status: 'all' }), [sourceFile, targetFile])
+  const entries = buildTranslationEntries({ sourceFile, targetFile, query: '', status: 'all' })
   const existing = entries.filter((entry) => entry.sourceText.trim() && entry.targetText.trim())
-  const check = useMemo(
-    () => buildTranslationCheckSummary(sourceFile, targetFile, entries, props.targetLocale),
-    [entries, props.targetLocale, sourceFile, targetFile],
-  )
+  const check = buildTranslationCheckSummary(sourceFile, targetFile, entries, props.targetLocale)
   const projectRootPath = props.project?.rootPath ?? ''
   const contextKey = `${projectRootPath}\u0000${props.sourceLocale}\u0000${props.targetLocale}`
   useEffect(() => {
@@ -88,9 +87,9 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
   useEffect(() => {
     if (!projectRootPath) return
     const leaseId = semanticRuntimeLeaseId.current
-    void localization.acquireSemanticRuntime(leaseId).catch(() => undefined)
+    void ignoreError(localization.acquireSemanticRuntime(leaseId), 'translationWorkflow.semanticRuntime')
     return () => {
-      void localization.releaseSemanticRuntime(leaseId).catch(() => undefined)
+      void ignoreError(localization.releaseSemanticRuntime(leaseId), 'translationWorkflow.semanticRuntime')
     }
   }, [localization, projectRootPath])
 
@@ -160,12 +159,20 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
                 unitKey: entry.key,
               })),
           })
-        } catch {
+        } catch (error) {
           setMemoryWarning(true)
+          appEvent('warning', copy.memoryLearningFailed)
+            .error(error)
+            .context({ source: 'translation-workflow', operation: 'record-memory' })
+            .emit({ notify: false })
         }
       }
-    } catch {
+    } catch (error) {
       setError(copy.workflowSaveFailed)
+      appEvent('error', copy.workflowSaveFailed)
+        .error(error)
+        .context({ source: 'translation-workflow', operation: 'save' })
+        .emit({ notify: false })
     } finally {
       setSaving(false)
     }

@@ -3,133 +3,41 @@ import type { AppCommand } from '@shared/contracts'
 import { createAppCommandHandler } from '@app/providers/appCommandRouting'
 
 describe('createAppCommandHandler', () => {
-  const setAppMode = vi.fn()
-  const onPendingIntent = vi.fn()
+  const openSettings = vi.fn()
+  const reloadCompatPlugins = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('stores workbench/open-asset intent and switches to workbench', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
+  it('routes navigation/open-settings to openSettings with the target', () => {
+    const handler = createAppCommandHandler({ openSettings, reloadCompatPlugins })
     const command: AppCommand = {
-      type: 'workbench/open-asset',
-      assetId: 'patch-123',
-      assetKind: 'event',
-      sourceId: 'draft-abc',
+      type: 'navigation/open-settings',
+      target: { category: 'ai', aiTab: 'semantic' },
     }
 
     handler.handleCommand(command)
 
-    expect(setAppMode).toHaveBeenCalledWith('workbench')
-    expect(onPendingIntent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        command,
-      }),
-    )
+    expect(openSettings).toHaveBeenCalledWith({ category: 'ai', aiTab: 'semantic' })
+    expect(reloadCompatPlugins).not.toHaveBeenCalled()
   })
 
-  it('stores navigation/open-workbench-module intent and switches to workbench', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-    const command: AppCommand = {
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    }
+  it('routes plugins/reload-compat to reloadCompatPlugins', () => {
+    const handler = createAppCommandHandler({ openSettings, reloadCompatPlugins })
 
-    handler.handleCommand(command)
+    handler.handleCommand({ type: 'plugins/reload-compat' })
 
-    expect(setAppMode).toHaveBeenCalledWith('workbench')
-    expect(onPendingIntent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        command,
-      }),
-    )
+    expect(reloadCompatPlugins).toHaveBeenCalledTimes(1)
+    expect(openSettings).not.toHaveBeenCalled()
   })
 
-  it('allows a later view intent to replace a pending open-asset intent', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
+  it('ignores unknown command types without throwing', () => {
+    const handler = createAppCommandHandler({ openSettings, reloadCompatPlugins })
 
-    handler.handleCommand({
-      type: 'workbench/open-asset',
-      assetId: 'patch-456',
-      assetKind: 'map',
-    })
+    handler.handleCommand({ type: 'navigation/unknown' } as unknown as AppCommand)
 
-    expect(onPendingIntent).toHaveBeenCalledTimes(1)
-    const firstCall = onPendingIntent.mock.calls[0]
-    void firstCall[0].id
-
-    vi.clearAllMocks()
-
-    handler.handleCommand({
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    })
-
-    expect(onPendingIntent).toHaveBeenCalledTimes(1)
-    const nextPending = handler.getCurrentPendingIntent()
-    expect(nextPending?.command).toEqual({
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    })
-  })
-
-  it('allows overwriting after pending intent is cleared', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-
-    handler.handleCommand({
-      type: 'workbench/open-asset',
-      assetId: 'patch-1',
-      assetKind: 'event',
-    })
-    handler.clearPendingIntent()
-    vi.clearAllMocks()
-
-    handler.handleCommand({
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    })
-
-    expect(onPendingIntent).toHaveBeenCalledTimes(1)
-    expect(setAppMode).toHaveBeenCalledWith('workbench')
-  })
-
-  it('does nothing for navigation/open-page', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-
-    handler.handleCommand({ type: 'navigation/open-page', pageId: 'library' })
-
-    expect(setAppMode).not.toHaveBeenCalled()
-    expect(onPendingIntent).not.toHaveBeenCalled()
-  })
-
-  it('does nothing for unknown commands', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-
-    handler.handleCommand({ type: 'navigation/open-page', pageId: 'unknown' } as AppCommand)
-
-    expect(setAppMode).not.toHaveBeenCalled()
-    expect(onPendingIntent).not.toHaveBeenCalled()
-  })
-
-  it('assigns a unique monotonic id to each intent', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-
-    handler.handleCommand({
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    })
-    const id1 = onPendingIntent.mock.calls[0][0].id
-
-    handler.clearPendingIntent()
-    vi.clearAllMocks()
-
-    handler.handleCommand({
-      type: 'navigation/open-workbench-module',
-      moduleId: 'map-authoring',
-    })
-    const id2 = onPendingIntent.mock.calls[0][0].id
-
-    expect(id1).not.toBe(id2)
+    expect(openSettings).not.toHaveBeenCalled()
+    expect(reloadCompatPlugins).not.toHaveBeenCalled()
   })
 })

@@ -1,12 +1,25 @@
 /**
  * @file `directory-pack` source adapter: reads and writes pack entries that
  * live as subdirectories under a mod's root subdirectory (e.g. AT's
- * `Textures/<entry>/texture.json`).
+ * `Textures/<entry>/texture.json`). When the source opts in via
+ * `params.includeContentPacks`, entries are aggregated across the target mod
+ * and every installed content pack whose `ContentPackFor` targets it; each
+ * entry is tagged with its source mod root so reads/writes route back to the
+ * pack they came from.
  * @module features/compat-plugins
  */
 import type { CompatPluginPageSource } from '../api/types'
-import { listCompatPluginEntries, readCompatPluginEntry, writeCompatPluginEntry } from '../api/directoryPackApi'
+import { readCompatPluginEntry, writeCompatPluginEntry } from '../api/directoryPackApi'
+import { listAggregatedDirectoryPackEntries, listTaggedDirectoryPackEntries } from '../lib/directoryPackSources'
 import type { CompatEntrySummary, CompatPageContext, CompatSourceAdapter } from './types'
+
+/**
+ * Resolves the mod root an entry read/write must hit: the entry's own source
+ * root (host-resolved during listing) when present, else the target mod root.
+ */
+function resolveEntryModRoot(context: CompatPageContext, entry: CompatEntrySummary): string | null {
+  return entry.sourceModRoot || context.targetModRoot
+}
 
 /** `directory-pack` source adapter. Reads/writes entries under `<mod_root>/<root_subdir>/<entry_id>/<entry_file>`. */
 export const directoryPackAdapter: CompatSourceAdapter = {
@@ -14,22 +27,28 @@ export const directoryPackAdapter: CompatSourceAdapter = {
     if (!context.targetModRoot) return []
     const params = source.params
     if (!params.entryFile) return []
-    return listCompatPluginEntries({
-      modRoot: context.targetModRoot,
-      rootSubdir: params.rootSubdir ?? '',
-      entryFile: params.entryFile,
-      entryImage: params.entryImage,
-    })
+    if (params.includeContentPacks === true && context.targetUniqueIds && context.targetUniqueIds.length > 0) {
+      return listAggregatedDirectoryPackEntries(context.targetUniqueIds, {
+        rootSubdir: params.rootSubdir,
+        entryFile: params.entryFile,
+        entryImage: params.entryImage,
+      })
+    }
+    return listTaggedDirectoryPackEntries(
+      { modRoot: context.targetModRoot, modName: context.targetModName ?? context.targetModUniqueId },
+      { rootSubdir: params.rootSubdir, entryFile: params.entryFile, entryImage: params.entryImage },
+    )
   },
 
-  async loadEntry(source: CompatPluginPageSource, context: CompatPageContext, entryId: string): Promise<Record<string, unknown>> {
-    if (!context.targetModRoot) throw new Error('Target mod is not installed')
+  async loadEntry(source: CompatPluginPageSource, context: CompatPageContext, entry: CompatEntrySummary): Promise<Record<string, unknown>> {
     const params = source.params
     if (!params.entryFile) throw new Error('directory-pack source missing entryFile')
+    const modRoot = resolveEntryModRoot(context, entry)
+    if (!modRoot) throw new Error('Target mod is not installed')
     const result = await readCompatPluginEntry({
-      modRoot: context.targetModRoot,
+      modRoot,
       rootSubdir: params.rootSubdir ?? '',
-      entryId,
+      entryId: entry.id,
       entryFile: params.entryFile,
     })
     return result.content
@@ -38,16 +57,17 @@ export const directoryPackAdapter: CompatSourceAdapter = {
   async saveEntry(
     source: CompatPluginPageSource,
     context: CompatPageContext,
-    entryId: string,
+    entry: CompatEntrySummary,
     value: Record<string, unknown>,
   ): Promise<void> {
-    if (!context.targetModRoot) throw new Error('Target mod is not installed')
     const params = source.params
     if (!params.entryFile) throw new Error('directory-pack source missing entryFile')
+    const modRoot = resolveEntryModRoot(context, entry)
+    if (!modRoot) throw new Error('Target mod is not installed')
     await writeCompatPluginEntry({
-      modRoot: context.targetModRoot,
+      modRoot,
       rootSubdir: params.rootSubdir ?? '',
-      entryId,
+      entryId: entry.id,
       entryFile: params.entryFile,
       content: value,
     })

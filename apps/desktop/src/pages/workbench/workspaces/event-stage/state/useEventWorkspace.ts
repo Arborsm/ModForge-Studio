@@ -41,21 +41,17 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(eventAssetFilter.trim().toLowerCase())
-  const filteredEventAssets = useMemo(
-    () =>
-      eventAssets.filter((asset) => {
-        if (!deferredFilter) {
-          return true
-        }
+  const filteredEventAssets = eventAssets.filter((asset) => {
+    if (!deferredFilter) {
+      return true
+    }
 
-        return `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase().includes(deferredFilter)
-      }),
-    [deferredFilter, eventAssets],
-  )
+    return `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase().includes(deferredFilter)
+  })
 
   const activeEventAsset = eventAssets.find((asset) => asset.id === activeEventAssetId) ?? null
   const selectedEvent = parsedEventAsset?.eventIndex[selectedEventKey ?? ''] ?? parsedEventAsset?.events[0] ?? null
-  const eventLookup = useMemo(() => buildModEntryLookup(eventAssets, (asset) => asset.id), [eventAssets])
+  const eventLookup = buildModEntryLookup(eventAssets, (asset) => asset.id)
   const modEventGroups = useMemo(
     () =>
       buildModBrowserGroups({
@@ -68,15 +64,11 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
       }),
     [eventAssetFilter, eventLookup, modIndex.mods],
   )
-  const activeEventModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group) => group.events,
-        key: activeEventAssetId,
-      }),
-    [activeEventAssetId, modIndex.mods],
-  )
+  const activeEventModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group) => group.events,
+    key: activeEventAssetId,
+  })
   const activeModEventEntry = useMemo(
     () => findModBrowserEntry(modEventGroups, activeModEventSelectionId),
     [activeModEventSelectionId, modEventGroups],
@@ -159,6 +151,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
             setEventStatusMessage(`${asset.name} loaded from ${modEntry.modName}.`)
             return
           }
+          // observability-exempt: 模组 JSON 读取或解析失败时回退到同一事件的原版候选资源，避免不可渲染覆盖已选资源
         } catch {
           // Fall back to the original game asset when the selected mod entry does not expose a renderable JSON result.
         }

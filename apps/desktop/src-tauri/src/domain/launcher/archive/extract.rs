@@ -3,6 +3,7 @@
 use crate::domain::launcher::install_manager::normalize_relative_path;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::text_encoding::decode_text_bytes;
+use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use flate2::read::GzDecoder;
 use sevenz_rust::{Error as SevenZipError, decompress_file_with_extract_fn};
@@ -105,8 +106,13 @@ pub(crate) fn with_temp_work_dir<T>(
     operation: impl FnOnce(&Path) -> anyhow::Result<T>,
 ) -> anyhow::Result<T> {
     let temp_root = temp_work_dir(name);
-    if temp_root.exists() {
-        let _ = fs::remove_dir_all(&temp_root);
+    if temp_root.exists()
+        && let Err(error) = fs::remove_dir_all(&temp_root)
+    {
+        LogEvent::new("launcher.archive.cleanupFailed")
+            .path("tempRoot", &temp_root)
+            .error(error)
+            .emit_warn(targets::LAUNCHER);
     }
     fs::create_dir_all(&temp_root).with_context(|| {
         format!(
@@ -116,7 +122,12 @@ pub(crate) fn with_temp_work_dir<T>(
     })?;
 
     let result = operation(&temp_root);
-    let _ = fs::remove_dir_all(&temp_root);
+    if let Err(error) = fs::remove_dir_all(&temp_root) {
+        LogEvent::new("launcher.archive.cleanupFailed")
+            .path("tempRoot", &temp_root)
+            .error(error)
+            .emit_warn(targets::LAUNCHER);
+    }
     result
 }
 

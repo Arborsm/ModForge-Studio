@@ -13,22 +13,40 @@ function byteLength(value: string) {
   return new TextEncoder().encode(value).byteLength
 }
 
+/**
+ * UTF-8 byte length of one code point (as iterated by `for...of`), avoiding a
+ * full-string re-encode per character — the previous `byteLength(current + ch)`
+ * check made oversized splitting quadratic and froze the UI on 32 KB+ entries.
+ */
+function codePointByteLength(character: string): number {
+  const codePoint = character.codePointAt(0) ?? 0
+  if (codePoint <= 0x7f) return 1
+  if (codePoint <= 0x7ff) return 2
+  if (codePoint <= 0xffff) return 3
+  return 4
+}
+
 function splitOversizedText(text: string): string[] {
   if (byteLength(text) <= MAX_ITEM_BYTES) return [text]
   const logicalPieces = text.match(/[^.!?。！？\n]+[.!?。！？]?[ \t]*|\n+/gu) ?? [text]
   const chunks: string[] = []
   let current = ''
+  let currentBytes = 0
   const append = (piece: string) => {
-    if (current && byteLength(current + piece) > MAX_ITEM_BYTES) {
+    if (current && currentBytes + byteLength(piece) > MAX_ITEM_BYTES) {
       chunks.push(current)
       current = ''
+      currentBytes = 0
     }
     for (const character of piece) {
-      if (current && byteLength(current + character) > MAX_ITEM_BYTES) {
+      const charBytes = codePointByteLength(character)
+      if (current && currentBytes + charBytes > MAX_ITEM_BYTES) {
         chunks.push(current)
         current = ''
+        currentBytes = 0
       }
       current += character
+      currentBytes += charBytes
     }
   }
   for (const piece of logicalPieces) append(piece)

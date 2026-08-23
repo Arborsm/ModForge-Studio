@@ -3,7 +3,7 @@
  * event file or a custom target.
  * @module features/cp-maker
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FileJson, Loader2, Search } from 'lucide-react'
 import { scanEvents, type EventAssetSummary } from '@entities/game/api'
 import { useEditorCopy } from '@locales/provider'
@@ -92,13 +92,11 @@ export function EventPatchCreateDialog({ open, gameRootPath, existingTargets, on
     }
   }, [gameRootPath, open])
 
-  const existing = useMemo(() => new Set(existingTargets), [existingTargets])
-  const rows = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return assets
-      .map((asset) => ({ asset, target: `Data/Events/${asset.name}` }))
-      .filter((row) => !normalized || row.asset.name.toLowerCase().includes(normalized) || row.target.toLowerCase().includes(normalized))
-  }, [assets, query])
+  const existing = new Set(existingTargets)
+  const normalized = query.trim().toLowerCase()
+  const rows = assets
+    .map((asset) => ({ asset, target: `Data/Events/${asset.name}` }))
+    .filter((row) => !normalized || row.asset.name.toLowerCase().includes(normalized) || row.target.toLowerCase().includes(normalized))
 
   const normalizedCustom = normalizeTargetInput(customTarget)
   const customValid = normalizedCustom.length > 0 && isValidEventTarget(normalizedCustom)

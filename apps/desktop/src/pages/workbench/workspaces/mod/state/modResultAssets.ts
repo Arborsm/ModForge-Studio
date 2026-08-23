@@ -1,3 +1,5 @@
+import { orNull } from '@platform/observability'
+
 import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
 import type { MapDocument } from '@entities/map'
@@ -116,7 +118,7 @@ export async function loadModResultImageState<T>({
 
   const resource = await loadImageResource(result.result.imageDataUrl)
   const originalResource = result.result.originalImageDataUrl
-    ? await loadImageResource(result.result.originalImageDataUrl).catch(() => null)
+    ? await orNull(loadImageResource(result.result.originalImageDataUrl), 'modResultAssets.optionalOriginalImage')
     : null
   return {
     path: fallbackPathLabel,

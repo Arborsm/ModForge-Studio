@@ -286,6 +286,7 @@ manifest `contributions.pages[]` 的元素：
       "entryFile": "texture.json", // 每个条目目录的入口文件
       "entryImage": "texture.png", // 可选配图
       "rootSubdir": "Textures", // 包内条目根目录
+      "includeContentPacks": true, // 可选：同时聚合 ContentPackFor 指向目标模组的内容包
     },
   },
   "layout": "two-column", // two-column | single
@@ -326,8 +327,11 @@ manifest `contributions.pages[]` 的元素：
 
 **field 类型**（基础六种对齐 GMCM option 类型）：`bool | number | text | choice | keybind | keybind-list`。
 **集合/嵌套类型**（超出 GMCM，JA/AT 的真实格式需要，见附录 A 核对）：`string-list`（字符串数组，如 JA `PurchaseRequirements`）、`record-list`（对象数组 + 子 schema，如 JA `Recipe.Ingredients`、AT `ManualVariations`）、`object`（嵌套对象 + 子字段，如 AT `Animation`）。
+**游戏物品类型**（去填表化）：`game-item`——渲染为可搜索 combobox（文本输入 + 过滤下拉），物品目录来自 `loadResourceRegistry`（原版物品，带缓存、locale 感知）。选中物品写内部 `Name` 到 `field.path`；声明了 `idPath` 时同时写未限定 id（如 AT 的 `ItemName` + `ItemId`）。mod 物品不在目录里，picker 必须支持自由输入（combobox 形态），不是纯下拉。`idPath` 只允许在 `game-item` 类型上声明（manifest 校验拒绝其他类型）。
 **校验声明**：`required`、`min`/`max`/`interval`、`allowValues`、`validate[]`（`range` / `pattern` / `cross-field`）。
 **条件显隐**：`visibleWhen`（`field-eq` / `field-in`），渲染器实时求值。
+**区段折叠**：section 可声明 `"collapsed": true`，默认折叠（AT 的 advanced 区段用）；渲染器提供折叠/展开 toggle，折叠态下字段不渲染。
+**条目预览**：source 声明了 `entryImage` 时，列表行显示缩略图、编辑器顶部显示大图预览；图片经 `loadImageDataUrl` 懒加载（IntersectionObserver + 并发池限 4），`image-rendering: pixelated`。
 
 ### 2.2 控件映射表（全部复用现有组件，零新样式）
 
@@ -337,9 +341,10 @@ manifest `contributions.pages[]` 的元素：
 | number（有 min/max） | slider / 数字输入                                                                                                                                                                                                     | 现有表单控件     |
 | text                 | 文本输入                                                                                                                                                                                                              | 现有表单控件     |
 | choice               | [CompactSelect.tsx](../../apps/desktop/src/shared/ui/CompactSelect.tsx)                                                                                                                                               | shared/ui        |
+| game-item            | combobox（文本输入 + 过滤下拉），物品目录来自 `loadResourceRegistry`；选中写 `field.path` + 可选 `idPath`                                                                                                             | features 内部    |
 | 页面骨架             | [WorkspaceSplitView.tsx](../../apps/desktop/src/shared/ui/WorkspaceSplitView.tsx) + [PanelFrame](../../apps/desktop/src/shared/ui/PanelFrame.tsx) / [PanelSection](../../apps/desktop/src/shared/ui/PanelSection.tsx) | shared/ui        |
 | 空态/错误态          | [EmptyStateCard.tsx](../../apps/desktop/src/shared/ui/EmptyStateCard.tsx)                                                                                                                                             | shared/ui        |
-| 图片预览             | 现有 asset 预览组件（entities/map 或 resource-browser 复用）                                                                                                                                                          | entities         |
+| 图片预览             | `CompatEntryImage`：`loadImageDataUrl` 懒加载（IntersectionObserver + 并发池），缩略图 + 大图预览                                                                                                                     | features 内部    |
 
 ### 2.3 source adapter 接口
 
@@ -347,10 +352,12 @@ manifest `contributions.pages[]` 的元素：
 /** Reads and writes pack entries for a declared source kind. Implementations are core code. */
 interface CompatSourceAdapter {
   listEntries(source: CompatSourceDecl, context: CompatPageContext): Promise<CompatEntrySummary[]>
-  loadEntry(source: CompatSourceDecl, entryId: string): Promise<Record<string, unknown>>
-  saveEntry(source: CompatSourceDecl, entryId: string, value: Record<string, unknown>): Promise<void>
+  loadEntry(source: CompatSourceDecl, entry: CompatEntrySummary): Promise<Record<string, unknown>>
+  saveEntry(source: CompatSourceDecl, entry: CompatEntrySummary, value: Record<string, unknown>): Promise<void>
 }
 ```
+
+`CompatEntrySummary` 在宿主列目录条目（`id`、`entryDir`、`entryFilePath`、`entryImagePath`）之上额外带 `sourceModRoot` / `sourceModName`：**条目身份是 (sourceModRoot, id) 组合键**，`id` 只在单个模组目录内唯一。开启 `includeContentPacks` 后，listing 聚合目标模组自身 + 所有 `ContentPackFor` 归一化等于任一 target id 的已安装内容包；读写按 entry 的 `sourceModRoot` 路由回来源目录。目标模组自身没有 `rootSubdir` 时按空列表处理，不影响内容包聚合。
 
 `CompatPageContext`（v1 语义，字段 additive only）：
 
@@ -360,12 +367,16 @@ type CompatPageContext = {
   targetModUniqueId: string
   /** 该模组的已安装根目录，由后端按 UniqueID 从 Mods 目录解析；未安装时页面进空态。 */
   targetModRoot: string | null
+  /** 解析出的目标模组显示名；未聚合内容包时用于给条目标注来源。 */
+  targetModName?: string | null
+  /** 插件声明的全部候选 UniqueID（manifest targets）；includeContentPacks 聚合内容包时使用。 */
+  targetUniqueIds?: readonly string[]
   /** 当前活动项目根目录；projectAccess 为 none 时恒为 null。 */
   projectRoot: string | null
 }
 ```
 
-即：`directory-pack` 默认读写**已安装锚点模组**的目录（AT 的 `Textures/`、JA 的 `Objects/` 都住在游戏 Mods 文件夹下），不依赖打开项目；`projectAccess: "read"` 仅用于页面内引用项目资产（如迁移目标）。
+即：`directory-pack` 默认读写**已安装锚点模组**的目录（AT 的 `Textures/`、JA 的 `Objects/` 都住在游戏 Mods 文件夹下），不依赖打开项目；`projectAccess: "read"` 仅用于页面内引用项目资产（如迁移目标）。声明 `includeContentPacks: true` 后聚合范围扩展到 `ContentPackFor` 指向锚点模组的内容包（AT 纹理大多住在内容包里，框架模组自身往往没有 `Textures/`）。
 
 v1 只实现 `directory-pack`；`mod-config`、`cp-assets` 留接口不实现（出现真实消费者再补）。读写走现有 Io/Mutation command（`scan_mod_asset_index` / 项目资产读写族），不新增后端 command。
 
@@ -483,7 +494,7 @@ bootstrap（import map 注入成功）
 reload：全部 onDispose → 清空插件注册 → 重新执行上述流程（整树重建，不做单插件热替换）
 ```
 
-> 运行时重载的落地计划见 [compat-plugin-hot-reload.md](./compat-plugin-hot-reload.md)。
+> 运行时重载已实施（S1–S3 全部落地）：全部 onDispose → 清空插件注册 → 重新执行加载流程。
 
 `plugin://` 的具体 URL 形态因宿主而异，前端**禁止手拼字符串**，一律走 `FileSystemPort.resolvePluginUrl`（Tauri Windows → `http://plugin.localhost/<id>/<path>`，Tauri macOS/Linux → `plugin://localhost/<id>/<path>`，Electron → `plugin://<id>/<path>`；与 Rust/Electron handler 的解析一一对应）。
 

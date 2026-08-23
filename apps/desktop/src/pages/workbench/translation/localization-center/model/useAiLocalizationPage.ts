@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy } from '@locales/provider'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import type { AiOfficialCorpusStatus, AiOfficialIndexProgress, AiOfficialUnit } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useAiLocalizationPersistentState } from './localizationPageState'
 import { errorDetail } from './errorDetail'
@@ -15,7 +17,6 @@ const STATUS_NOTICE_ID = 'ai-localization-official-status'
 export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTargetLocale = 'zh-CN') {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
-  const publish = useNotificationPublisher()
   const [directories, setDirectories] = useState<string[]>([])
   const [gameDirectory, setGameDirectory] = useState('')
   const [status, setStatus] = useState<AiOfficialCorpusStatus | null>(null)
@@ -66,24 +67,24 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
   const runSearch = useLatestTask('ai-localization-official-search')
   const fail = (error: unknown, title: string, retry: () => void) => {
     retryRef.current = retry
-    publish({
-      id: NOTICE_ID,
-      level: 'error',
-      title,
-      description: errorDetail(error),
-      action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
-    })
+    appEvent('error', title).error(error).context({ source: 'ai-localization-official', operation: 'manage' }).emit({ notify: false })
+    appEvent('error', title)
+      .description(errorDetail(error))
+      .noticeId(NOTICE_ID)
+      .action({ label: copy.retry, callback: () => retryRef.current(), tone: 'primary' })
+      .error(error)
+      .context({ source: 'ai-localization-official', operation: 'load-content' })
+      .emit()
   }
   const publishStatusLoading = () => {
     dismissNotification(NOTICE_ID)
-    publish({
-      id: STATUS_NOTICE_ID,
-      level: 'info',
-      title: copy.loadingStatus,
-      description: copy.loadingStatus,
-      autoDismissMs: null,
-      loading: true,
-    })
+    appEvent('info', copy.loadingStatus)
+      .description(copy.loadingStatus)
+      .noticeId(STATUS_NOTICE_ID)
+      .autoDismiss(null)
+      .loading()
+      .context({ source: 'ai-localization-official', operation: 'load-status' })
+      .emit()
   }
   useEffect(() => {
     let active = true
@@ -96,6 +97,7 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
         if (active) unlisten = dispose
         else dispose()
       })
+      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false
@@ -150,7 +152,7 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     })
     return () => {
       const jobId = activeJobId.current
-      if (jobId) void localization.cancelJob(jobId).catch(() => undefined)
+      if (jobId) void ignoreError(localization.cancelJob(jobId), 'aiLocalization.cancelJob')
       dismissNotification(NOTICE_ID)
       dismissNotification(SEARCH_NOTICE_ID)
       dismissNotification(STATUS_NOTICE_ID)
@@ -203,14 +205,13 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     }
     setSearching(true)
     dismissNotification(SEARCH_NOTICE_ID)
-    publish({
-      id: SEARCH_NOTICE_ID,
-      level: 'info',
-      title: copy.searching,
-      description: query.trim(),
-      autoDismissMs: null,
-      loading: true,
-    })
+    appEvent('info', copy.searching)
+      .description(query.trim())
+      .noticeId(SEARCH_NOTICE_ID)
+      .autoDismiss(null)
+      .loading()
+      .context({ source: 'ai-localization-official', operation: 'search-corpus' })
+      .emit()
     try {
       await runSearch(async (task) => {
         const page = await localization.searchOfficial({

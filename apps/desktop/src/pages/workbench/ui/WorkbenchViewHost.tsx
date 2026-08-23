@@ -1,5 +1,6 @@
 import { Component, createElement, Suspense, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
@@ -7,12 +8,20 @@ import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 type ModuleErrorBoundaryProps = {
   title: string
   detail: string
-  retryLabel: string
   moduleId: string
   children: ReactNode
 }
 
 type ModuleErrorBoundaryState = { error: Error | null; retryKey: number }
+
+function RetryButton({ onClick }: { onClick: () => void }) {
+  const copy = useEditorCopy()
+  return (
+    <button type="button" className="control-button control-button-primary" onClick={onClick}>
+      {copy.messages.workbenchModuleRetry}
+    </button>
+  )
+}
 
 class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErrorBoundaryState> {
   state: ModuleErrorBoundaryState = { error: null, retryKey: 0 }
@@ -25,7 +34,11 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
     // The webview console bridge drops the Error object argument from React's
     // default caught-error logging, so log the message and component stack
     // explicitly to keep module crashes diagnosable from the terminal log.
-    console.error(`[workbench] Module ${this.props.moduleId} crashed:`, error, info.componentStack)
+    appEvent('error', 'Workbench module crashed')
+      .error(error)
+      .context({ source: 'workbench-view-host', operation: 'module-error-boundary', moduleId: this.props.moduleId })
+      .logMessage(`${error.message}\n${info.componentStack}`)
+      .emit({ notify: false })
   }
 
   render() {
@@ -33,13 +46,7 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
       return (
         <div className="empty-state-card-fill" role="alert">
           <EmptyStateCard title={this.props.title} detail={this.props.detail} density="compact" />
-          <button
-            type="button"
-            className="control-button control-button-primary"
-            onClick={() => this.setState((state) => ({ error: null, retryKey: state.retryKey + 1 }))}
-          >
-            {this.props.retryLabel}
-          </button>
+          <RetryButton onClick={() => this.setState((state) => ({ error: null, retryKey: state.retryKey + 1 }))} />
         </div>
       )
     }
@@ -91,7 +98,6 @@ export function WorkbenchViewHost({ module }: { module: WorkbenchModuleRegistrat
       moduleId={module.id}
       title={copy.messages.workbenchModuleErrorTitle}
       detail={copy.messages.workbenchModuleErrorDetail}
-      retryLabel={copy.messages.workbenchModuleRetry}
     >
       <WorkbenchRuntime module={module} />
     </ModuleErrorBoundary>

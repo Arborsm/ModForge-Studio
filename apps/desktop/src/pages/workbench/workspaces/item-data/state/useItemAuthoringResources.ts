@@ -13,6 +13,7 @@ import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api
 import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 export type ItemAuthoringResources = {
   /** Qualified item ids `GeodeDrops` may reference. */
@@ -67,7 +68,16 @@ export function useItemAuthoringResources({
 
     let cancelled = false
 
-    void Promise.all([loadItemWorkspaceEntries(gameRootPath, locale), loadResourceRegistry(gameRootPath, locale).catch(() => null)])
+    void Promise.all([
+      loadItemWorkspaceEntries(gameRootPath, locale),
+      loadResourceRegistry(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Item authoring resource registry unavailable')
+          .error(error)
+          .context({ source: 'item-authoring', operation: 'load-resource-registry' })
+          .emit({ notify: false })
+        return null
+      }),
+    ])
       .then(async ([entries, registry]) => {
         if (cancelled) {
           return
@@ -96,8 +106,12 @@ export function useItemAuthoringResources({
           }),
         )
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Item authoring resources failed to load')
+            .error(error)
+            .context({ source: 'item-authoring', operation: 'load-resources' })
+            .emit({ notify: false })
           setGameResources(EMPTY_RESOURCES)
         }
       })

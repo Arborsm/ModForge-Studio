@@ -242,22 +242,22 @@ export function usePanZoomViewport({ contentHeight, contentWidth, fitPadding = 5
     [getCenteredBase, viewportSize],
   )
 
-  const zoomIn = useCallback(() => {
+  const zoomIn = () => {
     zoomTo(zoomRef.current * PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
-  }, [zoomTo])
+  }
 
-  const zoomOut = useCallback(() => {
+  const zoomOut = () => {
     zoomTo(zoomRef.current / PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
-  }, [zoomTo])
+  }
 
-  const setOneToOne = useCallback(() => {
+  const setOneToOne = () => {
     zoomTo(1)
-  }, [zoomTo])
+  }
 
-  const fitToScreen = useCallback(() => {
+  const fitToScreen = () => {
     setOffset({ x: 0, y: 0 })
     setZoomMode('fit')
-  }, [])
+  }
 
   const panBy = useCallback(
     (x: number, y: number) => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pause, Play, Plus, Trash2 } from 'lucide-react'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { MapDocument, MapTileset, MapTilesetAnimationFrame } from '@entities/map'
@@ -72,8 +73,12 @@ export function AnimationFrameEditor({
         imageRef.current = image
         setImageReady(true)
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return
+        appEvent('warning', 'Failed to load animation frame image')
+          .error(error)
+          .context({ source: 'map-animation-frame-editor', operation: 'load-image', path: imagePath })
+          .emit({ notify: false })
         imageRef.current = null
         setImageReady(false)
         setThumbUrls({})

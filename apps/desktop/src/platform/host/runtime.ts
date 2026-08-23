@@ -31,7 +31,12 @@ export function canUseDesktopHost() {
 }
 
 /** Invokes a typed desktop command through the configured file system port. */
-export async function invokeDesktop<T>(command: HostCommandName, args: Record<string, unknown> | undefined, policy: HostCommandPolicy) {
+export async function invokeDesktop<T>(
+  command: HostCommandName,
+  args: Record<string, unknown> | undefined,
+  policy: HostCommandPolicy,
+  options?: { errorReporting?: boolean },
+) {
   if (!canUseDesktopHost()) {
     throw new Error('This feature is only available in the desktop host.')
   }
@@ -41,6 +46,7 @@ export async function invokeDesktop<T>(command: HostCommandName, args: Record<st
     command,
     args,
     policy,
+    errorReporting: options?.errorReporting,
   })
 }
 

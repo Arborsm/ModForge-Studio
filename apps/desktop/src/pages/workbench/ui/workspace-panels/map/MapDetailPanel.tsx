@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Search } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { FocusedMapObjectTarget, MapDocument } from '@entities/map'
 import {
   formatObjectPreviewMeta,
@@ -102,7 +102,7 @@ export function MapDetailPanel({
   const [objectFilter, setObjectFilter] = useState('')
   const [collapsedObjectGroups, setCollapsedObjectGroups] = useState<Record<number, boolean>>({})
 
-  const layerItems = useMemo(() => {
+  const layerItems = (() => {
     if (!mapDocument) {
       return []
     }
@@ -115,9 +115,9 @@ export function MapDetailPanel({
         visible: visibleLayerIds.includes(layer.id),
       }))
       .filter((layer) => !needle || `${layer.name} ${layer.meta}`.toLowerCase().includes(needle))
-  }, [copy.rightDock.layerTiles, layerFilter, mapDocument, visibleLayerIds])
+  })()
 
-  const objectGroupItems = useMemo(() => {
+  const objectGroupItems = (() => {
     if (!mapDocument) {
       return []
     }
@@ -153,7 +153,7 @@ export function MapDetailPanel({
           .join(' ')
         return `${item.name} ${item.propertyKeys.join(' ')} ${objectSearch}`.toLowerCase().includes(needle)
       })
-  }, [copy.rightDock, mapDocument, objectFilter, visibleObjectGroupIds])
+  })()
 
   if (!mapDocument) {
     return (

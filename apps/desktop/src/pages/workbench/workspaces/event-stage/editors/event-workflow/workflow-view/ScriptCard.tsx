@@ -2,7 +2,7 @@
  * @file Script card component: a 4-column script row organized per the beat_card_lucide.html mock.
  */
 
-import { useMemo, useState, type ComponentType, type MouseEvent } from 'react'
+import { useState, type ComponentType, type MouseEvent } from 'react'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -73,7 +73,8 @@ import { ParamPill } from './ParamPill'
 import type { UIControlType } from '../workflow-model/commandSchema'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 import { formatInlineDelay, type InlineDelayCandidate } from '../workflow-model/commandInlineDelay'
-import type { EventWorkflowCommandKey, EventWorkflowCopy, ScriptEditorCopy } from '@locales/api'
+import type { EventWorkflowCommandKey } from '@locales/api'
+import { useEventStageCopy, useLocale } from '@locales/provider'
 
 const BEAT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   AlertTriangle,
@@ -148,29 +149,31 @@ const CATEGORY_FALLBACK_ICONS: Record<string, ComponentType<{ className?: string
 }
 
 export type ScriptCardProps = {
-  command: EventCommand
-  index: number
-  selected?: boolean
-  playing?: boolean
-  expanded?: boolean
-  showLineNumber?: boolean
-  cardView?: 'compact' | 'comfortable'
-  locale?: 'zh-CN' | 'en-US'
-  copy: ScriptEditorCopy
-  workflowCopy: EventWorkflowCopy
-  resourceRegistry?: EventResourceRegistry
-  inlineDelay?: InlineDelayCandidate | null
-  onSelect?: () => void
-  onToggleExpand?: () => void
-  onUpdateArg?: (argIndex: number, value: string) => void
-  onEnterPickMode?: (paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => void
-  onUpdateArgs?: (argIndex: number, values: string[]) => void
-  onSetInlineDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
-  onRemoveInlineDelay?: (pauseCommandIndex: number) => void
-  onDuplicate?: () => void
-  onDelete?: () => void
-  onPlayFromHere?: () => void
+  data: {
+    command: EventCommand
+    index: number
+    resourceRegistry?: EventResourceRegistry
+    inlineDelay?: InlineDelayCandidate | null
+  }
+  state?: {
+    selected?: boolean
+    playing?: boolean
+    expanded?: boolean
+    showLineNumber?: boolean
+    cardView?: 'compact' | 'comfortable'
+  }
   dragHandleProps?: Record<string, unknown>
+  actions?: {
+    select?: () => void
+    updateArg?: (argIndex: number, value: string) => void
+    enterPickMode?: (paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => void
+    updateArgs?: (argIndex: number, values: string[]) => void
+    setInlineDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
+    removeInlineDelay?: (pauseCommandIndex: number) => void
+    duplicate?: () => void
+    deleteCommand?: () => void
+    playFromHere?: () => void
+  }
 }
 
 type ParamNode = Extract<RenderedNode, { type: 'param' }>
@@ -179,35 +182,28 @@ function isParamNode(node: RenderedNode): node is ParamNode {
   return node.type === 'param'
 }
 
-export function ScriptCard({
-  command,
-  index,
-  selected,
-  playing,
-  expanded,
-  showLineNumber = true,
-  cardView = 'comfortable',
-  locale = 'zh-CN',
-  copy,
-  workflowCopy,
-  resourceRegistry,
-  inlineDelay = null,
-  onSelect,
-  onUpdateArg,
-  onEnterPickMode,
-  onUpdateArgs,
-  onSetInlineDelay,
-  onRemoveInlineDelay,
-  onDuplicate,
-  onDelete,
-  onPlayFromHere,
-  dragHandleProps,
-}: ScriptCardProps) {
-  const schema = useMemo(() => getSchema(command.command), [command.command])
-  const nodes = useMemo(() => {
+export function ScriptCard({ data, state, dragHandleProps, actions }: ScriptCardProps) {
+  const { command, index, resourceRegistry, inlineDelay = null } = data
+  const { selected, playing, expanded, showLineNumber = true, cardView = 'comfortable' } = state ?? {}
+  const {
+    select: onSelect,
+    updateArg: onUpdateArg,
+    enterPickMode: onEnterPickMode,
+    updateArgs: onUpdateArgs,
+    setInlineDelay: onSetInlineDelay,
+    removeInlineDelay: onRemoveInlineDelay,
+    duplicate: onDuplicate,
+    deleteCommand: onDelete,
+    playFromHere: onPlayFromHere,
+  } = actions ?? {}
+  const locale = useLocale()
+  const workflowCopy = useEventStageCopy().workflow
+  const copy = workflowCopy.scriptEditor
+  const schema = getSchema(command.command)
+  const nodes = (() => {
     if (!schema) return null
     return renderTemplate(schema, command.args, locale, workflowCopy)
-  }, [schema, command.args, locale, workflowCopy])
+  })()
 
   const commandLabel = schema ? (workflowCopy.commandLabels[schema.key as EventWorkflowCommandKey] ?? schema.key) : command.kind
   const categoryLabel = schema ? (workflowCopy.categoryLabels[schema.category] ?? schema.category) : command.kind
@@ -384,7 +380,7 @@ export function ScriptCard({
         </span>
         <span className="cmd-tail">
           {inlineDelay ? (
-            <InlineDelayControl delay={inlineDelay} copy={copy} onSetDelay={onSetInlineDelay} onRemoveDelay={onRemoveInlineDelay} />
+            <InlineDelayControl delay={inlineDelay} onSetDelay={onSetInlineDelay} onRemoveDelay={onRemoveInlineDelay} />
           ) : null}
           <span className="cmd-actions">
             {onPlayFromHere && (
@@ -471,15 +467,14 @@ function isPickControl(control: UIControlType): control is 'tile_picker' | 'npc_
 
 function InlineDelayControl({
   delay,
-  copy,
   onSetDelay,
   onRemoveDelay,
 }: {
   delay: InlineDelayCandidate
-  copy: ScriptEditorCopy
   onSetDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
   onRemoveDelay?: (pauseCommandIndex: number) => void
 }) {
+  const copy = useEventStageCopy().workflow.scriptEditor
   const [editing, setEditing] = useState(false)
   const hasPause = delay.pauseCommandIndex != null
   const label = delay.kind === 'step' ? copy.delayStep : delay.kind === 'hold' ? copy.delayHold : copy.delayGeneric

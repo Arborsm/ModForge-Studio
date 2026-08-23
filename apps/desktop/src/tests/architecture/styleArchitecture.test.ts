@@ -62,7 +62,6 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   'pages/workbench/workspaces/item/view/itemWorkspaceSharedUi.tsx',
   'pages/workbench/workspaces/map/editors/MapPatchEditor.tsx',
   'pages/workbench/workspaces/map/view/CentralWorkspace.tsx',
-  'pages/workbench/workspaces/mod/mods/content-patcher/content-view/scaleup/ContentPatcherScaleUpPanel.tsx',
   // Native color inputs require a concrete valid fallback value.
   'features/launcher/ui/cards/LauncherModConfigControls.tsx',
 ])

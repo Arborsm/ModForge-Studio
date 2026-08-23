@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback } from 'react'
+import { useRef, useCallback } from 'react'
 import {
   ArrowRightLeft,
   ArrowUp,
@@ -121,7 +121,7 @@ export function CommandEditor({
   onChange: (newRaw: string) => void
   onDelete: () => void
 }) {
-  const argFields = useMemo(() => {
+  const argFields = (() => {
     const fields: Array<{ label: string; value: string; index: number }> = []
     const args = command.args
     switch (command.command) {
@@ -172,7 +172,7 @@ export function CommandEditor({
         }
     }
     return fields
-  }, [command])
+  })()
 
   function updateArg(index: number, newValue: string) {
     const newArgs = [...command.args]

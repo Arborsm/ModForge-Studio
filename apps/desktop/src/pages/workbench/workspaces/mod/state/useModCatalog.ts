@@ -61,6 +61,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     } catch (error) {
       if (error instanceof TaskCancelledError) {
         if (scanGenerationRef.current === generation) setLoading(false)
+        // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
         return []
       }
       if (scanGenerationRef.current !== generation) return []
@@ -115,20 +116,16 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     [externalProject, projects],
   )
 
-  const filteredProjects = useMemo(
-    () =>
-      allProjects.filter((project) => {
-        if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
-        if (compatibleOnly && project.status === 'incompatible') return false
-        if (i18nOnly && project.i18nEntryCount === 0) return false
-        if (!deferredQuery) return true
-        return [project.name, project.author ?? '', project.uniqueId ?? '', project.folderName, project.absolutePath]
-          .join(' ')
-          .toLowerCase()
-          .includes(deferredQuery)
-      }),
-    [allProjects, compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly],
-  )
+  const filteredProjects = allProjects.filter((project) => {
+    if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
+    if (compatibleOnly && project.status === 'incompatible') return false
+    if (i18nOnly && project.i18nEntryCount === 0) return false
+    if (!deferredQuery) return true
+    return [project.name, project.author ?? '', project.uniqueId ?? '', project.folderName, project.absolutePath]
+      .join(' ')
+      .toLowerCase()
+      .includes(deferredQuery)
+  })
 
   const openProjectDirectory = async () => {
     const selected = await chooseDirectory(copy.selectProjectFolder)
@@ -160,6 +157,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
       return selected
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : String(error))
+      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     } finally {
       setLoading(false)

@@ -30,121 +30,127 @@ import type { LauncherPackPreset } from '@features/launcher/model/types'
 import type { LibrarySortMode } from '../model/launcherLibraryDisplay'
 
 type LauncherLibraryHeaderProps = {
-  editMode: boolean
-  childModSelectionMode: boolean
-  childModSelectionParentName: string | null
-  childModSelectionCount: number
-  drawerOpen: boolean
-  quickSwitchOpen: boolean
-  sortMenuOpen: boolean
-  actionsMenuOpen: boolean
-  sortingBannerOpen: boolean
-  titleMenuRef: RefObject<HTMLDivElement | null>
-  sortMenuRef: RefObject<HTMLDivElement | null>
-  actionsMenuRef: RefObject<HTMLDivElement | null>
-  currentPackLabel: string
-  shortModsPath: string | null
-  modsPath: string | null | undefined
-  hiddenViewOpen: boolean
-  currentPackId: string | null
-  visibleLibraryModsCount: number
-  hiddenModsCount: number
-  packPresets: LauncherPackPreset[]
-  currentPack: LauncherPackPreset | null
-  editCount: number
-  filterText: string
-  enabledOnly: boolean
-  configOnly: boolean
-  sortOptions: Array<{ value: LibrarySortMode; label: string }>
-  sortMode: LibrarySortMode
-  currentSortLabel: string
-  launchGameLabel: string
-  launchGameDisabled: boolean
-  launchGameBusy: boolean
-  onToggleDrawer: () => void
-  onToggleQuickSwitch: () => void
-  onCloseFloatingMenus: () => void
-  onSelectPack: (packId: string | null) => void
-  onSelectHiddenView: () => void
-  onCreateLibraryFolder: () => void
-  onRefreshLibrary: () => void
-  onOpenLibraryRoot: () => void
-  onInspectArchive: () => void
-  onOpenInstallBackupsDialog: () => void
-  onLaunchGame: () => void
-  onFilterTextChange: (value: string) => void
-  onEnabledOnlyChange: (enabledOnly: boolean) => void
-  onConfigOnlyChange: (configOnly: boolean) => void
-  onToggleSortMenu: () => void
-  onToggleActionsMenu: () => void
-  onCloseActionsMenu: () => void
-  onSortModeChange: (sortMode: LibrarySortMode) => void
-  onCancelEditMode: () => void
-  onSaveEditMode: () => void
-  onCancelChildModSelection: () => void
-  onConfirmChildModSelection: () => void
-  onFinishSorting: () => void
-  onStartSortingMode: () => void
+  editState: {
+    editMode: boolean
+    editCount: number
+    childModSelectionMode: boolean
+    childModSelectionParentName: string | null
+    childModSelectionCount: number
+  }
+  menus: {
+    drawerOpen: boolean
+    quickSwitchOpen: boolean
+    sortMenuOpen: boolean
+    actionsMenuOpen: boolean
+    sortingBannerOpen: boolean
+  }
+  menuRefs: {
+    titleMenuRef: RefObject<HTMLDivElement | null>
+    sortMenuRef: RefObject<HTMLDivElement | null>
+    actionsMenuRef: RefObject<HTMLDivElement | null>
+  }
+  packState: {
+    hiddenViewOpen: boolean
+    currentPackId: string | null
+    currentPack: LauncherPackPreset | null
+    packPresets: LauncherPackPreset[]
+    visibleLibraryModsCount: number
+    hiddenModsCount: number
+  }
+  paths: {
+    shortModsPath: string | null
+    modsPath: string | null | undefined
+  }
+  filterState: {
+    filterText: string
+    enabledOnly: boolean
+    configOnly: boolean
+  }
+  sortState: {
+    sortOptions: Array<{ value: LibrarySortMode; label: string }>
+    sortMode: LibrarySortMode
+  }
+  launchState: {
+    launchGameDisabled: boolean
+    launchGameBusy: boolean
+  }
+  actions: {
+    toggleDrawer: () => void
+    toggleQuickSwitch: () => void
+    closeFloatingMenus: () => void
+    selectPack: (packId: string | null) => void
+    selectHiddenView: () => void
+    createLibraryFolder: () => void
+    refreshLibrary: () => void
+    openLibraryRoot: () => void
+    inspectArchive: () => void
+    openInstallBackupsDialog: () => void
+    launchGame: () => void
+    filterTextChange: (value: string) => void
+    enabledOnlyChange: (enabledOnly: boolean) => void
+    configOnlyChange: (configOnly: boolean) => void
+    toggleSortMenu: () => void
+    toggleActionsMenu: () => void
+    closeActionsMenu: () => void
+    sortModeChange: (sortMode: LibrarySortMode) => void
+    cancelEditMode: () => void
+    saveEditMode: () => void
+    cancelChildModSelection: () => void
+    confirmChildModSelection: () => void
+    finishSorting: () => void
+    startSortingMode: () => void
+  }
 }
 
 export function LauncherLibraryHeader({
-  editMode,
-  childModSelectionMode,
-  childModSelectionParentName,
-  childModSelectionCount,
-  drawerOpen,
-  quickSwitchOpen,
-  sortMenuOpen,
-  actionsMenuOpen,
-  sortingBannerOpen,
-  titleMenuRef,
-  sortMenuRef,
-  actionsMenuRef,
-  currentPackLabel,
-  shortModsPath,
-  modsPath,
-  hiddenViewOpen,
-  currentPackId,
-  visibleLibraryModsCount,
-  hiddenModsCount,
-  packPresets,
-  currentPack,
-  editCount,
-  filterText,
-  enabledOnly,
-  configOnly,
-  sortOptions,
-  sortMode,
-  currentSortLabel,
-  launchGameLabel,
-  launchGameDisabled,
-  launchGameBusy,
-  onToggleDrawer,
-  onToggleQuickSwitch,
-  onCloseFloatingMenus,
-  onSelectPack,
-  onSelectHiddenView,
-  onCreateLibraryFolder,
-  onRefreshLibrary,
-  onOpenLibraryRoot,
-  onInspectArchive,
-  onOpenInstallBackupsDialog,
-  onLaunchGame,
-  onFilterTextChange,
-  onEnabledOnlyChange,
-  onConfigOnlyChange,
-  onToggleSortMenu,
-  onToggleActionsMenu,
-  onCloseActionsMenu,
-  onSortModeChange,
-  onCancelEditMode,
-  onSaveEditMode,
-  onCancelChildModSelection,
-  onConfirmChildModSelection,
-  onFinishSorting,
-  onStartSortingMode,
+  editState,
+  menus,
+  menuRefs,
+  packState,
+  paths,
+  filterState,
+  sortState,
+  launchState,
+  actions,
 }: LauncherLibraryHeaderProps) {
+  const { editMode, editCount, childModSelectionMode, childModSelectionParentName, childModSelectionCount } = editState
+  const { drawerOpen, quickSwitchOpen, sortMenuOpen, actionsMenuOpen, sortingBannerOpen } = menus
+  const { titleMenuRef, sortMenuRef, actionsMenuRef } = menuRefs
+  const { hiddenViewOpen, currentPackId, currentPack, packPresets, visibleLibraryModsCount, hiddenModsCount } = packState
+  const { shortModsPath, modsPath } = paths
+  const { filterText, enabledOnly, configOnly } = filterState
+  const { sortOptions, sortMode } = sortState
+  const { launchGameDisabled, launchGameBusy } = launchState
+  const {
+    toggleDrawer: onToggleDrawer,
+    toggleQuickSwitch: onToggleQuickSwitch,
+    closeFloatingMenus: onCloseFloatingMenus,
+    selectPack: onSelectPack,
+    selectHiddenView: onSelectHiddenView,
+    createLibraryFolder: onCreateLibraryFolder,
+    refreshLibrary: onRefreshLibrary,
+    openLibraryRoot: onOpenLibraryRoot,
+    inspectArchive: onInspectArchive,
+    openInstallBackupsDialog: onOpenInstallBackupsDialog,
+    launchGame: onLaunchGame,
+    filterTextChange: onFilterTextChange,
+    enabledOnlyChange: onEnabledOnlyChange,
+    configOnlyChange: onConfigOnlyChange,
+    toggleSortMenu: onToggleSortMenu,
+    toggleActionsMenu: onToggleActionsMenu,
+    closeActionsMenu: onCloseActionsMenu,
+    sortModeChange: onSortModeChange,
+    cancelEditMode: onCancelEditMode,
+    saveEditMode: onSaveEditMode,
+    cancelChildModSelection: onCancelChildModSelection,
+    confirmChildModSelection: onConfirmChildModSelection,
+    finishSorting: onFinishSorting,
+    startSortingMode: onStartSortingMode,
+  } = actions
   const copy = useEditorCopy().launcher
+  const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : currentPack ? currentPack.name : copy.library.allPacks
+  const currentSortLabel = sortOptions.find((option) => option.value === sortMode)?.label ?? copy.library.sortByName
+  const launchGameLabel = copy.actions.launchGame
   const searchRef = useRef<HTMLDivElement | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputId = useId()

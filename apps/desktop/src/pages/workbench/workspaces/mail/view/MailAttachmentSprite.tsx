@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { Coins } from 'lucide-react'
 import { ItemSprite } from '@entities/item'
 import type { MailAttachment } from '../entities/mail'
@@ -17,7 +16,7 @@ type MailAttachmentSpriteProps = {
 export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSpriteProps) {
   const workspace = useMailWorkspaceContext()
 
-  const label = useMemo(() => {
+  const label = (() => {
     switch (attachment.kind) {
       case 'id':
       case 'object':
@@ -44,7 +43,7 @@ export function MailAttachmentSprite({ attachment, scale = 2 }: MailAttachmentSp
       case 'unknown':
         return attachment.body
     }
-  }, [attachment])
+  })()
 
   // Render id/object attachments as item sprites with count badges
   if (attachment.kind === 'id' || attachment.kind === 'object') {

@@ -4,6 +4,7 @@
  */
 
 import type { PlayerAppearanceColor, PlayerAppearanceProfile } from '@entities/event'
+import { appEvent } from '@platform/observability'
 import {
   getClothingPantsVariantSourceRect,
   getClothingShirtMenuSourceRect,
@@ -134,7 +135,10 @@ function safeBakeTexture(fallbackUrl: string | null, bake: () => string | null) 
   try {
     return bake() ?? fallbackUrl
   } catch (error) {
-    console.warn('Failed to bake farmer appearance texture.', error)
+    appEvent('warning', 'Failed to bake farmer appearance texture')
+      .error(error)
+      .context({ source: 'farmer-appearance-renderer', operation: 'bake-texture' })
+      .emit({ notify: false })
     return fallbackUrl
   }
 }

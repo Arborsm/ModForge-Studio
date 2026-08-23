@@ -9,6 +9,7 @@
  */
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { orValue } from '@platform/observability'
 import { deferToAnimationFrame, deferToTimeout } from '@shared/lib/react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { CharactersPanelCopy, LocaleCode } from '@locales'
@@ -70,11 +71,8 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
   const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(characterFilter.trim().toLowerCase())
-  const filteredCharacters = useMemo(
-    () => characters.filter((character) => !deferredFilter || character.searchText.includes(deferredFilter)),
-    [characters, deferredFilter],
-  )
-  const characterLookup = useMemo(() => buildModEntryLookup(characters, (character) => character.key), [characters])
+  const filteredCharacters = characters.filter((character) => !deferredFilter || character.searchText.includes(deferredFilter))
+  const characterLookup = buildModEntryLookup(characters, (character) => character.key)
   const modCharacterGroups = useMemo(
     () =>
       buildModBrowserGroups({
@@ -87,15 +85,11 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
       }),
     [characterFilter, characterLookup, modIndex.mods],
   )
-  const activeCharacterModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group) => group.characters,
-        key: activeCharacterId,
-      }),
-    [activeCharacterId, modIndex.mods],
-  )
+  const activeCharacterModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group) => group.characters,
+    key: activeCharacterId,
+  })
   const activeModCharacterEntry = useMemo(
     () => findModBrowserEntry(modCharacterGroups, activeModCharacterSelectionId),
     [activeModCharacterSelectionId, modCharacterGroups],
@@ -299,67 +293,59 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
       void (async () => {
         try {
           const [sprite, portrait, springObjects] = await Promise.all([
-            browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
-              ? loadModResultImageState({
-                  rootPath: directoryInfo.rootPath,
-                  entry: activeModCharacterEntry,
-                  preferredTargets: [activeVariant?.spriteAssetName ?? activeCharacter?.spriteAssetName ?? ''],
-                  fallbackPathLabel: activeVariant?.spritePathLabel ?? activeCharacter?.internalName ?? 'Characters\\Unknown',
-                })
-                  .then((result) => result ?? loadCharacterImageState(spritePath, locale))
-                  .catch(() => ({
-                    path: spritePath,
-                    url: null,
-                    width: null,
-                    height: null,
-                    originalWidth: null,
-                    originalHeight: null,
-                    image: null,
-                  }))
-              : loadCharacterImageState(spritePath, locale).catch(() => ({
-                  path: spritePath,
-                  url: null,
-                  width: null,
-                  height: null,
-                  originalWidth: null,
-                  originalHeight: null,
-                  image: null,
-                })),
-            browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
-              ? loadModResultImageState({
-                  rootPath: directoryInfo.rootPath,
-                  entry: activeModCharacterEntry,
-                  preferredTargets: [activeVariant?.portraitAssetName ?? activeCharacter?.portraitAssetName ?? ''],
-                  fallbackPathLabel: activeVariant?.portraitPathLabel ?? activeCharacter?.internalName ?? 'Portraits\\Unknown',
-                })
-                  .then((result) => result ?? loadCharacterImageState(portraitPath, locale))
-                  .catch(() => ({
-                    path: portraitPath,
-                    url: null,
-                    width: null,
-                    height: null,
-                    originalWidth: null,
-                    originalHeight: null,
-                    image: null,
-                  }))
-              : loadCharacterImageState(portraitPath, locale).catch(() => ({
-                  path: portraitPath,
-                  url: null,
-                  width: null,
-                  height: null,
-                  originalWidth: null,
-                  originalHeight: null,
-                  image: null,
-                })),
-            loadCharacterImageState(springObjectsPath, locale).catch(() => ({
-              path: springObjectsPath,
-              url: null,
-              width: null,
-              height: null,
-              originalWidth: null,
-              originalHeight: null,
-              image: null,
-            })),
+            orValue(
+              browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
+                ? loadModResultImageState({
+                    rootPath: directoryInfo.rootPath,
+                    entry: activeModCharacterEntry,
+                    preferredTargets: [activeVariant?.spriteAssetName ?? activeCharacter?.spriteAssetName ?? ''],
+                    fallbackPathLabel: activeVariant?.spritePathLabel ?? activeCharacter?.internalName ?? 'Characters\\Unknown',
+                  }).then((result) => result ?? loadCharacterImageState(spritePath, locale))
+                : loadCharacterImageState(spritePath, locale),
+              {
+                path: spritePath,
+                url: null,
+                width: null,
+                height: null,
+                originalWidth: null,
+                originalHeight: null,
+                image: null,
+              },
+              'character-workspace.load-sprite',
+            ),
+            orValue(
+              browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
+                ? loadModResultImageState({
+                    rootPath: directoryInfo.rootPath,
+                    entry: activeModCharacterEntry,
+                    preferredTargets: [activeVariant?.portraitAssetName ?? activeCharacter?.portraitAssetName ?? ''],
+                    fallbackPathLabel: activeVariant?.portraitPathLabel ?? activeCharacter?.internalName ?? 'Portraits\\Unknown',
+                  }).then((result) => result ?? loadCharacterImageState(portraitPath, locale))
+                : loadCharacterImageState(portraitPath, locale),
+              {
+                path: portraitPath,
+                url: null,
+                width: null,
+                height: null,
+                originalWidth: null,
+                originalHeight: null,
+                image: null,
+              },
+              'character-workspace.load-portrait',
+            ),
+            orValue(
+              loadCharacterImageState(springObjectsPath, locale),
+              {
+                path: springObjectsPath,
+                url: null,
+                width: null,
+                height: null,
+                originalWidth: null,
+                originalHeight: null,
+                image: null,
+              },
+              'character-workspace.load-sprite',
+            ),
           ])
 
           if (cancelled) {

@@ -95,7 +95,8 @@ export function validateField(field: CompatPluginField, value: unknown): FieldVa
     }
     case 'text':
     case 'keybind':
-    case 'keybind-list': {
+    case 'keybind-list':
+    case 'game-item': {
       if (typeof value !== 'string' && !Array.isArray(value)) {
         errors.push({ fieldId: field.id, path: field.path, message: 'at.field.invalid' })
       }
@@ -157,6 +158,7 @@ export function defaultFieldValue(field: CompatPluginField): unknown {
       return field.min ?? 0
     case 'text':
     case 'keybind':
+    case 'game-item':
       return ''
     case 'choice':
       return field.allowValues?.[0] ?? ''

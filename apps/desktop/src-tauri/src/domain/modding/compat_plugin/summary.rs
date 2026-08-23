@@ -67,6 +67,7 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                 .iter()
                 .map(condition_syntax_to_wire)
                 .collect();
+            let capabilities = manifest.contributions.capabilities.clone();
             CompatPluginSummary {
                 id: manifest.id.clone(),
                 name: manifest.name.clone(),
@@ -78,6 +79,7 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
                 i18n,
                 asset_schemas,
                 condition_syntax,
+                capabilities,
                 load_error: None,
                 entry: manifest.entry.clone(),
                 styles: manifest.styles.clone(),
@@ -111,6 +113,7 @@ pub(crate) fn build_summaries_from_report(report: &PluginLoadReport) -> Vec<Comp
             i18n: PluginI18nBundle::default(),
             asset_schemas: Vec::new(),
             condition_syntax: Vec::new(),
+            capabilities: Vec::new(),
             load_error: Some(error.reason.clone()),
             entry: None,
             styles: None,
@@ -135,6 +138,7 @@ fn page_source_to_wire(source: &PageSourceDecl) -> PageSourceWire {
             entry_file: source.params.entry_file.clone(),
             entry_image: source.params.entry_image.clone(),
             root_subdir: source.params.root_subdir.clone(),
+            include_content_packs: source.params.include_content_packs,
         },
     }
 }
@@ -143,6 +147,7 @@ fn page_source_to_wire(source: &PageSourceDecl) -> PageSourceWire {
 fn page_section_to_wire(section: &PageSectionDecl) -> PageSectionWire {
     PageSectionWire {
         title_key: section.title_key.clone(),
+        collapsed: section.collapsed,
         fields: section.fields.iter().map(page_field_to_wire).collect(),
     }
 }
@@ -189,6 +194,7 @@ fn page_field_to_wire(field: &PageFieldDecl) -> PageFieldWire {
                 value: v.value.clone(),
                 values: v.values.clone(),
             }),
+        id_path: field.id_path.clone(),
         fields: field.fields.iter().map(page_field_to_wire).collect(),
         sub_fields: field.sub_fields.iter().map(page_field_to_wire).collect(),
     }

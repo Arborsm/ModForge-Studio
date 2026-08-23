@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+import { appEvent } from '@platform/observability'
 import { useEventStageCopy, useLocale } from '@locales/provider'
 import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@entities/game/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
@@ -161,7 +162,10 @@ function buildPaletteStops(asset: LoadedImage | null, rowIndex: number, stopCoun
     paletteStopCache.set(cacheKey, colors)
     return colors
   } catch (error) {
-    console.warn('Failed to sample palette preview row.', error)
+    appEvent('warning', 'Failed to sample palette preview row')
+      .error(error)
+      .context({ source: 'player-appearance', operation: 'sample-palette' })
+      .emit({ notify: false })
     return [] as string[]
   }
 }
@@ -418,7 +422,7 @@ export default function PlayerAppearanceWindow({
     previewAssets.shirts,
   ])
 
-  const sectionItems = useMemo(() => {
+  const sectionItems = (() => {
     if (!activeProfile || activeSection === 'body') {
       return []
     }
@@ -473,7 +477,7 @@ export default function PlayerAppearanceWindow({
       active: activeProfile.hatSpriteIndex === index,
       profile: { ...activeProfile, hatSpriteIndex: index },
     }))
-  }, [activeProfile, activeSection, copy.none, counts.accessory, counts.hair, counts.hat, counts.pants, counts.shirt])
+  })()
 
   const pageCount = Math.max(1, Math.ceil(sectionItems.length / OPTION_PAGE_SIZE))
   const currentPage = Math.min(page, pageCount - 1)

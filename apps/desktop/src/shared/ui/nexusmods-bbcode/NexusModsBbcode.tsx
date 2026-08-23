@@ -1,7 +1,7 @@
 /** @file Nexus Mods BBCode renderer that sanitizes and converts parsed BBCode nodes to React elements. */
 
 import { Play } from 'lucide-react'
-import { isValidElement, memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { isValidElement, memo, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
   parseNexusModsBbcode,
@@ -1006,7 +1006,7 @@ function renderNodes(
 
 /** Memoized renderer that parses and displays Nexus Mods BBCode source as sanitized React elements. */
 export const NexusModsBbcode = memo(function NexusModsBbcode({ source }: NexusModsBbcodeProps) {
-  const document = useMemo(() => parseNexusModsBbcode(source), [source])
+  const document = parseNexusModsBbcode(source)
   const isDark = useColorScheme()
 
   return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode', true, isDark)}</div>

@@ -3,9 +3,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LauncherCopy } from '@locales/model'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { listenForGuideStepActivations } from '@shared/lib/guide-tour-events'
-import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
+import { dismissNotification } from '@shared/ui/notifications'
+import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
+import { useGuideEngineStore } from '@features/guide'
 import {
   inspectLauncherArchive,
   isLauncherRemoteModIdInvalid,
@@ -26,7 +26,7 @@ import {
   listenToLauncherArchiveDragDrop,
   type UnlistenFn,
 } from '@platform/host'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent } from '@platform/observability'
 import { toErrorMessage } from '@features/launcher/model/errorMessage'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
@@ -235,9 +235,7 @@ export function useLauncherLibraryController({
     openLibraryFolderItemsById,
     shortModsPath,
     sortOptions,
-    currentSortLabel,
     editCount,
-    currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
     isClosingLibraryFolder,
@@ -246,22 +244,34 @@ export function useLauncherLibraryController({
 
   // Guide steps that point at collapsible UI ask the page to reveal it first:
   // the sidebar drawer expands and the detail drawer opens on the first
-  // visible mod. Decoupled from the guide engine via a window event.
-  useEffect(
-    () =>
-      listenForGuideStepActivations(({ anchor }) => {
-        if (anchor === 'launcher-pack-sidebar') {
-          setDrawerOpen(true)
-        } else if (anchor === 'launcher-mod-detail') {
-          setDetailModId((current) => current ?? visibleMods[0]?.id ?? null)
-        }
-      }),
-    [visibleMods],
-  )
+  // visible mod. The current step is derived from the shared guide engine run.
+  const activeGuideStep = useGuideEngineStore((state) => {
+    if (!state.activeRun) {
+      return null
+    }
+    return state.definitions[state.activeRun.guideId]?.steps[state.activeRun.stepIndex] ?? null
+  })
+
+  useEffect(() => {
+    const anchor = activeGuideStep?.anchor
+    if (anchor === 'launcher-pack-sidebar') {
+      setDrawerOpen(true)
+    } else if (anchor === 'launcher-mod-detail') {
+      setDetailModId((current) => current ?? visibleMods[0]?.id ?? null)
+    }
+  }, [activeGuideStep, visibleMods])
 
   // The downloads manager floats inside the window frame, so it cannot stack
   // above the body-portal detail drawer; pages close their drawer on request.
-  useEffect(() => listenForLauncherModDetailDismiss(() => setDetailModId(null)), [])
+  const launcherOverlayDismissEpoch = useLauncherOverlayDismissStore((state) => state.dismissEpoch)
+  const launcherOverlayDismissEpochRef = useRef(launcherOverlayDismissEpoch)
+  useEffect(() => {
+    if (launcherOverlayDismissEpochRef.current === launcherOverlayDismissEpoch) {
+      return
+    }
+    launcherOverlayDismissEpochRef.current = launcherOverlayDismissEpoch
+    setDetailModId(null)
+  }, [launcherOverlayDismissEpoch])
 
   // Cached launcher routes stay mounted while hidden; close the body-portal
   // detail drawer as soon as the library route leaves the active page.
@@ -341,12 +351,12 @@ export function useLauncherLibraryController({
     })
   }, [])
 
-  const closeLibraryFolder = useCallback((folderId: string) => {
+  const closeLibraryFolder = (folderId: string) => {
     const folderLookup = normalizeLookupKey(folderId)
     setClosingLibraryFolderIds((closing) => closing.filter((id) => normalizeLookupKey(id) !== folderLookup))
     setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
     setOpenLibraryFolderIds((current) => current.filter((id) => normalizeLookupKey(id) !== folderLookup))
-  }, [])
+  }
 
   const closeArchivePreview = useCallback(() => {
     setArchivePreviewState('idle')
@@ -360,160 +370,170 @@ export function useLauncherLibraryController({
     setInstallResult(null)
   }, [])
 
-  const openInstallSummary = useCallback((result: InstallLauncherArchiveResult) => {
+  const openInstallSummary = (result: InstallLauncherArchiveResult) => {
     setInstallBackupsOpen(false)
     setInstallBackupsError(null)
     setInstallResult(result)
-  }, [])
+  }
 
-  const publishArchiveInstallResult = useCallback(
-    (results: InstallLauncherArchiveResult[], failures: Array<{ archivePath: string; message: string }>) => {
-      if (!results.length && !failures.length) {
-        return
-      }
+  const publishArchiveInstallResult = (
+    results: InstallLauncherArchiveResult[],
+    failures: Array<{ archivePath: string; message: string }>,
+  ) => {
+    if (!results.length && !failures.length) {
+      return
+    }
 
-      publishNotification({
-        level: failures.length && !results.length ? 'error' : failures.length ? 'warning' : 'success',
-        title: copy.library.installSummaryTitle,
-        summary: [
+    const event = appEvent(
+      failures.length && !results.length ? 'error' : failures.length ? 'warning' : 'success',
+      copy.library.installSummaryTitle,
+    )
+      .summary(
+        [
           results.length ? copy.library.installSummarySucceeded(results.length) : null,
           failures.length ? copy.library.installSummaryFailed(failures.length) : null,
         ]
           .filter(Boolean)
           .join(' / '),
-        description: formatInstallResultDescription(copy.library, results, failures),
-        action:
-          results.length === 1
-            ? {
-                label: copy.actions.viewDetails,
-                callback: () => openInstallSummary(results[0]!),
-                tone: 'primary',
-              }
-            : undefined,
-        autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
+      )
+      .description(formatInstallResultDescription(copy.library, results, failures))
+      .autoDismiss(LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS)
+    if (results.length === 1) {
+      event.action({
+        label: copy.actions.viewDetails,
+        callback: () => openInstallSummary(results[0]!),
+        tone: 'primary',
       })
-    },
-    [copy.actions.viewDetails, copy.library, openInstallSummary],
-  )
-
-  const publishArchiveDropError = useCallback(
-    (description: string) => {
-      publishNotification({
-        level: 'error',
-        title: copy.actions.installArchive,
-        description,
+    }
+    event
+      .context({
+        source: 'launcher-library',
+        operation: 'install-archive-result',
       })
-    },
-    [copy.actions.installArchive],
-  )
+      .emit()
+  }
 
-  const openArchivePreviewForPaths = useCallback(
-    async (paths: string[]) => {
-      const taskToken = archivePreviewTaskTokenRef.current + 1
-      archivePreviewTaskTokenRef.current = taskToken
-      const isTaskActive = () => archivePreviewTaskTokenRef.current === taskToken
+  const publishArchiveDropError = (description: string) => {
+    appEvent('error', copy.actions.installArchive)
+      .description(description)
+      .context({
+        source: 'launcher-library',
+        operation: 'drop-archive-error',
+      })
+      .emit()
+  }
 
-      setArchivePreviewState('idle')
-      setArchivePreviews([])
-      setSelectedArchivePreviewPath(null)
-      setArchivePreviewError(null)
+  const openArchivePreviewForPaths = async (paths: string[]) => {
+    const taskToken = archivePreviewTaskTokenRef.current + 1
+    archivePreviewTaskTokenRef.current = taskToken
+    const isTaskActive = () => archivePreviewTaskTokenRef.current === taskToken
 
-      const nextPreviews: InspectLauncherArchiveResult[] = []
-      let firstError: string | null = null
-      const total = paths.length
-      let completed = 0
+    setArchivePreviewState('idle')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(null)
 
-      for (const path of paths) {
-        if (!isTaskActive()) {
-          return
-        }
+    const nextPreviews: InspectLauncherArchiveResult[] = []
+    let firstError: string | null = null
+    const total = paths.length
+    let completed = 0
 
-        publishNotification({
-          id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
-          level: 'info',
-          title: copy.library.previewLoading,
-          description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
-          autoDismissMs: null,
-          progress: total > 0 ? (completed / total) * 100 : 0,
-        })
-
-        try {
-          nextPreviews.push(await inspectLauncherArchive({ archivePath: path, modsPath: settings.modsPath }))
-          completed += 1
-          if (isTaskActive()) {
-            publishNotification({
-              id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
-              level: 'info',
-              title: copy.library.previewLoading,
-              description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
-              autoDismissMs: null,
-              progress: total > 0 ? (completed / total) * 100 : 100,
-            })
-          }
-        } catch (nextError) {
-          completed += 1
-          const description = nextError instanceof Error ? nextError.message : copy.library.previewError
-          if (!firstError) {
-            firstError = description
-          }
-          publishNotification({
-            level: 'error',
-            title: copy.library.previewTitle,
-            description,
-          })
-        }
-      }
-
+    for (const path of paths) {
       if (!isTaskActive()) {
         return
       }
 
-      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
+      appEvent('info', copy.library.previewLoading)
+        .description(copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)))
+        .noticeId(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
+        .autoDismiss(null)
+        .progress(total > 0 ? (completed / total) * 100 : 0)
+        .context({
+          source: 'launcher-library',
+          operation: 'inspect-archive-preview',
+        })
+        .emit()
 
-      if (nextPreviews.length) {
-        setArchivePreviews(nextPreviews)
-        setSelectedArchivePreviewPath(nextPreviews[0]?.archivePath ?? null)
-        setArchivePreviewState('ready')
-        return
+      try {
+        nextPreviews.push(await inspectLauncherArchive({ archivePath: path, modsPath: settings.modsPath }))
+        completed += 1
+        if (isTaskActive()) {
+          appEvent('info', copy.library.previewLoading)
+            .description(copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)))
+            .noticeId(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
+            .autoDismiss(null)
+            .progress(total > 0 ? (completed / total) * 100 : 100)
+            .context({
+              source: 'launcher-library',
+              operation: 'inspect-archive-preview',
+            })
+            .emit()
+        }
+      } catch (nextError) {
+        completed += 1
+        const description = nextError instanceof Error ? nextError.message : copy.library.previewError
+        if (!firstError) {
+          firstError = description
+        }
+        appEvent('error', copy.library.previewTitle)
+          .error(nextError)
+          .description(description)
+          .context({
+            source: 'launcher-library-controller',
+            operation: 'inspect-archive-preview',
+          })
+          .emit()
       }
+    }
 
+    if (!isTaskActive()) {
+      return
+    }
+
+    dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
+
+    if (nextPreviews.length) {
+      setArchivePreviews(nextPreviews)
+      setSelectedArchivePreviewPath(nextPreviews[0]?.archivePath ?? null)
+      setArchivePreviewState('ready')
+      return
+    }
+
+    setArchivePreviewState('idle')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(firstError)
+  }
+
+  const openArchivePreviewForPath = async (path: string) => {
+    try {
+      await openArchivePreviewForPaths([path])
+    } catch (nextError) {
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
       setArchivePreviewState('idle')
       setArchivePreviews([])
       setSelectedArchivePreviewPath(null)
-      setArchivePreviewError(firstError)
-    },
-    [copy.library, settings.modsPath],
-  )
-
-  const openArchivePreviewForPath = useCallback(
-    async (path: string) => {
-      try {
-        await openArchivePreviewForPaths([path])
-      } catch (nextError) {
-        dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
-        setArchivePreviewState('idle')
-        setArchivePreviews([])
-        setSelectedArchivePreviewPath(null)
-        setArchivePreviewError(null)
-        publishNotification({
-          level: 'error',
-          title: copy.library.previewTitle,
-          description: nextError instanceof Error ? nextError.message : copy.library.previewError,
+      setArchivePreviewError(null)
+      appEvent('error', copy.library.previewTitle)
+        .error(nextError)
+        .description(nextError instanceof Error ? nextError.message : copy.library.previewError)
+        .context({
+          source: 'launcher-library-controller',
+          operation: 'open archive preview',
         })
-      }
-    },
-    [copy.library.previewError, copy.library.previewTitle, openArchivePreviewForPaths],
-  )
+        .emit()
+    }
+  }
 
-  const closeInstallBackupsDialog = useCallback(() => {
+  const closeInstallBackupsDialog = () => {
     if (restoringBackupId) {
       return
     }
     setInstallBackupsOpen(false)
     setInstallBackupsError(null)
-  }, [restoringBackupId])
+  }
 
-  const loadInstallBackups = useCallback(async () => {
+  const loadInstallBackups = async () => {
     setInstallBackupsOpen(true)
     setInstallBackupsState('loading')
     setInstallBackupsError(null)
@@ -531,11 +551,11 @@ export function useLauncherLibraryController({
       setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
       return false
     }
-  }, [copy.library.installBackupsError, settings.modsPath])
+  }
 
-  const openInstallBackupsDialog = useCallback(() => {
+  const openInstallBackupsDialog = () => {
     void loadInstallBackups()
-  }, [loadInstallBackups])
+  }
 
   const openInstallBackupsFromSummary = useCallback(() => {
     setInstallResult(null)
@@ -546,15 +566,13 @@ export function useLauncherLibraryController({
     try {
       await refresh()
     } catch (nextError) {
-      reportAppEvent({
-        level: 'error',
-        title: copy.library.actionErrorTitle,
-        description: toErrorMessage(nextError, copy.library.genericError),
-        keyValues: {
+      appEvent('error', copy.library.actionErrorTitle)
+        .description(toErrorMessage(nextError, copy.library.genericError))
+        .context({
           source: 'launcher-library',
           operation: 'refresh',
-        },
-      })
+        })
+        .emit()
     }
   }, [copy.library.actionErrorTitle, copy.library.genericError, refresh])
 
@@ -564,29 +582,27 @@ export function useLauncherLibraryController({
         await action()
         return true
       } catch (nextError) {
-        reportAppEvent({
-          level: 'error',
-          title: copy.library.actionErrorTitle,
-          description: toErrorMessage(nextError, copy.library.genericError),
-          keyValues: {
+        appEvent('error', copy.library.actionErrorTitle)
+          .description(toErrorMessage(nextError, copy.library.genericError))
+          .context({
             source: 'launcher-library',
             operation: 'action',
-          },
-        })
+          })
+          .emit()
         return false
       }
     },
     [copy.library.actionErrorTitle, copy.library.genericError],
   )
 
-  const inspectArchive = useCallback(async () => {
+  const inspectArchive = async () => {
     const paths = await chooseArchiveFiles(copy.actions.chooseArchive)
     if (!paths.length) {
       return
     }
 
     void openArchivePreviewForPaths(paths)
-  }, [copy.actions.chooseArchive, openArchivePreviewForPaths])
+  }
 
   const confirmArchiveInstall = useCallback(async () => {
     if (!archivePreviews.length) {
@@ -601,14 +617,16 @@ export function useLauncherLibraryController({
     setArchivePreviews([])
     setSelectedArchivePreviewPath(null)
     setArchivePreviewError(null)
-    publishNotification({
-      id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.library.installProgressTitle,
-      description: formatInstallProgressDescription(copy.library, archiveFileNameFromPath(previewsToInstall[0]!.archivePath), 0, total),
-      autoDismissMs: null,
-      progress: 0,
-    })
+    appEvent('info', copy.library.installProgressTitle)
+      .description(formatInstallProgressDescription(copy.library, archiveFileNameFromPath(previewsToInstall[0]!.archivePath), 0, total))
+      .noticeId(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+      .autoDismiss(null)
+      .progress(0)
+      .context({
+        source: 'launcher-library',
+        operation: 'install-archive',
+      })
+      .emit()
 
     let successfulInstalls = 0
     const successfulArchivePaths: string[] = []
@@ -617,19 +635,23 @@ export function useLauncherLibraryController({
 
     try {
       for (const preview of previewsToInstall) {
-        publishNotification({
-          id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
-          level: 'info',
-          title: copy.library.installProgressTitle,
-          description: formatInstallProgressDescription(
-            copy.library,
-            archiveFileNameFromPath(preview.archivePath),
-            successfulInstalls + installFailures.length,
-            total,
-          ),
-          autoDismissMs: null,
-          progress: total > 0 ? ((successfulInstalls + installFailures.length) / total) * 100 : 0,
-        })
+        appEvent('info', copy.library.installProgressTitle)
+          .description(
+            formatInstallProgressDescription(
+              copy.library,
+              archiveFileNameFromPath(preview.archivePath),
+              successfulInstalls + installFailures.length,
+              total,
+            ),
+          )
+          .noticeId(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+          .autoDismiss(null)
+          .progress(total > 0 ? ((successfulInstalls + installFailures.length) / total) * 100 : 0)
+          .context({
+            source: 'launcher-library',
+            operation: 'install-archive',
+          })
+          .emit()
 
         try {
           const result = await library.installArchive(preview.archivePath)
@@ -653,10 +675,20 @@ export function useLauncherLibraryController({
       }
     } catch (nextError) {
       dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
-      publishArchiveInstallResult(
-        [],
-        [{ archivePath: copy.actions.installArchive, message: toErrorMessage(nextError, copy.library.previewError) }],
-      )
+      appEvent('error', copy.library.installSummaryTitle)
+        .error(nextError)
+        .description(
+          formatInstallResultDescription(
+            copy.library,
+            [],
+            [{ archivePath: copy.actions.installArchive, message: toErrorMessage(nextError, copy.library.previewError) }],
+          ),
+        )
+        .context({
+          source: 'launcher-library-controller',
+          operation: 'install archive previews',
+        })
+        .emit()
     } finally {
       setInstallingArchive(false)
     }
@@ -736,140 +768,135 @@ export function useLauncherLibraryController({
     }
   }, [handleDroppedArchives])
 
-  const restoreInstallBackupSession = useCallback(
-    async (backupId: string) => {
-      setInstallBackupsError(null)
-      setRestoringBackupId(backupId)
+  const restoreInstallBackupSession = async (backupId: string) => {
+    setInstallBackupsError(null)
+    setRestoringBackupId(backupId)
 
-      try {
-        await restoreLauncherInstallBackup({
-          backupId,
-          modsPath: settings.modsPath,
+    try {
+      await restoreLauncherInstallBackup({
+        backupId,
+        modsPath: settings.modsPath,
+      })
+      setInstallResult(null)
+      setInstallBackupsOpen(false)
+      appEvent('success', copy.library.restoreInstallBackup)
+        .description(backupId)
+        .context({
+          source: 'launcher-library',
+          operation: 'restore-install-backup',
         })
-        setInstallResult(null)
-        setInstallBackupsOpen(false)
-        publishNotification({
-          level: 'success',
-          title: copy.library.restoreInstallBackup,
-          description: backupId,
-        })
-        void refreshLibrary()
-      } catch (nextError) {
-        setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
-        setInstallBackupsState('error')
-      } finally {
-        setRestoringBackupId(null)
+        .emit()
+      void refreshLibrary()
+    } catch (nextError) {
+      setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
+      setInstallBackupsState('error')
+    } finally {
+      setRestoringBackupId(null)
+    }
+  }
+
+  const openLibraryRoot = () =>
+    runLibraryAction(async () => {
+      if (!settings.modsPath) {
+        throw new Error(copy.states.missingModsPath)
       }
-    },
-    [copy.library.installBackupsError, copy.library.restoreInstallBackup, refreshLibrary, settings.modsPath],
-  )
+      await openLauncherPath({ path: settings.modsPath })
+    })
 
-  const openLibraryRoot = useCallback(
-    () =>
-      runLibraryAction(async () => {
-        if (!settings.modsPath) {
-          throw new Error(copy.states.missingModsPath)
-        }
-        await openLauncherPath({ path: settings.modsPath })
-      }),
-    [copy.states.missingModsPath, runLibraryAction, settings.modsPath],
-  )
+  const openModFolder = (mod: LauncherLibraryItem) =>
+    runLibraryAction(async () => {
+      await openLauncherPath({ path: mod.absolutePath })
+    })
 
-  const openModFolder = useCallback(
-    (mod: LauncherLibraryItem) =>
-      runLibraryAction(async () => {
-        await openLauncherPath({ path: mod.absolutePath })
-      }),
-    [runLibraryAction],
-  )
+  const setModCover = (mod: LauncherLibraryItem) =>
+    runLibraryAction(async () => {
+      const imagePath = await chooseImageFile(copy.actions.setCover)
+      if (!imagePath) {
+        return
+      }
+      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath })
+      await refresh()
+    })
 
-  const setModCover = useCallback(
-    (mod: LauncherLibraryItem) =>
-      runLibraryAction(async () => {
-        const imagePath = await chooseImageFile(copy.actions.setCover)
-        if (!imagePath) {
-          return
-        }
-        await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath })
-        await refresh()
-      }),
-    [copy.actions.setCover, refresh, runLibraryAction],
-  )
-
-  const clearModCover = useCallback(
-    (mod: LauncherLibraryItem) =>
-      runLibraryAction(async () => {
-        await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath: null })
-        await refresh()
-      }),
-    [refresh, runLibraryAction],
-  )
+  const clearModCover = (mod: LauncherLibraryItem) =>
+    runLibraryAction(async () => {
+      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath: null })
+      await refresh()
+    })
 
   const closeGalleryCoverDialog = useCallback(() => {
     setGalleryCoverDialog(null)
   }, [])
 
-  const openGalleryCoverDialog = useCallback(
-    async (mod: LauncherLibraryItem) => {
-      if (!mod.nexusModId) {
-        publishNotification({
-          level: 'warning',
-          title: copy.actions.chooseGalleryCover,
-          description: copy.library.galleryCoverEmpty,
+  const openGalleryCoverDialog = async (mod: LauncherLibraryItem) => {
+    if (!mod.nexusModId) {
+      appEvent('warning', copy.actions.chooseGalleryCover)
+        .description(copy.library.galleryCoverEmpty)
+        .context({
+          source: 'launcher-library',
+          operation: 'choose-gallery-cover',
         })
-        return
-      }
-      if (isLauncherRemoteModIdInvalid(mod.nexusModId)) {
-        publishNotification({
-          level: 'warning',
-          title: copy.actions.chooseGalleryCover,
-          description: copy.library.galleryCoverEmpty,
+        .emit()
+      return
+    }
+    if (isLauncherRemoteModIdInvalid(mod.nexusModId)) {
+      appEvent('warning', copy.actions.chooseGalleryCover)
+        .description(copy.library.galleryCoverEmpty)
+        .context({
+          source: 'launcher-library',
+          operation: 'choose-gallery-cover',
         })
-        return
-      }
+        .emit()
+      return
+    }
 
-      try {
-        publishNotification({
-          id: LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID,
-          level: 'info',
-          title: copy.actions.chooseGalleryCover,
-          description: copy.library.galleryCoverLoading,
-          autoDismissMs: null,
+    try {
+      appEvent('info', copy.actions.chooseGalleryCover)
+        .description(copy.library.galleryCoverLoading)
+        .noticeId(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+        .autoDismiss(null)
+        .context({
+          source: 'launcher-library',
+          operation: 'load-gallery-cover-images',
         })
+        .emit()
 
-        const detail = await loadLauncherRemoteModDetail({ modId: mod.nexusModId })
-        const imageUrls = Array.from(new Set(detail.galleryImages.map((value) => value.trim()).filter(Boolean)))
-        if (!imageUrls.length) {
-          dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
-          publishNotification({
-            level: 'warning',
-            title: copy.actions.chooseGalleryCover,
-            description: copy.library.galleryCoverEmpty,
-          })
-          return
-        }
-
-        setGalleryCoverDialog({
-          mod,
-          imageUrls,
-          selectedImageUrl: imageUrls[0]!,
-          applying: false,
-        })
-      } catch (nextError) {
+      const detail = await loadLauncherRemoteModDetail({ modId: mod.nexusModId })
+      const imageUrls = Array.from(new Set(detail.galleryImages.map((value) => value.trim()).filter(Boolean)))
+      if (!imageUrls.length) {
         dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
-        publishNotification({
-          level: 'error',
-          title: copy.actions.chooseGalleryCover,
-          description: toErrorMessage(nextError, copy.library.genericError),
-        })
+        appEvent('warning', copy.actions.chooseGalleryCover)
+          .description(copy.library.galleryCoverEmpty)
+          .context({
+            source: 'launcher-library',
+            operation: 'choose-gallery-cover',
+          })
+          .emit()
         return
       }
-      dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
-    },
-    [copy.actions.chooseGalleryCover, copy.library.galleryCoverEmpty, copy.library.galleryCoverLoading, copy.library.genericError],
-  )
 
-  const applyGalleryCover = useCallback(async () => {
+      setGalleryCoverDialog({
+        mod,
+        imageUrls,
+        selectedImageUrl: imageUrls[0]!,
+        applying: false,
+      })
+    } catch (nextError) {
+      dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+      appEvent('error', copy.actions.chooseGalleryCover)
+        .error(nextError)
+        .description(toErrorMessage(nextError, copy.library.genericError))
+        .context({
+          source: 'launcher-library-controller',
+          operation: 'load-gallery-cover-images',
+        })
+        .emit()
+      return
+    }
+    dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+  }
+
+  const applyGalleryCover = async () => {
     if (!galleryCoverDialog) {
       return
     }
@@ -888,24 +915,29 @@ export function useLauncherLibraryController({
       })
       await refresh()
       setGalleryCoverDialog(null)
-      publishNotification({
-        level: 'success',
-        title: copy.actions.setCover,
-        description: galleryCoverDialog.mod.name,
-      })
+      appEvent('success', copy.actions.setCover)
+        .description(galleryCoverDialog.mod.name)
+        .context({
+          source: 'launcher-library',
+          operation: 'apply-gallery-cover',
+        })
+        .emit()
     } catch (nextError) {
-      publishNotification({
-        level: 'error',
-        title: copy.actions.setCover,
-        description: toErrorMessage(nextError, copy.library.genericError),
-      })
+      appEvent('error', copy.actions.setCover)
+        .error(nextError)
+        .description(toErrorMessage(nextError, copy.library.genericError))
+        .context({
+          source: 'launcher-library-controller',
+          operation: 'apply-gallery-cover',
+        })
+        .emit()
       setGalleryCoverDialog((current) => (current ? { ...current, applying: false } : current))
     }
-  }, [copy.actions.setCover, copy.library.genericError, galleryCoverDialog, refresh])
+  }
 
-  const openModDetails = useCallback((modId: string) => {
+  const openModDetails = (modId: string) => {
     setDetailModId(modId)
-  }, [])
+  }
 
   const toggleEditSelection = useCallback((modId: string) => {
     setEditingSelectionIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
@@ -920,48 +952,42 @@ export function useLauncherLibraryController({
     })
   }, [])
 
-  const selectPack = useCallback(
-    async (packId: string | null, options?: { closeDrawer?: boolean }) => {
-      const success = await runLibraryAction(async () => {
-        await library.setCurrentPackId(packId)
-        await library.setScopeMode(packId ? 'current-pack' : 'all')
-      })
-      if (!success) {
-        return false
-      }
+  const selectPack = async (packId: string | null, options?: { closeDrawer?: boolean }) => {
+    const success = await runLibraryAction(async () => {
+      await library.setCurrentPackId(packId)
+      await library.setScopeMode(packId ? 'current-pack' : 'all')
+    })
+    if (!success) {
+      return false
+    }
 
-      setHiddenViewOpen(false)
-      setQuickSwitchOpen(false)
-      setPackActionMenuId(null)
-      setSortMenuOpen(false)
-      setSortingBannerOpen(false)
-      if (options?.closeDrawer) {
-        setDrawerOpen(false)
-      }
-      return true
-    },
-    [library, runLibraryAction],
-  )
+    setHiddenViewOpen(false)
+    setQuickSwitchOpen(false)
+    setPackActionMenuId(null)
+    setSortMenuOpen(false)
+    setSortingBannerOpen(false)
+    if (options?.closeDrawer) {
+      setDrawerOpen(false)
+    }
+    return true
+  }
 
-  const selectHiddenView = useCallback(
-    (options?: { closeDrawer?: boolean }) => {
-      // The hidden view lists every hidden mod across the whole library, so it
-      // must not stay scoped to the current pack. Reset the scope eagerly so the
-      // hidden list is not filtered down to pack members while the view is open.
-      void library.setScopeMode('all')
-      setHiddenViewOpen(true)
-      setQuickSwitchOpen(false)
-      setPackActionMenuId(null)
-      setSortMenuOpen(false)
-      setSortingBannerOpen(false)
-      if (options?.closeDrawer) {
-        setDrawerOpen(false)
-      }
-    },
-    [library],
-  )
+  const selectHiddenView = (options?: { closeDrawer?: boolean }) => {
+    // The hidden view lists every hidden mod across the whole library, so it
+    // must not stay scoped to the current pack. Reset the scope eagerly so the
+    // hidden list is not filtered down to pack members while the view is open.
+    void library.setScopeMode('all')
+    setHiddenViewOpen(true)
+    setQuickSwitchOpen(false)
+    setPackActionMenuId(null)
+    setSortMenuOpen(false)
+    setSortingBannerOpen(false)
+    if (options?.closeDrawer) {
+      setDrawerOpen(false)
+    }
+  }
 
-  const changeSortMode = useCallback((nextSortMode: LibrarySortMode) => {
+  const changeSortMode = (nextSortMode: LibrarySortMode) => {
     setSortMode(nextSortMode)
     // Selecting "custom" only switches the view to the persisted custom order;
     // it does not open the reorder banner. The banner is a separate editing
@@ -971,9 +997,9 @@ export function useLauncherLibraryController({
       setSortingBannerOpen(false)
     }
     setSortMenuOpen(false)
-  }, [])
+  }
 
-  const startSortingMode = useCallback(() => {
+  const startSortingMode = () => {
     setSortMode('custom')
     setSortingBannerOpen(true)
     setEditMode(false)
@@ -984,7 +1010,7 @@ export function useLauncherLibraryController({
     setPackActionMenuId(null)
     setSortMenuOpen(false)
     setDrawerOpen(false)
-  }, [])
+  }
 
   const finishSorting = useCallback(() => {
     setSortingBannerOpen(false)
@@ -1006,11 +1032,11 @@ export function useLauncherLibraryController({
     [boxSelectionIds, editMode, editingSelectionIds, library.selectedModIds],
   )
 
-  const createLibraryFolder = useCallback(() => {
+  const createLibraryFolder = () => {
     void runLibraryAction(async () => {
       await library.createLibraryFolder(undefined, { packId: hiddenViewOpen ? null : library.currentPackId })
     })
-  }, [hiddenViewOpen, library, runLibraryAction])
+  }
 
   const removeDraggedChildModsFromParent = useCallback(
     (modIds: string[]) => {
@@ -1029,17 +1055,14 @@ export function useLauncherLibraryController({
     [childParentLookup, library, runLibraryAction],
   )
 
-  const assignDraggedModsToLibraryFolder = useCallback(
-    async (folderId: string, modIds: string[]) => {
-      if (!modIds.length) {
-        return
-      }
-      await runLibraryAction(async () => {
-        await library.addModsToLibraryFolder(folderId, modIds)
-      })
-    },
-    [library, runLibraryAction],
-  )
+  const assignDraggedModsToLibraryFolder = async (folderId: string, modIds: string[]) => {
+    if (!modIds.length) {
+      return
+    }
+    await runLibraryAction(async () => {
+      await library.addModsToLibraryFolder(folderId, modIds)
+    })
+  }
 
   const removeDraggedModsFromLibraryFolders = useCallback(
     (modIds: string[]) => {
@@ -1057,48 +1080,39 @@ export function useLauncherLibraryController({
     [library, libraryFolderModLookup, runLibraryAction],
   )
 
-  const moveDraggedFolderToFolder = useCallback(
-    (folderId: string, parentFolderId: string | null) => {
-      void runLibraryAction(async () => {
-        await library.moveLibraryFolderToFolder(folderId, parentFolderId)
-      })
-    },
-    [library, runLibraryAction],
-  )
+  const moveDraggedFolderToFolder = (folderId: string, parentFolderId: string | null) => {
+    void runLibraryAction(async () => {
+      await library.moveLibraryFolderToFolder(folderId, parentFolderId)
+    })
+  }
 
   const toggleParentExpanded = useCallback((modId: string) => {
     setExpandedParentIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
   }, [])
 
-  const removeChildMod = useCallback(
-    (modId: string) => {
-      void runLibraryAction(async () => {
-        await library.removeChildMods([modId])
-      })
-    },
-    [library, runLibraryAction],
-  )
+  const removeChildMod = (modId: string) => {
+    void runLibraryAction(async () => {
+      await library.removeChildMods([modId])
+    })
+  }
 
-  const startChildModSelection = useCallback(
-    (parentMod: LauncherLibraryItem) => {
-      const parentLookup = normalizeLookupKey(getModKey(parentMod))
-      const selectedModIds = (childGroupLookup.get(parentLookup)?.childModKeys ?? [])
-        .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey))?.id)
-        .filter((id): id is string => Boolean(id))
-      setChildModSelection({ parentMod, selectedModIds })
-      setEditMode(false)
-      setEditingSelectionIds([])
-      setBoxSelectionIds([])
-      setSortingBannerOpen(false)
-      setQuickSwitchOpen(false)
-      setPackActionMenuId(null)
-      setSortMenuOpen(false)
-      setDrawerOpen(false)
-    },
-    [childGroupLookup, modByKeyLookup],
-  )
+  const startChildModSelection = (parentMod: LauncherLibraryItem) => {
+    const parentLookup = normalizeLookupKey(getModKey(parentMod))
+    const selectedModIds = (childGroupLookup.get(parentLookup)?.childModKeys ?? [])
+      .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey))?.id)
+      .filter((id): id is string => Boolean(id))
+    setChildModSelection({ parentMod, selectedModIds })
+    setEditMode(false)
+    setEditingSelectionIds([])
+    setBoxSelectionIds([])
+    setSortingBannerOpen(false)
+    setQuickSwitchOpen(false)
+    setPackActionMenuId(null)
+    setSortMenuOpen(false)
+    setDrawerOpen(false)
+  }
 
-  const toggleChildModSelection = useCallback((modId: string) => {
+  const toggleChildModSelection = (modId: string) => {
     setChildModSelection((current) =>
       current
         ? {
@@ -1109,7 +1123,7 @@ export function useLauncherLibraryController({
           }
         : current,
     )
-  }, [])
+  }
 
   const cancelChildModSelection = useCallback(() => {
     setChildModSelection(null)
@@ -1128,7 +1142,7 @@ export function useLauncherLibraryController({
     setChildModSelection(null)
   }, [childModSelection, library, runLibraryAction])
 
-  const startEditMode = useCallback(() => {
+  const startEditMode = () => {
     if (!library.currentPack) {
       return
     }
@@ -1140,7 +1154,7 @@ export function useLauncherLibraryController({
     setPackActionMenuId(null)
     setSortMenuOpen(false)
     setDrawerOpen(false)
-  }, [library.currentPack, library.mods])
+  }
 
   const startEditingPack = useCallback(
     (pack: LauncherPackPreset, isCurrentPack: boolean) => {
@@ -1200,11 +1214,11 @@ export function useLauncherLibraryController({
     setPackDialog(null)
   }, [])
 
-  const openRenameLibraryFolderDialog = useCallback((folder: LauncherVirtualFolder) => {
+  const openRenameLibraryFolderDialog = (folder: LauncherVirtualFolder) => {
     setFolderDialog({ kind: 'rename', folder, value: folder.name })
     setPackActionMenuId(null)
     setSortMenuOpen(false)
-  }, [])
+  }
 
   const closeFolderDialog = useCallback(() => {
     setFolderDialog(null)
@@ -1262,7 +1276,7 @@ export function useLauncherLibraryController({
     setPackDialog(null)
   }, [library, packDialog, runLibraryAction])
 
-  const submitFolderDialog = useCallback(async () => {
+  const submitFolderDialog = async () => {
     if (!folderDialog) {
       return
     }
@@ -1276,7 +1290,7 @@ export function useLauncherLibraryController({
     if (success) {
       setFolderDialog(null)
     }
-  }, [folderDialog, library, runLibraryAction])
+  }
 
   const isParentExpanded = useCallback((modId: string) => expandedParentIds.includes(modId), [expandedParentIds])
   const openGridModFolder = useCallback((mod: LauncherLibraryItem) => void openModFolder(mod), [openModFolder])
@@ -1317,14 +1331,11 @@ export function useLauncherLibraryController({
     [library, openLibraryFolderItemsById, runLibraryAction],
   )
 
-  const reorderChildModItems = useCallback(
-    (parentModKey: string, fromKey: string, toAfterKey: string) => {
-      void runLibraryAction(async () => {
-        await library.reorderChildMods(parentModKey, fromKey, toAfterKey)
-      })
-    },
-    [library, runLibraryAction],
-  )
+  const reorderChildModItems = (parentModKey: string, fromKey: string, toAfterKey: string) => {
+    void runLibraryAction(async () => {
+      await library.reorderChildMods(parentModKey, fromKey, toAfterKey)
+    })
+  }
 
   const directActionsForMod = useCallback(
     (mod: LauncherLibraryItem) => {
@@ -1381,58 +1392,46 @@ export function useLauncherLibraryController({
     ],
   )
 
-  const directActionsForLibraryFolder = useCallback(
-    (folder: LauncherVirtualFolder) => {
-      const folderModIds = getLibraryFolderModIds(folder)
-      const canToggleFolderVisibility = !folder.packId && (hiddenViewOpen || !library.currentPackId)
-      return [
-        {
-          label: isLibraryFolderOpen(folder.id) ? copy.library.closeLibraryFolder : copy.library.openLibraryFolder(folder.name),
-          onSelect: () => toggleLibraryFolderOpen(folder.id),
-        },
-        { label: copy.library.renameLibraryFolder, onSelect: () => openRenameLibraryFolderDialog(folder) },
-        ...(canToggleFolderVisibility
-          ? [
-              {
-                label: folder.hidden ? copy.library.showLibraryFolder : copy.library.hideLibraryFolder,
-                onSelect: () =>
-                  void runLibraryAction(async () => {
-                    if (folder.hidden) {
-                      await library.showLibraryFolder(folder.id)
-                      return
-                    }
-                    await library.hideLibraryFolder(folder.id)
-                  }),
-              },
-            ]
-          : []),
-        {
-          label: copy.library.enableLibraryFolder,
-          onSelect: () =>
-            void runLibraryAction(async () => {
-              await library.setModsEnabled(folderModIds, true)
-            }),
-        },
-        {
-          label: copy.library.disableLibraryFolder,
-          onSelect: () =>
-            void runLibraryAction(async () => {
-              await library.setModsEnabled(folderModIds, false)
-            }),
-        },
-      ]
-    },
-    [
-      copy.library,
-      getLibraryFolderModIds,
-      hiddenViewOpen,
-      isLibraryFolderOpen,
-      library,
-      openRenameLibraryFolderDialog,
-      runLibraryAction,
-      toggleLibraryFolderOpen,
-    ],
-  )
+  const directActionsForLibraryFolder = (folder: LauncherVirtualFolder) => {
+    const folderModIds = getLibraryFolderModIds(folder)
+    const canToggleFolderVisibility = !folder.packId && (hiddenViewOpen || !library.currentPackId)
+    return [
+      {
+        label: isLibraryFolderOpen(folder.id) ? copy.library.closeLibraryFolder : copy.library.openLibraryFolder(folder.name),
+        onSelect: () => toggleLibraryFolderOpen(folder.id),
+      },
+      { label: copy.library.renameLibraryFolder, onSelect: () => openRenameLibraryFolderDialog(folder) },
+      ...(canToggleFolderVisibility
+        ? [
+            {
+              label: folder.hidden ? copy.library.showLibraryFolder : copy.library.hideLibraryFolder,
+              onSelect: () =>
+                void runLibraryAction(async () => {
+                  if (folder.hidden) {
+                    await library.showLibraryFolder(folder.id)
+                    return
+                  }
+                  await library.hideLibraryFolder(folder.id)
+                }),
+            },
+          ]
+        : []),
+      {
+        label: copy.library.enableLibraryFolder,
+        onSelect: () =>
+          void runLibraryAction(async () => {
+            await library.setModsEnabled(folderModIds, true)
+          }),
+      },
+      {
+        label: copy.library.disableLibraryFolder,
+        onSelect: () =>
+          void runLibraryAction(async () => {
+            await library.setModsEnabled(folderModIds, false)
+          }),
+      },
+    ]
+  }
 
   return {
     viewModel: {
@@ -1452,9 +1451,7 @@ export function useLauncherLibraryController({
       openLibraryFolderItemsById,
       shortModsPath,
       sortOptions,
-      currentSortLabel,
       editCount,
-      currentPackLabel,
       supportedArchiveFormatsLabel,
     },
     refs: {

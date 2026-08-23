@@ -1,32 +1,21 @@
-/** Navigation command to open a page or workbench module by id. */
-export type NavigationCommand =
-  | {
-      type: 'navigation/open-page'
-      pageId: string
-    }
-  | {
-      type: 'navigation/open-workbench-module'
-      moduleId: string
-    }
+/** @file Typed app commands: the request channel for cross-layer flows that cannot call their target directly (e.g. pages -> app shell). */
+import type { SettingsWindowTarget } from './types/settings'
 
-/** Command to focus or open an asset inside the workbench. */
-export type WorkbenchCommand = {
-  type: 'workbench/open-asset'
-  assetId: string
-  assetKind: 'event' | 'map' | 'image' | 'data'
-  sourceId?: string
+/** Command to open the settings surface at a specific target. */
+export type SettingsCommand = {
+  type: 'navigation/open-settings'
+  target: SettingsWindowTarget
 }
 
-/** Union of all typed commands dispatched through the app command bus. */
-export type AppCommand = NavigationCommand | WorkbenchCommand
-
-/** A workbench-targeting command held pending until the workbench shell is ready to handle it. */
-export type PendingWorkbenchCommandIntent = {
-  id: string
-  command: Extract<AppCommand, { type: 'navigation/open-workbench-module' | 'workbench/open-asset' }>
+/** Command to hot-reload compat plugins; results are observed via the compat plugin store. */
+export type PluginCommand = {
+  type: 'plugins/reload-compat'
 }
 
-/** Sink for typed app commands; implemented by the app shell and consumed by features. */
+/** Union of all typed commands dispatched through the app command dispatcher. */
+export type AppCommand = SettingsCommand | PluginCommand
+
+/** Sink for typed app commands; the app shell registers the root handler, any FSD layer can dispatch. */
 export interface CommandDispatcher {
   dispatch: (command: AppCommand) => void | Promise<void>
 }

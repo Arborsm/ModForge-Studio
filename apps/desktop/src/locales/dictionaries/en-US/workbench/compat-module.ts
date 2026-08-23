@@ -9,6 +9,8 @@ const compatModule: CompatModuleCopy = {
   modNotInstalledDetail: 'Could not find {mod} in the Mods directory. Install the mod to edit its content here.',
   entryListTitle: 'Entries',
   entryListEmpty: 'No entries to edit',
+  entrySearchPlaceholder: 'Search entry IDs…',
+  entrySearchNoResults: 'No matching entries',
   unsavedChanges: 'Unsaved changes',
   saveSuccess: 'Saved',
   saveError: 'Save failed',
@@ -19,6 +21,12 @@ const compatModule: CompatModuleCopy = {
   recordListEntries: 'entries',
   objectFields: 'fields',
   invalidValue: 'Invalid value',
+  itemPickerPlaceholder: 'Type an item name or search…',
+  itemPickerNoResults: 'No matching items; type the name directly',
+  entryPreviewAlt: 'Preview of {entry}',
+  entryImageLoading: 'Loading…',
+  entryImageFailed: 'Image failed to load',
+  sectionCollapseToggle: 'Collapse/expand {section} section',
 }
 
 export default compatModule

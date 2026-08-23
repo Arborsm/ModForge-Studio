@@ -3,7 +3,7 @@
  * weapons, tools, apparel, furniture) with gift-taste hydration and texture loading.
  */
 
-import { loadTextAsset, resolveLocalizedText } from '@entities/game/api'
+import { loadOptionalTextAsset, loadTextAsset, resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 import {
   getLocalizedImagePathCandidates,
@@ -467,25 +467,25 @@ export async function loadItemWorkspaceEntries(rootPath: string, locale: LocaleC
       giftTastesAsset,
     ] = await Promise.all([
       loadTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale),
-      loadTextAsset(rootPath, BIG_CRAFTABLE_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, WEAPON_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, TOOL_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, SHIRT_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, PANTS_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, TRINKET_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, HAT_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, BOOTS_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, FURNITURE_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, CROP_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, FISH_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, LOCATION_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, SHOP_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, MACHINE_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, FISH_POND_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, CRAFTING_RECIPES_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, COOKING_RECIPES_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
+      loadOptionalTextAsset(rootPath, BIG_CRAFTABLE_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, WEAPON_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, TOOL_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, SHIRT_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, PANTS_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, TRINKET_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, HAT_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, BOOTS_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, FURNITURE_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, CROP_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, FISH_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, LOCATION_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, SHOP_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, MACHINE_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, FISH_POND_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, CRAFTING_RECIPES_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, COOKING_RECIPES_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
+      loadOptionalTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale, 'itemAssets.optionalAsset'),
     ])
 
     const baseEntries = [

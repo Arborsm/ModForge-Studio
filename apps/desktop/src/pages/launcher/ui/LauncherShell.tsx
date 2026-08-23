@@ -31,7 +31,6 @@ type LauncherShellProps = {
   onDownloadArchivesInstalled?: (archivePaths: string[]) => void
   onNavigateToSettings: () => void
   onSearchDiscover?: (query: string) => void
-  launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
   onLaunchGame: () => void
@@ -51,7 +50,6 @@ export default function LauncherShell({
   onDownloadArchivesInstalled,
   onNavigateToSettings,
   onSearchDiscover,
-  launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
   onLaunchGame,
@@ -109,7 +107,6 @@ export default function LauncherShell({
         library={library}
         routeEnterSequence={libraryRouteEnterSequence}
         routeActive={activePage === 'library'}
-        launchGameLabel={launchGameLabel}
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
@@ -129,7 +126,6 @@ export default function LauncherShell({
       onNavigateToSettings,
       onSearchDiscover,
       settingsState.settings,
-      launchGameLabel,
       launchGameDisabled,
       launchGameBusy,
       onLaunchGame,

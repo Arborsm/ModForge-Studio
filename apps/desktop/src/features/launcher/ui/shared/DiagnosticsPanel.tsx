@@ -3,7 +3,7 @@
  * time-ago formatting for the launcher configuration page.
  */
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { LauncherNexusDiagnosticsResult, LauncherNexusRouteSnapshot } from '@features/launcher/model/launcherContracts'
@@ -77,35 +77,33 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
     }
   }, [])
 
-  const handleRetryRoute = useCallback(
-    async (routeId: string) => {
-      const now = Date.now()
-      const lastRetry = retryTimestamps.current.get(routeId) ?? 0
-      if (now - lastRetry < 2000) return // 2s debounce
-      retryTimestamps.current.set(routeId, now)
+  const handleRetryRoute = async (routeId: string) => {
+    const now = Date.now()
+    const lastRetry = retryTimestamps.current.get(routeId) ?? 0
+    if (now - lastRetry < 2000) return // 2s debounce
+    retryTimestamps.current.set(routeId, now)
 
+    setRetryingRouteIds((prev) => {
+      const next = new Set(prev)
+      next.add(routeId)
+      return next
+    })
+
+    try {
+      const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(routeId)
+      setRoutes((currentRoutes) => mergeLauncherNexusDiagnostics(currentRoutes, diagnostics.routes))
+      setLastRefreshedAt(Date.now())
+      // observability-exempt: 单条 Nexus 诊断路由重试失败时保留该路由的最后结果，面板仍显示原失败详情供再次重试
+    } catch {
+      // Keep last state on failure
+    } finally {
       setRetryingRouteIds((prev) => {
         const next = new Set(prev)
-        next.add(routeId)
+        next.delete(routeId)
         return next
       })
-
-      try {
-        const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(routeId)
-        setRoutes((currentRoutes) => mergeLauncherNexusDiagnostics(currentRoutes, diagnostics.routes))
-        setLastRefreshedAt(Date.now())
-      } catch {
-        // Keep last state on failure
-      } finally {
-        setRetryingRouteIds((prev) => {
-          const next = new Set(prev)
-          next.delete(routeId)
-          return next
-        })
-      }
-    },
-    [launcherPort],
-  )
+    }
+  }
 
   const isStale = lastRefreshedAt != null && currentTime - lastRefreshedAt > 5 * 60 * 1000
 

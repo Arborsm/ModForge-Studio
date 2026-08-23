@@ -5,7 +5,6 @@ import {
   type BuildingTextureAssetState,
   type BuildingWorkspaceEntry,
 } from '@entities/building'
-import type { BuildingsPanelCopy } from '@locales/api'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { cx } from '@shared/lib/helper'
 import { getStageBadge } from './buildingViewHelpers'
@@ -15,7 +14,6 @@ export type BuildingUpgradeChainProps = {
   activeBuildingKey: string
   chainTextureStates: Record<string, BuildingTextureAssetState>
   onSelectBuildingStage: (buildingKey: string) => void
-  copy: BuildingsPanelCopy
 }
 
 /** Preview well content box; keep slightly inside the 4.25rem well + padding. */
@@ -95,6 +93,8 @@ function StageCard({
 
 /** Multi-stage upgrade strip. Hidden when chain has only one stage. */
 export function BuildingUpgradeChain(props: BuildingUpgradeChainProps) {
+  const copy = useBuildingsCopy()
+
   if (props.upgradeChain.length <= 1) {
     return null
   }
@@ -102,7 +102,7 @@ export function BuildingUpgradeChain(props: BuildingUpgradeChainProps) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <p className="building-workspace-section-title">{props.copy.upgradeTitle}</p>
+        <p className="building-workspace-section-title">{copy.upgradeTitle}</p>
         <p className="text-text-tertiary text-meta truncate font-mono">
           {props.upgradeChain[0]?.rootKey ?? ''} → {props.upgradeChain[props.upgradeChain.length - 1]?.leafKey ?? ''}
         </p>

@@ -114,7 +114,7 @@ pub mod map_validation {
     }
 }
 
-use support::logging::{DebugLoggingState, init_host_logging};
+use support::logging::{DebugLoggingState, LogEvent, init_host_logging, targets};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -151,7 +151,11 @@ pub fn run() {
                 if let Err(err) =
                     domain::modding::compat_plugin::extract_builtin_plugins_if_needed(&app_data_dir)
                 {
-                    eprintln!("[compat-plugins] Failed to extract built-in plugins to data dir: {err}");
+                    LogEvent::new("compatPlugins.builtinExtractFailed")
+                        .path("appDataDir", &app_data_dir)
+                        .field("host", "tauri")
+                        .error(err)
+                        .emit_warn(targets::TAURI_COMMAND);
                 }
                 let plugin_dir = app_data_dir.join("compat-plugins");
                 if plugin_dir.is_dir() {
@@ -391,6 +395,7 @@ pub fn run() {
             domain::localization::machine_translation::commands::translate_machine_translation_batch,
             // domain::modding::commands
             domain::modding::commands::delete_compat_plugin,
+            domain::modding::commands::delete_compat_plugin_entry,
             domain::modding::commands::get_compat_plugin_roots,
             domain::modding::commands::list_compat_plugin_entries,
             domain::modding::commands::list_compat_plugins,
@@ -399,6 +404,7 @@ pub fn run() {
             domain::modding::commands::reload_compat_plugins,
             domain::modding::commands::toggle_compat_plugin,
             domain::modding::commands::write_compat_plugin_entry,
+            domain::modding::commands::write_compat_plugin_entry_image,
             // domain::mods::commands
             domain::mods::commands::inspect_mod_archive,
             domain::mods::commands::load_mod_project,

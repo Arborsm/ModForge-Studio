@@ -564,6 +564,9 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(delete_compat_plugin) => resolve_typed::<
             crate::domain::modding::commands::DeleteCompatPluginParams,
         >(ctx, id, args),
+        crate::host_command_wire!(delete_compat_plugin_entry) => resolve_typed::<
+            crate::domain::modding::commands::DeleteCompatPluginEntryParams,
+        >(ctx, id, args),
         crate::host_command_wire!(get_compat_plugin_roots) => resolve_typed::<
             crate::domain::modding::commands::GetCompatPluginRootsParams,
         >(ctx, id, args),
@@ -587,6 +590,9 @@ pub(crate) fn resolve_command(
         >(ctx, id, args),
         crate::host_command_wire!(write_compat_plugin_entry) => resolve_typed::<
             crate::domain::modding::commands::WriteCompatPluginEntryParams,
+        >(ctx, id, args),
+        crate::host_command_wire!(write_compat_plugin_entry_image) => resolve_typed::<
+            crate::domain::modding::commands::WriteCompatPluginEntryImageParams,
         >(ctx, id, args),
         // domain::mods::commands
         crate::host_command_wire!(inspect_mod_archive) => resolve_typed::<
@@ -696,10 +702,14 @@ pub fn run_stdio() -> Result<(), String> {
     let mut roots: Vec<std::path::PathBuf> = Vec::new();
     if let Some(data_dir) = &app_data_dir {
         let modforge_data_dir = data_dir.join("ModForgeStudio");
-        if let Err(err) = crate::domain::modding::compat_plugin::extract_builtin_plugins_if_needed(
+        if let Err(error) = crate::domain::modding::compat_plugin::extract_builtin_plugins_if_needed(
             &modforge_data_dir,
         ) {
-            eprintln!("[compat-plugins] Failed to extract built-in plugins to data dir: {err}");
+            LogEvent::new("compatPlugins.builtinExtractFailed")
+                .path("appDataDir", &modforge_data_dir)
+                .field("host", "sidecar")
+                .error(error)
+                .emit_warn(targets::SIDECAR);
         }
         let data_plugins = modforge_data_dir.join("compat-plugins");
         if data_plugins.is_dir() {

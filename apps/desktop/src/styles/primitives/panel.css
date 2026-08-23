@@ -30,25 +30,30 @@
   }
 
   .panel-section {
-    @apply border-border-subtle bg-surface-panel overflow-hidden rounded-2xl border;
+    padding: 0.625rem 0 0.875rem;
+  }
+
+  .panel-section + .panel-section {
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
   }
 
   .panel-section-muted {
-    background: color-mix(in srgb, var(--bg-panel-muted) 90%, white 10%);
+    background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
+    @apply px-3;
   }
 
   .panel-section-accent {
-    background: linear-gradient(
-      155deg,
-      color-mix(in srgb, var(--bg-panel) 96%, transparent),
-      color-mix(in srgb, var(--accent) 10%, var(--bg-panel-muted))
-    );
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    @apply px-3;
   }
 
   .panel-section-header {
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
-    @apply flex items-start justify-between gap-3 px-3 py-2.5;
+    @apply flex items-start justify-between gap-3 pb-2;
+  }
+
+  .panel-section-muted .panel-section-header,
+  .panel-section-accent .panel-section-header {
+    @apply pt-2.5;
   }
 
   .panel-section-title {
@@ -59,8 +64,9 @@
     @apply text-text-tertiary text-meta mt-1 leading-4;
   }
 
-  .panel-section-body {
-    @apply p-3;
+  .panel-section-muted .panel-section-body,
+  .panel-section-accent .panel-section-body {
+    @apply pb-2.5;
   }
 
   .panel-empty-state {

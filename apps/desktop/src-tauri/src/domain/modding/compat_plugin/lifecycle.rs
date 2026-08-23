@@ -172,14 +172,10 @@ pub(crate) fn list_summaries(roots: &[PathBuf]) -> Vec<CompatPluginSummary> {
     }
     let report = load_plugin_manifests(roots);
     for error in &report.errors {
-        log::warn!(
-            target: targets::APP_UI,
-            "{}",
-            LogEvent::new("compatPlugin.loadError")
-                .field("pluginDir", &error.plugin_dir)
-                .field("reason", &error.reason)
-                .render()
-        );
+        LogEvent::new("compatPlugin.loadError")
+            .field("pluginDir", &error.plugin_dir)
+            .field("reason", &error.reason)
+            .emit_warn(targets::APP_UI);
     }
     let summaries = build_summaries_from_report(&report);
     *guard = Some(summaries.clone());

@@ -1,24 +1,21 @@
 import { Bug } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
-import { reportAppEvent, type AppEventLevel } from '@platform/observability'
+import { appEvent, type AppEventLevel } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
+import { publishNotification } from '@shared/ui/notifications'
 
-export type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
+export type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string> & {
+  fullAttributes: string
+}
 export type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
 
 export function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButtonGroup; debugEnabled: boolean }) {
   const notify = (level: AppEventLevel, title: string) => {
-    reportAppEvent({
-      level,
-      title,
-      description: `Launcher debug notification test: ${level}`,
-      debugDiagnosticsEnabled: debugEnabled,
-      keyValues: {
-        source: 'launcher-configuration-page',
-        kind: 'notification-test',
-        level,
-      },
-    })
+    appEvent(level, title)
+      .description(`Launcher debug notification test: ${level}`)
+      .debugDiagnostics(debugEnabled)
+      .context({ source: 'launcher-configuration-page', kind: 'notification-test', level })
+      .emit()
   }
 
   return (
@@ -58,24 +55,41 @@ export function NotificationTestButtons({ labels, debugEnabled }: { labels: Debu
       >
         {labels.error}
       </button>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button"
+        onClick={() =>
+          // observability-exempt: debug preview card intentionally exercises every notification attribute the builder does not model
+          publishNotification({
+            id: 'launcher-debug-full-attributes',
+            level: 'warning',
+            variant: 'diagnostic',
+            eyebrow: 'Diagnostic',
+            title: 'Full Attributes Card',
+            subtitle: 'Subtitle line for layout verification',
+            summary: 'Summary block with accent tinted background',
+            description: 'Description text with pre-line whitespace\nand a second line for wrapping checks.',
+            note: 'Footnote / hint line at the bottom',
+            chips: [{ label: 'info chip', tone: 'info' }, { label: 'warning chip', tone: 'warning' }, { label: 'neutral chip' }],
+            action: { label: 'Primary Action', callback: () => {}, tone: 'primary' },
+            secondaryAction: { label: 'Secondary', callback: () => {}, tone: 'default' },
+            autoDismissMs: null,
+          })
+        }
+      >
+        {labels.fullAttributes}
+      </button>
     </div>
   )
 }
 
 export function LogTestButtons({ labels, debugEnabled }: { labels: DebugLogButtonGroup; debugEnabled: boolean }) {
   const logOnly = (level: Extract<AppEventLevel, 'debug' | 'info' | 'warning' | 'error'>, title: string) => {
-    reportAppEvent({
-      level,
-      title,
-      description: `Launcher debug log test: ${level}`,
-      debugDiagnosticsEnabled: debugEnabled,
-      notify: false,
-      keyValues: {
-        source: 'launcher-configuration-page',
-        kind: 'log-test',
-        level,
-      },
-    })
+    appEvent(level, title)
+      .description(`Launcher debug log test: ${level}`)
+      .debugDiagnostics(debugEnabled)
+      .context({ source: 'launcher-configuration-page', kind: 'log-test', level })
+      .emit({ notify: false })
   }
 
   return (

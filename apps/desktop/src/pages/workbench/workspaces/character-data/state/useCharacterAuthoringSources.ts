@@ -18,6 +18,7 @@ import {
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 /** One row of the source list. */
 export type CharacterSourceRow = {
@@ -77,8 +78,12 @@ export function useVanillaCharacterIndex(
           available: true,
         })
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Character source data failed to load')
+            .error(error)
+            .context({ source: 'character-authoring', operation: 'load-source-index' })
+            .emit({ notify: false })
           setState({ entries: new Map(), records: {}, loading: false, available: false })
         }
       })

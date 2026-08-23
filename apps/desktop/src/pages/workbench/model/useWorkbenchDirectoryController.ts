@@ -26,9 +26,9 @@ export function useWorkbenchDirectoryController({
   const directory = useWorkbenchGameDirectory({ active, desktopHost, copy })
   useWorkbenchRecentDirectories(appUiStateReady, directory.directoryInfo?.rootPath ?? null)
 
-  const chooseDirectory = useCallback(() => {
+  const chooseDirectory = () => {
     void directory.chooseDirectory()
-  }, [directory.chooseDirectory])
+  }
 
   const validateDirectory = useCallback(() => {
     void runWithModuleGuard(async () => {

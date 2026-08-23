@@ -101,7 +101,6 @@ export function buildBuildingsWorkspacePanels(options: BuildBuildingPanelsOption
         >
           <BuildingWorkspace
             locale={locale}
-            viewportLabels={copy.viewportLabels}
             theme={theme}
             accentColor={accentColor}
             building={activeBuilding}

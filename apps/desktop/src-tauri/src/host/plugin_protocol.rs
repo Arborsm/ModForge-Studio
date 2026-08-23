@@ -7,6 +7,7 @@
 
 use crate::AppRuntime;
 use crate::domain;
+use crate::support::logging::{LogEvent, targets};
 
 /// Handles a `plugin://<pluginId>/<relativePath>` request for the custom URI
 /// scheme protocol. Resolves the path via
@@ -59,9 +60,10 @@ pub(crate) fn handle_plugin_uri_scheme(
     let Some(resolved) =
         domain::modding::compat_plugin::resolve_plugin_protocol_path(&plugin_id, &relative_path)
     else {
-        eprintln!(
-            "[plugin-protocol] 404 plugin_id={plugin_id} relative_path={relative_path} uri={request_uri}"
-        );
+        LogEvent::new("pluginProtocol.assetNotFound")
+            .field("pluginId", &plugin_id)
+            .field("relativePath", &relative_path)
+            .emit_debug(targets::WEBVIEW);
         return plugin_protocol_not_found();
     };
 

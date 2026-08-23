@@ -27,13 +27,13 @@ import {
   ArrowDownUp,
 } from 'lucide-react'
 import { usePluginManagerCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 import { Dialog, DialogHeader, DialogBody, DialogFooter, DialogAction, useDialog } from '@shared/ui/Dialog'
 import { CompactSelect, type CompactSelectOption } from '@shared/ui/CompactSelect'
-import { publishNotification } from '@shared/ui/notifications'
 import { getCompatPluginRoots, useCompatPluginStore, toggleCompatPlugin, deleteCompatPlugin } from '@features/compat-plugins'
 import type { CompatPluginSummary } from '@features/compat-plugins'
-import { requestCompatPluginReload } from '@shared/lib/compat-plugin-reload-events'
+import { appCommands } from '@shared/lib/app-runtime/appCommands'
 import { openLauncherPath } from '@features/launcher/api'
 import { cx } from '@shared/lib/helper'
 
@@ -66,7 +66,7 @@ export function PluginManagerWorkspace() {
 
   const handleReload = () => {
     reloadRequestedRef.current = true
-    requestCompatPluginReload()
+    void appCommands.dispatch({ type: 'plugins/reload-compat' })
   }
 
   useEffect(() => {
@@ -76,12 +76,11 @@ export function PluginManagerWorkspace() {
     reloadRequestedRef.current = false
 
     if (status === 'error') {
-      publishNotification({
-        id: RELOAD_RESULT_NOTIFICATION_ID,
-        level: 'error',
-        title: copy.reloadError,
-        summary: error ?? null,
-      })
+      appEvent('error', copy.reloadError)
+        .summary(error ?? null)
+        .noticeId(RELOAD_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager', operation: 'reload-plugins' })
+        .emit()
       return
     }
     if (status === 'loaded') {
@@ -91,12 +90,11 @@ export function PluginManagerWorkspace() {
       const manifestErrorCount = plugins.filter((plugin) => plugin.loadError !== null && plugin.loadError !== undefined).length
       const failedCount = diagnostics.length + manifestErrorCount
       const loadedCount = plugins.length - failedCount
-      publishNotification({
-        id: RELOAD_RESULT_NOTIFICATION_ID,
-        level: failedCount > 0 ? 'warning' : 'success',
-        title: failedCount > 0 ? copy.reloadError : copy.reloadSuccess,
-        summary: failedCount > 0 ? copy.reloadResultWithFailures(loadedCount, failedCount) : copy.reloadResultSuccess(plugins.length),
-      })
+      appEvent(failedCount > 0 ? 'warning' : 'success', failedCount > 0 ? copy.reloadError : copy.reloadSuccess)
+        .summary(failedCount > 0 ? copy.reloadResultWithFailures(loadedCount, failedCount) : copy.reloadResultSuccess(plugins.length))
+        .noticeId(RELOAD_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager', operation: 'reload-plugins' })
+        .emit()
     }
   }, [status, error, diagnostics.length, plugins, copy])
 
@@ -108,11 +106,10 @@ export function PluginManagerWorkspace() {
       }
       await openLauncherPath({ path: roots[0] })
     } catch {
-      publishNotification({
-        id: 'plugin-manager-open-directory',
-        level: 'error',
-        title: copy.openPluginDirectoryError,
-      })
+      appEvent('error', copy.openPluginDirectoryError)
+        .noticeId('plugin-manager-open-directory')
+        .context({ source: 'plugin-manager-workspace', operation: 'open-plugin-directory' })
+        .emit()
     }
   }
 
@@ -120,19 +117,18 @@ export function PluginManagerWorkspace() {
     setActionInProgress(plugin.id)
     try {
       await toggleCompatPlugin(plugin.id, !plugin.disabled)
-      requestCompatPluginReload()
-      publishNotification({
-        id: TOGGLE_RESULT_NOTIFICATION_ID,
-        level: 'success',
-        title: plugin.disabled ? copy.enableSuccess : copy.disableSuccess,
-      })
+      void appCommands.dispatch({ type: 'plugins/reload-compat' })
+      appEvent('success', plugin.disabled ? copy.enableSuccess : copy.disableSuccess)
+        .noticeId(TOGGLE_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager', operation: 'toggle-plugin' })
+        .emit()
     } catch (toggleError) {
-      publishNotification({
-        id: TOGGLE_RESULT_NOTIFICATION_ID,
-        level: 'error',
-        title: copy.toggleError,
-        summary: toggleError instanceof Error ? toggleError.message : String(toggleError),
-      })
+      appEvent('error', copy.toggleError)
+        .error(toggleError)
+        .description(toggleError instanceof Error ? toggleError.message : String(toggleError))
+        .noticeId(TOGGLE_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager-workspace', operation: 'toggle-plugin' })
+        .emit()
     } finally {
       setActionInProgress(null)
     }
@@ -152,22 +148,21 @@ export function PluginManagerWorkspace() {
     setActionInProgress(plugin.id)
     try {
       await deleteCompatPlugin(plugin.id)
-      requestCompatPluginReload()
-      publishNotification({
-        id: DELETE_RESULT_NOTIFICATION_ID,
-        level: 'success',
-        title: copy.deleteSuccess,
-      })
+      void appCommands.dispatch({ type: 'plugins/reload-compat' })
+      appEvent('success', copy.deleteSuccess)
+        .noticeId(DELETE_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager', operation: 'delete-plugin' })
+        .emit()
       if (expandedId === plugin.id) {
         setExpandedId(null)
       }
     } catch (deleteError) {
-      publishNotification({
-        id: DELETE_RESULT_NOTIFICATION_ID,
-        level: 'error',
-        title: copy.deleteError,
-        summary: deleteError instanceof Error ? deleteError.message : String(deleteError),
-      })
+      appEvent('error', copy.deleteError)
+        .error(deleteError)
+        .description(deleteError instanceof Error ? deleteError.message : String(deleteError))
+        .noticeId(DELETE_RESULT_NOTIFICATION_ID)
+        .context({ source: 'plugin-manager-workspace', operation: 'delete-plugin' })
+        .emit()
     } finally {
       setActionInProgress(null)
       setPendingDelete(null)

@@ -3,13 +3,14 @@ import { useAuthoringShellCopy, useEditorCopy, useMapAuthoringCopy } from '@loca
 import { cx } from '@shared/lib/helper'
 import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import { useWorkbenchAssetDraftPort } from '../../model/useWorkbenchAssetDraftPort'
 import { useEditModeStore } from '../../model/editModeStore'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchRuntimeInputs } from './runtimeInputs'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { MapDocument } from '@entities/map'
 import { MapAssetEditorSession, MapCatalog, MapTilesSessionEditor } from '../../workspaces/map'
 import { CharacterCatalogPage } from '../../workspaces/character-data'
@@ -55,23 +56,19 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   const project = useWorkbenchProject()
   const activeEditPatchId = useEditModeStore((state) => state.activeEditPatchId)
   const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
-  const publishNotification = useNotificationPublisher()
   const patches = project.getPatchesForWorkspace(workspaceId)
   // Load patches are managed in the asset library; opening one from the change
   // list jumps straight to the corresponding load-binding instead of showing
   // the read-only summary editor.
-  const openPatchOrJumpToAssetLibrary = useCallback(
-    (patchId: string) => {
-      const patch = patches.find((p) => p.id === patchId)
-      if (patch?.action === 'Load') {
-        useAssetLibraryFocusStore.getState().setFocus({ kind: 'load-binding', key: patch.id })
-        environment.onOpenModule('asset-library')
-        return
-      }
-      navigateToPatch(patchId)
-    },
-    [environment, navigateToPatch, patches],
-  )
+  const openPatchOrJumpToAssetLibrary = (patchId: string) => {
+    const patch = patches.find((p) => p.id === patchId)
+    if (patch?.action === 'Load') {
+      useAssetLibraryFocusStore.getState().setFocus({ kind: 'load-binding', key: patch.id })
+      environment.onOpenModule('asset-library')
+      return
+    }
+    navigateToPatch(patchId)
+  }
   const [mapAssetSession, setMapAssetSession] = useState<{
     relativePath: string
     document: MapDocument
@@ -127,15 +124,14 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
   // the notification is dismissed as soon as the auto-save pipeline recovers.
   useEffect(() => {
     if (saveState === 'error') {
-      publishNotification({
-        id: 'authoring-save-error',
-        level: 'error',
-        title: shellCopy.saveFailed,
-      })
+      appEvent('error', shellCopy.saveFailed)
+        .noticeId('authoring-save-error')
+        .context({ source: 'authoring-runtime', operation: 'save-project' })
+        .emit()
     } else {
       dismissNotification('authoring-save-error')
     }
-  }, [publishNotification, saveState, shellCopy.saveFailed])
+  }, [saveState, shellCopy.saveFailed])
 
   // "Edit in map editor" handoffs from the asset library stage a transient
   // request; consume it once the map draft port is ready and open the asset.
@@ -179,11 +175,10 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
         })
       }
       const tilesSessionCopy = mapAuthoringCopy.tilesSession
-      publishNotification({
-        level: 'success',
-        title: tilesSessionCopy.completedNotificationTitle,
-        description: tilesSessionCopy.completedNotificationDescription,
-      })
+      appEvent('success', tilesSessionCopy.completedNotificationTitle)
+        .description(tilesSessionCopy.completedNotificationDescription)
+        .context({ source: 'authoring-runtime', operation: 'complete-map-tiles-session' })
+        .emit()
     }
     closeMapTilesSession()
   }

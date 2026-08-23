@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, Download, ImageOff, LayoutGrid, Star, Upload } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { usePreferencesStore, type PaletteRecentSelection } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
@@ -107,8 +108,14 @@ function RecentCell({
       .then((image) => {
         if (current) setImageState({ status: 'ready', image })
       })
-      .catch(() => {
-        if (current) setImageState({ status: 'error', image: null })
+      .catch((error) => {
+        if (current) {
+          appEvent('warning', 'Failed to load tileset palette image')
+            .error(error)
+            .context({ source: 'map-tileset-palette', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setImageState({ status: 'error', image: null })
+        }
       })
     return () => {
       current = false
@@ -340,6 +347,7 @@ export function MapTilesetPalette({
           if (imported.length === 0) return
           const prefs = usePreferencesStore.getState().mapEditorPalette
           setPalettePrefs({ favorites: mergeFavoriteSelections(prefs.favorites, imported) })
+          // observability-exempt: 导入的调色板收藏 JSON 或条目字段非法时跳过本次导入，避免覆盖现有 favorites
         } catch {
           // Ignore malformed JSON
         }

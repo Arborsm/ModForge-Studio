@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react'
 import { useMailEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useMailWorkspaceContext } from '../state/MailWorkspaceContext'
 import {
   getLetterBgFrame,
@@ -190,7 +190,7 @@ export function MailInfoSidebar() {
   const copy = useMailEditorCopy()
   const workspace = useMailWorkspaceContext()
   const draft = workspace.activeDraft
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   if (!draft || workspace.activeMailId === null) {
     return null
   }

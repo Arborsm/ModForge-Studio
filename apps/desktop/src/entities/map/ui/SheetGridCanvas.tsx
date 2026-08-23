@@ -16,6 +16,7 @@ import {
 import { createPortal } from 'react-dom'
 import { ImageOff, Loader2, Maximize, Minus, Plus } from 'lucide-react'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { MapDocument, MapTileset } from '../lib/types'
@@ -167,8 +168,14 @@ export function SheetGridCanvas({
       .then((image) => {
         if (current) setImageState({ key: imageKey, status: 'ready', image })
       })
-      .catch(() => {
-        if (current) setImageState({ key: imageKey, status: 'error', image: null })
+      .catch((error) => {
+        if (current) {
+          appEvent('warning', 'Failed to load tilesheet grid image')
+            .error(error)
+            .context({ source: 'map-tilesheet-grid', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setImageState({ key: imageKey, status: 'error', image: null })
+        }
       })
     return () => {
       current = false

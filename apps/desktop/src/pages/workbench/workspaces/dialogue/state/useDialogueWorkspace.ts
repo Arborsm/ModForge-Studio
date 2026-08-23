@@ -2,8 +2,9 @@
  * @file Dialogue workspace state hook: manages NPC catalog loading, vanilla dialogue entry reading, edit drafts, and persistence commits.
  */
 import { useEffect, useState } from 'react'
+import { orNull } from '@platform/observability'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import { loadImageDataUrl, loadTextAsset } from '@entities/game/api'
+import { loadImageDataUrl, loadOptionalTextAsset, loadTextAsset } from '@entities/game/api'
 import { parseAssetEditorState } from '@entities/asset-schema'
 import type { LocaleCode } from '@locales'
 import { nextDraftEditMergeKey, tagNextDraftEdit, type UseCpMakerReturn } from '@features/cp-maker'
@@ -126,7 +127,7 @@ async function loadVanillaNpcs(rootPath: string, locale: LocaleCode) {
   return readCachedPromise(vanillaNpcCache, cacheKey, async () => {
     const [charactersAsset, namesAsset] = await Promise.all([
       loadTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale),
-      loadTextAsset(rootPath, NPC_NAMES_ASSET_PATH, locale).catch(() => null),
+      loadOptionalTextAsset(rootPath, NPC_NAMES_ASSET_PATH, locale, 'dialogueWorkspace.optionalNpcNames'),
     ])
     const characters = JSON.parse(charactersAsset.content) as Record<string, { DisplayName?: string | null } | null>
     const names = namesAsset ? parseStringRecord(namesAsset.content) : {}
@@ -147,7 +148,12 @@ function getVanillaDialogueCacheKey(rootPath: string, npcId: string, locale: Loc
 
 async function loadVanillaDialogue(rootPath: string, npcId: string, locale: LocaleCode) {
   return readCachedPromise(vanillaDialogueCache, getVanillaDialogueCacheKey(rootPath, npcId, locale), async () => {
-    const asset = await loadTextAsset(rootPath, `Content\\Characters\\Dialogue\\${npcId}.xnb`, locale).catch(() => null)
+    const asset = await loadOptionalTextAsset(
+      rootPath,
+      `Content\\Characters\\Dialogue\\${npcId}.xnb`,
+      locale,
+      'dialogueWorkspace.optionalDialogue',
+    )
     if (!asset) {
       // Missing dialogue assets are normal (many NPCs have none); treat as empty.
       return {}
@@ -163,7 +169,7 @@ async function loadPortraitSheet(rootPath: string, npcId: string, locale: Locale
     if (!path) {
       return null
     }
-    const url = await loadImageDataUrl(path, locale).catch(() => null)
+    const url = await orNull(loadImageDataUrl(path, locale), 'dialogueWorkspace.optionalPortrait')
     if (!url) {
       return null
     }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Crosshair, FileOutput, Film, Paintbrush, Plus, Trash2 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
@@ -46,74 +46,88 @@ import { defaultTsxSourceForTileset, isValidTsxSource } from '../../model/mapTil
 import type { MapEditorCapabilities, MapEditorSaveState } from './useMapDocumentEditor'
 
 export type MapAssetEditorInspectorProps = {
-  document: MapDocument
-  /** Render document whose tileset imagePath values are loadable data URLs (used by the cell mini-map). */
-  renderDocument: MapDocument
-  assetPath: string
-  activeLayer: MapLayer | null
-  selectedTile: { x: number; y: number } | null
-  selectedTileset: MapTileset | null
-  selectedTileDefinitionProperties: Record<string, unknown>
-  selectedObject: MapObject | null
-  selectedObjectId: number | null
-  paletteSelection: MapTilesetPaletteSelection | null
-  isTmxAsset: boolean
-  tbinIssues: readonly MapAssetTbinIssue[]
-  layerNameIssues: readonly MapAssetLayerNameIssue[]
-  invalidTsxSourceTilesets: readonly MapTileset[]
-  documentIssueCount: number
-  undoStackLength: number
-  redoStackLength: number
-  saveState: MapEditorSaveState
+  documentState: {
+    document: MapDocument
+    /** Render document whose tileset imagePath values are loadable data URLs (used by the cell mini-map). */
+    renderDocument: MapDocument
+    assetPath: string
+    isTmxAsset: boolean
+  }
+  selectionState: {
+    activeLayer: MapLayer | null
+    selectedTile: { x: number; y: number } | null
+    selectedTileset: MapTileset | null
+    selectedTileDefinitionProperties: Record<string, unknown>
+    selectedObject: MapObject | null
+    selectedObjectId: number | null
+    paletteSelection: MapTilesetPaletteSelection | null
+  }
+  diagnostics: {
+    tbinIssues: readonly MapAssetTbinIssue[]
+    layerNameIssues: readonly MapAssetLayerNameIssue[]
+    invalidTsxSourceTilesets: readonly MapTileset[]
+    documentIssueCount: number
+  }
+  historyState: {
+    undoStackLength: number
+    redoStackLength: number
+    saveState: MapEditorSaveState
+  }
   capabilities: MapEditorCapabilities
-  onSetSelectedObjectId: (id: number | null) => void
-  onSetActiveObjectGroupId: (id: number) => void
-  onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
-  onUpdateActiveLayer: (updates: Partial<MapLayer>) => void
-  onUpdateSelectedTileset: (updater: (tileset: MapTileset) => MapTileset) => void
-  onUpdateSelectedObject: (updates: Partial<MapObject>) => void
-  onDeleteSelectedObject: () => void
-  onAddTileDataObject: (point?: { x: number; y: number }) => void
-  /** Selects an object and centers the canvas viewport on it. Omitted in session modes without object locate. */
-  onLocateObject?: (object: MapObject) => void
-  /** Centers the canvas viewport on a tile coordinate. Omitted in session modes without tile locate. */
-  onLocateTile?: (tileX: number, tileY: number) => void
-  /** Attaches a vanilla game sheet as a dynamic reference; omitted in session modes. */
-  onAttachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
-  /** Game root used to resolve dynamically referenced vanilla sheets; null disables game-sheet entries. */
-  gameRootPath?: string | null
-  /** Light-item index for the marker item picker; null until game data loads. */
-  objectLightIndex?: ObjectLightItemIndex | null
-  /** Target-map choices for the warp dialog (localized names from the map catalog). */
-  mapOptions?: readonly WarpDialogMapOption[]
-  /** Loads a target map document for the warp destination preview. */
-  loadTargetDocument?: (target: string) => Promise<MapDocument>
-  /** Selects a layer in the layers panel (diagnostics "locate" action). */
-  onLocateLayer?: (layerId: number) => void
-  /** Reports the hovered inspector entry's canvas highlight (cells/objects); null clears it. */
-  onHighlightInspector?: (target: MapInspectorHighlight | null) => void
-  locale?: LocaleCode
-  theme?: ThemeMode
-  accentColor?: string
-  onConvertToTmx?: () => Promise<void>
-  /** Palette tab: current tileset selection (brush/stamp source). */
-  paletteSelectionForPicker?: MapTilesetPaletteSelection | null
-  /** Palette tab: callback when the user picks a tile selection on the sheet. */
-  onPaletteSelectionChange?: (selection: MapTilesetPaletteSelection | null) => void
-  /** Palette tab: project image options for the sheet picker. */
-  paletteProjectImageOptions?: readonly MapTilesheetPickerProjectOption[]
-  /** Palette tab: attaches a project image as a new tileset. */
-  onPaletteAddProjectImage?: ((relativePath: string) => void) | null
-  /** Palette tab: removes a tileset by name; omitted in session modes without tileset management. */
-  onPaletteRemoveTileset?: ((name: string) => void) | null
-  /** Palette tab: replaces a tileset's image. */
-  onPaletteReplaceTilesetImage?: ((relativePath: string, replaceName: string) => void) | null
-  /** Palette tab: requests the Inspector to switch to the tilesets tab for this sheet. */
-  onPaletteEditTilesetInInspector?: ((name: string) => void) | null
-  /** Palette tab: notifies the host that a sheet is being hovered in the gallery; null clears the preview. */
-  onHoverTileset?: ((imageSrc: string | null) => void) | null
-  /** Palette tab: notifies the host that the gallery selection mode is active. */
-  onGalleryModeChange?: ((active: boolean) => void) | null
+  paletteState?: {
+    /** Palette tab: current tileset selection (brush/stamp source). */
+    selectionForPicker?: MapTilesetPaletteSelection | null
+    /** Palette tab: project image options for the sheet picker. */
+    projectImageOptions?: readonly MapTilesheetPickerProjectOption[]
+  }
+  environment?: {
+    /** Game root used to resolve dynamically referenced vanilla sheets; null disables game-sheet entries. */
+    gameRootPath?: string | null
+    /** Light-item index for the marker item picker; null until game data loads. */
+    objectLightIndex?: ObjectLightItemIndex | null
+    /** Target-map choices for the warp dialog (localized names from the map catalog). */
+    mapOptions?: readonly WarpDialogMapOption[]
+    /** Loads a target map document for the warp destination preview. */
+    loadTargetDocument?: (target: string) => Promise<MapDocument>
+    locale?: LocaleCode
+    theme?: ThemeMode
+    accentColor?: string
+  }
+  actions: {
+    setSelectedObjectId: (id: number | null) => void
+    setActiveObjectGroupId: (id: number) => void
+    updateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
+    updateActiveLayer: (updates: Partial<MapLayer>) => void
+    updateSelectedTileset: (updater: (tileset: MapTileset) => MapTileset) => void
+    updateSelectedObject: (updates: Partial<MapObject>) => void
+    deleteSelectedObject: () => void
+    addTileDataObject: (point?: { x: number; y: number }) => void
+    /** Selects an object and centers the canvas viewport on it. Omitted in session modes without object locate. */
+    locateObject?: (object: MapObject) => void
+    /** Centers the canvas viewport on a tile coordinate. Omitted in session modes without tile locate. */
+    locateTile?: (tileX: number, tileY: number) => void
+    /** Attaches a vanilla game sheet as a dynamic reference; omitted in session modes. */
+    attachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
+    /** Selects a layer in the layers panel (diagnostics "locate" action). */
+    locateLayer?: (layerId: number) => void
+    /** Reports the hovered inspector entry's canvas highlight (cells/objects); null clears it. */
+    highlightInspector?: (target: MapInspectorHighlight | null) => void
+    convertToTmx?: () => Promise<void>
+    /** Palette tab: callback when the user picks a tile selection on the sheet. */
+    paletteSelectionChange?: (selection: MapTilesetPaletteSelection | null) => void
+    /** Palette tab: attaches a project image as a new tileset. */
+    paletteAddProjectImage?: ((relativePath: string) => void) | null
+    /** Palette tab: removes a tileset by name; omitted in session modes without tileset management. */
+    paletteRemoveTileset?: ((name: string) => void) | null
+    /** Palette tab: replaces a tileset's image. */
+    paletteReplaceTilesetImage?: ((relativePath: string, replaceName: string) => void) | null
+    /** Palette tab: requests the Inspector to switch to the tilesets tab for this sheet. */
+    paletteEditTilesetInInspector?: ((name: string) => void) | null
+    /** Palette tab: notifies the host that a sheet is being hovered in the gallery; null clears the preview. */
+    hoverTileset?: ((imageSrc: string | null) => void) | null
+    /** Palette tab: notifies the host that the gallery selection mode is active. */
+    galleryModeChange?: ((active: boolean) => void) | null
+  }
 }
 
 /**
@@ -128,53 +142,52 @@ export type MapAssetEditorInspectorProps = {
  * section.
  */
 export function MapAssetEditorInspector({
-  document,
-  renderDocument,
-  assetPath,
-  activeLayer,
-  selectedTile,
-  selectedTileset,
-  selectedTileDefinitionProperties,
-  selectedObject,
-  selectedObjectId,
-  paletteSelection,
-  isTmxAsset,
-  tbinIssues,
-  layerNameIssues,
-  invalidTsxSourceTilesets,
-  documentIssueCount,
+  documentState,
+  selectionState,
+  diagnostics,
+  historyState,
   capabilities,
-  onSetSelectedObjectId,
-  onSetActiveObjectGroupId,
-  onUpdateDocument,
-  onUpdateActiveLayer,
-  onUpdateSelectedTileset,
-  onUpdateSelectedObject,
-  onDeleteSelectedObject,
-  onAddTileDataObject,
-  onLocateObject,
-  onLocateTile,
-  onAttachGameSheet,
-  gameRootPath = null,
-  objectLightIndex = null,
-  mapOptions,
-  loadTargetDocument,
-  onLocateLayer,
-  onHighlightInspector,
-  locale,
-  theme,
-  accentColor,
-  onConvertToTmx,
-  paletteSelectionForPicker = null,
-  onPaletteSelectionChange,
-  paletteProjectImageOptions = [],
-  onPaletteAddProjectImage = null,
-  onPaletteRemoveTileset = null,
-  onPaletteReplaceTilesetImage = null,
-  onPaletteEditTilesetInInspector = null,
-  onHoverTileset = null,
-  onGalleryModeChange = null,
+  paletteState,
+  environment,
+  actions,
 }: MapAssetEditorInspectorProps) {
+  const { document, renderDocument, assetPath, isTmxAsset } = documentState
+  const {
+    activeLayer,
+    selectedTile,
+    selectedTileset,
+    selectedTileDefinitionProperties,
+    selectedObject,
+    selectedObjectId,
+    paletteSelection,
+  } = selectionState
+  void historyState
+  const { tbinIssues, layerNameIssues, invalidTsxSourceTilesets, documentIssueCount } = diagnostics
+  const {
+    setSelectedObjectId: onSetSelectedObjectId,
+    setActiveObjectGroupId: onSetActiveObjectGroupId,
+    updateDocument: onUpdateDocument,
+    updateActiveLayer: onUpdateActiveLayer,
+    updateSelectedTileset: onUpdateSelectedTileset,
+    updateSelectedObject: onUpdateSelectedObject,
+    deleteSelectedObject: onDeleteSelectedObject,
+    addTileDataObject: onAddTileDataObject,
+    locateObject: onLocateObject,
+    locateTile: onLocateTile,
+    attachGameSheet: onAttachGameSheet,
+    locateLayer: onLocateLayer,
+    highlightInspector: onHighlightInspector,
+    convertToTmx: onConvertToTmx,
+    paletteSelectionChange: onPaletteSelectionChange,
+    paletteAddProjectImage: onPaletteAddProjectImage,
+    paletteRemoveTileset: onPaletteRemoveTileset,
+    paletteReplaceTilesetImage: onPaletteReplaceTilesetImage,
+    paletteEditTilesetInInspector: onPaletteEditTilesetInInspector,
+    hoverTileset: onHoverTileset,
+    galleryModeChange: onGalleryModeChange,
+  } = actions
+  const { selectionForPicker: paletteSelectionForPicker = null, projectImageOptions: paletteProjectImageOptions = [] } = paletteState ?? {}
+  const { gameRootPath = null, objectLightIndex = null, mapOptions, loadTargetDocument, locale, theme, accentColor } = environment ?? {}
   const copy = useMapAuthoringCopy().assetEditor
 
   /** Inspector tab: auto-switches to 'objects' when an object is selected and
@@ -198,7 +211,7 @@ export function MapAssetEditorInspector({
 
   // Subscribe to the catalog registry so scanning re-runs when game furniture loads.
   const catalogObjects = useSyncExternalStore(subscribeMapObjects, getMapObjects)
-  const placedFurniture = useMemo(() => scanPlacedFurniture(document, catalogObjects), [document, catalogObjects])
+  const placedFurniture = scanPlacedFurniture(document, catalogObjects)
 
   /** Beginner-facing marker label: localized item name, custom name, or a numbered fallback. */
   function markerLabel(object: MapObject) {
@@ -895,14 +908,12 @@ function AnimationGroupList({
   gameRootPath: string | null
   onUseTile?: (tilesetName: string, tileId: number, width: number, height: number) => void
 }) {
-  const tilesetGroups = useMemo(() => {
-    return document.tilesets
-      .map((tileset) => ({
-        tileset,
-        groups: extractAnimationGroups(tileset),
-      }))
-      .filter((entry) => entry.groups.length > 0)
-  }, [document.tilesets])
+  const tilesetGroups = document.tilesets
+    .map((tileset) => ({
+      tileset,
+      groups: extractAnimationGroups(tileset),
+    }))
+    .filter((entry) => entry.groups.length > 0)
 
   if (tilesetGroups.length === 0) {
     return <p className="map-asset-animation-tab-hint">{copy.animationListEmpty}</p>

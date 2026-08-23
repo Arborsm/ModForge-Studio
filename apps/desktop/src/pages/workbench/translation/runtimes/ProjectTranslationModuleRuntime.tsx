@@ -7,7 +7,7 @@ import { useLocale, useTranslationEditorCopy } from '@locales/provider'
 import { useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchEnvironment } from '../../model/workbenchModuleContexts'
 import { openLocalizationCenter } from '../model/localizationNavigation'
-import { requestAppSettings } from '@shared/lib/app-settings-events'
+import { appCommands } from '@shared/lib/app-runtime/appCommands'
 
 function countEntries(rawJson: string) {
   try {
@@ -110,7 +110,7 @@ export default function ProjectTranslationModuleRuntime() {
       }}
       onReload={environment.onReloadProject}
       onOpenLocalizationCenter={(scopeId) => void openLocalizationCenter(scopeId, environment.onOpenModule, 'overview')}
-      onOpenAiSettings={() => requestAppSettings({ category: 'ai', aiTab: 'semantic' })}
+      onOpenAiSettings={() => appCommands.dispatch({ type: 'navigation/open-settings', target: { category: 'ai', aiTab: 'semantic' } })}
     />
   )
 }

@@ -219,24 +219,55 @@ Architecture implications of that shell:
 
 ## Event + Command
 
-Cross-feature communication uses two channels:
+The old typed event bus (`shared/contracts/events.ts`, `app/providers/appEventBus.ts`,
+`workbenchOrchestration.ts`) and the pending-intent chain were removed in the codebase
+hygiene overhaul: every event flow had zero or one subscriber, and the bus duplicated
+what stores and direct calls already express. Cross-module communication now converges
+on exactly two idioms — do not invent a third one:
 
-- Events describe what happened.
-- Commands describe what should be done.
-
-Example flow:
-
-1. `cp-maker` emits the typed event `'cp-maker/asset-selected'` (see `shared/contracts/events.ts`).
-2. The `app/providers/workbenchOrchestration` hook listens to that event.
-3. The orchestration hook dispatches the `'workbench/open-asset'` command (see `shared/contracts/commands.ts`).
-4. Workbench command handling changes workspace, opens the asset, and focuses the correct view.
+| Semantics                                                    | Mechanism                                                                                |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| State / one-shot signal                                      | zustand store (`shared/lib/app-state` or a domain store, registered in G3-R3)            |
+| Request across a boundary where direct calls are not allowed | `appCommands` singleton (`shared/lib/app-runtime/appCommands.ts`, typed union contracts) |
 
 Rules:
 
 - Feature A must not import Feature B.
-- Features may emit typed events.
-- App-level orchestration hooks translate events into commands.
-- Commands are handled by app/page orchestration, not by random leaf components.
+- No new `modforge:*` CustomEvent bridges: the G3-R2 whitelist is empty and enforced.
+- `appCommands.dispatch` is fire-and-forget; handlers register at AppShell mount and the
+  union only contains commands with a real end-to-end flow.
+
+## State Stores
+
+`AppUiState` (`shared/lib/app-state/appUiState.ts`) is the single persistence authority:
+an in-memory snapshot plus a serialized patch queue behind a pluggable persistence
+adapter. It is intentionally non-reactive — reactive reads go through zustand stores.
+
+State falls into four categories:
+
+| Category          | Meaning                                                            | Persistence                    | Examples                                                                  |
+| ----------------- | ------------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------- |
+| Global preference | User preferences spanning the whole app (theme, locale, switches)  | AppUiState sections            | `preferencesStore.ts` (the primary preference store)                      |
+| Workspace persist | Durable per-workspace user data                                    | AppUiState sections            | `playerAppearanceStore.ts`                                                |
+| Module session    | Ephemeral state of one editor/module session                       | none (or module-owned storage) | `editModeStore.ts`, `undoStack.ts`, event-workflow `editorStore.ts`       |
+| Domain runtime    | Long-lived runtime state of a domain (plugins, guide engine, etc.) | domain-owned                   | `compatPluginStore.ts`, `guideEngine.ts`, `pluginConditionSyntaxStore.ts` |
+
+Supplementary registered mechanisms: cross-module handoff stores (`authoringHandoff.ts`,
+`assetLibraryFocusStore.ts`, `pendingMapAssetEditStore.ts`), one-shot signals
+(`launcherOverlayDismissStore.ts` epoch), and the app runtime registry
+(`workbenchRegistryStore.ts`).
+
+Rules:
+
+- Every direct `zustand` import must be registered in the G3-R3 table
+  (`tests/architecture/asyncOwnership.test.ts`) with its category annotation.
+- Global preferences live in `preferencesStore` only: no per-preference providers and no
+  component-level `useState` mirroring of persisted values. Preference setters update the
+  store and persist via `applyAppUiStatePatch` in the same action.
+- Stores that persist to AppUiState hydrate once (idempotent `hydrate` action) and persist
+  inside mutation actions; do not build hydration/save bidirectional sync effects.
+- Domain stores must not import `platform`; error reporting stays at the layer that owns
+  the store (pages/features may use `appEvent`, shared falls back to `console.error`).
 
 ## Platform DI
 

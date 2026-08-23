@@ -21,7 +21,6 @@ import { getLibraryViewOrderContainerKey } from './model/launcherLibraryDisplay'
 /** Props for the launcher mod library page. */
 export type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft
-  launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
   routeEnterSequence?: number
@@ -43,7 +42,6 @@ type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
 export function LauncherLibraryPageContent({
   settings,
   library,
-  launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
   routeEnterSequence = 0,
@@ -78,10 +76,7 @@ export function LauncherLibraryPageContent({
     openLibraryFolderItemsById,
     shortModsPath,
     sortOptions,
-    currentSortLabel,
     editCount,
-    currentPackLabel,
-    supportedArchiveFormatsLabel,
   } = viewModel
   const { titleMenuRef, drawerPanelRef, sortMenuRef, actionsMenuRef, packDialogInputRef } = refs
   const {
@@ -212,78 +207,74 @@ export function LauncherLibraryPageContent({
         <section className="launcher-library-page">
           <LauncherLibraryHeader
             key={`launcher-library-header:${routeEnterSequence}`}
-            editMode={editMode}
-            childModSelectionMode={Boolean(childModSelection)}
-            childModSelectionParentName={childModSelection?.parentMod.name ?? null}
-            childModSelectionCount={childModSelection?.selectedModIds.length ?? 0}
-            drawerOpen={drawerOpen}
-            quickSwitchOpen={quickSwitchOpen}
-            sortMenuOpen={sortMenuOpen}
-            actionsMenuOpen={actionsMenuOpen}
-            sortingBannerOpen={sortingBannerOpen}
-            titleMenuRef={titleMenuRef}
-            sortMenuRef={sortMenuRef}
-            actionsMenuRef={actionsMenuRef}
-            currentPackLabel={currentPackLabel}
-            shortModsPath={shortModsPath}
-            modsPath={settings.modsPath}
-            hiddenViewOpen={hiddenViewOpen}
-            currentPackId={library.currentPackId}
-            visibleLibraryModsCount={visibleLibraryModsCount}
-            hiddenModsCount={hiddenLibraryItemCount}
-            packPresets={library.packPresets}
-            currentPack={library.currentPack}
-            editCount={editCount}
-            filterText={library.filterText}
-            enabledOnly={library.enabledOnly}
-            configOnly={library.configOnly}
-            sortOptions={sortOptions}
-            sortMode={sortMode}
-            currentSortLabel={currentSortLabel}
-            launchGameLabel={launchGameLabel}
-            launchGameDisabled={launchGameDisabled}
-            launchGameBusy={launchGameBusy}
-            onToggleDrawer={() => setDrawerOpen((current) => !current)}
-            onToggleQuickSwitch={() => setQuickSwitchOpen((current) => !current)}
-            onCloseFloatingMenus={() => {
-              setQuickSwitchOpen(false)
-              setPackActionMenuId(null)
-              setSortMenuOpen(false)
-              setActionsMenuOpen(false)
+            editState={{
+              editMode,
+              editCount,
+              childModSelectionMode: Boolean(childModSelection),
+              childModSelectionParentName: childModSelection?.parentMod.name ?? null,
+              childModSelectionCount: childModSelection?.selectedModIds.length ?? 0,
             }}
-            onSelectPack={(packId) => void selectPack(packId)}
-            onSelectHiddenView={() => selectHiddenView()}
-            onCreateLibraryFolder={createLibraryFolder}
-            onRefreshLibrary={() => void refreshLibrary()}
-            onOpenLibraryRoot={() => void openLibraryRoot()}
-            onInspectArchive={() => void inspectArchive()}
-            onOpenInstallBackupsDialog={openInstallBackupsDialog}
-            onLaunchGame={onLaunchGame}
-            onFilterTextChange={library.setFilterText}
-            onEnabledOnlyChange={library.setEnabledOnly}
-            onConfigOnlyChange={library.setConfigOnly}
-            onToggleSortMenu={() => {
-              setSortMenuOpen((current) => !current)
-              setActionsMenuOpen(false)
-              setQuickSwitchOpen(false)
-              setPackActionMenuId(null)
+            menus={{ drawerOpen, quickSwitchOpen, sortMenuOpen, actionsMenuOpen, sortingBannerOpen }}
+            menuRefs={{ titleMenuRef, sortMenuRef, actionsMenuRef }}
+            packState={{
+              hiddenViewOpen,
+              currentPackId: library.currentPackId,
+              currentPack: library.currentPack,
+              packPresets: library.packPresets,
+              visibleLibraryModsCount,
+              hiddenModsCount: hiddenLibraryItemCount,
             }}
-            onToggleActionsMenu={() => {
-              setActionsMenuOpen((current) => !current)
-              setSortMenuOpen(false)
-              setQuickSwitchOpen(false)
-              setPackActionMenuId(null)
+            paths={{ shortModsPath, modsPath: settings.modsPath }}
+            filterState={{
+              filterText: library.filterText,
+              enabledOnly: library.enabledOnly,
+              configOnly: library.configOnly,
             }}
-            onCloseActionsMenu={() => setActionsMenuOpen(false)}
-            onSortModeChange={(value) => {
-              changeSortMode(value)
+            sortState={{ sortOptions, sortMode }}
+            launchState={{ launchGameDisabled, launchGameBusy }}
+            actions={{
+              toggleDrawer: () => setDrawerOpen((current) => !current),
+              toggleQuickSwitch: () => setQuickSwitchOpen((current) => !current),
+              closeFloatingMenus: () => {
+                setQuickSwitchOpen(false)
+                setPackActionMenuId(null)
+                setSortMenuOpen(false)
+                setActionsMenuOpen(false)
+              },
+              selectPack: (packId) => void selectPack(packId),
+              selectHiddenView: () => selectHiddenView(),
+              createLibraryFolder,
+              refreshLibrary: () => void refreshLibrary(),
+              openLibraryRoot: () => void openLibraryRoot(),
+              inspectArchive: () => void inspectArchive(),
+              openInstallBackupsDialog,
+              launchGame: onLaunchGame,
+              filterTextChange: library.setFilterText,
+              enabledOnlyChange: library.setEnabledOnly,
+              configOnlyChange: library.setConfigOnly,
+              toggleSortMenu: () => {
+                setSortMenuOpen((current) => !current)
+                setActionsMenuOpen(false)
+                setQuickSwitchOpen(false)
+                setPackActionMenuId(null)
+              },
+              toggleActionsMenu: () => {
+                setActionsMenuOpen((current) => !current)
+                setSortMenuOpen(false)
+                setQuickSwitchOpen(false)
+                setPackActionMenuId(null)
+              },
+              closeActionsMenu: () => setActionsMenuOpen(false),
+              sortModeChange: (value) => {
+                changeSortMode(value)
+              },
+              finishSorting,
+              startSortingMode,
+              cancelEditMode,
+              saveEditMode: () => void saveEditMode(),
+              cancelChildModSelection,
+              confirmChildModSelection: () => void submitChildModSelection(),
             }}
-            onFinishSorting={finishSorting}
-            onStartSortingMode={startSortingMode}
-            onCancelEditMode={cancelEditMode}
-            onSaveEditMode={() => void saveEditMode()}
-            onCancelChildModSelection={cancelChildModSelection}
-            onConfirmChildModSelection={() => void submitChildModSelection()}
           />
           <div
             className={cx(
@@ -310,7 +301,7 @@ export function LauncherLibraryPageContent({
             />{' '}
             <div className="launcher-library-content">
               <div className="launcher-library-browser">
-                {archiveDropActive ? <LauncherLibraryArchiveDropOverlay formatsLabel={supportedArchiveFormatsLabel} /> : null}
+                {archiveDropActive ? <LauncherLibraryArchiveDropOverlay /> : null}
                 {library.state !== 'error' && !visibleDisplayItems.length ? (
                   <div className="launcher-library-empty-host">
                     {!settings.modsPath ? (
@@ -360,45 +351,44 @@ export function LauncherLibraryPageContent({
                   </div>
                 ) : (
                   <VirtualizedLauncherGrid
-                    items={visibleDisplayItems}
-                    latestVersionByModId={library.latestVersionByModId}
-                    openFolderItemsById={openLibraryFolderItemsById}
-                    routeEnterSequence={routeEnterSequence}
-                    routeActive={routeActive}
-                    editMode={editMode}
-                    sortingActive={sortingActive}
-                    rootOrderContainerKey={getLibraryViewOrderContainerKey(viewKey)}
-                    editingSelectionIds={editingSelectionIds}
-                    boxSelectionIds={boxSelectionIds}
-                    childModSelectionMode={Boolean(childModSelection)}
-                    childModSelectionParentId={childModSelection?.parentMod.id ?? null}
-                    childModSelectionIds={childModSelection?.selectedModIds ?? []}
-                    noneLabel={editorCopy.common.none}
-                    childCountLabel={copy.library.childModsCount}
-                    expandLabel={copy.library.expandChildMods}
-                    collapseLabel={copy.library.collapseChildMods}
-                    folderCountLabel={copy.library.libraryFolderCount}
-                    folderEmptyLabel={copy.library.libraryFolderEmpty}
-                    openFolderLabel={copy.library.openLibraryFolder}
-                    missingDependenciesLabel={copy.library.missingDependenciesCount}
-                    missingDependenciesBadgeLabel={copy.library.modDetail.missing}
-                    closeFolderLabel={copy.library.closeLibraryFolder}
-                    onToggleSelection={toggleEditSelection}
-                    onBoxSelectionChange={updateBoxSelection}
-                    onToggleChildModSelection={toggleChildModSelection}
-                    onToggleParentExpanded={toggleParentExpanded}
-                    isParentExpanded={isParentExpanded}
-                    onOpenModDetails={openModDetails}
-                    onOpenModFolder={openGridModFolder}
-                    isLibraryFolderOpen={isLibraryFolderOpen}
-                    isClosingLibraryFolder={isClosingLibraryFolder}
-                    onOpenLibraryFolder={toggleLibraryFolderOpen}
-                    onCloseLibraryFolder={closeLibraryFolder}
-                    getFolderContextActions={directActionsForLibraryFolder}
-                    getContextActions={directActionsForMod}
-                    onClearSelection={() => {
-                      library.clearSelection()
-                      updateBoxSelection([])
+                    gridData={{
+                      items: visibleDisplayItems,
+                      latestVersionByModId: library.latestVersionByModId,
+                      openFolderItemsById: openLibraryFolderItemsById,
+                    }}
+                    features={{ routeEnterSequence, routeActive }}
+                    editState={{
+                      editMode,
+                      sortingActive,
+                      rootOrderContainerKey: getLibraryViewOrderContainerKey(viewKey),
+                    }}
+                    selectionState={{
+                      editingSelectionIds,
+                      boxSelectionIds,
+                      childModSelectionMode: Boolean(childModSelection),
+                      childModSelectionParentId: childModSelection?.parentMod.id ?? null,
+                      childModSelectionIds: childModSelection?.selectedModIds ?? [],
+                    }}
+                    queries={{
+                      isParentExpanded,
+                      isLibraryFolderOpen,
+                      isClosingLibraryFolder,
+                      getFolderContextActions: directActionsForLibraryFolder,
+                      getContextActions: directActionsForMod,
+                    }}
+                    actions={{
+                      toggleSelection: toggleEditSelection,
+                      boxSelectionChange: updateBoxSelection,
+                      toggleChildModSelection,
+                      toggleParentExpanded,
+                      openModDetails,
+                      openModFolder: openGridModFolder,
+                      openLibraryFolder: toggleLibraryFolderOpen,
+                      closeLibraryFolder,
+                      clearSelection: () => {
+                        library.clearSelection()
+                        updateBoxSelection([])
+                      },
                     }}
                   />
                 )}
@@ -444,60 +434,66 @@ export function LauncherLibraryPageContent({
           />
         </section>
         <LauncherLibraryDialogs
-          archivePreviewState={archivePreviewState}
-          archivePreviews={archivePreviews}
-          selectedArchivePreviewPath={selectedArchivePreviewPath}
-          archivePreviewError={archivePreviewError}
-          installingArchive={installingArchive}
-          installResult={installResult}
-          installBackupsOpen={installBackupsOpen}
-          installBackupsState={installBackupsState}
-          installBackups={installBackups}
-          installBackupsError={installBackupsError}
-          restoringBackupId={restoringBackupId}
-          modsPath={settings.modsPath}
-          childModManager={childModManager}
-          galleryCoverDialog={galleryCoverDialog}
-          packDialog={packDialog}
-          folderDialog={folderDialog}
-          packDialogInputRef={packDialogInputRef}
-          onCloseArchivePreview={closeArchivePreview}
-          onConfirmArchiveInstall={() => void confirmArchiveInstall()}
-          onSelectArchivePreviewPath={setSelectedArchivePreviewPath}
-          onCloseInstallSummary={closeInstallSummary}
-          onOpenInstallBackupsFromSummary={openInstallBackupsFromSummary}
-          onCloseInstallBackupsDialog={closeInstallBackupsDialog}
-          onRestoreInstallBackup={(backupId) => void restoreInstallBackupSession(backupId)}
-          onCloseChildModManager={() => setChildModManager(null)}
-          onRemoveChildMod={removeChildMod}
-          onChildModManagerChildrenChange={(childMods) =>
-            setChildModManager((current) =>
-              current
-                ? {
-                    ...current,
-                    childMods,
-                  }
-                : current,
-            )
-          }
-          onCloseGalleryCoverDialog={closeGalleryCoverDialog}
-          onSelectGalleryCover={(url) =>
-            setGalleryCoverDialog((current) =>
-              current
-                ? {
-                    ...current,
-                    selectedImageUrl: url,
-                  }
-                : current,
-            )
-          }
-          onApplyGalleryCover={() => void applyGalleryCover()}
-          onClosePackDialog={closePackDialog}
-          onPackDialogChange={setPackDialog}
-          onSubmitPackDialog={() => void submitPackDialog()}
-          onCloseFolderDialog={closeFolderDialog}
-          onFolderDialogChange={setFolderDialog}
-          onSubmitFolderDialog={() => void submitFolderDialog()}
+          archiveInstall={{
+            archivePreviewState,
+            archivePreviews,
+            selectedArchivePreviewPath,
+            archivePreviewError,
+            installingArchive,
+            installResult,
+          }}
+          backupsDialog={{
+            installBackupsOpen,
+            installBackupsState,
+            installBackups,
+            installBackupsError,
+            restoringBackupId,
+            modsPath: settings.modsPath,
+          }}
+          dialogs={{
+            childModManager,
+            galleryCoverDialog,
+            packDialog,
+            folderDialog,
+            packDialogInputRef,
+          }}
+          actions={{
+            closeArchivePreview,
+            confirmArchiveInstall: () => void confirmArchiveInstall(),
+            selectArchivePreviewPath: setSelectedArchivePreviewPath,
+            closeInstallSummary,
+            openInstallBackupsFromSummary,
+            closeInstallBackupsDialog,
+            restoreInstallBackup: (backupId) => void restoreInstallBackupSession(backupId),
+            closeChildModManager: () => setChildModManager(null),
+            removeChildMod,
+            childModManagerChildrenChange: (childMods) =>
+              setChildModManager((current) =>
+                current
+                  ? {
+                      ...current,
+                      childMods,
+                    }
+                  : current,
+              ),
+            closeGalleryCoverDialog,
+            selectGalleryCover: (url) =>
+              setGalleryCoverDialog((current) =>
+                current
+                  ? {
+                      ...current,
+                      selectedImageUrl: url,
+                    }
+                  : current,
+              ),
+            applyGalleryCover: () => void applyGalleryCover(),
+            closePackDialog,
+            packDialogChange: setPackDialog,
+            submitPackDialog: () => void submitPackDialog(),
+            closeFolderDialog,
+            folderDialogChange: setFolderDialog,
+            submitFolderDialog: () => void submitFolderDialog(),
+          }}
         />{' '}
       </LauncherLibraryDndScope>
     </>

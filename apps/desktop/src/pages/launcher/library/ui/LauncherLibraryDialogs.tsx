@@ -19,42 +19,50 @@ import type {
 } from '../model/launcherLibraryDialogs'
 
 type LauncherLibraryDialogsProps = {
-  archivePreviewState: ArchivePreviewState
-  archivePreviews: InspectLauncherArchiveResult[]
-  selectedArchivePreviewPath: string | null
-  archivePreviewError: string | null
-  installingArchive: boolean
-  installResult: InstallLauncherArchiveResult | null
-  installBackupsOpen: boolean
-  installBackupsState: InstallBackupsState
-  installBackups: LauncherInstallBackupSummary[]
-  installBackupsError: string | null
-  restoringBackupId: string | null
-  modsPath: string | null
-  childModManager: LauncherChildModManagerState | null
-  galleryCoverDialog: GalleryCoverDialogState | null
-  packDialog: PackDialogState | null
-  folderDialog: FolderDialogState | null
-  packDialogInputRef: RefObject<HTMLInputElement | null>
-  onCloseArchivePreview: () => void
-  onConfirmArchiveInstall: () => void
-  onSelectArchivePreviewPath: (path: string) => void
-  onCloseInstallSummary: () => void
-  onOpenInstallBackupsFromSummary: () => void
-  onCloseInstallBackupsDialog: () => void
-  onRestoreInstallBackup: (backupId: string) => void
-  onCloseChildModManager: () => void
-  onRemoveChildMod: (modId: string) => void
-  onChildModManagerChildrenChange: (childMods: LauncherLibraryItem[]) => void
-  onCloseGalleryCoverDialog: () => void
-  onSelectGalleryCover: (url: string) => void
-  onApplyGalleryCover: () => void
-  onClosePackDialog: () => void
-  onPackDialogChange: Dispatch<SetStateAction<PackDialogState | null>>
-  onSubmitPackDialog: () => void
-  onCloseFolderDialog: () => void
-  onFolderDialogChange: Dispatch<SetStateAction<FolderDialogState | null>>
-  onSubmitFolderDialog: () => void
+  archiveInstall: {
+    archivePreviewState: ArchivePreviewState
+    archivePreviews: InspectLauncherArchiveResult[]
+    selectedArchivePreviewPath: string | null
+    archivePreviewError: string | null
+    installingArchive: boolean
+    installResult: InstallLauncherArchiveResult | null
+  }
+  backupsDialog: {
+    installBackupsOpen: boolean
+    installBackupsState: InstallBackupsState
+    installBackups: LauncherInstallBackupSummary[]
+    installBackupsError: string | null
+    restoringBackupId: string | null
+    modsPath: string | null
+  }
+  dialogs: {
+    childModManager: LauncherChildModManagerState | null
+    galleryCoverDialog: GalleryCoverDialogState | null
+    packDialog: PackDialogState | null
+    folderDialog: FolderDialogState | null
+    packDialogInputRef: RefObject<HTMLInputElement | null>
+  }
+  actions: {
+    closeArchivePreview: () => void
+    confirmArchiveInstall: () => void
+    selectArchivePreviewPath: (path: string) => void
+    closeInstallSummary: () => void
+    openInstallBackupsFromSummary: () => void
+    closeInstallBackupsDialog: () => void
+    restoreInstallBackup: (backupId: string) => void
+    closeChildModManager: () => void
+    removeChildMod: (modId: string) => void
+    childModManagerChildrenChange: (childMods: LauncherLibraryItem[]) => void
+    closeGalleryCoverDialog: () => void
+    selectGalleryCover: (url: string) => void
+    applyGalleryCover: () => void
+    closePackDialog: () => void
+    packDialogChange: Dispatch<SetStateAction<PackDialogState | null>>
+    submitPackDialog: () => void
+    closeFolderDialog: () => void
+    folderDialogChange: Dispatch<SetStateAction<FolderDialogState | null>>
+    submitFolderDialog: () => void
+  }
 }
 
 function GalleryCoverOption({ url, selected, label, onSelect }: { url: string; selected: boolean; label: string; onSelect: () => void }) {
@@ -76,44 +84,32 @@ function GalleryCoverOption({ url, selected, label, onSelect }: { url: string; s
   )
 }
 
-export function LauncherLibraryDialogs({
-  archivePreviewState,
-  archivePreviews,
-  selectedArchivePreviewPath,
-  archivePreviewError,
-  installingArchive,
-  installResult,
-  installBackupsOpen,
-  installBackupsState,
-  installBackups,
-  installBackupsError,
-  restoringBackupId,
-  modsPath,
-  childModManager,
-  galleryCoverDialog,
-  packDialog,
-  folderDialog,
-  packDialogInputRef,
-  onCloseArchivePreview,
-  onConfirmArchiveInstall,
-  onSelectArchivePreviewPath,
-  onCloseInstallSummary,
-  onOpenInstallBackupsFromSummary,
-  onCloseInstallBackupsDialog,
-  onRestoreInstallBackup,
-  onCloseChildModManager,
-  onRemoveChildMod,
-  onChildModManagerChildrenChange,
-  onCloseGalleryCoverDialog,
-  onSelectGalleryCover,
-  onApplyGalleryCover,
-  onClosePackDialog,
-  onPackDialogChange,
-  onSubmitPackDialog,
-  onCloseFolderDialog,
-  onFolderDialogChange,
-  onSubmitFolderDialog,
-}: LauncherLibraryDialogsProps) {
+export function LauncherLibraryDialogs({ archiveInstall, backupsDialog, dialogs, actions }: LauncherLibraryDialogsProps) {
+  const { archivePreviewState, archivePreviews, selectedArchivePreviewPath, archivePreviewError, installingArchive, installResult } =
+    archiveInstall
+  const { installBackupsOpen, installBackupsState, installBackups, installBackupsError, restoringBackupId, modsPath } = backupsDialog
+  const { childModManager, galleryCoverDialog, packDialog, folderDialog, packDialogInputRef } = dialogs
+  const {
+    closeArchivePreview: onCloseArchivePreview,
+    confirmArchiveInstall: onConfirmArchiveInstall,
+    selectArchivePreviewPath: onSelectArchivePreviewPath,
+    closeInstallSummary: onCloseInstallSummary,
+    openInstallBackupsFromSummary: onOpenInstallBackupsFromSummary,
+    closeInstallBackupsDialog: onCloseInstallBackupsDialog,
+    restoreInstallBackup: onRestoreInstallBackup,
+    closeChildModManager: onCloseChildModManager,
+    removeChildMod: onRemoveChildMod,
+    childModManagerChildrenChange: onChildModManagerChildrenChange,
+    closeGalleryCoverDialog: onCloseGalleryCoverDialog,
+    selectGalleryCover: onSelectGalleryCover,
+    applyGalleryCover: onApplyGalleryCover,
+    closePackDialog: onClosePackDialog,
+    packDialogChange: onPackDialogChange,
+    submitPackDialog: onSubmitPackDialog,
+    closeFolderDialog: onCloseFolderDialog,
+    folderDialogChange: onFolderDialogChange,
+    submitFolderDialog: onSubmitFolderDialog,
+  } = actions
   const copy = useEditorCopy().launcher
   const labels = {
     createPack: copy.actions.createPack,

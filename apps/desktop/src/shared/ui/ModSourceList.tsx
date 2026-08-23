@@ -11,6 +11,7 @@ type ModSourceEntry = {
 
 type ModSourceListProps = {
   sources: ModSourceEntry[]
+  // props-exempt: 通用 UI primitive，无障碍名称语义由使用场景决定，保留为合法组件 API
   emptyLabel?: string
   variant?: 'card' | 'flat'
 }

@@ -11,7 +11,8 @@ import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { ScriptCard } from './ScriptCard'
 import type { EventResourceRegistry } from './eventResourceRegistry'
-import type { EventWorkflowCopy, ScriptEditorCopy } from '@locales/api'
+import type { ScriptEditorCopy } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 import {
   getInlineDelayCandidate,
   getVisiblePlaybackCommandIndex,
@@ -21,9 +22,6 @@ import {
 
 export type ScriptTimelineProps = {
   commands: EventCommand[]
-  locale?: 'zh-CN' | 'en-US'
-  copy: ScriptEditorCopy
-  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
   onUpdateArgs: (commandIndex: number, argIndex: number, values: string[]) => void
@@ -51,13 +49,9 @@ function SortableScriptCard({
   expanded,
   showLineNumber,
   cardView,
-  locale,
-  copy,
-  workflowCopy,
   resourceRegistry,
   inlineDelay,
   onSelect,
-  onToggleExpand,
   onUpdateArg,
   onUpdateArgs,
   onSetInlineDelay,
@@ -77,13 +71,9 @@ function SortableScriptCard({
   expanded: boolean
   showLineNumber: boolean
   cardView: 'compact' | 'comfortable'
-  locale: 'zh-CN' | 'en-US'
-  copy: ScriptEditorCopy
-  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay: InlineDelayCandidate | null
   onSelect: () => void
-  onToggleExpand: () => void
   onUpdateArg: (argIndex: number, value: string) => void
   onUpdateArgs: (argIndex: number, values: string[]) => void
   onSetInlineDelay: (pauseCommandIndex: number | null, valueMs: number) => void
@@ -100,6 +90,7 @@ function SortableScriptCard({
   // re-render when playback advances, instead of the whole timeline. The fold
   // check reads the rendered list (not the store's currentScript, which is only
   // synced lazily once editing starts).
+  const copy = useEventStageCopy().workflow.scriptEditor
   const playing = useEditorStore((state) => {
     const playbackId = state.playbackCommandId
     if (!playbackId) {
@@ -129,29 +120,20 @@ function SortableScriptCard({
       ) : null}
       <div className={branchLabel ? 'branch' : undefined}>
         <ScriptCard
-          command={cmd}
-          index={index}
-          selected={selected}
-          playing={playing}
-          expanded={expanded}
-          showLineNumber={showLineNumber}
-          cardView={cardView}
-          locale={locale}
-          copy={copy}
-          workflowCopy={workflowCopy}
-          resourceRegistry={resourceRegistry}
-          onSelect={onSelect}
-          onToggleExpand={onToggleExpand}
-          onUpdateArg={onUpdateArg}
-          onUpdateArgs={onUpdateArgs}
-          inlineDelay={inlineDelay}
-          onSetInlineDelay={onSetInlineDelay}
-          onRemoveInlineDelay={onRemoveInlineDelay}
-          onEnterPickMode={onEnterPickMode}
-          onDuplicate={onDuplicate}
-          onDelete={onDelete}
-          onPlayFromHere={onPlayFromHere}
+          data={{ command: cmd, index, resourceRegistry, inlineDelay }}
+          state={{ selected, playing, expanded, showLineNumber, cardView }}
           dragHandleProps={{ ...attributes, ...listeners }}
+          actions={{
+            select: onSelect,
+            updateArg: onUpdateArg,
+            updateArgs: onUpdateArgs,
+            setInlineDelay: onSetInlineDelay,
+            removeInlineDelay: onRemoveInlineDelay,
+            enterPickMode: onEnterPickMode,
+            duplicate: onDuplicate,
+            deleteCommand: onDelete,
+            playFromHere: onPlayFromHere,
+          }}
         />
       </div>
     </div>
@@ -173,9 +155,6 @@ function getBranchLabel(previousCommand: EventCommand | undefined, command: Even
 
 export function ScriptTimeline({
   commands,
-  locale = 'zh-CN',
-  copy,
-  workflowCopy,
   resourceRegistry,
   onUpdateArg,
   onUpdateArgs,
@@ -183,6 +162,7 @@ export function ScriptTimeline({
   onRemoveInlineDelay,
   onEnterPickMode,
 }: ScriptTimelineProps) {
+  const copy = useEventStageCopy().workflow.scriptEditor
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
   const expandedCards = useEditorStore((s) => s.expandedCards)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -333,13 +313,9 @@ export function ScriptTimeline({
                 expanded={expandedCards.has(cmd.id)}
                 showLineNumber={showLineNumbers}
                 cardView={cardView}
-                locale={locale}
-                copy={copy}
-                workflowCopy={workflowCopy}
                 resourceRegistry={resourceRegistry}
                 inlineDelay={getInlineDelayCandidate(commands, i)}
                 onSelect={() => handleSelect(i)}
-                onToggleExpand={() => useEditorStore.getState().toggleCardExpanded(cmd.id)}
                 onUpdateArg={(argIndex, value) => onUpdateArg(i, argIndex, value)}
                 onUpdateArgs={(argIndex, values) => onUpdateArgs(i, argIndex, values)}
                 onSetInlineDelay={(pauseCommandIndex, valueMs) => onSetInlineDelay(i, pauseCommandIndex, valueMs)}

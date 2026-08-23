@@ -37,9 +37,6 @@ const eventstage: EventStageCopy = {
   flashAlphaLabel: (alpha) => `透明度 ${alpha}`,
   playbackHaltedTitle: '播放已终止',
   playbackHaltedDetail: '事件不断跳转而无法继续推进，请检查 switchEvent/fork 分支是否成环，并重置播放。',
-  pickModeComplete: '完成',
-  pickModeClear: '清空',
-  pickModeCancel: '取消',
   clickMapToPick: '点击地图选择位置',
   directionLabels: {
     up: '上',

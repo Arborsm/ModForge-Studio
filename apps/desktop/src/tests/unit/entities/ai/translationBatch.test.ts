@@ -55,7 +55,7 @@ describe('AI translation batching', () => {
     expect(merged).toHaveLength(1)
     expect(merged[0]?.id).toBe('long')
     expect(merged[0]?.translatedText).toBe(chunks.map((item) => `[${item.text}]`).join(''))
-  }, 15_000) // size; a >32 KB item needs a generous budget in CI. // splitOversizedText reassembles per-character and is quadratic in the item
+  }, 15_000) // size; a >32 KB item needs a generous budget in CI.
 
   it('budgets batches against an explicit context window', () => {
     // 8k context → 3600 input tokens → 7200 byte budget per batch.

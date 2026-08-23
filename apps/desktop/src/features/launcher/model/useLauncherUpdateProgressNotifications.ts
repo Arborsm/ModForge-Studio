@@ -5,7 +5,8 @@
 import { useEffect } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import type { LauncherUpdateProgressPayload } from './launcherContracts'
 
 /** Stable notification id for the launcher update-check progress banner. */
@@ -29,14 +30,13 @@ function isLauncherUpdateProgressComplete(payload: LauncherUpdateProgressPayload
 
 /** Publishes an update-check progress notification with current checked/total/mod name. */
 export function publishLauncherUpdateProgressNotification(copy: LauncherUpdatesCopy, payload: LauncherUpdateProgressPayload) {
-  publishNotification({
-    id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
-    level: 'info',
-    title: copy.checkingProgressTitle,
-    description: copy.checkingProgressDetail(payload.checked, payload.total, payload.currentModName),
-    autoDismissMs: null,
-    progress: getLauncherUpdateNotificationProgress(payload),
-  })
+  appEvent('info', copy.checkingProgressTitle)
+    .description(copy.checkingProgressDetail(payload.checked, payload.total, payload.currentModName))
+    .noticeId(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+    .autoDismiss(null)
+    .progress(getLauncherUpdateNotificationProgress(payload))
+    .context({ source: 'launcher-update-progress-notifications', operation: 'check-updates' })
+    .emit()
 }
 
 /** Subscribes to update-check progress events and publishes/dismisses a throttled notification. */

@@ -187,45 +187,36 @@ export function useTaskScope(scopeKey: TaskScopeKey) {
     }
   }, [])
 
-  return useMemo(
-    () => ({
-      key: scopeKey,
-      runtime,
-      capture(scope: TaskScope) {
-        activeScopeRef.current?.cancel(new TaskCancelledError('Task scope replaced.'))
-        activeScopeRef.current = scope
-        return scope
-      },
-      isCurrent(scope: TaskScope) {
-        return activeScopeRef.current === scope && scope.isCurrent()
-      },
-      cancel(reason?: unknown) {
-        activeScopeRef.current?.cancel(reason)
-        activeScopeRef.current = null
-      },
-    }),
-    [runtime, scopeKey],
-  )
+  return {
+    key: scopeKey,
+    runtime,
+    capture(scope: TaskScope) {
+      activeScopeRef.current?.cancel(new TaskCancelledError('Task scope replaced.'))
+      activeScopeRef.current = scope
+      return scope
+    },
+    isCurrent(scope: TaskScope) {
+      return activeScopeRef.current === scope && scope.isCurrent()
+    },
+    cancel(reason?: unknown) {
+      activeScopeRef.current?.cancel(reason)
+      activeScopeRef.current = null
+    },
+  }
 }
 
 /** Hook returning a `latest` task runner bound to the component's task scope. */
 export function useLatestTask(scopeKey: string) {
   const taskScope = useTaskScope(scopeKey)
-  return useCallback(
-    async <T>(task: (scope: TaskScope) => Promise<T>) =>
-      taskScope.runtime.latest(scopeKey, async (scope) => task(taskScope.capture(scope))),
-    [scopeKey, taskScope],
-  )
+  return async <T>(task: (scope: TaskScope) => Promise<T>) =>
+    taskScope.runtime.latest(scopeKey, async (scope) => task(taskScope.capture(scope)))
 }
 
 /** Hook returning a `keyedLatest` task runner bound to the component's task scope. */
 export function useKeyedResourceTask(scopeKey: string) {
   const taskScope = useTaskScope(scopeKey)
-  return useCallback(
-    async <T>(task: (scope: TaskScope) => Promise<T>) =>
-      taskScope.runtime.keyedLatest(scopeKey, async (scope) => task(taskScope.capture(scope))),
-    [scopeKey, taskScope],
-  )
+  return async <T>(task: (scope: TaskScope) => Promise<T>) =>
+    taskScope.runtime.keyedLatest(scopeKey, async (scope) => task(taskScope.capture(scope)))
 }
 
 /** Hook returning an `exclusiveMutation` runner with its own isolated runtime. */

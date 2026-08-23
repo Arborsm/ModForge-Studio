@@ -28,7 +28,10 @@ export function useWorkbenchProjectController({
   onRestoreFailedRef.current = onRestoreFailed
 
   const clearPersistedSession = useCallback(() => {
-    const cleared = { activeDraftKey: null, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
+    const cleared = {
+      activeDraftKey: null,
+      activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null,
+    }
     persistedActiveKeyRef.current = null
     setSession(cleared)
     void saveSession(cleared)
@@ -100,7 +103,10 @@ export function useWorkbenchProjectController({
     if (!restoreComplete) return
     const activeDraftKey = cpMaker.activeDraft?.draftStorageKey ?? null
     if (persistedActiveKeyRef.current === activeDraftKey) return
-    const next = { activeDraftKey, activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null }
+    const next = {
+      activeDraftKey,
+      activeGeneratedDraftKey: session?.activeGeneratedDraftKey ?? null,
+    }
     persistedActiveKeyRef.current = activeDraftKey
     setSession(next)
     void saveSession(next)
@@ -139,7 +145,7 @@ export function useWorkbenchProjectController({
     }
   }, [cpMaker, pendingUnsavedAction, saveFailedMessage])
 
-  const confirmDiscardAndContinue = useCallback(async () => {
+  const confirmDiscardAndContinue = async () => {
     if (!pendingUnsavedAction) return
     setUnsavedSaving(true)
     setUnsavedError(null)
@@ -153,7 +159,7 @@ export function useWorkbenchProjectController({
     } finally {
       setUnsavedSaving(false)
     }
-  }, [cpMaker, pendingUnsavedAction])
+  }
 
   const cancelUnsavedDecision = useCallback(() => {
     if (unsavedSaving) return
@@ -161,13 +167,10 @@ export function useWorkbenchProjectController({
     setUnsavedError(null)
   }, [unsavedSaving])
 
-  const runProjectAction = useCallback(
-    (action: () => void | Promise<void>) =>
-      runWithExternalGuard(async () => {
-        await runWithUnsavedGuard(action)
-      }),
-    [runWithExternalGuard, runWithUnsavedGuard],
-  )
+  const runProjectAction = (action: () => void | Promise<void>) =>
+    runWithExternalGuard(async () => {
+      await runWithUnsavedGuard(action)
+    })
 
   const createDraft = useCallback(
     (input: Parameters<UseCpMakerReturn['createDraft']>[0], onCreated?: () => void | Promise<void>) =>
@@ -177,14 +180,14 @@ export function useWorkbenchProjectController({
       }),
     [cpMaker, runProjectAction],
   )
-  const importPack = useCallback(
-    (sourcePath: string, onImported?: (draft: Awaited<ReturnType<UseCpMakerReturn['importPack']>>) => void | Promise<void>) =>
-      runProjectAction(async () => {
-        const imported = await cpMaker.importPack(sourcePath)
-        await onImported?.(imported)
-      }),
-    [cpMaker, runProjectAction],
-  )
+  const importPack = (
+    sourcePath: string,
+    onImported?: (draft: Awaited<ReturnType<UseCpMakerReturn['importPack']>>) => void | Promise<void>,
+  ) =>
+    runProjectAction(async () => {
+      const imported = await cpMaker.importPack(sourcePath)
+      await onImported?.(imported)
+    })
   const selectDraft = useCallback(
     (draftStorageKey: string, onSelected?: () => void | Promise<void>) =>
       runProjectAction(async () => {
@@ -206,15 +209,12 @@ export function useWorkbenchProjectController({
       }),
     [cpMaker.clearActiveDraft, runProjectAction],
   )
-  const deleteDraft = useCallback(
-    (draftStorageKey: string) => {
-      if (cpMaker.activeDraft?.draftStorageKey !== draftStorageKey) {
-        return cpMaker.deleteDraft(draftStorageKey).then(() => true)
-      }
-      return runProjectAction(() => cpMaker.deleteDraft(draftStorageKey))
-    },
-    [cpMaker, runProjectAction],
-  )
+  const deleteDraft = (draftStorageKey: string) => {
+    if (cpMaker.activeDraft?.draftStorageKey !== draftStorageKey) {
+      return cpMaker.deleteDraft(draftStorageKey).then(() => true)
+    }
+    return runProjectAction(() => cpMaker.deleteDraft(draftStorageKey))
+  }
   const reloadDraft = useCallback(
     (onReloaded?: () => void | Promise<void>) => {
       const draftStorageKey = cpMaker.activeDraft?.draftStorageKey

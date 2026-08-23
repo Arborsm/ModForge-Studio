@@ -61,16 +61,9 @@ import type {
   FindSmapiInstallerDownloadsResult,
 } from './launcherContracts'
 
-/** Debug log request payload for the launcher platform port. */
-export type LauncherDebugLogRequest = {
-  message: string
-  keyValues?: Record<string, string | undefined>
-}
-
 /** Typed platform port exposing all launcher backend capabilities to the UI layer. */
 export type LauncherPort = {
   loadSettings: () => Promise<LauncherSettings>
-  writeDebugLog: (request: LauncherDebugLogRequest) => void
   saveSettings: (request: SaveLauncherSettingsRequest) => Promise<LauncherSettings>
   scanLibrary: (request: ScanLauncherLibraryRequest) => Promise<LauncherLibraryScanResult>
   loadRuntimeInfo: () => Promise<LauncherRuntimeInfo>

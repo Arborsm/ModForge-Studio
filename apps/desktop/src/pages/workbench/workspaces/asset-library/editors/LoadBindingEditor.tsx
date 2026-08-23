@@ -10,7 +10,7 @@ import {
 } from '@features/resource-browser'
 import { useAssetLibraryCopy, useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import { mapCatalogCategory, mapTargetFromAsset } from '../../map/state/mapAuthoringCatalog'
@@ -146,7 +146,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
   const loadCopy = libraryCopy.mapLoadBinding
   const advancedCopy = useEditorCopy().studioDesk.mapPatchEditor.advancedSettings
   const configCopy = useEditorCopy().studioDesk.configSchemaDialog
-  const advancedMode = useEditorModeStore((state) => state.expertMode)
+  const advancedMode = usePreferencesStore((state) => state.expertMode)
   const { draft, updatePatch } = draftPort
 
   const [customTarget, setCustomTarget] = useState('')
@@ -266,7 +266,6 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
                 value=""
                 label={loadCopy.addTargetLabel}
                 placeholder={loadCopy.addTargetLabel}
-                emptyLabel={loadCopy.noTargets}
                 options={mapTargetOptions}
                 selectionMode="immediate"
                 triggerClassName="control-button"
@@ -387,7 +386,6 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               value={fromFile}
               label={loadCopy.projectAssetLabel}
               placeholder={loadCopy.projectAssetLabel}
-              emptyLabel={loadCopy.projectAssetLabel}
               options={projectAssetOptions}
               selectionMode="confirm"
               triggerClassName="control-button"

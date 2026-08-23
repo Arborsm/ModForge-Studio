@@ -145,7 +145,6 @@ export function WhenConditionEditor({ rows, onChange, extraTokenNames = [], excl
                 value={row.value}
                 domain={definition.values}
                 placeholder={copy.whenCustomValuePlaceholder}
-                addLabel={copy.whenCustomValueAdd}
                 focusRequested={index === pendingFocusIndex}
                 onChange={(value) => patchRow(index, { value })}
               />
@@ -255,7 +254,6 @@ type ChipValueFieldProps = {
   value: string
   domain: readonly string[]
   placeholder: string
-  addLabel: string
   focusRequested: boolean
   onChange: (value: string) => void
 }
@@ -265,7 +263,8 @@ type ChipValueFieldProps = {
  * value, chips for custom values already present in the row (click to remove),
  * and a small input to add out-of-domain values or `{{Token}}` interpolation.
  */
-function ChipValueField({ value, domain, placeholder, addLabel, focusRequested, onChange }: ChipValueFieldProps) {
+function ChipValueField({ value, domain, placeholder, focusRequested, onChange }: ChipValueFieldProps) {
+  const addLabel = useEditorCopy().studioDesk.configSchemaDialog.whenCustomValueAdd
   const [draft, setDraft] = useState('')
   const alternatives = parseWhenValueAlternatives(value)
   const selectedKeys = new Set(alternatives.map((alternative) => alternative.toLowerCase()))

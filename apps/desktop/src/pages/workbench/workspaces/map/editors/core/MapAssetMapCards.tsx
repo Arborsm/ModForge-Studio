@@ -34,6 +34,7 @@ import {
 } from '@entities/map'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy, useLocale, useMapAuthoringCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { loadImage } from '@entities/map/ui/mapViewportHelpers'
 import { propertyEditMergeKey } from '../../model/mapHistoryStack'
 import { WarpDialog, type WarpCarrier, type WarpCarrierOption, type WarpDialogMapOption } from './WarpDialog'
@@ -366,8 +367,13 @@ function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, t
         if (cancelled) return
         setImageUrl(renderTileIndexDataUrl(image, tileset, tileIndex))
       })
-      .catch(() => {
-        // The placeholder square below covers failed loads.
+      .catch((error) => {
+        if (!cancelled) {
+          appEvent('warning', 'Failed to load map tile preview')
+            .error(error)
+            .context({ source: 'map-asset-map-cards', operation: 'load-tile-preview', path: imagePath })
+            .emit({ notify: false })
+        }
       })
     return () => {
       cancelled = true

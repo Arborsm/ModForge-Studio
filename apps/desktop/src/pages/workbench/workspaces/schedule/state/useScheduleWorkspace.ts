@@ -9,6 +9,7 @@ import {
 import type { AssetDraftPort } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
 import { useLocale } from '@locales/provider'
+import { reportRecovered } from '@platform/observability'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import { useWorkbenchAssetDraftPort, type WorkbenchDraftSaveState } from '../../../model/useWorkbenchAssetDraftPort'
@@ -171,8 +172,12 @@ function loadVanillaSchedule(rootPath: string, npcId: string, locale: LocaleCode
     try {
       const asset = await loadTextAsset(rootPath, `Content\\Characters\\schedules\\${npcId}.xnb`, locale)
       content = asset.content
-    } catch {
+    } catch (error) {
       // Missing schedule file is a normal state (many NPCs have none), not an error.
+      if (error instanceof Error && !/(does not exist|not found)/iu.test(error.message)) {
+        reportRecovered(error, 'schedule-workspace.load-schedule')
+      }
+      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     }
     return parseStringRecord(content)

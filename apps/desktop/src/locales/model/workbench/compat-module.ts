@@ -16,6 +16,10 @@ export type CompatModuleCopy = {
   entryListTitle: string
   /** Entry list empty placeholder. */
   entryListEmpty: string
+  /** Entry list search placeholder. */
+  entrySearchPlaceholder: string
+  /** Message shown when the entry search has no matches. */
+  entrySearchNoResults: string
   /** Unsaved changes indicator. */
   unsavedChanges: string
   /** Save success message. */
@@ -36,4 +40,16 @@ export type CompatModuleCopy = {
   objectFields: string
   /** Invalid value placeholder for record-list/object fields. */
   invalidValue: string
+  /** Placeholder text for the game-item picker input. */
+  itemPickerPlaceholder: string
+  /** Message shown when the game-item picker filter matches no catalogued item. */
+  itemPickerNoResults: string
+  /** Alt text for the large entry preview image; `{entry}` is the entry id. */
+  entryPreviewAlt: string
+  /** Placeholder label for an entry image still loading. */
+  entryImageLoading: string
+  /** Placeholder label for an entry image that failed to load. */
+  entryImageFailed: string
+  /** Aria label for the section collapse toggle; `{section}` is the section title. */
+  sectionCollapseToggle: string
 }

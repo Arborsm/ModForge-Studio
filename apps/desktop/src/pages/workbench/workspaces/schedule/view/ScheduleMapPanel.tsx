@@ -231,7 +231,7 @@ export function ScheduleMapPanel({ segments, locationOptions, selectedIndex, npc
   const viewportRef = useRef<MapViewportHandle | null>(null)
 
   const location = useMemo(() => resolveScheduleMapLocation(segments, selectedIndex), [segments, selectedIndex])
-  const locationOption = useMemo(() => locationOptions.find((option) => option.value === location) ?? null, [locationOptions, location])
+  const locationOption = locationOptions.find((option) => option.value === location) ?? null
   const mapPath = locationOption?.mapPath ?? null
 
   const [mapState, setMapState] = useState<MapLoadState>(IDLE_MAP_STATE)
@@ -294,7 +294,12 @@ export function ScheduleMapPanel({ segments, locationOptions, selectedIndex, npc
       try {
         const image = await loadCharacterImageState(`${rootPath}\\Content\\Characters\\${npcId}.xnb`, locale)
         if (!cancelled) {
-          setSpriteState({ status: 'ready', image, errorMessage: null })
+          if (image.url) {
+            setSpriteState({ status: 'ready', image, errorMessage: null })
+          } else {
+            // 条目在 vanilla 内容中没有立绘资源（如 Gil、Welwick）是正常状态。
+            setSpriteState({ status: 'error', image: null, errorMessage: copy.spriteMissingAsset })
+          }
         }
       } catch (error) {
         // Not fatal: the marker degrades to a numbered dot, but the author is
@@ -316,8 +321,8 @@ export function ScheduleMapPanel({ segments, locationOptions, selectedIndex, npc
 
   const mapDocument = mapState.status === 'ready' && mapState.location === location ? mapState.document : null
   const path = useMemo(() => (mapDocument && location ? buildScheduleMapPath(segments, location) : null), [mapDocument, location, segments])
-  const visibleLayerIds = useMemo(() => getVisibleLayerIds(mapDocument), [mapDocument])
-  const visibleObjectGroupIds = useMemo(() => getVisibleObjectGroupIds(mapDocument), [mapDocument])
+  const visibleLayerIds = getVisibleLayerIds(mapDocument)
+  const visibleObjectGroupIds = getVisibleObjectGroupIds(mapDocument)
 
   // The viewport only re-centres when the displayed map changes. Recentring on
   // every row selection would drag the view out from under an author who is
@@ -386,28 +391,24 @@ export function ScheduleMapPanel({ segments, locationOptions, selectedIndex, npc
           <MapViewport
             key={mapDocument.relativePath || mapDocument.sourcePath}
             ref={viewportRef}
-            locale={locale}
-            mapDocument={mapDocument}
-            visibleLayerIds={visibleLayerIds}
-            visibleObjectGroupIds={visibleObjectGroupIds}
-            theme={theme}
-            accentColor={accentColor}
-            showGrid
-            showStatsChips={false}
-            contextMenuEnabled={false}
-            focusWorldPoint={focusWorldPoint}
-            scaleMapOverlayWithViewport
-            mapOverlayLayer="top"
-            mapOverlay={
-              <SchedulePathOverlay
-                path={path}
-                document={mapDocument}
-                selectedSegmentIndex={selectedIndex}
-                sprite={spriteState}
-                copy={copy}
-              />
-            }
-            onTileClick={pickable && location ? (tileX, tileY) => onPickTile(location, tileX, tileY) : undefined}
+            mapState={{ mapDocument, visibleLayerIds, visibleObjectGroupIds }}
+            display={{ locale, theme, accentColor, showGrid: true, showStatsChips: false }}
+            contextMenu={{ enabled: false }}
+            fit={{ focusWorldPoint }}
+            overlays={{
+              scaleMapOverlayWithViewport: true,
+              mapOverlayLayer: 'top',
+              mapOverlay: (
+                <SchedulePathOverlay
+                  path={path}
+                  document={mapDocument}
+                  selectedSegmentIndex={selectedIndex}
+                  sprite={spriteState}
+                  copy={copy}
+                />
+              ),
+            }}
+            actions={{ onTileClick: pickable && location ? (tileX, tileY) => onPickTile(location, tileX, tileY) : undefined }}
           />
         ) : null}
       </div>

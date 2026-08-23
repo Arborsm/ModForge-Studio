@@ -15,19 +15,18 @@ import {
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { type ComponentType, type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@platform/host'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent } from '@platform/observability'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { useLauncherDiscover, useLauncherPort, useLauncherRemoteModDetail, parseLauncherModIdQuery } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
 import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
-import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
-import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
+import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState, useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
@@ -889,13 +888,12 @@ function LauncherDiscoverPageContent({
 
   useEffect(() => {
     if (discover.state === 'loading') {
-      publishNotification({
-        id: LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.discover.title,
-        description: loadingDescription,
-        autoDismissMs: null,
-      })
+      appEvent('info', copy.discover.title)
+        .description(loadingDescription)
+        .noticeId(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
+        .autoDismiss(null)
+        .context({ source: 'launcher-discover', operation: 'load-discover-page' })
+        .emit()
       return
     }
 
@@ -972,12 +970,10 @@ function LauncherDiscoverPageContent({
         },
       },
     }).catch((error) => {
-      reportAppEvent({
-        level: 'error',
-        title: 'Failed to save launcher discover toolbar state',
-        description: error instanceof Error ? error.message : String(error),
-        notify: false,
-      })
+      appEvent('error', 'Failed to save launcher discover toolbar state')
+        .error(error)
+        .context({ source: 'launcher-discover', operation: 'save-toolbar-state' })
+        .emit({ notify: false })
     })
   }, [discover.ascending, discover.pageSize, discover.sort, discover.timeRange, filtersHidden, launcherUiStateReady])
 
@@ -1024,6 +1020,7 @@ function LauncherDiscoverPageContent({
     setBlockedRetryPending(true)
     try {
       await onRetryDiagnostics?.()
+      // observability-exempt: 诊断重试失败时由 finally 中的 discover.revalidate() 重新获取阻塞原因，当前发现结果无需被清空
     } catch {
       // The follow-up discover revalidation will surface the latest blocked reason.
     } finally {
@@ -1047,13 +1044,12 @@ function LauncherDiscoverPageContent({
   }
 
   const notifyModIdNotFound = (modId: number) => {
-    publishNotification({
-      id: LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID,
-      level: 'warning',
-      title: copy.discover.modIdNotFoundTitle,
-      description: copy.discover.modIdNotFoundDetail(modId),
-      autoDismissMs: 5_000,
-    })
+    appEvent('warning', copy.discover.modIdNotFoundTitle)
+      .description(copy.discover.modIdNotFoundDetail(modId))
+      .noticeId(LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID)
+      .autoDismiss(5_000)
+      .context({ source: 'launcher-discover', operation: 'find-mod-by-id' })
+      .emit()
   }
 
   const handleModIdDetailNotFound = (modId: number) => {
@@ -1076,14 +1072,16 @@ function LauncherDiscoverPageContent({
 
   // The downloads manager floats inside the window frame, so it cannot stack
   // above the body-portal detail drawer; pages close their drawer on request.
-  useEffect(
-    () =>
-      listenForLauncherModDetailDismiss(() => {
-        setDetailModId(null)
-        setDetailItem(null)
-      }),
-    [],
-  )
+  const launcherOverlayDismissEpoch = useLauncherOverlayDismissStore((state) => state.dismissEpoch)
+  const launcherOverlayDismissEpochRef = useRef(launcherOverlayDismissEpoch)
+  useEffect(() => {
+    if (launcherOverlayDismissEpochRef.current === launcherOverlayDismissEpoch) {
+      return
+    }
+    launcherOverlayDismissEpochRef.current = launcherOverlayDismissEpoch
+    setDetailModId(null)
+    setDetailItem(null)
+  }, [launcherOverlayDismissEpoch])
 
   // Cached launcher routes stay mounted while hidden; close the body-portal
   // detail drawer as soon as the discover route leaves the active page.
@@ -1463,17 +1461,11 @@ function LauncherDiscoverPageContent({
           {discoverBlocked ? (
             <LauncherBlockedState
               className="launcher-discover-blocked-state"
-              eyebrow={copy.discover.title}
-              title={copy.discover.blockedTitle}
-              detail={copy.discover.blockedDetail}
-              issueLabel={copy.discover.blockedIssueLabel}
+              scene="discover"
+              variant="blocked"
               issueSummary={primaryBlockedReason}
               detailsText={blockedReasonText}
               detailsExpanded={effectiveBlockedDetailsExpanded}
-              detailsToggleLabel={
-                effectiveBlockedDetailsExpanded ? copy.discover.blockedDetailsCollapseAction : copy.discover.blockedDetailsExpandAction
-              }
-              copyLabel={copy.discover.blockedCopyLogsAction}
               onToggleDetails={() => setBlockedDetailsExpanded((current) => !current)}
               onCopyDetails={() => {
                 if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
@@ -1509,10 +1501,8 @@ function LauncherDiscoverPageContent({
           {discoverRequestFailed ? (
             <LauncherBlockedState
               className="launcher-discover-blocked-state"
-              eyebrow={copy.discover.title}
-              title={copy.discover.errorTitle}
-              detail={copy.discover.errorDetail}
-              issueLabel={copy.discover.blockedIssueLabel}
+              scene="discover"
+              variant="error"
               issueSummary={discover.error ?? copy.discover.empty}
               tone="error"
               primaryAction={

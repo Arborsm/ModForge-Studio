@@ -3,6 +3,7 @@
  * detail for the discover/library detail panels.
  */
 import { useEffect, useState } from 'react'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useLauncherPort } from './launcherPortContext'
 
 import type { LauncherDiscoverDetail, LauncherViewState } from './types'
@@ -29,29 +30,29 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
     state: 'idle',
     error: null,
   })
+  const runDetailTask = useLatestTask('launcher-remote-mod-detail')
 
   useEffect(() => {
-    if (!modId) {
-      return
-    }
-    if (launcherPort.isRemoteModIdInvalid(modId)) {
-      setRequestState({
-        requestKey,
-        detail: null,
-        state: 'error',
-        error: `Nexus mod ${modId} is unavailable.`,
-      })
-      return
-    }
+    void runDetailTask(async (scope) => {
+      if (!modId) {
+        return
+      }
+      if (launcherPort.isRemoteModIdInvalid(modId)) {
+        setRequestState({
+          requestKey,
+          detail: null,
+          state: 'error',
+          error: `Nexus mod ${modId} is unavailable.`,
+        })
+        return
+      }
 
-    let cancelled = false
-    void launcherPort
-      .loadRemoteModDetail({
-        modId,
-        ...(includeFiles === undefined ? {} : { includeFiles }),
-      })
-      .then((result) => {
-        if (cancelled) {
+      try {
+        const result = await launcherPort.loadRemoteModDetail({
+          modId,
+          ...(includeFiles === undefined ? {} : { includeFiles }),
+        })
+        if (!scope.isCurrent()) {
           return
         }
         setRequestState({
@@ -60,9 +61,8 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
           state: 'ready',
           error: null,
         })
-      })
-      .catch((nextError) => {
-        if (cancelled) {
+      } catch (nextError) {
+        if (nextError instanceof TaskCancelledError || !scope.isCurrent()) {
           return
         }
         setRequestState({
@@ -71,12 +71,11 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
           state: 'error',
           error: nextError instanceof Error ? nextError.message : 'Failed to load launcher remote mod detail.',
         })
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [includeFiles, modId, launcherPort, requestKey])
+      }
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [includeFiles, modId, launcherPort, requestKey, runDetailTask])
 
   if (!modId) {
     return {

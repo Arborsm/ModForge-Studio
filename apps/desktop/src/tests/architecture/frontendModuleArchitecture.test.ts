@@ -1,7 +1,7 @@
 import { access, readdir, readFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
-import { describe, expect, it } from 'vite-plus/test'
-import { collectRequiredFiles } from '@test/sourceScan'
+import { describe, expect, it, beforeAll } from 'vite-plus/test'
+import { collectRequiredFiles, readSourceFileCached } from '@test/sourceScan'
 
 function sourcePath(...segments: string[]) {
   return resolve(process.cwd(), ...segments)
@@ -82,7 +82,7 @@ async function scanRustCommands() {
   const commandFiles = (await collectRustFiles(srcRoot)).filter((filePath) => filePath.endsWith('commands.rs'))
   const commands: { module: string; name: string; kind: 'macro' | 'manual' }[] = []
   for (const filePath of commandFiles) {
-    const source = await readFile(filePath, 'utf8')
+    const source = await readSourceFileCached(filePath)
     const module = relative(srcRoot, filePath).replaceAll('\\', '/').replace(/\.rs$/, '').replaceAll('/', '::')
     for (const match of source.matchAll(/#\[tauri::command\]\s*pub\s+(?:async\s+)?fn ([a-z][a-z0-9_]*)/g)) {
       commands.push({ module, name: match[1] ?? '', kind: 'manual' })
@@ -214,6 +214,13 @@ function collectPrimitiveModalViolations(relativePath: string, source: string) {
 }
 
 describe('frontend module architecture', () => {
+  // 并行预热全仓源码内容缓存；全量套件并发运行时，各用例的串行 readFile
+  // 循环会集体逼近 30s 预算，预热后所有扫描用例直接命中缓存。
+  beforeAll(async () => {
+    const allFiles = await collectSourceFiles(sourcePath('src'))
+    await Promise.all(allFiles.map((filePath) => readSourceFileCached(filePath)))
+  }, 60000)
+
   it('exposes the FSD foundation roots and mounts app/App directly', async () => {
     await expectFile(sourcePath('src/app/App.tsx'))
     await expect(access(sourcePath('src/app/App.test.tsx'))).rejects.toThrow()
@@ -226,7 +233,7 @@ describe('frontend module architecture', () => {
     await expect(access(sourcePath('src/widgets/index.ts'))).rejects.toThrow()
     await expect(access(sourcePath('src/entities/index.ts'))).rejects.toThrow()
     await expectFile(sourcePath('src/shared/contracts/registry.ts'))
-    await expectFile(sourcePath('src/shared/contracts/events.ts'))
+    await expect(access(sourcePath('src/shared/contracts/events.ts'))).rejects.toThrow()
     await expectFile(sourcePath('src/shared/contracts/commands.ts'))
     await expectFile(sourcePath('src/shared/contracts/platform.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/index.ts'))
@@ -284,7 +291,7 @@ describe('frontend module architecture', () => {
 
     await Promise.all(
       sourceFiles.map(async (file) => {
-        const source = await readFile(file, 'utf8')
+        const source = await readSourceFileCached(file)
         const relativePath = relative(process.cwd(), file).replaceAll('\\', '/')
 
         for (const match of source.matchAll(bilingualFieldPattern)) {
@@ -312,7 +319,6 @@ describe('frontend module architecture', () => {
 
   it('defines shared contracts without creating runtime instances in shared', async () => {
     const registry = await readFile(sourcePath('src/shared/contracts/registry.ts'), 'utf8')
-    const events = await readFile(sourcePath('src/shared/contracts/events.ts'), 'utf8')
     const commands = await readFile(sourcePath('src/shared/contracts/commands.ts'), 'utf8')
     const platform = await readFile(sourcePath('src/shared/contracts/platform.ts'), 'utf8')
     const appRegistry = await readFile(sourcePath('src/app/registry.ts'), 'utf8')
@@ -328,12 +334,9 @@ describe('frontend module architecture', () => {
     expect(registry).toContain('export interface AppRegistry')
     expect(registry).not.toContain('createAppRegistry(')
     expect(registry).not.toContain('new Map')
-    expect(events).toContain('export type AppEvent')
-    expect(events).toContain('export type WorkbenchEvent')
-    expect(events).toContain('export type CpMakerEvent')
     expect(commands).toContain('export type AppCommand')
     expect(commands).toContain('export interface CommandDispatcher')
-    expect(commands).toContain('export type NavigationCommand')
+    expect(commands).toContain('export type SettingsCommand')
     expect(platform).toContain('export interface FileSystemPort')
     expect(platform).toContain('export interface DesktopWindowPort')
     expect(platform).toContain('export interface StoragePort')
@@ -564,14 +567,16 @@ describe('frontend module architecture', () => {
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
     const violations: string[] = []
 
-    for (const filePath of sourceFiles.flat()) {
-      const source = await readFile(filePath, 'utf8')
-      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+    await Promise.all(
+      sourceFiles.flat().map(async (filePath) => {
+        const source = await readSourceFileCached(filePath)
+        const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
-      if (/\binvoke\s*\(/.test(source)) {
-        violations.push(`${relativePath} calls invoke(`)
-      }
-    }
+        if (/\binvoke\s*\(/.test(source)) {
+          violations.push(`${relativePath} calls invoke(`)
+        }
+      }),
+    )
 
     expect(violations).toEqual([])
   }, 30000)
@@ -581,14 +586,16 @@ describe('frontend module architecture', () => {
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
     const violations: string[] = []
 
-    for (const filePath of sourceFiles.flat()) {
-      const source = await readFile(filePath, 'utf8')
-      if (!source.includes('fileSystem.invokeCommand')) {
-        continue
-      }
-      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
-      violations.push(`${relativePath} calls fileSystem.invokeCommand`)
-    }
+    await Promise.all(
+      sourceFiles.flat().map(async (filePath) => {
+        const source = await readSourceFileCached(filePath)
+        if (!source.includes('fileSystem.invokeCommand')) {
+          return
+        }
+        const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+        violations.push(`${relativePath} calls fileSystem.invokeCommand`)
+      }),
+    )
 
     expect(violations).toEqual([])
   }, 30000)
@@ -720,17 +727,19 @@ describe('frontend module architecture', () => {
     const allowedFiles = new Set(['src/platform/host/runtime.ts'])
     const violations: string[] = []
 
-    for (const filePath of sourceFiles.flat()) {
-      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
-      if (allowedFiles.has(relativePath) || TEST_FILE_PATTERN.test(filePath)) {
-        continue
-      }
+    await Promise.all(
+      sourceFiles.flat().map(async (filePath) => {
+        const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+        if (allowedFiles.has(relativePath) || TEST_FILE_PATTERN.test(filePath)) {
+          return
+        }
 
-      const source = await readFile(filePath, 'utf8')
-      if (/invokeDesktop(?:<[^>]+>)?\(\s*['"][a-z][a-z0-9_]+['"]/.test(source)) {
-        violations.push(`${relativePath} passes a raw host command string to invokeDesktop`)
-      }
-    }
+        const source = await readSourceFileCached(filePath)
+        if (/invokeDesktop(?:<[^>]+>)?\(\s*['"][a-z][a-z0-9_]+['"]/.test(source)) {
+          violations.push(`${relativePath} passes a raw host command string to invokeDesktop`)
+        }
+      }),
+    )
 
     expect(violations).toEqual([])
   }, 30000)
@@ -740,21 +749,23 @@ describe('frontend module architecture', () => {
     const allowedImportFiles = new Set(['src/platform/tauri/index.ts', 'src/platform/tauri/devLauncherMock.ts'])
     const violations: string[] = []
 
-    for (const filePath of sourceFiles) {
-      if (TEST_FILE_PATTERN.test(filePath)) {
-        continue
-      }
+    await Promise.all(
+      sourceFiles.map(async (filePath) => {
+        if (TEST_FILE_PATTERN.test(filePath)) {
+          return
+        }
 
-      const source = await readFile(filePath, 'utf8')
-      if (!source.includes('@tauri-apps/api')) {
-        continue
-      }
+        const source = await readSourceFileCached(filePath)
+        if (!source.includes('@tauri-apps/api')) {
+          return
+        }
 
-      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
-      if (!allowedImportFiles.has(relativePath)) {
-        violations.push(`${relativePath} imports @tauri-apps/api outside approved adapter boundary`)
-      }
-    }
+        const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+        if (!allowedImportFiles.has(relativePath)) {
+          violations.push(`${relativePath} imports @tauri-apps/api outside approved adapter boundary`)
+        }
+      }),
+    )
 
     expect(violations).toEqual([])
   }, 30000)
@@ -791,7 +802,7 @@ describe('frontend module architecture', () => {
     const featureViolations: string[] = []
 
     for (const filePath of featureFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const ownerFeature = topLevelFeatureFromPath(filePath)
 
       if (!ownerFeature) {
@@ -839,21 +850,28 @@ describe('frontend module architecture', () => {
     for (const rule of rules) {
       const sourceFiles = await collectSourceFiles(sourcePath(rule.root))
 
-      for (const filePath of sourceFiles) {
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
+      await Promise.all(
+        sourceFiles.map(async (filePath) => {
+          const source = await readSourceFileCached(filePath)
+          const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
 
-        for (const specifier of extractImportSpecifiers(source)) {
-          for (const blockedTarget of rule.blockedTargets) {
-            if (blockedTarget === 'src/platform' && PLATFORM_IMPORT_ALLOWLIST.has(relativePath)) {
-              continue
-            }
-            if (specifierTargetsSourceRoot(filePath, specifier, blockedTarget)) {
-              violations.push(`${relativePath} imports ${specifier}: ${rule.message}`)
+          for (const specifier of extractImportSpecifiers(source)) {
+            for (const blockedTarget of rule.blockedTargets) {
+              if (blockedTarget === 'src/platform' && PLATFORM_IMPORT_ALLOWLIST.has(relativePath)) {
+                continue
+              }
+              // @platform/observability is the sanctioned cross-layer event sink (host adapter
+              // injected by app/providers); it is not a host platform adapter.
+              if (blockedTarget === 'src/platform' && /^@platform\/observability(?:\/|$)/.test(specifier)) {
+                continue
+              }
+              if (specifierTargetsSourceRoot(filePath, specifier, blockedTarget)) {
+                violations.push(`${relativePath} imports ${specifier}: ${rule.message}`)
+              }
             }
           }
-        }
-      }
+        }),
+      )
     }
 
     expect(violations).toEqual([])
@@ -880,7 +898,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of entityFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
 
       for (const specifier of extractImportSpecifiers(source)) {
@@ -915,7 +933,7 @@ describe('frontend module architecture', () => {
         continue
       }
 
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       for (const specifier of extractImportSpecifiers(source)) {
@@ -968,7 +986,7 @@ describe('frontend module architecture', () => {
     const removedPathViolations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       for (const pattern of removedPathPatterns) {
@@ -1005,7 +1023,7 @@ describe('frontend module architecture', () => {
     const workspaceViolations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       if (source.includes('@features/workspaces') || source.includes('features/workspaces')) {
@@ -1034,7 +1052,7 @@ describe('frontend module architecture', () => {
         continue
       }
 
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
       violations.push(...collectPrimitiveModalViolations(relativePath, source))
     }
@@ -1071,7 +1089,7 @@ describe('frontend module architecture', () => {
     ]
 
     for (const filePath of sharedSourceFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       for (const specifier of extractImportSpecifiers(source)) {
@@ -1111,7 +1129,7 @@ describe('frontend module architecture', () => {
       const sourceFiles = await collectSourceFiles(sourcePath(rule.root))
 
       for (const filePath of sourceFiles) {
-        const source = await readFile(filePath, 'utf8')
+        const source = await readSourceFileCached(filePath)
         const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
 
         for (const specifier of extractImportSpecifiers(source)) {
@@ -1132,7 +1150,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of contractFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
       const runtimeExportMatches = source.match(/\bexport\s+(?:const|let|var|function|class|enum)\s+/g) ?? []
 
@@ -1150,7 +1168,7 @@ describe('frontend module architecture', () => {
     const blockedSpecifiers = ['@entities/', '@features/', '@shared/infra']
 
     for (const filePath of platformFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relativePath = relative(sourcePath(), filePath).replace(/\\/g, '/')
 
       for (const specifier of extractImportSpecifiers(source)) {
@@ -1210,7 +1228,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of allFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
 
       for (const specifier of extractImportSpecifiers(source)) {
@@ -1238,7 +1256,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
 
       for (const pattern of blockedPatterns) {
@@ -1266,7 +1284,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of launcherFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const relPath = relative(sourcePath('src-tauri/src/domain/launcher'), filePath).replace(/\\/g, '/')
 
       for (const pattern of blockedPatterns) {
@@ -1310,7 +1328,7 @@ describe('frontend module architecture', () => {
     const dialogOwners: string[] = []
 
     for (const filePath of sourceFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       if (source.includes('resource-picker__dialog')) {
         dialogOwners.push(relative(sourcePath('src'), filePath).replace(/\\/g, '/'))
       }
@@ -1332,7 +1350,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of sourceFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       const importsPluginLocale =
         source.includes('usePluginLocaleStore') || source.includes('resolvePluginText') || source.includes('pluginLocaleStore')
       if (!importsPluginLocale) continue
@@ -1353,7 +1371,7 @@ describe('frontend module architecture', () => {
     const violations: string[] = []
 
     for (const filePath of compatFiles) {
-      const source = await readFile(filePath, 'utf8')
+      const source = await readSourceFileCached(filePath)
       for (const specifier of blockedSpecifiers) {
         if (source.includes(`from ${specifier}`) || source.includes(`import(${specifier}`)) {
           const rel = relative(sourcePath(), filePath).replace(/\\/g, '/')

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppEvent, WorkbenchLocation } from '@shared/contracts'
+import { useState } from 'react'
+import type { WorkbenchLocation } from '@shared/contracts'
 import type { CpMakerDraft, UseCpMakerReturn } from '@features/cp-maker'
 import { getPackTemplate, type CreateDraftInput } from '@features/cp-maker'
 import type { useWorkbenchProjectController } from './useWorkbenchProjectController'
@@ -10,7 +10,6 @@ type Options = {
   projectController: ReturnType<typeof useWorkbenchProjectController>
   gameRootPath: string | null
   importLabel: string
-  onWorkbenchEvent: (event: AppEvent) => void
   openHome: () => void
   openModule: (moduleId: string, options?: WorkbenchOpenModuleOptions) => void
   applyLocation: (location: WorkbenchLocation) => void
@@ -25,7 +24,6 @@ export function useWorkbenchProjectPresentationController({
   projectController,
   gameRootPath,
   importLabel,
-  onWorkbenchEvent,
   openHome,
   openModule,
   applyLocation,
@@ -36,88 +34,70 @@ export function useWorkbenchProjectPresentationController({
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [propertiesDialogOpen, setPropertiesDialogOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
-  const selectedDraftKeyRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    const draftKey = cpMaker.activeDraft?.draftStorageKey ?? null
-    if (!draftKey) {
-      selectedDraftKeyRef.current = null
-      return
-    }
-    if (selectedDraftKeyRef.current === draftKey) return
-    selectedDraftKeyRef.current = draftKey
-    onWorkbenchEvent({ type: 'cp-maker/draft-selected', draftKey })
-  }, [cpMaker.activeDraft?.draftStorageKey, onWorkbenchEvent])
-
-  const openProjectDashboard = useCallback(() => {
+  const openProjectDashboard = () => {
     navigateToPatch(null)
     // The successful project operation updates React state in the same async turn.
     // Allow the guarded navigation to commit before that state is rendered.
-    openModule('project-dashboard', { hasActiveProject: true, resetHistoryTo: { kind: 'home' } })
-  }, [navigateToPatch, openModule])
+    openModule('project-dashboard', {
+      hasActiveProject: true,
+      resetHistoryTo: { kind: 'home' },
+    })
+  }
 
-  const createDraft = useCallback(
-    (input: CreateDraftInput) => {
-      const template = getPackTemplate(input.templateId)
-      void projectController.createDraft({ ...input.metadata, gameRootPath }, async () => {
-        // Seed the template's singleton patches; addPatch is idempotent, and a
-        // fresh draft has no patches yet, so this simply materializes them.
-        for (const seed of template.seedPatches) {
-          cpMaker.addPatch(seed.workspace, seed.target, seed.action)
-        }
-        if (template.seedPatches.length > 0) {
-          await cpMaker.saveDraft()
-        }
-        if (template.landingModule === null) {
-          openProjectDashboard()
-          return
-        }
-        navigateToPatch(null)
-        openModule(template.landingModule, { hasActiveProject: true, resetHistoryTo: { kind: 'home' } })
-      })
-      setCreateDialogOpen(false)
-    },
-    [cpMaker, gameRootPath, navigateToPatch, openModule, openProjectDashboard, projectController],
-  )
-
-  const importFromPath = useCallback(
-    async (sourcePath: string) => {
-      await projectController.importPack(sourcePath, async () => {
+  const createDraft = (input: CreateDraftInput) => {
+    const template = getPackTemplate(input.templateId)
+    void projectController.createDraft({ ...input.metadata, gameRootPath }, async () => {
+      // Seed the template's singleton patches; addPatch is idempotent, and a
+      // fresh draft has no patches yet, so this simply materializes them.
+      for (const seed of template.seedPatches) {
+        cpMaker.addPatch(seed.workspace, seed.target, seed.action)
+      }
+      if (template.seedPatches.length > 0) {
+        await cpMaker.saveDraft()
+      }
+      if (template.landingModule === null) {
         openProjectDashboard()
+        return
+      }
+      navigateToPatch(null)
+      openModule(template.landingModule, {
+        hasActiveProject: true,
+        resetHistoryTo: { kind: 'home' },
       })
-    },
-    [openProjectDashboard, projectController],
-  )
+    })
+    setCreateDialogOpen(false)
+  }
 
-  const importDraft = useCallback(async () => {
+  const importFromPath = async (sourcePath: string) => {
+    await projectController.importPack(sourcePath, async () => {
+      openProjectDashboard()
+    })
+  }
+
+  const importDraft = async () => {
     const sourcePath = await cpMaker.chooseDirectory(importLabel)
     if (sourcePath) await importFromPath(sourcePath)
-  }, [cpMaker, importFromPath, importLabel])
+  }
 
-  const selectDraft = useCallback(
-    (draftStorageKey: string) => {
-      void projectController.selectDraft(draftStorageKey, async () => {
-        openProjectDashboard()
-      })
-    },
-    [openProjectDashboard, projectController],
-  )
+  const selectDraft = (draftStorageKey: string) => {
+    void projectController.selectDraft(draftStorageKey, async () => {
+      openProjectDashboard()
+    })
+  }
 
-  const closeDraft = useCallback(() => {
+  const closeDraft = () => {
     void projectController.closeDraft(async () => {
       resetAuthoringNavigation()
       applyLocation({ kind: 'home' })
       resetHistory({ kind: 'home' })
     })
-  }, [applyLocation, projectController, resetAuthoringNavigation, resetHistory])
+  }
 
-  const updateMetadata = useCallback(
-    (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
-      cpMaker.updateMetadata(metadata)
-      setPropertiesDialogOpen(false)
-    },
-    [cpMaker],
-  )
+  const updateMetadata = (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
+    cpMaker.updateMetadata(metadata)
+    setPropertiesDialogOpen(false)
+  }
 
   return {
     createDialogOpen,

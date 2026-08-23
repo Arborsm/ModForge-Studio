@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Redo2, Undo2 } from 'lucide-react'
 import { MapViewport, type MapDocument, type MapTileRect, type TileHoverInfo } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
@@ -76,7 +76,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
     persistDocument: (next) => setDocument(next),
   })
 
-  const changedCellCount = useMemo(() => diffMapDocumentToMapTiles(baseDocument, document).length, [baseDocument, document])
+  const changedCellCount = diffMapDocumentToMapTiles(baseDocument, document).length
 
   const overlayActiveRef = useRef(editor.overlayActive)
   overlayActiveRef.current = editor.overlayActive
@@ -94,7 +94,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
   const paletteSelection = editor.paletteSelection
 
   /** Overlay view model for the session's active layer (rules + drag preview). */
-  const overlayCells = useMemo(() => {
+  const overlayCells = (() => {
     if (!editor.overlayActive) return null
     const layer = editor.renderDocument.layers.find((candidate) => candidate.id === editor.activeLayerId)
     if (!layer) return null
@@ -109,7 +109,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
       }
     }
     return { layerId: layer.id, width: layer.width, height: layer.height, cells }
-  }, [editor.activeLayerId, editor.overlayActive, editor.overlayPaintPreview, editor.overlayRule, editor.renderDocument])
+  })()
 
   return (
     <div className="map-asset-editor" data-guide-surface="workbench.map">
@@ -193,65 +193,68 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
               capabilities={editor.capabilities}
             />
             <MapViewport
-              locale={resources.locale}
-              mapDocument={editor.renderDocument}
-              visibleLayerIds={
-                hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id)
-              }
-              visibleObjectGroupIds={document.objectGroups.filter((group) => group.visible).map((group) => group.id)}
-              hideRuleTileDataObjects
-              includeHiddenLayers={document.layers.every((layer) => !layer.visible)}
-              theme={resources.theme}
-              accentColor={resources.accentColor}
-              showGrid
-              showStatsChips={false}
-              contextMenuEnabled
-              onHoverChange={editor.setHoverInfo}
-              paintPreview={
-                !editor.overlayActive &&
-                !editor.activeLayerLocked &&
-                (editor.tool === 'brush' || editor.tool === 'stamp') &&
-                editor.paletteSelection &&
-                editor.selectedTileset
-                  ? editor.paletteSelection
-                  : null
-              }
-              tilesetPreview={galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null}
-              onTileStroke={
-                editor.overlayActive && !editor.activeLayerLocked
-                  ? editor.commitCellOverlayStroke
-                  : editor.tool === 'brush' || editor.tool === 'erase'
-                    ? editor.commitStroke
-                    : undefined
-              }
-              onTileStrokeLive={editor.overlayActive && !editor.activeLayerLocked ? editor.previewCellOverlayStroke : undefined}
-              onTileClick={
-                !editor.overlayActive && ['inspect', 'fill', 'stamp', 'eyedropper', 'hand'].includes(editor.tool)
-                  ? editor.clickTile
-                  : undefined
-              }
-              selectedTileRect={!editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null}
-              onTileRectSelect={
-                !editor.overlayActive &&
-                editor.tool === 'rectangle' &&
-                activeLayer &&
-                !editor.activeLayerLocked &&
-                selectedTileset &&
-                paletteSelection
-                  ? (rect: MapTileRect) =>
-                      editor.updateDocument(
-                        applyMapAssetStroke(
-                          document,
-                          activeLayer.id,
-                          rectangleTilePoints(rect.x, rect.y, rect.width, rect.height),
-                          selectedTileset.firstGid + paletteSelection.startIndex,
-                        ),
-                        undefined,
-                        assetEditorCopy.historyToolAction(assetEditorCopy.toolLabels.rectangle, activeLayer.name),
-                      )
-                  : undefined
-              }
-              cellOverlay={overlayCells}
+              mapState={{
+                mapDocument: editor.renderDocument,
+                visibleLayerIds:
+                  hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id),
+                visibleObjectGroupIds: document.objectGroups.filter((group) => group.visible).map((group) => group.id),
+                hideRuleTileDataObjects: true,
+              }}
+              display={{
+                locale: resources.locale,
+                theme: resources.theme,
+                accentColor: resources.accentColor,
+                showGrid: true,
+                showStatsChips: false,
+              }}
+              fit={{ includeHiddenLayers: document.layers.every((layer) => !layer.visible) }}
+              contextMenu={{ enabled: true }}
+              actions={{
+                onHoverChange: editor.setHoverInfo,
+                onTileStroke:
+                  editor.overlayActive && !editor.activeLayerLocked
+                    ? editor.commitCellOverlayStroke
+                    : editor.tool === 'brush' || editor.tool === 'erase'
+                      ? editor.commitStroke
+                      : undefined,
+                onTileStrokeLive: editor.overlayActive && !editor.activeLayerLocked ? editor.previewCellOverlayStroke : undefined,
+                onTileClick:
+                  !editor.overlayActive && ['inspect', 'fill', 'stamp', 'eyedropper', 'hand'].includes(editor.tool)
+                    ? editor.clickTile
+                    : undefined,
+                onTileRectSelect:
+                  !editor.overlayActive &&
+                  editor.tool === 'rectangle' &&
+                  activeLayer &&
+                  !editor.activeLayerLocked &&
+                  selectedTileset &&
+                  paletteSelection
+                    ? (rect: MapTileRect) =>
+                        editor.updateDocument(
+                          applyMapAssetStroke(
+                            document,
+                            activeLayer.id,
+                            rectangleTilePoints(rect.x, rect.y, rect.width, rect.height),
+                            selectedTileset.firstGid + paletteSelection.startIndex,
+                          ),
+                          undefined,
+                          assetEditorCopy.historyToolAction(assetEditorCopy.toolLabels.rectangle, activeLayer.name),
+                        )
+                    : undefined,
+              }}
+              editing={{
+                paintPreview:
+                  !editor.overlayActive &&
+                  !editor.activeLayerLocked &&
+                  (editor.tool === 'brush' || editor.tool === 'stamp') &&
+                  editor.paletteSelection &&
+                  editor.selectedTileset
+                    ? editor.paletteSelection
+                    : null,
+                tilesetPreview: galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null,
+                selectedTileRect: !editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null,
+                cellOverlay: overlayCells,
+              }}
             />
             {!editor.overlayActive &&
             (editor.tool === 'brush' || editor.tool === 'stamp' || editor.tool === 'fill') &&
@@ -270,41 +273,37 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
         </main>
 
         <MapAssetEditorInspector
-          document={document}
-          renderDocument={editor.renderDocument}
-          assetPath={assetPath}
-          activeLayer={editor.activeLayer}
-          selectedTile={editor.selectedTile}
-          selectedTileset={editor.selectedTileset}
-          selectedTileDefinitionProperties={editor.selectedTileDefinitionProperties}
-          selectedObject={null}
-          selectedObjectId={null}
-          paletteSelection={editor.paletteSelection}
-          isTmxAsset
-          tbinIssues={[]}
-          layerNameIssues={[]}
-          invalidTsxSourceTilesets={[]}
-          documentIssueCount={0}
-          undoStackLength={editor.undoStack.length}
-          redoStackLength={editor.redoStack.length}
-          saveState={editor.saveState}
-          capabilities={editor.capabilities}
-          onSetSelectedObjectId={editor.setSelectedObjectId}
-          onSetActiveObjectGroupId={editor.setActiveObjectGroupId}
-          onUpdateDocument={editor.updateDocument}
-          onUpdateActiveLayer={editor.updateActiveLayer}
-          onUpdateSelectedTileset={editor.updateSelectedTileset}
-          onUpdateSelectedObject={editor.updateSelectedObject}
-          onDeleteSelectedObject={editor.deleteSelectedObject}
-          onAddTileDataObject={editor.addTileDataObject}
-          paletteSelectionForPicker={editor.paletteSelection}
-          onPaletteSelectionChange={(selection) => {
-            if (!selection) return
-            editor.setPaletteSelection(selection)
-            editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+          documentState={{ document, renderDocument: editor.renderDocument, assetPath, isTmxAsset: true }}
+          selectionState={{
+            activeLayer: editor.activeLayer,
+            selectedTile: editor.selectedTile,
+            selectedTileset: editor.selectedTileset,
+            selectedTileDefinitionProperties: editor.selectedTileDefinitionProperties,
+            selectedObject: null,
+            selectedObjectId: null,
+            paletteSelection: editor.paletteSelection,
           }}
-          onHoverTileset={setHoverPreviewSrc}
-          onGalleryModeChange={setGalleryMode}
+          diagnostics={{ tbinIssues: [], layerNameIssues: [], invalidTsxSourceTilesets: [], documentIssueCount: 0 }}
+          historyState={{ undoStackLength: editor.undoStack.length, redoStackLength: editor.redoStack.length, saveState: editor.saveState }}
+          capabilities={editor.capabilities}
+          paletteState={{ selectionForPicker: editor.paletteSelection }}
+          actions={{
+            setSelectedObjectId: editor.setSelectedObjectId,
+            setActiveObjectGroupId: editor.setActiveObjectGroupId,
+            updateDocument: editor.updateDocument,
+            updateActiveLayer: editor.updateActiveLayer,
+            updateSelectedTileset: editor.updateSelectedTileset,
+            updateSelectedObject: editor.updateSelectedObject,
+            deleteSelectedObject: editor.deleteSelectedObject,
+            addTileDataObject: editor.addTileDataObject,
+            paletteSelectionChange: (selection) => {
+              if (!selection) return
+              editor.setPaletteSelection(selection)
+              editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+            },
+            hoverTileset: setHoverPreviewSrc,
+            galleryModeChange: setGalleryMode,
+          }}
         />
       </div>
 

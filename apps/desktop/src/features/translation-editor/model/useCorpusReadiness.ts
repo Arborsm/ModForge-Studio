@@ -6,6 +6,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
 import { useTranslationEditorCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
+
 import type {
   AiOfficialCorpusStatus,
   AiOfficialIndexProgress,
@@ -13,7 +15,7 @@ import type {
   AiSemanticProgress,
   AiSemanticSearchMode,
 } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
 const NOTIFICATION_ID = 'translation-editor-corpus-readiness'
@@ -26,7 +28,6 @@ const NOTIFICATION_ID = 'translation-editor-corpus-readiness'
 export function useCorpusReadiness(gameDirectory: string | null | undefined) {
   const localization = useLocalization()
   const copy = useTranslationEditorCopy()
-  const publish = useNotificationPublisher()
   const [corpusStatus, setCorpusStatus] = useState<AiOfficialCorpusStatus | null>(null)
   const [modelStatus, setModelStatus] = useState<AiSemanticModelStatus | null>(null)
   const [semanticMode, setSemanticMode] = useState<AiSemanticSearchMode | null>(null)
@@ -49,15 +50,20 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
   const modelDownloaded = Boolean(modelStatus?.downloaded)
   const semanticReady = semanticMode === 'lexical' || Boolean(modelStatus?.available)
 
-  const fail = (retry: () => void) => {
+  const fail = (retry: () => void, error?: unknown) => {
     retryRef.current = retry
-    publish({
-      id: NOTIFICATION_ID,
-      level: 'error',
-      title: copy.corpusReminderFailed,
-      description: copy.corpusReminderFailed,
-      action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
-    })
+    if (error !== undefined) {
+      appEvent('error', copy.corpusReminderFailed)
+        .error(error)
+        .context({ source: 'translation-editor-corpus', operation: 'readiness' })
+        .emit({ notify: false })
+    }
+    appEvent('error', copy.corpusReminderFailed)
+      .description(copy.corpusReminderFailed)
+      .noticeId(NOTIFICATION_ID)
+      .action({ label: copy.retry, callback: () => retryRef.current(), tone: 'primary' })
+      .context({ source: 'translation-editor-corpus', operation: 'show-readiness-failure' })
+      .emit()
   }
 
   useEffect(() => {
@@ -71,6 +77,7 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
         if (active) unlisten = dispose
         else dispose()
       })
+      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false
@@ -89,6 +96,7 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
         if (active) unlisten = dispose
         else dispose()
       })
+      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false
@@ -126,12 +134,20 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
         setSemanticInspected(true)
       }
       const complete = corpusResult.status === 'fulfilled' && semanticResult.status === 'fulfilled'
-      if (!complete) fail(() => setInspectionRevision((value) => value + 1))
+      if (!complete) {
+        const failure =
+          corpusResult.status === 'rejected'
+            ? corpusResult.reason
+            : semanticResult.status === 'rejected'
+              ? semanticResult.reason
+              : undefined
+        fail(() => setInspectionRevision((value) => value + 1), failure)
+      }
     }).catch((error) => {
       if (!(error instanceof TaskCancelledError)) {
         setCorpusInspected(false)
         setSemanticInspected(false)
-        fail(() => setInspectionRevision((value) => value + 1))
+        fail(() => setInspectionRevision((value) => value + 1), error)
       }
     })
   }, [gameDirectory, inspectionRevision, localization, runInspect])
@@ -147,8 +163,8 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
     dismissNotification(NOTIFICATION_ID)
     try {
       setCorpusStatus(await localization.rebuildOfficialIndex({ jobId, gameDirectory }))
-    } catch {
-      fail(() => void buildIndex())
+    } catch (error) {
+      fail(() => void buildIndex(), error)
     } finally {
       activeBuildJob.current = null
       setBuilding(false)
@@ -165,8 +181,8 @@ export function useCorpusReadiness(gameDirectory: string | null | undefined) {
     dismissNotification(NOTIFICATION_ID)
     try {
       setModelStatus(await localization.downloadSemanticModel({ jobId, modelId: BUILTIN_SEMANTIC_MODEL_ID }))
-    } catch {
-      fail(() => void downloadModel())
+    } catch (error) {
+      fail(() => void downloadModel(), error)
     } finally {
       activeDownloadJob.current = null
       setDownloading(false)

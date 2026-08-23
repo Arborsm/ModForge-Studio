@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useEditorCopy } from '@locales/provider'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent } from '@platform/observability'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 
 function pathListKey(paths: readonly string[]) {
@@ -28,12 +28,10 @@ export function useWorkbenchRecentDirectories(appUiStateReady: boolean, activeRo
 
     persistedKeyRef.current = nextKey
     void applyAppUiStatePatch({ appearance: { recentGameDirectories: recentDirectories } }).catch((error) => {
-      reportAppEvent({
-        level: 'error',
-        title: copy.recentDirectoriesSaveFailed,
-        description: error instanceof Error ? error.message : String(error),
-        notify: false,
-      })
+      appEvent('error', copy.recentDirectoriesSaveFailed)
+        .error(error)
+        .context({ source: 'workbench-recent-directories', operation: 'save' })
+        .emit({ notify: false })
     })
   }, [appUiStateReady, copy.recentDirectoriesSaveFailed, recentDirectories])
 }

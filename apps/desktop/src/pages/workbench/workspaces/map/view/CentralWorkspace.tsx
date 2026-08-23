@@ -1,5 +1,5 @@
 import { Grid2x2, Grip, Info, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
 import { exportMapPng } from '@entities/game/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
@@ -8,7 +8,8 @@ import type { ThemeMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@entities/map'
 import { cx } from '@shared/lib/helper'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+
+import { appEvent } from '@platform/observability'
 import { chooseSaveFile } from '@platform/host'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
 import {
@@ -23,67 +24,75 @@ import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 import { useMapEditorShortcuts } from '../editors/core/useMapEditorShortcuts'
 
 type CentralWorkspaceProps = {
-  tabs: Array<{
-    id: string
-    title: string
-    pathLabel: string
-    closable: boolean
-    pinned?: boolean
-  }>
-  activeTabId: string
-  onSelectTab: (tabId: string) => void
-  onCloseTab: (tabId: string) => void
-  onReorderTabs: (sourceTabId: string, targetTabId: string) => void
-  mapDocument: MapDocument | null
-  worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
-  activeWorldAtlasViewId: 'main' | 'remote' | null
-  onSelectWorldAtlasView: (viewId: 'main' | 'remote') => void
-  onOpenAtlasTarget: (targetMapName: string) => void
-  theme: ThemeMode
-  accentColor: string
-  /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
-  gameRootPath?: string | null
-  visibleLayerIds: number[]
-  visibleObjectGroupIds: number[]
-  focusedObjectTarget: FocusedMapObjectTarget | null
-  showGameWorldAdditions: boolean
-  onToggleGameWorldAdditions: () => void
-  worldOverlaySprites: StageWorldOverlaySprite[]
-  worldOverlayTextureAssets: Record<string, EffectAssetState>
-  /** Item-data lookup enabling object-layer lamp/torch markers in the lighting preview. */
-  objectLightIndex: ObjectLightItemIndex | null
-  onHoverChange: (info: TileHoverInfo | null) => void
+  tabState: {
+    tabs: Array<{
+      id: string
+      title: string
+      closable: boolean
+      pinned?: boolean
+    }>
+    activeTabId: string
+  }
+  atlasState: {
+    worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
+    activeWorldAtlasViewId: 'main' | 'remote' | null
+  }
+  mapState: {
+    mapDocument: MapDocument | null
+    visibleLayerIds: number[]
+    visibleObjectGroupIds: number[]
+    focusedObjectTarget: FocusedMapObjectTarget | null
+    showGameWorldAdditions: boolean
+    worldOverlaySprites: StageWorldOverlaySprite[]
+    worldOverlayTextureAssets: Record<string, EffectAssetState>
+    /** Item-data lookup enabling object-layer lamp/torch markers in the lighting preview. */
+    objectLightIndex: ObjectLightItemIndex | null
+    /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+    gameRootPath?: string | null
+  }
+  display: {
+    theme: ThemeMode
+    accentColor: string
+  }
+  actions: {
+    selectTab: (tabId: string) => void
+    closeTab: (tabId: string) => void
+    reorderTabs: (sourceTabId: string, targetTabId: string) => void
+    selectWorldAtlasView: (viewId: 'main' | 'remote') => void
+    openAtlasTarget: (targetMapName: string) => void
+    toggleGameWorldAdditions: () => void
+    hoverChange: (info: TileHoverInfo | null) => void
+  }
 }
 
 type ToolMode = 'select' | 'pan'
 
-export default function CentralWorkspace({
-  tabs,
-  activeTabId,
-  onSelectTab,
-  onCloseTab,
-  onReorderTabs,
-  mapDocument,
-  worldAtlasViews,
-  activeWorldAtlasViewId,
-  onSelectWorldAtlasView,
-  onOpenAtlasTarget,
-  theme,
-  accentColor,
-  gameRootPath = null,
-  visibleLayerIds,
-  visibleObjectGroupIds,
-  focusedObjectTarget,
-  showGameWorldAdditions,
-  onToggleGameWorldAdditions,
-  worldOverlaySprites,
-  worldOverlayTextureAssets,
-  objectLightIndex,
-  onHoverChange,
-}: CentralWorkspaceProps) {
+export default function CentralWorkspace({ tabState, atlasState, mapState, display, actions }: CentralWorkspaceProps) {
+  const { tabs, activeTabId } = tabState
+  const { worldAtlasViews, activeWorldAtlasViewId } = atlasState
+  const {
+    mapDocument,
+    visibleLayerIds,
+    visibleObjectGroupIds,
+    focusedObjectTarget,
+    showGameWorldAdditions,
+    worldOverlaySprites,
+    worldOverlayTextureAssets,
+    objectLightIndex,
+    gameRootPath = null,
+  } = mapState
+  const { theme, accentColor } = display
+  const {
+    selectTab: onSelectTab,
+    closeTab: onCloseTab,
+    reorderTabs: onReorderTabs,
+    selectWorldAtlasView: onSelectWorldAtlasView,
+    openAtlasTarget: onOpenAtlasTarget,
+    toggleGameWorldAdditions: onToggleGameWorldAdditions,
+    hoverChange: onHoverChange,
+  } = actions
   const locale = useLocale()
   const copy = useEditorCopy()
-  const publishNotification = useNotificationPublisher()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
   const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
@@ -110,7 +119,7 @@ export default function CentralWorkspace({
     viewportRef.current?.focusObject(focusedObjectTarget)
   }, [focusedObjectTarget])
 
-  const mapOverlay = useMemo(() => {
+  const mapOverlay = (() => {
     if (!showGameWorldAdditions || !mapDocument) {
       return null
     }
@@ -123,20 +132,16 @@ export default function CentralWorkspace({
         textureAssets={worldOverlayTextureAssets}
       />
     )
-  }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
-  const worldLighting = useMemo(
-    () =>
-      mapDocument
-        ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
-            objectLightIndex,
-          })
-        : null,
-    [lightingMode, lightingSeason, mapDocument, objectLightIndex],
-  )
+  })()
+  const worldLighting = mapDocument
+    ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+        objectLightIndex,
+      })
+    : null
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
-  const exportMapPngAtFullSize = useCallback(async () => {
+  const exportMapPngAtFullSize = async () => {
     if (!mapDocument) {
       return
     }
@@ -160,18 +165,16 @@ export default function CentralWorkspace({
         throw new Error(copy.viewportLabels.failedToExportPng)
       }
       await exportMapPng(outputPath, pngBase64)
-      publishNotification({
-        level: 'success',
-        title: copy.viewportLabels.exportPngSuccess(outputPath),
-      })
+      appEvent('success', copy.viewportLabels.exportPngSuccess(outputPath))
+        .context({ source: 'map-workspace', operation: 'export-map-png' })
+        .emit()
     } catch (error) {
-      publishNotification({
-        level: 'error',
-        title: copy.viewportLabels.failedToExportPng,
-        description: error instanceof Error ? error.message : String(error),
-      })
+      appEvent('error', copy.viewportLabels.failedToExportPng)
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'export-map-png' })
+        .emit()
     }
-  }, [copy.viewportLabels, mapDocument, publishNotification])
+  }
 
   return (
     <div className="bg-surface-viewport rounded-panel flex h-full flex-col overflow-hidden">
@@ -252,23 +255,18 @@ export default function CentralWorkspace({
           <div className="relative h-full">
             <MapViewport
               key={mapDocument ? `${activeTabId}:${mapDocument.format}:${mapDocument.relativePath || mapDocument.sourcePath}` : 'empty-map'}
-              locale={locale}
               ref={viewportRef}
-              mapDocument={mapDocument}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              onHoverChange={onHoverChange}
-              onAtlasPortalOpen={onOpenAtlasTarget}
-              theme={theme}
-              accentColor={accentColor}
-              showGrid={showGrid}
-              mapOverlay={mapOverlay}
-              scaleMapOverlayWithViewport
-              worldLighting={worldLighting}
-              gameRootPath={gameRootPath}
-              onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
-              onExportPng={() => {
-                void exportMapPngAtFullSize()
+              mapState={{ mapDocument, visibleLayerIds, visibleObjectGroupIds }}
+              display={{ locale, theme, accentColor, showGrid }}
+              overlays={{ mapOverlay, scaleMapOverlayWithViewport: true }}
+              lighting={{ worldLighting, gameRootPath }}
+              actions={{
+                onHoverChange,
+                onAtlasPortalOpen: onOpenAtlasTarget,
+                onZoomChange: (nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom)),
+                onExportPng: () => {
+                  void exportMapPngAtFullSize()
+                },
               }}
             />
             <div className="workspace-viewport-toolbar" role="toolbar" aria-label={copy.center.canvas}>

@@ -1,9 +1,9 @@
 import { CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { listenForLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
+import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { openLauncherPath } from '@features/launcher/api'
@@ -76,7 +76,15 @@ export function LauncherUpdatesPage({
 
   // The downloads manager floats inside the window frame, so it cannot stack
   // above the body-portal detail drawer; pages close their drawer on request.
-  useEffect(() => listenForLauncherModDetailDismiss(() => setDetailMod(null)), [])
+  const launcherOverlayDismissEpoch = useLauncherOverlayDismissStore((state) => state.dismissEpoch)
+  const launcherOverlayDismissEpochRef = useRef(launcherOverlayDismissEpoch)
+  useEffect(() => {
+    if (launcherOverlayDismissEpochRef.current === launcherOverlayDismissEpoch) {
+      return
+    }
+    launcherOverlayDismissEpochRef.current = launcherOverlayDismissEpoch
+    setDetailMod(null)
+  }, [launcherOverlayDismissEpoch])
 
   // Cached launcher routes stay mounted while hidden; close the body-portal
   // detail drawer as soon as the updates route leaves the active page.
@@ -166,6 +174,7 @@ export function LauncherUpdatesPage({
     setStatusRetryPending(true)
     try {
       await onRetryDiagnostics?.()
+      // observability-exempt: 更新诊断重试失败时由 finally 中的 updates.revalidate() 重新获取失败原因，保留现有更新卡片状态
     } catch {
       // The follow-up updates revalidation will surface the latest failure reason.
     } finally {
@@ -237,15 +246,11 @@ export function LauncherUpdatesPage({
             <div className="launcher-updates-content launcher-updates-content-blocked">
               <LauncherBlockedState
                 className="launcher-updates-blocked-state"
-                eyebrow={copy.updates.title}
-                title={copy.updates.blockedTitle}
-                detail={copy.updates.blockedDetail}
-                issueLabel={copy.updates.issueLabel}
+                scene="updates"
+                variant="blocked"
                 issueSummary={blockedIssueSummary}
                 detailsText={blockedReasonText}
                 detailsExpanded={effectiveStatusDetailsExpanded}
-                detailsToggleLabel={effectiveStatusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction}
-                copyLabel={copy.updates.copyLogsAction}
                 onToggleDetails={() => setStatusDetailsExpanded((current) => !current)}
                 onCopyDetails={() => {
                   if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
@@ -283,15 +288,11 @@ export function LauncherUpdatesPage({
             <div className="launcher-updates-content launcher-updates-content-error">
               <LauncherBlockedState
                 className="launcher-updates-blocked-state"
-                eyebrow={copy.updates.title}
-                title={copy.updates.checkFailedTitle}
-                detail={copy.updates.checkFailedDetail}
-                issueLabel={copy.updates.issueLabel}
+                scene="updates"
+                variant="error"
                 issueSummary={null}
                 detailsText={null}
                 detailsExpanded={false}
-                detailsToggleLabel={null}
-                copyLabel={null}
                 onToggleDetails={null}
                 onCopyDetails={null}
                 illustrationAccent={<RefreshCw className="h-4 w-4" />}

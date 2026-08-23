@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   syncLightMapProperty,
   type MapDocument,
@@ -12,6 +12,7 @@ import {
 } from '@entities/map'
 import { useLocalUndoShortcutOwner, type AssetDraftPort, type ProjectAssetRef } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   addMapAssetLayer,
@@ -230,27 +231,27 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   // via useSyncExternalStore and re-renders on tile change.
   const hoverInfoRef = useRef<TileHoverInfo | null>(null)
   const hoverInfoListenersRef = useRef(new Set<() => void>())
-  const subscribeHoverInfo = useCallback((listener: () => void) => {
+  const subscribeHoverInfo = (listener: () => void) => {
     hoverInfoListenersRef.current.add(listener)
     return () => {
       hoverInfoListenersRef.current.delete(listener)
     }
-  }, [])
-  const getHoverInfo = useCallback(() => hoverInfoRef.current, [])
+  }
+  const getHoverInfo = () => hoverInfoRef.current
   // Hover fires per pointermove with a fresh info object; only the hovered tile
   // coordinates are displayed, so suppress updates that keep the same tile
   // to avoid notifying subscribers on every pixel of mouse travel.
   // The callback identity must stay stable: MapViewport's reset effect depends
   // on it, and a fresh identity would clear the hover right after every update
   // (visible as flickering coordinates that only appear while moving).
-  const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = useCallback((next) => {
+  const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = (next) => {
     const value = typeof next === 'function' ? next(hoverInfoRef.current) : next
     const prev = hoverInfoRef.current
     if (prev === null && value === null) return
     if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return
     hoverInfoRef.current = value
     hoverInfoListenersRef.current.forEach((l) => l())
-  }, [])
+  }
   const [paletteSelection, setPaletteSelection] = useState<MapTilesetPaletteSelection | null>(null)
   const [saveState, setSaveState] = useState<MapEditorSaveState>({ status: 'idle', message: '' })
   const [pendingDeleteLayerId, setPendingDeleteLayerId] = useState<number | null>(null)
@@ -306,7 +307,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
         if (active) setProjectImageUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
       })
       .catch((error) => {
-        if (active) setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+        if (active) {
+          appEvent('error', 'Failed to load project tileset image')
+            .error(error)
+            .context({ source: 'map-document-editor', operation: 'load-project-images' })
+            .emit({ notify: false })
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+        }
       })
     return () => {
       active = false
@@ -317,19 +324,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
 
   const activeLayer = document.layers.find((layer) => layer.id === activeLayerId) ?? document.layers[0] ?? null
   const activeLayerLocked = activeLayer ? lockedLayerIds.has(activeLayer.id) : true
-  // Memoized for downstream effect dependency stability: layer thumbnails, the
-  // world-lighting bake and viewport redraws key on this identity, so it must
-  // only change when the document or resolved project images actually change.
-  const renderDocument: MapDocument = useMemo(
-    () => ({
-      ...mapDocument,
-      tilesets: mapDocument.tilesets.map((tileset) => ({
-        ...tileset,
-        imagePath: tileset.imagePath && projectImageUrls[tileset.imagePath] ? projectImageUrls[tileset.imagePath] : tileset.imagePath,
-      })),
-    }),
-    [mapDocument, projectImageUrls],
-  )
+  const renderDocument: MapDocument = {
+    ...mapDocument,
+    tilesets: mapDocument.tilesets.map((tileset) => ({
+      ...tileset,
+      imagePath: tileset.imagePath && projectImageUrls[tileset.imagePath] ? projectImageUrls[tileset.imagePath] : tileset.imagePath,
+    })),
+  }
   const selectedTileset = paletteSelection
     ? (mapDocument.tilesets.find((tileset) => tileset.name === paletteSelection.tilesetName) ?? null)
     : null
@@ -485,6 +486,10 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     )
     updateDocument(painted, null, copy.historyPaintRule(copy.overlayRules[overlayRule], activeLayer.name))
     if (skippedTilesetDerived > 0) {
+      appEvent('warning', 'Some map cell rules could not be cleared')
+        .context({ source: 'map-document-editor', operation: 'clear-cell-rules', count: String(skippedTilesetDerived) })
+        .dedupe('map-cell-rules-clear')
+        .emit({ notify: false })
       setSaveState({ status: 'idle', message: copy.overlayTilesetEraseBlocked(skippedTilesetDerived) })
     }
   }
@@ -602,6 +607,10 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
       setPaletteSelection({ tilesetName: name, startIndex: 0, width: 1, height: 1 })
       setSaveState({ status: 'idle', message: '' })
     } catch (error) {
+      appEvent('error', 'Failed to add map tileset')
+        .error(error)
+        .context({ source: 'map-document-editor', operation: replaceName ? 'replace-tileset' : 'add-tileset', path: relativePath })
+        .emit({ notify: false })
       setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -615,9 +624,16 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     if (!capabilities.tilesetManagement) return
     const tileset = buildGameSheetTileset(mapDocument, sheet)
     if (!tileset) {
+      const error = new Error(
+        copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+      )
+      appEvent('error', 'Failed to attach game tilesheet')
+        .error(error)
+        .context({ source: 'map-document-editor', operation: 'attach-game-sheet', sheet: sheet.key })
+        .emit({ notify: false })
       setSaveState({
         status: 'error',
-        message: copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+        message: error.message,
       })
       return
     }

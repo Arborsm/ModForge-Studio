@@ -3,12 +3,13 @@
  * filtering, pack/folder organization, child mods, auto-cover fetching, and
  * update hint subscription.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
 import { TaskCancelledError, useQueuedMutationTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { reportAppEvent } from '@platform/observability'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent, orNull, reportRecovered } from '@platform/observability'
+
 import { toErrorMessage } from './errorMessage'
 import type {
   LauncherLibraryModSummary,
@@ -425,20 +426,19 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const [latestVersionByModId, setLatestVersionByModId] = useState<Record<number, string>>({})
   const autoCoverFetchInFlightRef = useRef(false)
 
-  const persistLibraryState = useCallback(
-    async (nextStateOrUpdater: LauncherLibraryState | ((currentState: LauncherLibraryState) => LauncherLibraryState)) => {
-      libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
-      return runLibraryStateSaveTask(async () => {
-        const nextState = typeof nextStateOrUpdater === 'function' ? nextStateOrUpdater(libraryStateRef.current) : nextStateOrUpdater
-        const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
-        const normalized = normalizeLibraryState(persisted)
-        libraryStateRef.current = normalized
-        setLibraryState(normalized)
-        return normalized
-      })
-    },
-    [launcherPort, libraryRefreshTaskScope, runLibraryStateSaveTask],
-  )
+  const persistLibraryState = async (
+    nextStateOrUpdater: LauncherLibraryState | ((currentState: LauncherLibraryState) => LauncherLibraryState),
+  ) => {
+    libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
+    return runLibraryStateSaveTask(async () => {
+      const nextState = typeof nextStateOrUpdater === 'function' ? nextStateOrUpdater(libraryStateRef.current) : nextStateOrUpdater
+      const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
+      const normalized = normalizeLibraryState(persisted)
+      libraryStateRef.current = normalized
+      setLibraryState(normalized)
+      return normalized
+    })
+  }
 
   const cancelAutoCoverFetch = useCallback(() => {
     if (!autoCoverFetchInFlightRef.current) {
@@ -450,167 +450,173 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
   }, [autoCoverTaskScope])
 
-  const startAutoCoverFetch = useCallback(
-    (eligibleMods: LauncherLibraryModSummary[]) => {
-      if (!eligibleMods.length) {
-        return
-      }
+  const startAutoCoverFetch = (eligibleMods: LauncherLibraryModSummary[]) => {
+    if (!eligibleMods.length) {
+      return
+    }
 
-      autoCoverFetchInFlightRef.current = true
-      let completed = 0
+    autoCoverFetchInFlightRef.current = true
+    let completed = 0
 
-      void autoCoverTaskScope.runtime
-        .latest(autoCoverTaskScope.key, async (scope) => {
-          const activeScope = autoCoverTaskScope.capture(scope)
-          const isTaskActive = () => autoCoverTaskScope.isCurrent(activeScope)
+    void autoCoverTaskScope.runtime
+      .latest(autoCoverTaskScope.key, async (scope) => {
+        const activeScope = autoCoverTaskScope.capture(scope)
+        const isTaskActive = () => autoCoverTaskScope.isCurrent(activeScope)
 
-          const publishAutoCoverNotification = (modName: string, stage: AutoCoverProgressStage, nextCompleted: number) => {
-            if (!isTaskActive()) {
-              return
-            }
+        const publishAutoCoverNotification = (modName: string, stage: AutoCoverProgressStage, nextCompleted: number) => {
+          if (!isTaskActive()) {
+            return
+          }
 
-            publishNotification({
-              id: LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID,
-              level: 'info',
-              title: copy.library.loadingMissingCoversCurrentMod(modName),
-              description: copy.library.loadingMissingCoversStageProgress(
+          appEvent('info', copy.library.loadingMissingCoversCurrentMod(modName))
+            .description(
+              copy.library.loadingMissingCoversStageProgress(
                 copy.library.loadingMissingCoversStages[stage],
                 nextCompleted,
                 eligibleMods.length,
               ),
-              autoDismissMs: null,
-              progress: eligibleMods.length > 0 ? (nextCompleted / eligibleMods.length) * 100 : 0,
-            })
+            )
+            .noticeId(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
+            .autoDismiss(null)
+            .progress(eligibleMods.length > 0 ? (nextCompleted / eligibleMods.length) * 100 : 0)
+            .context({ source: 'launcher-library', operation: 'fetch-missing-covers' })
+            .emit({ log: false })
+        }
+
+        await runWithConcurrency(eligibleMods, LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY, async (item) => {
+          if (!isTaskActive() || item.nexusModId == null || launcherPort.isRemoteModIdInvalid(item.nexusModId)) {
+            return
           }
 
-          await runWithConcurrency(eligibleMods, LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY, async (item) => {
-            if (!isTaskActive() || item.nexusModId == null || launcherPort.isRemoteModIdInvalid(item.nexusModId)) {
+          let activeStage: AutoCoverProgressStage = 'local'
+
+          try {
+            publishAutoCoverNotification(item.name, activeStage, completed)
+            activeStage = 'apiCover'
+            publishAutoCoverNotification(item.name, activeStage, completed)
+
+            const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
+            if (!isTaskActive()) {
               return
             }
-
-            let activeStage: AutoCoverProgressStage = 'local'
-
-            try {
-              publishAutoCoverNotification(item.name, activeStage, completed)
-              activeStage = 'apiCover'
-              publishAutoCoverNotification(item.name, activeStage, completed)
-
-              const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
-              if (!isTaskActive()) {
-                return
-              }
-              if (detail.unavailable) {
-                const coverKey = getLauncherCoverKey(item)
-                const message = `Nexus mod ${item.nexusModId} is unavailable.`
-                launcherPort.markRemoteModIdInvalid(item.nexusModId)
-                launcherPort.writeDebugLog({
-                  message: 'launcher.autoCover.recordFailure',
-                  keyValues: {
-                    modName: item.name,
-                    nexusModId: String(item.nexusModId),
-                    coverKey,
-                    stage: activeStage,
-                    error: message,
-                  },
-                })
-                await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
-                  launcherPort.writeDebugLog({
-                    message: 'launcher.autoCover.recordFailureFailed',
-                    keyValues: {
-                      modName: item.name,
-                      nexusModId: String(item.nexusModId),
-                      coverKey,
-                      error: recordError instanceof Error ? recordError.message : String(recordError),
-                    },
-                  })
-                })
-                return
-              }
-
-              let imageUrl = detail.imageUrl?.trim() || null
-              if (imageUrl) {
-                activeStage = 'remoteCover'
-                publishAutoCoverNotification(item.name, activeStage, completed)
-              } else {
-                activeStage = 'apiGallery'
-                publishAutoCoverNotification(item.name, activeStage, completed)
-                imageUrl = detail.galleryImages.find((value) => value.trim())?.trim() || null
-                if (imageUrl) {
-                  activeStage = 'remoteGallery'
-                  publishAutoCoverNotification(item.name, activeStage, completed)
-                }
-              }
-              if (!imageUrl) {
-                return
-              }
-
+            if (detail.unavailable) {
               const coverKey = getLauncherCoverKey(item)
-              const covers = await launcherPort.persistLibraryRemoteCover({
-                labelKey: coverKey,
-                imageUrl,
-              })
-
-              if (!isTaskActive()) {
-                return
-              }
-
-              const persistedImagePath =
-                covers.covers.find((cover) => normalizeLookupKey(cover.labelKey) === normalizeLookupKey(coverKey))?.imagePath ?? null
-              if (persistedImagePath) {
-                setMods((current) =>
-                  current.map((mod) =>
-                    normalizeLookupKey(getLauncherCoverKey(mod)) === normalizeLookupKey(coverKey)
-                      ? { ...mod, imageUrl: persistedImagePath }
-                      : mod,
-                  ),
-                )
-              }
-            } catch (nextError: unknown) {
-              const coverKey = getLauncherCoverKey(item)
-              const message = nextError instanceof Error ? nextError.message : String(nextError)
-              launcherPort.writeDebugLog({
-                message: 'launcher.autoCover.recordFailure',
-                keyValues: {
+              const message = `Nexus mod ${item.nexusModId} is unavailable.`
+              launcherPort.markRemoteModIdInvalid(item.nexusModId)
+              appEvent('debug', 'launcher.autoCover.recordFailure')
+                .context({
+                  source: 'launcher-library',
+                  operation: 'record-auto-cover-failure',
                   modName: item.name,
-                  nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                  nexusModId: String(item.nexusModId),
                   coverKey,
                   stage: activeStage,
                   error: message,
-                },
-              })
-              await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
-                launcherPort.writeDebugLog({
-                  message: 'launcher.autoCover.recordFailureFailed',
-                  keyValues: {
-                    modName: item.name,
-                    nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
-                    coverKey,
-                    error: recordError instanceof Error ? recordError.message : String(recordError),
-                  },
                 })
+                .dedupe('launcher.autoCover.recordFailure')
+                .emit({ notify: false })
+              await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
+                appEvent('debug', 'launcher.autoCover.recordFailureFailed')
+                  .error(recordError)
+                  .context({
+                    source: 'launcher-library',
+                    operation: 'record-auto-cover-failure-failed',
+                    modName: item.name,
+                    nexusModId: String(item.nexusModId),
+                    coverKey,
+                  })
+                  .dedupe('launcher.autoCover.recordFailureFailed')
+                  .emit({ notify: false })
               })
-              // Individual auto-cover failures should not fail the library page.
-            } finally {
-              if (isTaskActive()) {
-                completed += 1
+              return
+            }
+
+            let imageUrl = detail.imageUrl?.trim() || null
+            if (imageUrl) {
+              activeStage = 'remoteCover'
+              publishAutoCoverNotification(item.name, activeStage, completed)
+            } else {
+              activeStage = 'apiGallery'
+              publishAutoCoverNotification(item.name, activeStage, completed)
+              imageUrl = detail.galleryImages.find((value) => value.trim())?.trim() || null
+              if (imageUrl) {
+                activeStage = 'remoteGallery'
                 publishAutoCoverNotification(item.name, activeStage, completed)
               }
             }
-          })
+            if (!imageUrl) {
+              return
+            }
 
-          if (isTaskActive()) {
-            autoCoverFetchInFlightRef.current = false
-            dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
+            const coverKey = getLauncherCoverKey(item)
+            const covers = await launcherPort.persistLibraryRemoteCover({
+              labelKey: coverKey,
+              imageUrl,
+            })
+
+            if (!isTaskActive()) {
+              return
+            }
+
+            const persistedImagePath =
+              covers.covers.find((cover) => normalizeLookupKey(cover.labelKey) === normalizeLookupKey(coverKey))?.imagePath ?? null
+            if (persistedImagePath) {
+              setMods((current) =>
+                current.map((mod) =>
+                  normalizeLookupKey(getLauncherCoverKey(mod)) === normalizeLookupKey(coverKey)
+                    ? { ...mod, imageUrl: persistedImagePath }
+                    : mod,
+                ),
+              )
+            }
+          } catch (nextError: unknown) {
+            const coverKey = getLauncherCoverKey(item)
+            const message = nextError instanceof Error ? nextError.message : String(nextError)
+            appEvent('debug', 'launcher.autoCover.recordFailure')
+              .context({
+                source: 'launcher-library',
+                operation: 'record-auto-cover-failure',
+                modName: item.name,
+                nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                coverKey,
+                stage: activeStage,
+                error: message,
+              })
+              .dedupe('launcher.autoCover.recordFailure')
+              .emit({ notify: false })
+            await launcherPort.recordImageFailure({ modKey: coverKey, error: message }).catch((recordError: unknown) => {
+              appEvent('debug', 'launcher.autoCover.recordFailureFailed')
+                .error(recordError)
+                .context({
+                  source: 'launcher-library',
+                  operation: 'record-auto-cover-failure-failed',
+                  modName: item.name,
+                  nexusModId: item.nexusModId == null ? undefined : String(item.nexusModId),
+                  coverKey,
+                })
+                .dedupe('launcher.autoCover.recordFailureFailed')
+                .emit({ notify: false })
+            })
+            // Individual auto-cover failures should not fail the library page.
+          } finally {
+            if (isTaskActive()) {
+              completed += 1
+              publishAutoCoverNotification(item.name, activeStage, completed)
+            }
           }
         })
-        .catch((nextError) => {
-          if (!isTaskCancelled(nextError)) {
-            throw nextError
-          }
-        })
-    },
-    [autoCoverTaskScope, copy.library, launcherPort],
-  )
+
+        if (isTaskActive()) {
+          autoCoverFetchInFlightRef.current = false
+          dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
+        }
+      })
+      .catch((nextError) => {
+        if (!isTaskCancelled(nextError)) {
+          throw nextError
+        }
+      })
+  }
 
   useEffect(() => {
     return () => {
@@ -639,7 +645,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     })
   }, [launcherPort, settings.modsPath])
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     await libraryRefreshTaskScope.runtime
       .latest(libraryRefreshTaskScope.key, async (scope: TaskScope) => {
         const activeScope = libraryRefreshTaskScope.capture(scope)
@@ -653,21 +659,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
         try {
           const suppressedUpdateModIdsPromise = settings.modsPath
-            ? launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }).catch(() => null)
+            ? orNull(launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }), 'launcherLibrary.loadSuppressedUpdates')
             : Promise.resolve(null)
 
-          const imageFailuresPromise = launcherPort.loadImageFailures().catch((nextError: unknown) => {
-            launcherPort.writeDebugLog({
-              message: 'launcher.autoCover.imageFailuresLoadFailed',
-              keyValues: {
-                error: nextError instanceof Error ? nextError.message : String(nextError),
-              },
-            })
-            return null
-          })
+          const imageFailuresPromise = orNull(launcherPort.loadImageFailures(), 'launcherLibrary.loadImageFailures')
 
           const [diagnostics, loadedLibraryState, loadedCovers, imageFailures, scan, suppressedUpdateModIdsResult] = await Promise.all([
-            launcherPort.loadNexusDiagnostics().catch(() => null),
+            orNull(launcherPort.loadNexusDiagnostics(), 'launcherLibrary.loadDiagnostics'),
             launcherPort.loadLibraryState(),
             launcherPort.loadLibraryCovers(),
             imageFailuresPromise,
@@ -682,13 +680,15 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
           const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
           const blockedCoverLookup = buildBlockedCoverLookup(imageFailures?.entries)
-          launcherPort.writeDebugLog({
-            message: 'launcher.autoCover.blockedLoaded',
-            keyValues: {
+          appEvent('debug', 'launcher.autoCover.blockedLoaded')
+            .context({
+              source: 'launcher-library',
+              operation: 'load-blocked-covers',
               blockedCoverCount: String(blockedCoverLookup.size),
               imageFailureCount: String(imageFailures?.entries.length ?? 0),
-            },
-          })
+            })
+            .dedupe('launcher.autoCover.blockedLoaded')
+            .emit({ notify: false })
           const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
           // Blocked covers are logged as one summary line: a library can block
           // hundreds, and one line each buries everything else in the console.
@@ -710,13 +710,15 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           })
 
           if (blockedCoverSkips.length) {
-            launcherPort.writeDebugLog({
-              message: 'launcher.autoCover.skippedBlocked',
-              keyValues: {
+            appEvent('debug', 'launcher.autoCover.skippedBlocked')
+              .context({
+                source: 'launcher-library',
+                operation: 'skip-blocked-covers',
                 skipped: String(blockedCoverSkips.length),
                 mods: blockedCoverSkips.join(', '),
-              },
-            })
+              })
+              .dedupe('launcher.autoCover.skippedBlocked')
+              .emit({ notify: false })
           }
 
           if (!isRefreshActive()) {
@@ -768,8 +770,9 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
                     applyUpdateHints(result.updates)
                   })
               })
-              .catch(() => {
+              .catch((error) => {
                 // Background update cache warming should not interrupt the library page.
+                reportRecovered(error, 'launcherLibrary.warmUpdateCache')
               })
           }
         } catch (nextError) {
@@ -780,15 +783,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           const message = toErrorMessage(nextError, copy.library.genericError)
           setError(message)
           setState('error')
-          reportAppEvent({
-            level: 'error',
-            title: copy.library.actionErrorTitle,
-            description: message,
-            keyValues: {
+          appEvent('error', copy.library.actionErrorTitle)
+            .description(message)
+            .context({
               source: 'launcher-library',
               operation: 'refresh',
-            },
-          })
+            })
+            .emit()
         }
       })
       .catch((nextError) => {
@@ -796,7 +797,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           throw nextError
         }
       })
-  }, [cancelAutoCoverFetch, launcherPort, libraryRefreshTaskScope, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
+  }
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys
@@ -807,20 +808,15 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const scopeMode = libraryState.scopeMode
   const currentPackId = libraryState.currentPackId
 
-  const currentPack = useMemo(
-    () => (currentPackId ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId)) ?? null) : null),
-    [currentPackId, packPresets],
-  )
+  const currentPack = currentPackId
+    ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId)) ?? null)
+    : null
 
-  const activeStorageFolder = useMemo(
-    () =>
-      activeStorageFolderId
-        ? (storageFolders.find((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(activeStorageFolderId)) ?? null)
-        : null,
-    [activeStorageFolderId, storageFolders],
-  )
+  const activeStorageFolder = activeStorageFolderId
+    ? (storageFolders.find((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(activeStorageFolderId)) ?? null)
+    : null
 
-  const filteredMods = useMemo(() => {
+  const filteredMods = (() => {
     const normalizedFilter = filterText.trim().toLowerCase()
     const currentPackMemberKeys = new Set((currentPack?.modKeys ?? []).map((value) => normalizeLookupKey(value)))
     const activeStorageFolderKeys = new Set((activeStorageFolder?.modKeys ?? []).map((value) => normalizeLookupKey(value)))
@@ -853,362 +849,323 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
       return includesFilter(item, normalizedFilter)
     })
-  }, [activeStorageFolder, configOnly, currentPack?.modKeys, enabledOnly, filterText, hiddenModKeys, mods, scopeMode])
+  })()
 
-  const selectedMod = useMemo(
-    () => filteredMods.find((item) => item.id === selectedModId) ?? mods.find((item) => item.id === selectedModId) ?? null,
-    [filteredMods, mods, selectedModId],
-  )
+  const selectedMod = filteredMods.find((item) => item.id === selectedModId) ?? mods.find((item) => item.id === selectedModId) ?? null
 
-  const selection = useMemo(() => mods.filter((item) => selectedModIds.includes(item.id)), [mods, selectedModIds])
+  const selection = mods.filter((item) => selectedModIds.includes(item.id))
 
-  const toggleEnabled = useCallback(
-    async (mod: LauncherLibraryModSummary) => {
-      const nextEnabled = !mod.enabled
-      await Promise.all(
-        expandModIdsWithChildren([mod.id], mods, childModGroups)
-          .filter((item) => item.enabled !== nextEnabled)
-          .map((item) =>
-            launcherPort.setModEnabled({
-              modPath: item.absolutePath,
-              enabled: nextEnabled,
-            }),
-          ),
-      )
-      await refresh()
-    },
-    [childModGroups, launcherPort, mods, refresh],
-  )
+  const toggleEnabled = async (mod: LauncherLibraryModSummary) => {
+    const nextEnabled = !mod.enabled
+    await Promise.all(
+      expandModIdsWithChildren([mod.id], mods, childModGroups)
+        .filter((item) => item.enabled !== nextEnabled)
+        .map((item) =>
+          launcherPort.setModEnabled({
+            modPath: item.absolutePath,
+            enabled: nextEnabled,
+          }),
+        ),
+    )
+    await refresh()
+  }
 
-  const installArchive = useCallback(
-    async (archivePath: string) => {
-      return launcherPort.installArchive({
-        archivePath,
-        modsPath: settings.modsPath,
-      })
-    },
-    [launcherPort, settings.modsPath],
-  )
+  const installArchive = async (archivePath: string) => {
+    return launcherPort.installArchive({
+      archivePath,
+      modsPath: settings.modsPath,
+    })
+  }
 
-  const toggleModSelection = useCallback((id: string) => {
+  const toggleModSelection = (id: string) => {
     setSelectedModIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
     setSelectedModId(id)
-  }, [])
+  }
 
-  const clearSelection = useCallback(() => {
+  const clearSelection = () => {
     setSelectedModIds([])
-  }, [])
+  }
 
-  const selectAllFiltered = useCallback(() => {
+  const selectAllFiltered = () => {
     setSelectedModIds(filteredMods.map((item) => item.id))
-  }, [filteredMods])
+  }
 
-  const assignSelectionToFolder = useCallback(
-    async (folderId: string) => {
-      const normalizedFolderId = folderId.trim()
-      if (!normalizedFolderId || !selection.length) {
-        return
-      }
-      if (!storageFolders.some((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId))) {
-        return
-      }
+  const assignSelectionToFolder = async (folderId: string) => {
+    const normalizedFolderId = folderId.trim()
+    if (!normalizedFolderId || !selection.length) {
+      return
+    }
+    if (!storageFolders.some((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId))) {
+      return
+    }
 
-      const selectedModKeys = selection
-        .map(getModKey)
-        .map((value) => value.trim())
-        .filter(Boolean)
-      if (!selectedModKeys.length) {
-        return
-      }
+    const selectedModKeys = selection
+      .map(getModKey)
+      .map((value) => value.trim())
+      .filter(Boolean)
+    if (!selectedModKeys.length) {
+      return
+    }
 
-      const selectedLookup = new Set(selectedModKeys.map((value) => normalizeLookupKey(value)))
-      const orderedSelectedModKeys = Array.from(new Map(selectedModKeys.map((value) => [normalizeLookupKey(value), value])).values())
+    const selectedLookup = new Set(selectedModKeys.map((value) => normalizeLookupKey(value)))
+    const orderedSelectedModKeys = Array.from(new Map(selectedModKeys.map((value) => [normalizeLookupKey(value), value])).values())
 
-      const nextState: LauncherLibraryState = {
-        ...libraryState,
-        storageFolders: storageFolders.map((folder) => {
-          const cleaned = folder.modKeys.filter((value) => !selectedLookup.has(normalizeLookupKey(value)))
-          if (normalizeLookupKey(folder.id) !== normalizeLookupKey(normalizedFolderId)) {
-            return {
-              ...folder,
-              modKeys: cleaned,
-            }
-          }
-
-          const merged = [...cleaned]
-          const seen = new Set(cleaned.map((value) => normalizeLookupKey(value)))
-          for (const modKey of orderedSelectedModKeys) {
-            const modLookup = normalizeLookupKey(modKey)
-            if (seen.has(modLookup)) {
-              continue
-            }
-            seen.add(modLookup)
-            merged.push(modKey)
-          }
-
+    const nextState: LauncherLibraryState = {
+      ...libraryState,
+      storageFolders: storageFolders.map((folder) => {
+        const cleaned = folder.modKeys.filter((value) => !selectedLookup.has(normalizeLookupKey(value)))
+        if (normalizeLookupKey(folder.id) !== normalizeLookupKey(normalizedFolderId)) {
           return {
             ...folder,
-            modKeys: merged,
+            modKeys: cleaned,
           }
-        }),
-      }
+        }
 
-      await persistLibraryState(nextState)
-    },
-    [libraryState, persistLibraryState, selection, storageFolders],
-  )
+        const merged = [...cleaned]
+        const seen = new Set(cleaned.map((value) => normalizeLookupKey(value)))
+        for (const modKey of orderedSelectedModKeys) {
+          const modLookup = normalizeLookupKey(modKey)
+          if (seen.has(modLookup)) {
+            continue
+          }
+          seen.add(modLookup)
+          merged.push(modKey)
+        }
 
-  const createStorageFolder = useCallback(
-    async (name: string) => {
-      const trimmed = name.trim()
-      if (!trimmed) {
-        return
-      }
+        return {
+          ...folder,
+          modKeys: merged,
+        }
+      }),
+    }
 
-      const id = nextUniqueId(
-        storageFolders.map((folder) => folder.id),
-        trimmed,
-        'folder',
-      )
-      await persistLibraryState({
-        ...libraryState,
-        storageFolders: [...storageFolders, { id, name: trimmed, modKeys: [] }],
-      })
-    },
-    [libraryState, persistLibraryState, storageFolders],
-  )
+    await persistLibraryState(nextState)
+  }
 
-  const renameStorageFolder = useCallback(
-    async (folderId: string, name: string) => {
-      const normalizedFolderId = folderId.trim()
-      const trimmed = name.trim()
-      if (!normalizedFolderId || !trimmed || normalizeLookupKey(normalizedFolderId) === UNSORTED_FOLDER_ID) {
-        return
-      }
+  const createStorageFolder = async (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      return
+    }
 
-      await persistLibraryState({
-        ...libraryState,
-        storageFolders: storageFolders.map((folder) =>
-          normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId)
+    const id = nextUniqueId(
+      storageFolders.map((folder) => folder.id),
+      trimmed,
+      'folder',
+    )
+    await persistLibraryState({
+      ...libraryState,
+      storageFolders: [...storageFolders, { id, name: trimmed, modKeys: [] }],
+    })
+  }
+
+  const renameStorageFolder = async (folderId: string, name: string) => {
+    const normalizedFolderId = folderId.trim()
+    const trimmed = name.trim()
+    if (!normalizedFolderId || !trimmed || normalizeLookupKey(normalizedFolderId) === UNSORTED_FOLDER_ID) {
+      return
+    }
+
+    await persistLibraryState({
+      ...libraryState,
+      storageFolders: storageFolders.map((folder) =>
+        normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId)
+          ? {
+              ...folder,
+              name: trimmed,
+            }
+          : folder,
+      ),
+    })
+  }
+
+  const deleteStorageFolder = async (folderId: string) => {
+    const normalizedFolderId = folderId.trim()
+    if (!normalizedFolderId || normalizeLookupKey(normalizedFolderId) === UNSORTED_FOLDER_ID) {
+      return
+    }
+
+    const target = storageFolders.find((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId))
+    if (!target) {
+      return
+    }
+    const unsorted = storageFolders.find((folder) => normalizeLookupKey(folder.id) === UNSORTED_FOLDER_ID)
+    const unsortedKeys = unsorted?.modKeys ?? []
+    const mergedUnsortedKeys = Array.from(
+      new Map([...unsortedKeys, ...target.modKeys].map((value) => [normalizeLookupKey(value), value])).values(),
+    )
+
+    await persistLibraryState({
+      ...libraryState,
+      storageFolders: storageFolders
+        .filter((folder) => normalizeLookupKey(folder.id) !== normalizeLookupKey(normalizedFolderId))
+        .map((folder) =>
+          normalizeLookupKey(folder.id) === UNSORTED_FOLDER_ID
             ? {
                 ...folder,
-                name: trimmed,
+                modKeys: mergedUnsortedKeys,
               }
             : folder,
         ),
-      })
-    },
-    [libraryState, persistLibraryState, storageFolders],
-  )
+    })
+  }
 
-  const deleteStorageFolder = useCallback(
-    async (folderId: string) => {
-      const normalizedFolderId = folderId.trim()
-      if (!normalizedFolderId || normalizeLookupKey(normalizedFolderId) === UNSORTED_FOLDER_ID) {
-        return
-      }
+  const addSelectionToPack = async (packId: string) => {
+    const normalizedPackId = packId.trim()
+    if (!normalizedPackId || !selection.length) {
+      return
+    }
 
-      const target = storageFolders.find((folder) => normalizeLookupKey(folder.id) === normalizeLookupKey(normalizedFolderId))
-      if (!target) {
-        return
-      }
-      const unsorted = storageFolders.find((folder) => normalizeLookupKey(folder.id) === UNSORTED_FOLDER_ID)
-      const unsortedKeys = unsorted?.modKeys ?? []
-      const mergedUnsortedKeys = Array.from(
-        new Map([...unsortedKeys, ...target.modKeys].map((value) => [normalizeLookupKey(value), value])).values(),
-      )
+    const selectedModKeys = Array.from(
+      new Map(selection.map(getModKey).map((value) => [normalizeLookupKey(value), value])).values(),
+    ).filter(Boolean)
+    const expandedSelectedModKeys = expandModKeysWithChildren(selectedModKeys, childModGroups)
 
-      await persistLibraryState({
-        ...libraryState,
-        storageFolders: storageFolders
-          .filter((folder) => normalizeLookupKey(folder.id) !== normalizeLookupKey(normalizedFolderId))
-          .map((folder) =>
-            normalizeLookupKey(folder.id) === UNSORTED_FOLDER_ID
-              ? {
-                  ...folder,
-                  modKeys: mergedUnsortedKeys,
-                }
-              : folder,
-          ),
-      })
-    },
-    [libraryState, persistLibraryState, storageFolders],
-  )
-
-  const addSelectionToPack = useCallback(
-    async (packId: string) => {
-      const normalizedPackId = packId.trim()
-      if (!normalizedPackId || !selection.length) {
-        return
-      }
-
-      const selectedModKeys = Array.from(
-        new Map(selection.map(getModKey).map((value) => [normalizeLookupKey(value), value])).values(),
-      ).filter(Boolean)
-      const expandedSelectedModKeys = expandModKeysWithChildren(selectedModKeys, childModGroups)
-
-      await persistLibraryState({
-        ...libraryState,
-        packPresets: packPresets.map((pack) => {
-          if (normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)) {
-            return pack
-          }
-          const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
-          const modKeys = [...pack.modKeys]
-          for (const modKey of expandedSelectedModKeys) {
-            const modLookup = normalizeLookupKey(modKey)
-            if (existing.has(modLookup)) {
-              continue
-            }
-            existing.add(modLookup)
-            modKeys.push(modKey)
-          }
-          return {
-            ...pack,
-            modKeys,
-          }
-        }),
-      })
-    },
-    [childModGroups, libraryState, packPresets, persistLibraryState, selection],
-  )
-
-  const addModsToPack = useCallback(
-    async (packId: string, modIds: string[]) => {
-      const normalizedPackId = packId.trim()
-      if (!normalizedPackId) {
-        return
-      }
-
-      const selectedModKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
-
-      if (!selectedModKeys.length) {
-        return
-      }
-
-      await persistLibraryState({
-        ...libraryState,
-        packPresets: packPresets.map((pack) => {
-          if (normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)) {
-            return pack
-          }
-          const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
-          const modKeys = [...pack.modKeys]
-          for (const modKey of selectedModKeys) {
-            const modLookup = normalizeLookupKey(modKey)
-            if (existing.has(modLookup)) {
-              continue
-            }
-            existing.add(modLookup)
-            modKeys.push(modKey)
-          }
-          return {
-            ...pack,
-            modKeys,
-          }
-        }),
-      })
-    },
-    [childModGroups, libraryState, mods, packPresets, persistLibraryState],
-  )
-
-  const hideMods = useCallback(
-    async (modIds: string[]) => {
-      const modKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
-
-      if (!modKeys.length) {
-        return
-      }
-
-      const existing = new Set(hiddenModKeys.map((value) => normalizeLookupKey(value)))
-      const nextHiddenModKeys = [...hiddenModKeys]
-      for (const modKey of modKeys) {
-        const lookup = normalizeLookupKey(modKey)
-        if (existing.has(lookup)) {
-          continue
+    await persistLibraryState({
+      ...libraryState,
+      packPresets: packPresets.map((pack) => {
+        if (normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)) {
+          return pack
         }
-        existing.add(lookup)
-        nextHiddenModKeys.push(modKey)
+        const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
+        const modKeys = [...pack.modKeys]
+        for (const modKey of expandedSelectedModKeys) {
+          const modLookup = normalizeLookupKey(modKey)
+          if (existing.has(modLookup)) {
+            continue
+          }
+          existing.add(modLookup)
+          modKeys.push(modKey)
+        }
+        return {
+          ...pack,
+          modKeys,
+        }
+      }),
+    })
+  }
+
+  const addModsToPack = async (packId: string, modIds: string[]) => {
+    const normalizedPackId = packId.trim()
+    if (!normalizedPackId) {
+      return
+    }
+
+    const selectedModKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
+
+    if (!selectedModKeys.length) {
+      return
+    }
+
+    await persistLibraryState({
+      ...libraryState,
+      packPresets: packPresets.map((pack) => {
+        if (normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)) {
+          return pack
+        }
+        const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
+        const modKeys = [...pack.modKeys]
+        for (const modKey of selectedModKeys) {
+          const modLookup = normalizeLookupKey(modKey)
+          if (existing.has(modLookup)) {
+            continue
+          }
+          existing.add(modLookup)
+          modKeys.push(modKey)
+        }
+        return {
+          ...pack,
+          modKeys,
+        }
+      }),
+    })
+  }
+
+  const hideMods = async (modIds: string[]) => {
+    const modKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
+
+    if (!modKeys.length) {
+      return
+    }
+
+    const existing = new Set(hiddenModKeys.map((value) => normalizeLookupKey(value)))
+    const nextHiddenModKeys = [...hiddenModKeys]
+    for (const modKey of modKeys) {
+      const lookup = normalizeLookupKey(modKey)
+      if (existing.has(lookup)) {
+        continue
       }
+      existing.add(lookup)
+      nextHiddenModKeys.push(modKey)
+    }
 
-      await persistLibraryState({
-        ...libraryState,
-        hiddenModKeys: nextHiddenModKeys,
-      })
-    },
-    [childModGroups, hiddenModKeys, libraryState, mods, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      hiddenModKeys: nextHiddenModKeys,
+    })
+  }
 
-  const showMods = useCallback(
-    async (modIds: string[]) => {
-      const modLookup = new Set(
-        expandModIdsWithChildren(modIds, mods, childModGroups)
-          .map(getModKey)
-          .map((value) => normalizeLookupKey(value)),
-      )
+  const showMods = async (modIds: string[]) => {
+    const modLookup = new Set(
+      expandModIdsWithChildren(modIds, mods, childModGroups)
+        .map(getModKey)
+        .map((value) => normalizeLookupKey(value)),
+    )
 
-      if (!modLookup.size) {
-        return
-      }
+    if (!modLookup.size) {
+      return
+    }
 
-      await persistLibraryState({
-        ...libraryState,
-        hiddenModKeys: hiddenModKeys.filter((value) => !modLookup.has(normalizeLookupKey(value))),
-      })
-    },
-    [childModGroups, hiddenModKeys, libraryState, mods, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      hiddenModKeys: hiddenModKeys.filter((value) => !modLookup.has(normalizeLookupKey(value))),
+    })
+  }
 
-  const createPackPreset = useCallback(
-    async (name: string, options: CreatePackPresetOptions = {}) => {
-      const trimmed = name.trim()
-      if (!trimmed) {
-        return
-      }
-      const id = nextUniqueId(
-        packPresets.map((pack) => pack.id),
-        trimmed,
-        'pack',
-      )
-      await persistLibraryState({
-        ...libraryState,
-        packPresets: [
-          ...packPresets,
-          {
-            id,
-            name: trimmed,
-            modKeys: [],
-            folderClassificationMode: options.folderClassificationMode === 'independent' ? 'independent' : 'global',
-          },
-        ],
-      })
-    },
-    [libraryState, packPresets, persistLibraryState],
-  )
+  const createPackPreset = async (name: string, options: CreatePackPresetOptions = {}) => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      return
+    }
+    const id = nextUniqueId(
+      packPresets.map((pack) => pack.id),
+      trimmed,
+      'pack',
+    )
+    await persistLibraryState({
+      ...libraryState,
+      packPresets: [
+        ...packPresets,
+        {
+          id,
+          name: trimmed,
+          modKeys: [],
+          folderClassificationMode: options.folderClassificationMode === 'independent' ? 'independent' : 'global',
+        },
+      ],
+    })
+  }
 
-  const updatePackPreset = useCallback(
-    async (packId: string, input: UpdatePackPresetInput) => {
-      const normalizedPackId = packId.trim()
-      const trimmed = input.name.trim()
-      if (!normalizedPackId || !trimmed) {
-        return
-      }
+  const updatePackPreset = async (packId: string, input: UpdatePackPresetInput) => {
+    const normalizedPackId = packId.trim()
+    const trimmed = input.name.trim()
+    if (!normalizedPackId || !trimmed) {
+      return
+    }
 
-      await persistLibraryState({
-        ...libraryState,
-        packPresets: packPresets.map((pack) =>
-          normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId)
-            ? {
-                ...pack,
-                name: trimmed,
-                folderClassificationMode: input.folderClassificationMode === 'independent' ? 'independent' : 'global',
-              }
-            : pack,
-        ),
-      })
-    },
-    [libraryState, packPresets, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      packPresets: packPresets.map((pack) =>
+        normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId)
+          ? {
+              ...pack,
+              name: trimmed,
+              folderClassificationMode: input.folderClassificationMode === 'independent' ? 'independent' : 'global',
+            }
+          : pack,
+      ),
+    })
+  }
 
   const deletePackPreset = useCallback(
     async (packId: string) => {
@@ -1281,296 +1238,254 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [childModGroups, libraryState, mods, packPresets, persistLibraryState],
   )
 
-  const setChildMods = useCallback(
-    async (parentModId: string, childModIds: string[]) => {
-      const parentMod = mods.find((item) => item.id === parentModId)
-      if (!parentMod) {
-        return
-      }
+  const setChildMods = async (parentModId: string, childModIds: string[]) => {
+    const parentMod = mods.find((item) => item.id === parentModId)
+    if (!parentMod) {
+      return
+    }
 
-      const childModKeys = childModIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-        .map(getModKey)
+    const childModKeys = childModIds
+      .map((id) => mods.find((item) => item.id === id))
+      .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      .map(getModKey)
 
-      await persistLibraryState({
-        ...libraryState,
-        childModGroups: assignChildModsToParent(childModGroups, getModKey(parentMod), childModKeys),
-      })
-    },
-    [childModGroups, libraryState, mods, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      childModGroups: assignChildModsToParent(childModGroups, getModKey(parentMod), childModKeys),
+    })
+  }
 
-  const removeChildMods = useCallback(
-    async (childModIds: string[]) => {
-      const childModKeys = childModIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-        .map(getModKey)
+  const removeChildMods = async (childModIds: string[]) => {
+    const childModKeys = childModIds
+      .map((id) => mods.find((item) => item.id === id))
+      .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      .map(getModKey)
 
-      await persistLibraryState({
-        ...libraryState,
-        childModGroups: removeChildModsFromGroups(childModGroups, childModKeys),
-      })
-    },
-    [childModGroups, libraryState, mods, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      childModGroups: removeChildModsFromGroups(childModGroups, childModKeys),
+    })
+  }
 
-  const replaceChildMods = useCallback(
-    async (parentModId: string, childModIds: string[]) => {
-      const parentMod = mods.find((item) => item.id === parentModId)
-      if (!parentMod) {
-        return
-      }
+  const replaceChildMods = async (parentModId: string, childModIds: string[]) => {
+    const parentMod = mods.find((item) => item.id === parentModId)
+    if (!parentMod) {
+      return
+    }
 
-      const childModKeys = childModIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-        .map(getModKey)
+    const childModKeys = childModIds
+      .map((id) => mods.find((item) => item.id === id))
+      .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      .map(getModKey)
 
-      await persistLibraryState({
-        ...libraryState,
-        childModGroups: replaceChildModsForParent(childModGroups, getModKey(parentMod), childModKeys),
-      })
-    },
-    [childModGroups, libraryState, mods, persistLibraryState],
-  )
+    await persistLibraryState({
+      ...libraryState,
+      childModGroups: replaceChildModsForParent(childModGroups, getModKey(parentMod), childModKeys),
+    })
+  }
 
-  const createLibraryFolder = useCallback(
-    async (name?: string, options: CreateLibraryFolderOptions = {}) => {
-      const trimmed = name?.trim() || copy.library.newLibraryFolderName
-      const normalizedPackId = options.packId?.trim() || null
-      const packId = normalizedPackId
-        ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId))?.id ?? null)
-        : null
-      const id = nextUniqueId(
-        libraryFolders.map((folder) => folder.id),
-        trimmed,
-        'library-folder',
-      )
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: normalizeLibraryFolders(
-          [
-            ...libraryFolders,
-            {
-              id,
-              name: trimmed,
-              packId,
-              hidden: false,
-              parentFolderId: null,
-              modKeys: [],
-              coverModKeys: [],
-            },
-          ],
-          packPresets,
-        ),
-      })
-      return id
-    },
-    [copy.library.newLibraryFolderName, libraryFolders, libraryState, packPresets, persistLibraryState],
-  )
-
-  const renameLibraryFolder = useCallback(
-    async (folderId: string, name: string) => {
-      const trimmed = name.trim()
-      if (!trimmed) {
-        return
-      }
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: normalizeLibraryFolders(
-          libraryFolders.map((folder) =>
-            normalizeLookupKey(folder.id) === normalizeLookupKey(folderId) ? { ...folder, name: trimmed } : folder,
-          ),
-          packPresets,
-        ),
-      })
-    },
-    [libraryFolders, libraryState, packPresets, persistLibraryState],
-  )
-
-  const hideLibraryFolder = useCallback(
-    async (folderId: string) => {
-      const targetLookup = normalizeLookupKey(folderId)
-      if (!targetLookup) {
-        return
-      }
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: normalizeLibraryFolders(
-          libraryFolders.map((folder) =>
-            normalizeLookupKey(folder.id) === targetLookup && !folder.packId ? { ...folder, hidden: true } : folder,
-          ),
-          packPresets,
-        ),
-      })
-    },
-    [libraryFolders, libraryState, packPresets, persistLibraryState],
-  )
-
-  const showLibraryFolder = useCallback(
-    async (folderId: string) => {
-      const targetLookup = normalizeLookupKey(folderId)
-      if (!targetLookup) {
-        return
-      }
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: normalizeLibraryFolders(
-          libraryFolders.map((folder) => (normalizeLookupKey(folder.id) === targetLookup ? { ...folder, hidden: false } : folder)),
-          packPresets,
-        ),
-      })
-    },
-    [libraryFolders, libraryState, packPresets, persistLibraryState],
-  )
-
-  const addModsToLibraryFolder = useCallback(
-    async (folderId: string, modIds: string[]) => {
-      const modKeys = modIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-        .map(getModKey)
-      if (!modKeys.length) {
-        return
-      }
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: addModKeysToLibraryFolder(libraryFolders, folderId, modKeys, packPresets),
-      })
-    },
-    [libraryFolders, libraryState, mods, packPresets, persistLibraryState],
-  )
-
-  const removeModsFromLibraryFolders = useCallback(
-    async (modIds: string[]) => {
-      const modKeys = modIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-        .map(getModKey)
-      if (!modKeys.length) {
-        return
-      }
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: removeModKeysFromLibraryFolders(libraryFolders, modKeys, packPresets),
-      })
-    },
-    [libraryFolders, libraryState, mods, packPresets, persistLibraryState],
-  )
-
-  const moveLibraryFolderToFolder = useCallback(
-    async (folderId: string, parentFolderId: string | null) => {
-      await persistLibraryState({
-        ...libraryState,
-        libraryFolders: moveLibraryFolder(libraryFolders, folderId, parentFolderId, packPresets),
-      })
-    },
-    [libraryFolders, libraryState, packPresets, persistLibraryState],
-  )
-
-  const reorderCustomOrder = useCallback(
-    async (containerKey: string, fromKey: string, toAfterKey: string, baseOrder: string[] = []) => {
-      const normalizedContainerKey = containerKey.trim()
-      const normalizedFromKey = fromKey.trim()
-      const normalizedToAfterKey = toAfterKey.trim()
-      if (!normalizedContainerKey || !normalizedFromKey || !normalizedToAfterKey) {
-        return
-      }
-
-      await persistLibraryState((currentState) => {
-        const existingOrder = currentState.customOrders[normalizedContainerKey] ?? []
-        const mergedOrder = [...existingOrder]
-        const seen = new Set(existingOrder.map((key) => normalizeLookupKey(key)))
-        for (const key of baseOrder) {
-          const trimmed = key.trim()
-          const lookup = normalizeLookupKey(trimmed)
-          if (!trimmed || seen.has(lookup)) {
-            continue
-          }
-          seen.add(lookup)
-          mergedOrder.push(trimmed)
-        }
-        if (!seen.has(normalizeLookupKey(normalizedFromKey))) {
-          mergedOrder.push(normalizedFromKey)
-        }
-
-        return {
-          ...currentState,
-          customOrders: {
-            ...currentState.customOrders,
-            [normalizedContainerKey]: reorderOrderKeys(mergedOrder, normalizedFromKey, normalizedToAfterKey),
+  const createLibraryFolder = async (name?: string, options: CreateLibraryFolderOptions = {}) => {
+    const trimmed = name?.trim() || copy.library.newLibraryFolderName
+    const normalizedPackId = options.packId?.trim() || null
+    const packId = normalizedPackId
+      ? (packPresets.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId))?.id ?? null)
+      : null
+    const id = nextUniqueId(
+      libraryFolders.map((folder) => folder.id),
+      trimmed,
+      'library-folder',
+    )
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: normalizeLibraryFolders(
+        [
+          ...libraryFolders,
+          {
+            id,
+            name: trimmed,
+            packId,
+            hidden: false,
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
           },
-        }
-      })
-    },
-    [persistLibraryState],
-  )
+        ],
+        packPresets,
+      ),
+    })
+    return id
+  }
 
-  const reorderChildMods = useCallback(
-    async (parentModKey: string, fromKey: string, toAfterKey: string) => {
-      const decodedFrom = decodeLibraryOrderKey(fromKey)
-      const decodedAfter = toAfterKey === '__start__' ? null : decodeLibraryOrderKey(toAfterKey)
-      if (decodedFrom?.kind !== 'mod' || (toAfterKey !== '__start__' && decodedAfter?.kind !== 'mod')) {
-        return
+  const renameLibraryFolder = async (folderId: string, name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      return
+    }
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: normalizeLibraryFolders(
+        libraryFolders.map((folder) =>
+          normalizeLookupKey(folder.id) === normalizeLookupKey(folderId) ? { ...folder, name: trimmed } : folder,
+        ),
+        packPresets,
+      ),
+    })
+  }
+
+  const hideLibraryFolder = async (folderId: string) => {
+    const targetLookup = normalizeLookupKey(folderId)
+    if (!targetLookup) {
+      return
+    }
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: normalizeLibraryFolders(
+        libraryFolders.map((folder) =>
+          normalizeLookupKey(folder.id) === targetLookup && !folder.packId ? { ...folder, hidden: true } : folder,
+        ),
+        packPresets,
+      ),
+    })
+  }
+
+  const showLibraryFolder = async (folderId: string) => {
+    const targetLookup = normalizeLookupKey(folderId)
+    if (!targetLookup) {
+      return
+    }
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: normalizeLibraryFolders(
+        libraryFolders.map((folder) => (normalizeLookupKey(folder.id) === targetLookup ? { ...folder, hidden: false } : folder)),
+        packPresets,
+      ),
+    })
+  }
+
+  const addModsToLibraryFolder = async (folderId: string, modIds: string[]) => {
+    const modKeys = modIds
+      .map((id) => mods.find((item) => item.id === id))
+      .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      .map(getModKey)
+    if (!modKeys.length) {
+      return
+    }
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: addModKeysToLibraryFolder(libraryFolders, folderId, modKeys, packPresets),
+    })
+  }
+
+  const removeModsFromLibraryFolders = async (modIds: string[]) => {
+    const modKeys = modIds
+      .map((id) => mods.find((item) => item.id === id))
+      .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      .map(getModKey)
+    if (!modKeys.length) {
+      return
+    }
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: removeModKeysFromLibraryFolders(libraryFolders, modKeys, packPresets),
+    })
+  }
+
+  const moveLibraryFolderToFolder = async (folderId: string, parentFolderId: string | null) => {
+    await persistLibraryState({
+      ...libraryState,
+      libraryFolders: moveLibraryFolder(libraryFolders, folderId, parentFolderId, packPresets),
+    })
+  }
+
+  const reorderCustomOrder = async (containerKey: string, fromKey: string, toAfterKey: string, baseOrder: string[] = []) => {
+    const normalizedContainerKey = containerKey.trim()
+    const normalizedFromKey = fromKey.trim()
+    const normalizedToAfterKey = toAfterKey.trim()
+    if (!normalizedContainerKey || !normalizedFromKey || !normalizedToAfterKey) {
+      return
+    }
+
+    await persistLibraryState((currentState) => {
+      const existingOrder = currentState.customOrders[normalizedContainerKey] ?? []
+      const mergedOrder = [...existingOrder]
+      const seen = new Set(existingOrder.map((key) => normalizeLookupKey(key)))
+      for (const key of baseOrder) {
+        const trimmed = key.trim()
+        const lookup = normalizeLookupKey(trimmed)
+        if (!trimmed || seen.has(lookup)) {
+          continue
+        }
+        seen.add(lookup)
+        mergedOrder.push(trimmed)
+      }
+      if (!seen.has(normalizeLookupKey(normalizedFromKey))) {
+        mergedOrder.push(normalizedFromKey)
       }
 
-      await persistLibraryState((currentState) => {
-        const parentLookup = normalizeLookupKey(parentModKey)
-        const nextGroups = currentState.childModGroups.map((group) => {
-          if (normalizeLookupKey(group.parentModKey) !== parentLookup) {
-            return group
-          }
-          const encodedOrder = group.childModKeys.map(encodeLibraryModOrderKey)
-          const reordered = reorderOrderKeys(encodedOrder, encodeLibraryModOrderKey(decodedFrom.id), toAfterKey)
-          return {
-            ...group,
-            childModKeys: reordered
-              .map(decodeLibraryOrderKey)
-              .filter((item): item is { kind: 'mod'; id: string } => item?.kind === 'mod')
-              .map((item) => item.id),
-          }
-        })
+      return {
+        ...currentState,
+        customOrders: {
+          ...currentState.customOrders,
+          [normalizedContainerKey]: reorderOrderKeys(mergedOrder, normalizedFromKey, normalizedToAfterKey),
+        },
+      }
+    })
+  }
 
+  const reorderChildMods = async (parentModKey: string, fromKey: string, toAfterKey: string) => {
+    const decodedFrom = decodeLibraryOrderKey(fromKey)
+    const decodedAfter = toAfterKey === '__start__' ? null : decodeLibraryOrderKey(toAfterKey)
+    if (decodedFrom?.kind !== 'mod' || (toAfterKey !== '__start__' && decodedAfter?.kind !== 'mod')) {
+      return
+    }
+
+    await persistLibraryState((currentState) => {
+      const parentLookup = normalizeLookupKey(parentModKey)
+      const nextGroups = currentState.childModGroups.map((group) => {
+        if (normalizeLookupKey(group.parentModKey) !== parentLookup) {
+          return group
+        }
+        const encodedOrder = group.childModKeys.map(encodeLibraryModOrderKey)
+        const reordered = reorderOrderKeys(encodedOrder, encodeLibraryModOrderKey(decodedFrom.id), toAfterKey)
         return {
-          ...currentState,
-          childModGroups: nextGroups,
+          ...group,
+          childModKeys: reordered
+            .map(decodeLibraryOrderKey)
+            .filter((item): item is { kind: 'mod'; id: string } => item?.kind === 'mod')
+            .map((item) => item.id),
         }
       })
-    },
-    [persistLibraryState],
-  )
 
-  const setModsEnabled = useCallback(
-    async (modIds: string[], enabled: boolean) => {
-      const targetIds = new Set(modIds)
-      await Promise.all(
-        mods
-          .filter((item) => targetIds.has(item.id) && item.enabled !== enabled)
-          .map((item) =>
-            launcherPort.setModEnabled({
-              modPath: item.absolutePath,
-              enabled,
-            }),
-          ),
-      )
-      await refresh()
-    },
-    [launcherPort, mods, refresh],
-  )
-
-  const setScopeMode = useCallback(
-    async (nextScopeMode: LauncherLibraryScopeMode) => {
-      await persistLibraryState((currentState) => ({
+      return {
         ...currentState,
-        scopeMode: nextScopeMode,
-      }))
-    },
-    [persistLibraryState],
-  )
+        childModGroups: nextGroups,
+      }
+    })
+  }
 
-  const applyCurrentPack = useCallback(async () => {
+  const setModsEnabled = async (modIds: string[], enabled: boolean) => {
+    const targetIds = new Set(modIds)
+    await Promise.all(
+      mods
+        .filter((item) => targetIds.has(item.id) && item.enabled !== enabled)
+        .map((item) =>
+          launcherPort.setModEnabled({
+            modPath: item.absolutePath,
+            enabled,
+          }),
+        ),
+    )
+    await refresh()
+  }
+
+  const setScopeMode = async (nextScopeMode: LauncherLibraryScopeMode) => {
+    await persistLibraryState((currentState) => ({
+      ...currentState,
+      scopeMode: nextScopeMode,
+    }))
+  }
+
+  const applyCurrentPack = async () => {
     if (!currentPack) {
       return
     }
@@ -1591,47 +1506,44 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     )
     setSelectedModIds([])
     await refresh()
-  }, [childModGroups, currentPack, launcherPort, mods, refresh])
+  }
 
-  const setSelectionEnabled = useCallback(
-    async (enabled: boolean) => {
-      await Promise.all(
-        selection
-          .filter((item) => item.enabled !== enabled)
-          .map((item) =>
-            launcherPort.setModEnabled({
-              modPath: item.absolutePath,
-              enabled,
-            }),
-          ),
-      )
-      setSelectedModIds([])
-      await refresh()
-    },
-    [launcherPort, refresh, selection],
-  )
+  const setSelectionEnabled = async (enabled: boolean) => {
+    await Promise.all(
+      selection
+        .filter((item) => item.enabled !== enabled)
+        .map((item) =>
+          launcherPort.setModEnabled({
+            modPath: item.absolutePath,
+            enabled,
+          }),
+        ),
+    )
+    setSelectedModIds([])
+    await refresh()
+  }
 
-  const setFilterText = useCallback((value: string) => {
+  const setFilterText = (value: string) => {
     setFilterTextState(value)
-  }, [])
+  }
 
-  const selectNextSearchMatch = useCallback(() => {
+  const selectNextSearchMatch = () => {
     if (!filteredMods.length) {
       return
     }
     const currentIndex = filteredMods.findIndex((item) => item.id === selectedModId)
     const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % filteredMods.length
     setSelectedModId(filteredMods[nextIndex]?.id ?? null)
-  }, [filteredMods, selectedModId])
+  }
 
-  const selectPreviousSearchMatch = useCallback(() => {
+  const selectPreviousSearchMatch = () => {
     if (!filteredMods.length) {
       return
     }
     const currentIndex = filteredMods.findIndex((item) => item.id === selectedModId)
     const nextIndex = currentIndex < 0 ? filteredMods.length - 1 : (currentIndex - 1 + filteredMods.length) % filteredMods.length
     setSelectedModId(filteredMods[nextIndex]?.id ?? null)
-  }, [filteredMods, selectedModId])
+  }
 
   return {
     mods,

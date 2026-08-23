@@ -12,7 +12,7 @@
  * spelling drift.
  */
 
-import { loadTextAsset, resolveLocalizedText } from '@entities/game/api'
+import { loadOptionalTextAsset, loadTextAsset, resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales/api'
 import {
   getLocalizedImagePathCandidates,
@@ -148,29 +148,25 @@ export async function loadCharacterImageState(path: string | null, locale: Local
 
   const cacheKey = getLocalizedPathCacheKey(path, locale)
   return readCachedPromise(imageStateCache, cacheKey, async () => {
-    let lastError: unknown = null
-
     for (const candidatePath of getImagePathCandidates(path, locale)) {
-      try {
-        const resource = await loadImageResourceFromPath(candidatePath, locale)
-        if (!resource) {
-          continue
-        }
-        return {
-          path: candidatePath,
-          url: resource.url,
-          width: resource.width,
-          height: resource.height,
-          originalWidth: null,
-          originalHeight: null,
-          image: resource.image,
-        }
-      } catch (error) {
-        lastError = error
+      const resource = await loadImageResourceFromPath(candidatePath, locale)
+      if (!resource) {
+        continue
+      }
+      return {
+        path: candidatePath,
+        url: resource.url,
+        width: resource.width,
+        height: resource.height,
+        originalWidth: null,
+        originalHeight: null,
+        image: resource.image,
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error(String(lastError))
+    // 所有候选拼写均不可用（例如 Gil、Welwick 等 vanilla 无独立贴图的条目）：
+    // 缩略图缺失是正常状态，返回空状态由 UI 渲染占位，而不是抛出。
+    return { path, url: null, width: null, height: null, originalWidth: null, originalHeight: null, image: null }
   })
 }
 
@@ -728,9 +724,9 @@ export async function loadCharacterWorkspaceEntries(rootPath: string, locale: Lo
   return readCachedPromise(characterEntriesCache, cacheKey, async () => {
     const [asset, giftTastesAsset, objectDataAsset, monsterDataAsset] = await Promise.all([
       loadTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale),
-      loadTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale).catch(() => null),
-      loadTextAsset(rootPath, MONSTER_DATA_ASSET_PATH, locale).catch(() => null),
+      loadOptionalTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale, 'characterAssets.optionalGiftTastes'),
+      loadOptionalTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale, 'characterAssets.optionalObjects'),
+      loadOptionalTextAsset(rootPath, MONSTER_DATA_ASSET_PATH, locale, 'characterAssets.optionalMonsters'),
     ])
 
     const nextCharacters = createCharacterEntryIndex(asset.content)

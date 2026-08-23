@@ -7,7 +7,8 @@ import type { SetStateAction } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent } from '@platform/observability'
+import { TaskCancelledError, useExclusiveMutationTask, useLatestTask } from '@shared/lib/task-runtime'
 import type { LauncherViewState } from './types'
 
 const DEFAULT_SETTINGS: LauncherSettings = {
@@ -108,14 +109,15 @@ export function useLauncherSettings() {
   const lastPersistedSettingsRef = useRef(lastPersistedSettings)
   const saveSettingsRef = useRef(launcherPort.saveSettings)
   const exitFlushRequestedRef = useRef(false)
-  const settingsVersionRef = useRef(0)
+  const loadSettingsTask = useLatestTask('launcher-settings-load')
+  const saveSettingsTask = useExclusiveMutationTask('launcher-settings')
 
-  const refreshWithVersion = useCallback(
-    async (settingsVersionAtStart: number) => {
-      setState('loading')
-      setError(null)
+  const refreshWithTask = useCallback(async () => {
+    setState('loading')
+    setError(null)
 
-      try {
+    try {
+      await loadSettingsTask(async (scope) => {
         const persisted = normalizePersistedLauncherSettings(await launcherPort.loadSettings())
         const nextSettings = { ...persisted }
         if (!nextSettings.gamePath?.trim()) {
@@ -127,48 +129,49 @@ export function useLauncherSettings() {
                 nextSettings.modsPath = deriveModsPath(detectedGamePath)
               }
             }
+            // observability-exempt: 默认游戏目录探测失败时继续使用已持久化的 launcher 路径，且宿主 command 错误已由 HostCommandClient 记录
           } catch {
             // Detection failure should not block loading persisted launcher settings.
           }
         }
-        const resolved = resolveLauncherSettings(nextSettings)
-        if (settingsVersionRef.current === settingsVersionAtStart) {
-          setSettingsState(resolved)
+        if (!scope.isCurrent()) {
+          return
         }
+        const resolved = resolveLauncherSettings(nextSettings)
+        setSettingsState(resolved)
         setLastPersistedSettings(persisted)
         setState('ready')
-      } catch (nextError) {
-        const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
-        setError(message)
-        setState('error')
-        reportAppEvent({
-          level: 'error',
-          title: launcherCopy.settings.loadFailed,
-          description: message,
-          keyValues: {
-            source: 'launcher-settings',
-            operation: 'load',
-          },
-        })
+      })
+    } catch (nextError) {
+      if (nextError instanceof TaskCancelledError) {
+        return
       }
-    },
-    [launcherCopy.settings.loadFailed, launcherPort],
-  )
+      const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
+      setError(message)
+      setState('error')
+      appEvent('error', launcherCopy.settings.loadFailed)
+        .description(message)
+        .context({
+          source: 'launcher-settings',
+          operation: 'load',
+        })
+        .emit()
+    }
+  }, [launcherCopy.settings.loadFailed, launcherPort, loadSettingsTask])
 
   const refresh = useCallback(async () => {
-    await refreshWithVersion(settingsVersionRef.current)
-  }, [refreshWithVersion])
+    await refreshWithTask()
+  }, [refreshWithTask])
 
   useEffect(() => {
-    const settingsVersionAtSchedule = settingsVersionRef.current
     const handle = window.setTimeout(() => {
-      void refreshWithVersion(settingsVersionAtSchedule)
+      void refreshWithTask()
     }, 0)
 
     return () => {
       window.clearTimeout(handle)
     }
-  }, [refreshWithVersion])
+  }, [refreshWithTask])
 
   const resolvedSettings = useMemo<LauncherSettings>(() => resolveLauncherSettings(settings), [settings])
 
@@ -179,76 +182,85 @@ export function useLauncherSettings() {
     saveSettingsRef.current = launcherPort.saveSettings
   }, [lastPersistedSettings, launcherPort.saveSettings, resolvedSettings, state])
 
-  const setSettings = useCallback((nextSettings: SetStateAction<LauncherSettings>) => {
-    settingsVersionRef.current += 1
+  // A user edit supersedes any in-flight load so its result cannot clobber the edit.
+  const supersedeInFlightLoad = useCallback(() => {
+    void loadSettingsTask(async () => undefined).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [loadSettingsTask])
+
+  const setSettings = (nextSettings: SetStateAction<LauncherSettings>) => {
+    supersedeInFlightLoad()
     setSettingsState(nextSettings)
     setSaveMessage(null)
-  }, [])
+  }
 
-  const updateField = useCallback(<TKey extends keyof LauncherSettings>(field: TKey, value: LauncherSettings[TKey]) => {
-    settingsVersionRef.current += 1
-    setSettingsState((current) => ({
-      ...current,
-      [field]: value,
-    }))
-    setSaveMessage(null)
-  }, [])
+  const updateField = useCallback(
+    <TKey extends keyof LauncherSettings>(field: TKey, value: LauncherSettings[TKey]) => {
+      supersedeInFlightLoad()
+      setSettingsState((current) => ({
+        ...current,
+        [field]: value,
+      }))
+      setSaveMessage(null)
+    },
+    [supersedeInFlightLoad],
+  )
 
   const persistSettings = useCallback(
     async (nextSettings: LauncherSettings, options?: { notifySuccess?: boolean }) => {
       const notifySuccess = options?.notifySuccess ?? true
-      const settingsVersionAtStart = settingsVersionRef.current
 
       setError(null)
       setSaveMessage(null)
-      reportAppEvent({
-        level: 'debug',
-        title: 'Saving launcher settings',
-        notify: false,
-        keyValues: {
+      appEvent('debug', 'Saving launcher settings')
+        .context({
           source: 'launcher-settings',
           operation: 'save',
-        },
-      })
+        })
+        .emit({ notify: false })
 
       try {
-        const persisted = resolveLauncherSettings(await launcherPort.saveSettings(nextSettings))
-        if (settingsVersionRef.current === settingsVersionAtStart) {
-          setSettingsState(persisted)
-        }
-        setLastPersistedSettings(persisted)
-        setSaveMessage('saved')
-        setState('ready')
-        if (notifySuccess) {
-          reportAppEvent({
-            level: 'success',
-            title: launcherCopy.settings.saved,
-            keyValues: {
-              source: 'launcher-settings',
-              operation: 'save',
-              gamePath: persisted.gamePath ?? undefined,
-            },
-          })
-        }
-        return persisted
+        return await saveSettingsTask(async (scope) => {
+          const persisted = resolveLauncherSettings(await launcherPort.saveSettings(nextSettings))
+          // Supersede any older load that may still be resolving; the save result owns the state now.
+          await loadSettingsTask(async () => undefined)
+          if (scope.isCurrent()) {
+            setSettingsState(persisted)
+          }
+          setLastPersistedSettings(persisted)
+          setSaveMessage('saved')
+          setState('ready')
+          if (notifySuccess) {
+            appEvent('success', launcherCopy.settings.saved)
+              .context({
+                source: 'launcher-settings',
+                operation: 'save',
+                gamePath: persisted.gamePath ?? undefined,
+              })
+              .emit()
+          }
+          return persisted
+        })
       } catch (nextError) {
+        if (nextError instanceof TaskCancelledError) {
+          return undefined
+        }
         const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.saveFailed
         setError(message)
         setSaveMessage('error')
         setState('error')
-        reportAppEvent({
-          level: 'error',
-          title: launcherCopy.settings.saveFailed,
-          description: message,
-          keyValues: {
+        appEvent('error', launcherCopy.settings.saveFailed)
+          .description(message)
+          .context({
             source: 'launcher-settings',
             operation: 'save',
-          },
-        })
+          })
+          .emit()
         throw nextError
       }
     },
-    [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, launcherPort],
+    [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, launcherPort, loadSettingsTask, saveSettingsTask],
   )
 
   const flushPendingSettings = useCallback(async () => {
@@ -266,6 +278,7 @@ export function useLauncherSettings() {
 
     try {
       await saveSettingsRef.current(currentResolved)
+      // observability-exempt: 退出时保存失败只跳过本次 flush，常规自动保存路径已对持久化错误上报并保留 dirty 状态
     } catch {
       // Exit-time flush is best effort; the normal autosave path still reports save errors.
     }

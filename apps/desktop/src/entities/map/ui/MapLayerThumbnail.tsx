@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Grid3X3 } from 'lucide-react'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { resolveTilesetImagePath } from '../lib/assets'
 import { getMapContentBounds } from '../lib/mapContentBounds'
 import type { MapDocument, MapLayer } from '../lib/types'
@@ -127,8 +128,12 @@ export function MapLayerThumbnail({ document, layer, locale, gameRootPath = null
           setDataUrl(nextDataUrl)
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
+          appEvent('warning', 'Failed to render map layer thumbnail')
+            .error(error)
+            .context({ source: 'map-layer-thumbnail', operation: 'render' })
+            .emit({ notify: false })
           settledRef.current = true
           setDataUrl(null)
         }

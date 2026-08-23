@@ -14,6 +14,7 @@ import { loadResourceRegistry, scanMaps, type GameDirectoryInfo, type MapAssetSu
 import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch, VirtualPreviewAsset } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 import { buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import { mapAssetNameFromSummary } from './buildingPickerOptions'
 
@@ -87,15 +88,37 @@ export function useBuildingAuthoringResources({
     let cancelled = false
 
     void Promise.all([
-      loadItemWorkspaceEntries(gameRootPath, locale).catch(() => [] as ItemWorkspaceEntry[]),
-      loadResourceRegistry(gameRootPath, locale).catch(() => null),
-      scanMaps(gameRootPath, locale).catch(() => [] as MapAssetSummary[]),
+      loadItemWorkspaceEntries(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Building authoring item resources unavailable')
+          .error(error)
+          .context({ source: 'building-authoring', operation: 'load-item-resources' })
+          .emit({ notify: false })
+        return [] as ItemWorkspaceEntry[]
+      }),
+      loadResourceRegistry(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Building authoring resource registry unavailable')
+          .error(error)
+          .context({ source: 'building-authoring', operation: 'load-resource-registry' })
+          .emit({ notify: false })
+        return null
+      }),
+      scanMaps(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Building authoring map resources unavailable')
+          .error(error)
+          .context({ source: 'building-authoring', operation: 'scan-maps' })
+          .emit({ notify: false })
+        return [] as MapAssetSummary[]
+      }),
       Promise.all(
         sortedUnique(vanillaTextureNames).map(async (assetName) => {
           try {
             const state = await loadBuildingImageState(buildGameContentPath(gameRootPath, assetName), locale)
             return state.url === null ? null : ([assetName.replaceAll('\\', '/').toLowerCase(), state.url] as const)
-          } catch {
+          } catch (error: unknown) {
+            appEvent('warning', 'Building texture preview unavailable')
+              .error(error)
+              .context({ source: 'building-authoring', operation: 'load-texture-preview' })
+              .emit({ notify: false })
             return null
           }
         }),
@@ -131,8 +154,12 @@ export function useBuildingAuthoringResources({
           texturePreviews: Object.fromEntries(texturePreviews.filter((entry): entry is readonly [string, string] => entry !== null)),
         })
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Building authoring resources failed to load')
+            .error(error)
+            .context({ source: 'building-authoring', operation: 'load-resources' })
+            .emit({ notify: false })
           setGameResources(EMPTY_RESOURCES)
         }
       })

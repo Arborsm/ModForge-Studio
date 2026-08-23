@@ -490,7 +490,12 @@ pub(crate) fn restore_backup_session_at_path(
                     .next()
                     .is_none()
             {
-                let _ = fs::remove_dir_all(&target_root);
+                if let Err(error) = fs::remove_dir_all(&target_root) {
+                    LogEvent::new("launcher.install.cleanupFailed")
+                        .path("targetRoot", &target_root)
+                        .error(error)
+                        .emit_warn(targets::LAUNCHER);
+                }
             }
         } else {
             cleanup_empty_tree(&target_root)?;
@@ -513,8 +518,13 @@ pub(crate) fn install_archive_bundle_at_path(
     extract_bundle_to_path: impl FnOnce(&Path) -> anyhow::Result<PathBuf>,
 ) -> anyhow::Result<InstallManagerSessionResult> {
     let work_root = temp_work_dir("launcher-install-bundle");
-    if work_root.exists() {
-        let _ = fs::remove_dir_all(&work_root);
+    if work_root.exists()
+        && let Err(error) = fs::remove_dir_all(&work_root)
+    {
+        LogEvent::new("launcher.install.cleanupFailed")
+            .path("workRoot", &work_root)
+            .error(error)
+            .emit_warn(targets::LAUNCHER);
     }
     fs::create_dir_all(&work_root).with_context(|| {
         format!(
@@ -524,14 +534,24 @@ pub(crate) fn install_archive_bundle_at_path(
     })?;
 
     let staged_root = extract_bundle_to_path(&work_root).map_err(|error| {
-        let _ = fs::remove_dir_all(&work_root);
+        if let Err(cleanup_error) = fs::remove_dir_all(&work_root) {
+            LogEvent::new("launcher.install.cleanupFailed")
+                .path("workRoot", &work_root)
+                .error(cleanup_error)
+                .emit_warn(targets::LAUNCHER);
+        }
         anyhow::anyhow!(
             "Failed to stage archive bundle {}: {error}",
             normalize_path(archive_path)
         )
     })?;
     let result = install_staged_bundle_at_path(&staged_root, mods_path, backup_root);
-    let _ = fs::remove_dir_all(&work_root);
+    if let Err(error) = fs::remove_dir_all(&work_root) {
+        LogEvent::new("launcher.install.cleanupFailed")
+            .path("workRoot", &work_root)
+            .error(error)
+            .emit_warn(targets::LAUNCHER);
+    }
     result
 }
 

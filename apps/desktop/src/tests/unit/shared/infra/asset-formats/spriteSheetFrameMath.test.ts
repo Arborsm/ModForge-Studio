@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod/state/scaleup/scaleup'
+import { getSpriteSheetFrameCount, getSpriteSheetFramePreviewMetrics } from '@shared/infra/asset-formats/spriteSheetFrameMath'
 
-describe('ScaleUp preview metrics', () => {
+describe('sprite sheet frame preview metrics', () => {
   it('uses original sheet dimensions to count frames in a resized result', () => {
     expect(
-      getScaleUpFrameCount(
+      getSpriteSheetFrameCount(
         { resultImage: { width: 512, height: 256 }, originalImage: { width: 128, height: 64 } },
         { frameWidth: 64, frameHeight: 64 },
       ),
@@ -12,12 +12,12 @@ describe('ScaleUp preview metrics', () => {
   })
 
   it('returns zero frames when no image dimensions are available', () => {
-    expect(getScaleUpFrameCount()).toBe(0)
+    expect(getSpriteSheetFrameCount()).toBe(0)
   })
 
   it('scales a resized frame back to preview size and advances its crop', () => {
     expect(
-      getScaleUpFramePreviewMetrics({ resultImage: { width: 512, height: 256 }, originalImage: { width: 128, height: 64 } }, 1, {
+      getSpriteSheetFramePreviewMetrics({ resultImage: { width: 512, height: 256 }, originalImage: { width: 128, height: 64 } }, 1, {
         frameWidth: 64,
         frameHeight: 64,
       }),

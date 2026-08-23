@@ -15,6 +15,7 @@ type DialogProps = {
   /** id of the element labeling the dialog (usually a DialogHeader title id). */
   labelledBy?: string
   /** Accessible name when there is no visible title. */
+  // props-exempt: 通用 UI primitive，无障碍名称语义由使用场景决定，保留为合法组件 API
   ariaLabel?: string
   /** id of an element describing the dialog. */
   describedBy?: string

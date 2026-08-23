@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react'
+import { useReducer } from 'react'
 import type { WorkbenchLocation, WorkbenchModuleRegistration } from '@shared/contracts'
 
 type WorkbenchNavigationAction = { type: 'navigate'; location: WorkbenchLocation } | { type: 'home' }
@@ -27,7 +27,7 @@ export function useWorkbenchNavigation(initialLocation: WorkbenchLocation) {
   const [location, dispatch] = useReducer(reduceWorkbenchNavigation, initialLocation)
   return {
     location,
-    navigate: useCallback((next: WorkbenchLocation) => dispatch({ type: 'navigate', location: next }), []),
-    openHome: useCallback(() => dispatch({ type: 'home' }), []),
+    navigate: (next: WorkbenchLocation) => dispatch({ type: 'navigate', location: next }),
+    openHome: () => dispatch({ type: 'home' }),
   }
 }

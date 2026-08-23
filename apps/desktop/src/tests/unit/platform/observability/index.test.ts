@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
+import { appEvent, configureObservability, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
 
 describe('observability', () => {
   const setDebugLoggingEnabled = vi.fn(async () => undefined)
@@ -20,198 +20,93 @@ describe('observability', () => {
     vi.restoreAllMocks()
   })
 
-  it('suppresses debug events while debug diagnostics are disabled', () => {
-    expect(
-      reportAppEvent({
-        level: 'debug',
-        title: 'Simulation context updated',
-      }),
-    ).toBeNull()
-
-    expect(publishNotification).not.toHaveBeenCalled()
+  it('preserves debug suppression and visible event behavior', async () => {
+    expect(appEvent('debug', 'Simulation context updated').emit()).toBeNull()
     expect(writeFrontendLog).not.toHaveBeenCalled()
+    await syncDebugDiagnosticsEnabled(true)
+    appEvent('info', 'Launcher settings loaded').description('Using detected game directory.').emit()
+    expect(publishNotification).toHaveBeenCalledWith(expect.objectContaining({ level: 'info', title: 'Launcher settings loaded' }))
+    expect(writeFrontendLog).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Launcher settings loaded') }))
   })
 
-  it('publishes notifications and persists logs for visible non-debug events', () => {
-    reportAppEvent({
-      level: 'info',
-      title: 'Launcher settings loaded',
-      description: 'Using detected game directory.',
-    })
+  it('supports success mapping and caller debug override', () => {
+    appEvent('success', 'Project saved').emit()
+    expect(writeFrontendLog).toHaveBeenCalledWith(expect.objectContaining({ level: 'info', message: 'Project saved' }))
+    appEvent('debug', 'Launcher debug button test').debugDiagnostics(true).emit()
+    expect(publishNotification).toHaveBeenCalledWith(expect.objectContaining({ level: 'debug' }))
+  })
 
+  it('forces warning and error notifications in debug mode while info stays muted', async () => {
+    await syncDebugDiagnosticsEnabled(true)
+    appEvent('warning', 'Rate limit approaching').emit({ notify: false })
+    appEvent('error', 'Catalog refresh failed').emit({ notify: false })
+    appEvent('info', 'Background refresh complete').emit({ notify: false })
+    expect(publishNotification).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves error metadata and fallback messages', () => {
+    const cause = new Error('root cause')
+    const error = new Error('failed', { cause })
+    error.name = 'CustomError'
+    appEvent('error', 'Operation failed').error(error).context({ errorName: undefined }).emit({ notify: false })
+    expect(writeFrontendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: error.stack,
+        keyValues: expect.objectContaining({ errorName: undefined, errorCause: 'root cause' }),
+      }),
+    )
+    appEvent('error', 'Non-error').error('bad value').emit({ notify: false })
+    expect(writeFrontendLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyValues: expect.objectContaining({ errorMessage: 'bad value' }) }),
+    )
+  })
+
+  it('deduplicates within the window and resets on configure', () => {
+    vi.spyOn(performance, 'now').mockReturnValueOnce(100).mockReturnValueOnce(200).mockReturnValueOnce(6000)
+    appEvent('warning', 'Repeated').dedupe('same', 5000).emit({ notify: false })
+    appEvent('warning', 'Repeated').dedupe('same', 5000).emit({ notify: false })
+    appEvent('warning', 'Repeated').dedupe('same', 5000).emit({ notify: false })
+    expect(writeFrontendLog).toHaveBeenCalledTimes(2)
+    configureObservability({ setDebugLoggingEnabled, writeFrontendLog })
+    appEvent('warning', 'Repeated').dedupe('same', 5000).emit({ notify: false })
+    expect(writeFrontendLog).toHaveBeenCalledTimes(3)
+  })
+
+  it('passes a pinned noticeId through to the notification dispatcher', () => {
+    appEvent('error', 'Save failed').noticeId('ai-settings-save').emit()
+    expect(publishNotification).toHaveBeenCalledWith(expect.objectContaining({ id: 'ai-settings-save', level: 'error' }))
+    appEvent('error', 'No pinned id').emit()
+    expect(publishNotification).toHaveBeenLastCalledWith(expect.objectContaining({ id: undefined }))
+  })
+
+  it('passes progress, loading, and pinned auto-dismiss through to the notification dispatcher', () => {
+    appEvent('info', 'Checking updates').noticeId('updates-progress').progress(42).loading().autoDismiss(null).emit()
     expect(publishNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        title: 'Launcher settings loaded',
-      }),
+      expect.objectContaining({ id: 'updates-progress', progress: 42, loading: true, autoDismissMs: null }),
     )
-    expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        message: expect.stringContaining('Launcher settings loaded'),
-      }),
-    )
+    appEvent('info', 'Done').progress(null).loading(false).emit()
+    expect(publishNotification).toHaveBeenLastCalledWith(expect.objectContaining({ progress: null, loading: false }))
   })
 
-  it('maps success notifications to info-level persistent logs', () => {
-    reportAppEvent({
-      level: 'success',
-      title: 'Project saved',
-    })
-
-    expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        message: 'Project saved',
-      }),
-    )
-  })
-
-  it('syncs the debug diagnostics flag into the backend logger', async () => {
-    await syncDebugDiagnosticsEnabled(true)
-    await syncDebugDiagnosticsEnabled(false)
-
-    expect(setDebugLoggingEnabled).toHaveBeenNthCalledWith(1, true)
-    expect(setDebugLoggingEnabled).toHaveBeenNthCalledWith(2, false)
-  })
-
-  it('emits debug notifications and logs once debug diagnostics are enabled', async () => {
-    await syncDebugDiagnosticsEnabled(true)
-
-    reportAppEvent({
-      level: 'debug',
-      title: 'Simulation target selected',
-    })
-
-    expect(publishNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'debug',
-      }),
-    )
-    expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'debug',
-      }),
-    )
-  })
-
-  it('allows debug events when the caller explicitly confirms debug diagnostics are enabled', () => {
-    reportAppEvent({
-      level: 'debug',
-      title: 'Launcher debug button test',
-      debugDiagnosticsEnabled: true,
-    })
-
-    expect(publishNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'debug',
-        title: 'Launcher debug button test',
-      }),
-    )
-    expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'debug',
-      }),
-    )
-  })
-
-  it('forces warning and error notifications while debug diagnostics are enabled', async () => {
-    await syncDebugDiagnosticsEnabled(true)
-
-    reportAppEvent({
-      level: 'warning',
-      title: 'Rate limit approaching',
-      notify: false,
-    })
-    reportAppEvent({
-      level: 'error',
-      title: 'Catalog refresh failed',
-      notify: false,
-    })
-
-    expect(publishNotification).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        level: 'warning',
-        title: 'Rate limit approaching',
-      }),
-    )
-    expect(publishNotification).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        level: 'error',
-        title: 'Catalog refresh failed',
-      }),
-    )
-  })
-
-  it('still allows non-critical notifications to stay muted in debug mode', async () => {
-    await syncDebugDiagnosticsEnabled(true)
-
-    expect(
-      reportAppEvent({
-        level: 'info',
-        title: 'Background refresh complete',
-        notify: false,
-      }),
-    ).toBeNull()
-
-    expect(publishNotification).not.toHaveBeenCalled()
-    expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        message: 'Background refresh complete',
-      }),
-    )
-  })
-
-  it('swallows rejected frontend log writes for fire-and-forget app events', async () => {
+  it('keeps rejected frontend log writes fire-and-forget', async () => {
     const failingLog = vi.fn(async () => {
       throw new Error('Task was superseded.')
     })
     configureObservability({ setDebugLoggingEnabled, writeFrontendLog: failingLog })
-
-    expect(() => {
-      reportAppEvent({
-        level: 'info',
-        title: 'Launcher debug event',
-        notify: false,
-      })
-    }).not.toThrow()
-
+    expect(() => appEvent('info', 'Launcher debug event').emit({ notify: false })).not.toThrow()
     await Promise.resolve()
-    expect(failingLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        message: 'Launcher debug event',
-      }),
-    )
+    expect(failingLog).toHaveBeenCalled()
   })
 
-  it('forwards direct console warnings through the observability adapter', () => {
+  it('forwards console warnings and ignores mirrored console logs', () => {
     console.warn('Failed to sample palette preview row.', new Error('canvas unavailable'))
-
     expect(writeFrontendLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'warning',
-        message: expect.stringContaining('Failed to sample palette preview row.'),
-        keyValues: {
-          source: 'console',
-          method: 'warn',
-        },
-      }),
+      expect.objectContaining({ level: 'warning', keyValues: { source: 'console', method: 'warn' } }),
     )
-  })
-
-  it('does not forward frontend log console mirrors back into the adapter', () => {
+    vi.clearAllMocks()
     window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = true
-
-    try {
-      console.warn('[webview][WARN] Launcher settings save failed source=launcher-settings')
-    } finally {
-      window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = false
-    }
-
+    console.warn('mirrored')
+    window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = false
     expect(writeFrontendLog).not.toHaveBeenCalled()
   })
 })

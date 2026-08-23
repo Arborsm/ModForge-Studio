@@ -10,7 +10,6 @@ import { cx } from '@shared/lib/helper'
 /** Props for {@link LauncherDownloadRow}. */
 type LauncherDownloadRowProps = {
   item: LauncherDownloadQueueItem
-  statusLabel: string
   onRetry: () => void
   onRemove: () => void
   onInstall: () => void
@@ -57,9 +56,10 @@ function classifyDownloadError(message: string | null) {
 }
 
 /** Renders a single download queue row with status, progress bar, error detail, and action links. */
-export function LauncherDownloadRow({ item, statusLabel, onRetry, onRemove, onInstall }: LauncherDownloadRowProps) {
+export function LauncherDownloadRow({ item, onRetry, onRemove, onInstall }: LauncherDownloadRowProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
+  const statusLabel = copy.states[item.status]
   const sourceLabel =
     item.source === 'updates' ? copy.pages.updates : item.source === 'debug' ? copy.pages.configuration : copy.pages.discover
   const versionLabel = item.version ?? rootCopy.common.none

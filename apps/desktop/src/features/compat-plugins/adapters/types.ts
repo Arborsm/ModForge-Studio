@@ -10,6 +10,10 @@ export type CompatPageContext = {
   targetModUniqueId: string
   /** Installed root directory of the target mod, resolved by UniqueID from the Mods directory; null when the mod is not installed. */
   targetModRoot: string | null
+  /** Display name of the resolved target mod; used to tag entries when content-pack aggregation is off. */
+  targetModName?: string | null
+  /** All candidate UniqueIDs declared by the plugin (manifest targets); used to aggregate content packs when the source opts in. */
+  targetUniqueIds?: readonly string[]
   /** Active project root; null when projectAccess is "none". */
   projectRoot: string | null
 }
@@ -20,13 +24,26 @@ export type CompatEntrySummary = {
   entryDir: string
   entryFilePath: string
   entryImagePath: string | null
+  /**
+   * Absolute path of the mod root containing this entry — the target mod or a
+   * content pack for it. Together with `id` (pack-local) it forms the entry
+   * identity; load/save route through this root.
+   */
+  sourceModRoot: string
+  /** Display name of the mod containing this entry. */
+  sourceModName: string
 }
 
 /** Reads and writes pack entries for a declared source kind. Implementations are core code. */
 export interface CompatSourceAdapter {
   listEntries(source: CompatPluginPageSource, context: CompatPageContext): Promise<CompatEntrySummary[]>
-  loadEntry(source: CompatPluginPageSource, context: CompatPageContext, entryId: string): Promise<Record<string, unknown>>
-  saveEntry(source: CompatPluginPageSource, context: CompatPageContext, entryId: string, value: Record<string, unknown>): Promise<void>
+  loadEntry(source: CompatPluginPageSource, context: CompatPageContext, entry: CompatEntrySummary): Promise<Record<string, unknown>>
+  saveEntry(
+    source: CompatPluginPageSource,
+    context: CompatPageContext,
+    entry: CompatEntrySummary,
+    value: Record<string, unknown>,
+  ): Promise<void>
 }
 
 /** Adapter registry: kind → adapter instance. Populated lazily by `resolveSourceAdapter`. */

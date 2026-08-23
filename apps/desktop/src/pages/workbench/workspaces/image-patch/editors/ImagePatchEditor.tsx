@@ -161,16 +161,13 @@ export const ImagePatchEditor: EditorComponent = ({ patch, draftPort, resources 
     [onAddVirtualAsset, onPatchChange, patch.id, patch.target],
   )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      const file = e.dataTransfer.files[0]
-      if (file && file.type.startsWith('image/')) {
-        void handleFileSelect(file)
-      }
-    },
-    [handleFileSelect],
-  )
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) {
+      void handleFileSelect(file)
+    }
+  }
 
   function updateArea(areaType: 'fromArea' | 'toArea', field: keyof Area, raw: string) {
     const current = areaType === 'fromArea' ? fromArea : toArea

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchModuleRegistration } from '@shared/contracts'
+import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
@@ -18,8 +18,6 @@ export function preloadWorkbenchExperience() {
 const WorkbenchExperience = lazy(preloadWorkbenchExperience)
 
 type WorkbenchPageProps = {
-  pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
-  onClearPendingIntent: () => void
   active: boolean
   appUiStateReady: boolean
   desktopHost: boolean
@@ -31,7 +29,6 @@ type WorkbenchPageProps = {
   onCloseWindow: () => boolean | Promise<boolean>
   onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onHomeRouteActiveChange?: (active: boolean) => void
-  onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchModuleRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
   workbenchModules?: readonly WorkbenchModuleRegistration[]
   workbenchActivationKey?: number

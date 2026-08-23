@@ -15,7 +15,7 @@
  */
 
 import type { LocaleCode } from '@locales/api'
-import { loadTextAsset } from './gameAssets'
+import { loadOptionalTextAsset } from './gameAssets'
 
 export type StringAssetReference = {
   /** XNB path under the game root, e.g. `Content\Strings\Objects.xnb`. */
@@ -65,8 +65,11 @@ export function loadStringTable(rootPath: string, assetPath: string, locale: Loc
     return cached
   }
 
-  const pending: Promise<StringTableResult> = loadTextAsset(rootPath, assetPath, locale)
+  const pending: Promise<StringTableResult> = loadOptionalTextAsset(rootPath, assetPath, locale, 'localizedText.load-string-table')
     .then((asset) => {
+      if (!asset) {
+        return { table: {}, loaded: false }
+      }
       const parsed = JSON.parse(asset.content) as Record<string, unknown>
       const table = Object.fromEntries(
         Object.entries(parsed).flatMap(([key, value]) => (typeof value === 'string' ? ([[key, value]] as const) : [])),

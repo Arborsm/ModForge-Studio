@@ -22,6 +22,7 @@ import {
 import { resolveLocalizedText, tryParseStringAssetReference } from '@entities/game/api'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 /** Rows rendered per group before the pane asks the author to narrow the search. */
 export const MAX_ROWS_PER_GROUP = 40
@@ -96,8 +97,12 @@ export function useVanillaObjectIndex(
           available: true,
         })
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Item source data failed to load')
+            .error(error)
+            .context({ source: 'item-authoring', operation: 'load-source-index' })
+            .emit({ notify: false })
           setState(EMPTY_VANILLA)
         }
       })

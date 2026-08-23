@@ -1,5 +1,5 @@
 import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { cx } from '@shared/lib/helper'
 import type { VisibilityListItem } from '../common/rightShared'
 
@@ -59,7 +59,7 @@ export function GroupedVisibilityList({
   const [filterValue, setFilterValue] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const normalizedFilter = filterValue.trim().toLowerCase()
-  const entries = useMemo(() => {
+  const entries = (() => {
     const grouped = new Map<string, VisibilityListItem[]>()
 
     for (const item of items) {
@@ -88,7 +88,7 @@ export function GroupedVisibilityList({
         grouped: groupItems.length > 1,
       }))
       .sort((left, right) => Number(right.grouped) - Number(left.grouped) || left.groupLabel.localeCompare(right.groupLabel))
-  }, [items, normalizedFilter])
+  })()
 
   return (
     <div className="space-y-3 p-3">

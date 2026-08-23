@@ -117,8 +117,6 @@ export function WorkspaceEntryList({ rows, onOpen, onDelete, onToggleEnabled, ti
         open={deleteTarget !== null}
         title={copy.deleteTitle}
         message={deleteTarget ? copy.deleteMessage(deleteTarget.displayName || deleteTarget.key) : ''}
-        cancelLabel={copy.cancel}
-        confirmLabel={copy.confirmDelete}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (deleteTarget) onDelete(deleteTarget.key)

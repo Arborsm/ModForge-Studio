@@ -158,6 +158,7 @@ const scheduleEditor: ScheduleEditorCopy = {
     loadFailedTemplate: '地图加载失败：{message}',
     unsupportedFormatTemplate: '地图格式 {format} 暂不支持在此预览。',
     spriteUnavailableTemplate: 'NPC 立绘不可用，改用编号标记：{message}',
+    spriteMissingAsset: '游戏内容中没有该 NPC 的立绘资源。',
     retryAction: '重试',
     markerTooltipTemplate: '第 {ordinal} 点 · {time} · 格子 {x}, {y}',
     departsToTemplate: '前往 {location}',

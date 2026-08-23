@@ -49,7 +49,7 @@
 **方案**：
 
 - 保存前检查不通过时，`setSaveState({ status: 'error', message: ... })` 并在 header 显示具体原因
-- 用 `useNotificationPublisher` 弹出错误通知，列出具体问题（TBin 问题 N 条、图层名问题 N 条、无效 TSX 源 N 条）
+- 用 `appEvent('error', ...)` 弹出错误通知，列出具体问题（TBin 问题 N 条、图层名问题 N 条、无效 TSX 源 N 条）
 
 **改动范围**：
 

@@ -16,10 +16,10 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
+import { usePreferencesStore } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent, ignoreError } from '@platform/observability'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import {
@@ -219,30 +219,6 @@ function getNextHourTimestampSeconds() {
 function getQuotaDetail(limit: string, resetAt: number | null | undefined, fallbackResetAt: () => number, copy: LauncherCopy) {
   const resetDetail = formatResetCountdown(resetAt ?? fallbackResetAt(), copy)
   return resetDetail == null ? limit : `${limit} · ${resetDetail}`
-}
-
-function getPremiumExpiryLabel(status: ValidateApiKeyResult | null, copy: LauncherCopy) {
-  if (!status?.isPremium) {
-    return null
-  }
-
-  if (status.isLifetimePremium) {
-    return copy.diagnostics.premiumLifetime
-  }
-
-  const rawValue = status.premiumExpiresAt?.trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const timestampMs = Number(rawValue)
-  const date =
-    Number.isFinite(timestampMs) && timestampMs > 0
-      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
-      : new Date(rawValue)
-  const displayValue = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString()
-
-  return copy.diagnostics.premiumExpiresAt(displayValue)
 }
 
 function getPremiumCacheExpiresAtMs(status: ValidateApiKeyResult | null) {
@@ -745,7 +721,7 @@ function useNexusApiAccountStatus(
     }
   }, [launcherPort])
 
-  const startSso = useCallback(async () => {
+  const startSso = async () => {
     let cancelled = false
     setSsoStarting(true)
     try {
@@ -768,7 +744,7 @@ function useNexusApiAccountStatus(
       cancelled = true
       setSsoStarting(false)
     }
-  }, [launcherPort, onAuthorized, refresh, refreshApiKeyStatus])
+  }
 
   return {
     apiKeyStatus,
@@ -1449,9 +1425,11 @@ export function LauncherConfigurationPage({
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
   const [lastDiagnosticsAt, setLastDiagnosticsAt] = useState<number | null>(null)
   const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false)
-  const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
+  const forceOffline = usePreferencesStore((state) => state.forceOffline)
+  const setForceOffline = usePreferencesStore((state) => state.setForceOffline)
   const [forceOfflineBusy, setForceOfflineBusy] = useState(false)
-  const [forceNonPremium, setForceNonPremium] = useState(() => getAppUiStateSnapshot().launcher.forceNonPremium)
+  const forceNonPremium = usePreferencesStore((state) => state.forceNonPremium)
+  const setForceNonPremium = usePreferencesStore((state) => state.setForceNonPremium)
   const [forceNonPremiumBusy, setForceNonPremiumBusy] = useState(false)
   const [diagnosticsPollNonce] = useState(0)
   const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
@@ -1694,40 +1672,27 @@ export function LauncherConfigurationPage({
         const diagnostics = await launcherPort.loadGmcmProbeDiagnostics()
         if (!disposed) {
           setGmcmProbeDiagnostics(diagnostics)
-          reportAppEvent({
-            level: diagnostics.status === 'ready' ? 'debug' : diagnostics.status === 'warning' ? 'warning' : 'error',
-            title: copy.configuration.gmcmProbeTitle,
-            description: getProbeNotificationDescription(diagnostics, copy),
-            action:
-              diagnostics.status === 'ready'
-                ? undefined
-                : {
-                    label: copy.actions.viewDetails,
-                    callback: handleNavigateToGmcmProbe,
-                  },
-            debugDiagnosticsEnabled: debugEnabled,
-            notify: false,
-            logMessage: 'launcher.gmcmProbe.resolved',
-            keyValues: getProbeDiagnosticKeyValues(diagnostics),
-          })
+          appEvent(
+            diagnostics.status === 'ready' ? 'debug' : diagnostics.status === 'warning' ? 'warning' : 'error',
+            copy.configuration.gmcmProbeTitle,
+          )
+            .description(getProbeNotificationDescription(diagnostics, copy))
+            .logMessage('launcher.gmcmProbe.resolved')
+            .debugDiagnostics(debugEnabled)
+            .context(getProbeDiagnosticKeyValues(diagnostics))
+            .emit({ notify: false })
         }
       } catch (nextError) {
         if (!disposed) {
           const diagnostics = createUnavailableProbeDiagnostics(nextError)
           setGmcmProbeDiagnostics(diagnostics)
-          reportAppEvent({
-            level: 'error',
-            title: copy.configuration.gmcmProbeTitle,
-            description: getProbeNotificationDescription(diagnostics, copy),
-            action: {
-              label: copy.actions.viewDetails,
-              callback: handleNavigateToGmcmProbe,
-            },
-            debugDiagnosticsEnabled: true,
-            notify: false,
-            logMessage: 'launcher.gmcmProbe.resolveFailed',
-            keyValues: getProbeDiagnosticKeyValues(diagnostics),
-          })
+          appEvent('error', copy.configuration.gmcmProbeTitle)
+            .description(getProbeNotificationDescription(diagnostics, copy))
+            .logMessage('launcher.gmcmProbe.resolveFailed')
+            .action({ label: copy.actions.viewDetails, callback: handleNavigateToGmcmProbe })
+            .debugDiagnostics(true)
+            .context(getProbeDiagnosticKeyValues(diagnostics))
+            .emit({ notify: false })
         }
       } finally {
         if (!disposed) {
@@ -1742,7 +1707,7 @@ export function LauncherConfigurationPage({
       disposed = true
     }
   }, [copy, debugEnabled, diagnosticsRestartNonce, gmcmParsingEnabled, gmcmPreferenceReady, handleNavigateToGmcmProbe, launcherPort])
-  const handleViewLogs = useCallback(() => {
+  const handleViewLogs = () => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {
       document.querySelector('[data-loading-section="launcher-debug-logs"]')?.scrollIntoView({
@@ -1750,18 +1715,13 @@ export function LauncherConfigurationPage({
         behavior: 'smooth',
       })
     })
-  }, [])
+  }
   const handleToggleForceOffline = useCallback(async () => {
     const nextForceOffline = !forceOffline
     setForceOfflineBusy(true)
 
     try {
       const diagnostics = await setLauncherNexusForceOffline(nextForceOffline)
-      await applyAppUiStatePatch({
-        launcher: {
-          forceOffline: nextForceOffline,
-        },
-      })
       setForceOffline(nextForceOffline)
       writeCachedLauncherConfigurationDiagnostics(diagnostics as LauncherNexusDiagnosticsResult, {
         apiKeySignature: diagnosticsApiKeySignature,
@@ -1770,37 +1730,33 @@ export function LauncherConfigurationPage({
       if (diagnostics.routes.some((route) => route.status === 'loading')) {
         handleRefreshDiagnostics()
       }
+      // observability-exempt: 切换 Nexus 强制离线模式失败时保留当前诊断路由，避免调试开关错误覆盖已显示的状态
     } catch {
       // The config page should keep the last visible route state if the debug override fails.
     } finally {
       setForceOfflineBusy(false)
     }
-  }, [diagnosticsApiKeySignature, forceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
+  }, [diagnosticsApiKeySignature, forceOffline, setForceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
   const handleToggleForceNonPremium = useCallback(async () => {
     const nextForceNonPremium = !forceNonPremium
     setForceNonPremiumBusy(true)
 
     try {
-      await applyAppUiStatePatch({
-        launcher: {
-          forceNonPremium: nextForceNonPremium,
-        },
-      })
       setForceNonPremium(nextForceNonPremium)
       await account.refreshApiKeyStatus({
         force: true,
         forceNonPremium: nextForceNonPremium,
       })
+      // observability-exempt: 强制非 Premium 刷新 API key 状态失败时保留当前账户层级开关，避免调试覆盖影响可见设置
     } catch {
       // Debug-only account tier override should keep the current state on failure.
     } finally {
       setForceNonPremiumBusy(false)
     }
-  }, [account, forceNonPremium])
+  }, [account, forceNonPremium, setForceNonPremium])
   const handleClearLauncherImageCache = () => {
-    void clearLauncherImageCache().catch(() => {
-      // Debug-only affordance: ignore desktop bridge failures here.
-    })
+    // Debug-only affordance: ignore desktop bridge failures here.
+    void ignoreError(clearLauncherImageCache(), 'launcherConfiguration.clearImageCache')
   }
 
   return (
@@ -1867,11 +1823,7 @@ export function LauncherConfigurationPage({
 
           <aside className="launcher-config-rail">
             <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
-            <ConfigAccountCard
-              account={account}
-              premiumExpiryLabel={getPremiumExpiryLabel(account.apiKeyStatus, copy)}
-              onRefresh={() => void account.refreshApiKeyStatus({ force: true })}
-            />
+            <ConfigAccountCard account={account} onRefresh={() => void account.refreshApiKeyStatus({ force: true })} />
             <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
 

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadModProject, saveModI18nFiles, type ContentPatcherI18nFile, type ModProjectDetail } from '@entities/mod/api'
 import { defaultTargetLocaleForAppLocale, type TranslationStatusFilter } from '@features/translation-editor'
 import { useLocale, useModCopy } from '@locales/provider'
-import { reportAppEvent } from '@platform/observability'
-import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
+import { appEvent } from '@platform/observability'
+import { TaskCancelledError, useLatestTask, useTaskScope } from '@shared/lib/task-runtime'
 
 type GuardedAction = () => void | Promise<void>
 
@@ -21,14 +21,12 @@ export function useModTranslationWorkspace(projectPath: string | null) {
   const [statusMessage, setStatusMessage] = useState('')
   const [pendingDecision, setPendingDecision] = useState<{ saving: boolean; error: string | null } | null>(null)
   const pendingActionRef = useRef<GuardedAction | null>(null)
-  const editVersionRef = useRef(0)
   const projectPathRef = useRef(projectPath)
-  const loadGenerationRef = useRef(0)
   const runLatestLoad = useLatestTask('mod-translation-load')
+  const saveTaskScope = useTaskScope('mod-translation-save')
   projectPathRef.current = projectPath
 
   const reload = useCallback(async () => {
-    const generation = ++loadGenerationRef.current
     if (!projectPath) {
       setLoading(false)
       setDetail(null)
@@ -45,22 +43,18 @@ export function useModTranslationWorkspace(projectPath: string | null) {
     try {
       await runLatestLoad(async (scope) => {
         const next = await loadModProject(projectPath)
-        if (scope.isCurrent() && loadGenerationRef.current === generation) {
+        if (scope.isCurrent()) {
           setDetail(next)
           setFilesState(next.i18nFiles ?? [])
-          editVersionRef.current = 0
           setStatusMessage('')
-          if (loadGenerationRef.current === generation) setLoading(false)
+          setLoading(false)
         }
         return next
       })
     } catch (error) {
-      if (error instanceof TaskCancelledError) {
-        if (loadGenerationRef.current === generation) setLoading(false)
-        return
-      }
+      if (error instanceof TaskCancelledError) return
       setStatusMessage(error instanceof Error ? error.message : String(error))
-      if (loadGenerationRef.current === generation) setLoading(false)
+      setLoading(false)
     }
   }, [projectPath, runLatestLoad])
 
@@ -75,7 +69,10 @@ export function useModTranslationWorkspace(projectPath: string | null) {
   })()
 
   const setFiles = (next: ContentPatcherI18nFile[]) => {
-    editVersionRef.current += 1
+    // A user edit discards an in-flight save's post-save state apply so the
+    // refreshed disk content cannot clobber the newer edit; the save itself
+    // still completes on the host.
+    saveTaskScope.cancel()
     setFilesState(next)
   }
 
@@ -83,30 +80,26 @@ export function useModTranslationWorkspace(projectPath: string | null) {
     if (!projectPath || !detail) return null
     const original = new Map((detail.i18nFiles ?? []).map((file) => [file.locale, file.rawJson.trimEnd()]))
     const changed = files.filter((file) => original.get(file.locale) !== file.rawJson.trimEnd())
-    const version = editVersionRef.current
-    const loadGeneration = loadGenerationRef.current
     try {
-      const result = await saveModI18nFiles({
-        sourcePath: projectPath,
-        i18nFiles: changed.map(({ locale, rawJson }) => ({ locale, rawJson })),
+      return await saveTaskScope.runtime.exclusiveMutation(`mod-translation-save:${projectPath}`, async (scope) => {
+        saveTaskScope.capture(scope)
+        const result = await saveModI18nFiles({
+          sourcePath: projectPath,
+          i18nFiles: changed.map(({ locale, rawJson }) => ({ locale, rawJson })),
+        })
+        const refreshed = await loadModProject(projectPath)
+        if (scope.isCurrent() && projectPathRef.current === projectPath) {
+          setDetail(refreshed)
+          setFilesState(refreshed.i18nFiles ?? [])
+          setStatusMessage(copy.saveSuccess(result.sourcePath))
+        }
+        return result
       })
-      const refreshed = await loadModProject(projectPath)
-      if (projectPathRef.current === projectPath && loadGenerationRef.current === loadGeneration && editVersionRef.current === version) {
-        setDetail(refreshed)
-        setFilesState(refreshed.i18nFiles ?? [])
-        editVersionRef.current = 0
-        setStatusMessage(copy.saveSuccess(result.sourcePath))
-      }
-      return result
     } catch (error) {
+      if (error instanceof TaskCancelledError) return null
       const message = error instanceof Error ? error.message : String(error)
-      if (projectPathRef.current === projectPath && loadGenerationRef.current === loadGeneration) setStatusMessage(message)
-      reportAppEvent({
-        level: 'error',
-        title: copy.saveFailed,
-        description: message,
-        keyValues: { source: 'mod-translation', operation: 'save-i18n', sourcePath: projectPath },
-      })
+      if (projectPathRef.current === projectPath) setStatusMessage(message)
+      appEvent('error', copy.saveFailed).description(message).emit({ log: false })
       throw error
     }
   }

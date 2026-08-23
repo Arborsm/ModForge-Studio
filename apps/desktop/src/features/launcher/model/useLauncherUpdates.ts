@@ -1,12 +1,14 @@
+import { appEvent, orNull } from '@platform/observability'
+
 /**
  * @file useLauncherUpdates hook: installed-mod update check state with cached
  * load, live subscription, diagnostics gating, and selection management.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import type { LauncherSettings } from './launcherContracts'
 import type { LauncherUpdateItem, LauncherViewState } from './types'
 import { LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID, getLauncherUpdateNotificationProgress } from './useLauncherUpdateProgressNotifications'
@@ -89,7 +91,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
           let canRunAutomaticCheck = forceRefresh
           let unavailableReason: string | null = null
           if (!forceRefresh) {
-            const diagnostics = await launcherPort.loadNexusDiagnostics().catch(() => null)
+            const diagnostics = await orNull(launcherPort.loadNexusDiagnostics(), 'launcherUpdates.loadDiagnostics')
             if (!isRequestActive()) {
               return
             }
@@ -125,19 +127,20 @@ export function useLauncherUpdates(settings: LauncherSettings) {
           setError(null)
           setBlockedReason(null)
           dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
-          publishNotification({
-            id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
-            level: 'info',
-            title: copy.updates.checkingProgressTitle,
-            description: copy.updates.checkingProgressDetail(0, 0, null),
-            autoDismissMs: null,
-            progress: getLauncherUpdateNotificationProgress({
-              modsPath: settings.modsPath ?? '',
-              checked: 0,
-              total: 0,
-              currentModName: null,
-            }),
-          })
+          appEvent('info', copy.updates.checkingProgressTitle)
+            .description(copy.updates.checkingProgressDetail(0, 0, null))
+            .noticeId(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+            .autoDismiss(null)
+            .progress(
+              getLauncherUpdateNotificationProgress({
+                modsPath: settings.modsPath ?? '',
+                checked: 0,
+                total: 0,
+                currentModName: null,
+              }),
+            )
+            .context({ source: 'launcher-updates', operation: 'check-updates' })
+            .emit()
 
           const result = await launcherPort.checkUpdates({
             modsPath: settings.modsPath,
@@ -152,13 +155,12 @@ export function useLauncherUpdates(settings: LauncherSettings) {
             return
           }
           const errorMessage = nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.'
-          publishNotification({
-            id: LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID,
-            level: 'error',
-            title: copy.updates.checkFailedTitle,
-            description: errorMessage,
-            autoDismissMs: null,
-          })
+          appEvent('error', copy.updates.checkFailedTitle)
+            .error(nextError)
+            .description(errorMessage)
+            .noticeId(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+            .context({ source: 'launcher-updates', operation: 'check mod updates' })
+            .emit()
           setError(errorMessage)
           setBlockedReason(null)
           setState('error')
@@ -176,31 +178,31 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     [applyUpdateResult, copy.updates, launcherPort, runUpdatesTask, settings.autoCheckModUpdates, settings.modsPath],
   )
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     await loadUpdates(true)
-  }, [loadUpdates])
+  }
 
-  const revalidate = useCallback(async () => {
+  const revalidate = async () => {
     await loadUpdates(false)
-  }, [loadUpdates])
+  }
 
-  const selectedItems = useMemo(() => {
+  const selectedItems = (() => {
     const selectedKeySet = new Set(selectedKeys)
     return items.filter((item) => selectedKeySet.has(getSelectionKey(item)))
-  }, [items, selectedKeys])
+  })()
 
-  const toggleSelected = useCallback((item: LauncherUpdateItem) => {
+  const toggleSelected = (item: LauncherUpdateItem) => {
     const key = getSelectionKey(item)
     setSelectedKeys((current) => (current.includes(key) ? current.filter((currentKey) => currentKey !== key) : [...current, key]))
-  }, [])
+  }
 
-  const selectAll = useCallback(() => {
+  const selectAll = () => {
     setSelectedKeys(items.map(getSelectionKey))
-  }, [items])
+  }
 
-  const clearSelection = useCallback(() => {
+  const clearSelection = () => {
     setSelectedKeys([])
-  }, [])
+  }
 
   useEffect(() => {
     const subscribedModsPath = settings.modsPath?.trim() || null

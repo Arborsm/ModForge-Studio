@@ -1,9 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 import type { BuildingWorkspaceEntry } from '@entities/building'
 import type { LocaleCode, ThemeMode } from '@locales/api'
-import type { BuildingsPanelCopy } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import { MapViewport, type MapViewportHandle } from '@entities/map'
+import { useBuildingsCopy } from '@locales/provider'
 
 export type BuildingIndoorMapPanelProps = {
   building: BuildingWorkspaceEntry
@@ -14,7 +14,6 @@ export type BuildingIndoorMapPanelProps = {
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
-  copy: BuildingsPanelCopy
   onZoomChange?: (zoom: number) => void
 }
 
@@ -24,6 +23,7 @@ export type BuildingIndoorMapPanelProps = {
  */
 export const BuildingIndoorMapPanel = forwardRef<MapViewportHandle, BuildingIndoorMapPanelProps>(
   function BuildingIndoorMapPanel(props, ref) {
+    const copy = useBuildingsCopy()
     const viewportRef = useRef<MapViewportHandle | null>(null)
 
     useImperativeHandle(ref, () => ({
@@ -45,20 +45,24 @@ export const BuildingIndoorMapPanel = forwardRef<MapViewportHandle, BuildingIndo
 
     return (
       <div className="building-workspace-square">
-        <span className="building-workspace-square-title">{props.copy.interiorTitle}</span>
+        <span className="building-workspace-square-title">{copy.interiorTitle}</span>
         <div className="building-workspace-square-map">
           <MapViewport
             key={`${props.building.key}:${props.activeIndoorMapDocument.relativePath}`}
-            locale={props.locale}
             ref={viewportRef}
-            mapDocument={props.activeIndoorMapDocument}
-            visibleLayerIds={props.indoorVisibleLayerIds}
-            visibleObjectGroupIds={props.indoorVisibleObjectGroupIds}
-            theme={props.theme}
-            accentColor={props.accentColor}
-            showGrid={props.showGrid}
-            showStatsChips={false}
-            onZoomChange={(nextZoom) => props.onZoomChange?.(nextZoom)}
+            mapState={{
+              mapDocument: props.activeIndoorMapDocument,
+              visibleLayerIds: props.indoorVisibleLayerIds,
+              visibleObjectGroupIds: props.indoorVisibleObjectGroupIds,
+            }}
+            display={{
+              locale: props.locale,
+              theme: props.theme,
+              accentColor: props.accentColor,
+              showGrid: props.showGrid,
+              showStatsChips: false,
+            }}
+            actions={{ onZoomChange: (nextZoom) => props.onZoomChange?.(nextZoom) }}
           />
         </div>
       </div>

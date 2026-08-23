@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { loadTextAsset, type GameDirectoryInfo } from '@entities/game/api'
 import { buildObjectLightItemIndex, type ObjectLightItemIndex } from '@entities/map'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 
 const BIG_CRAFTABLES_DATA_ASSET_PATH = 'Content\\Data\\BigCraftables.xnb'
 const FURNITURE_DATA_ASSET_PATH = 'Content\\Data\\Furniture.xnb'
@@ -30,11 +31,23 @@ export function useObjectLightItemIndex(
 
     let cancelled = false
     void (async () => {
+      const loadOptionalAsset = async (path: string) => {
+        try {
+          return await loadTextAsset(rootPath, path, locale)
+        } catch (error) {
+          appEvent('warning', 'Failed to load map object light data')
+            .error(error)
+            .context({ source: 'map-object-light-index', operation: 'load-optional-asset', path })
+            .dedupe(`map-object-light:${path}`)
+            .emit({ notify: false })
+          return null
+        }
+      }
       const [bigCraftables, furniture, bigCraftableStrings, furnitureStrings] = await Promise.all([
-        loadTextAsset(rootPath, BIG_CRAFTABLES_DATA_ASSET_PATH, locale).catch(() => null),
-        loadTextAsset(rootPath, FURNITURE_DATA_ASSET_PATH, locale).catch(() => null),
-        loadTextAsset(rootPath, BIG_CRAFTABLES_STRINGS_ASSET_PATH, locale).catch(() => null),
-        loadTextAsset(rootPath, FURNITURE_STRINGS_ASSET_PATH, locale).catch(() => null),
+        loadOptionalAsset(BIG_CRAFTABLES_DATA_ASSET_PATH),
+        loadOptionalAsset(FURNITURE_DATA_ASSET_PATH),
+        loadOptionalAsset(BIG_CRAFTABLES_STRINGS_ASSET_PATH),
+        loadOptionalAsset(FURNITURE_STRINGS_ASSET_PATH),
       ])
       if (cancelled) {
         return

@@ -11,7 +11,7 @@ import {
 import { ResourcePicker, type ResourceBrowserOption } from '@features/resource-browser'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { cx } from '@shared/lib/helper'
 import { TEXT_OPERATION_PRESETS } from '../model/mapPresets'
 import { WarpDestinationPointPicker } from '../ui/WarpDestinationPointPicker'
@@ -51,7 +51,7 @@ export function MapPropertiesEditor({
   categorized?: boolean
 }) {
   const copy = useEditorCopy().studioDesk.mapPatchEditor
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const propertiesKey = JSON.stringify(properties)
   const [entries, setEntries] = useState<PropertyEntry[]>(() => propertyEntries(properties))
   const [quickProperty, setQuickProperty] = useState('')
@@ -539,7 +539,6 @@ export function MapWarpsEditor({
               value={selectedWarp.toMap}
               label={copy.selectDestination}
               placeholder={copy.destinationPlaceholder}
-              emptyLabel={copy.destinationPlaceholder}
               options={mapOptions}
               selectionMode="confirm"
               onSelect={(value) => {

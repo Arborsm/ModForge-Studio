@@ -17,10 +17,11 @@ import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/
 import { useLocalization } from '@entities/localization'
 import { useAi } from '@entities/ai'
 import { useAiLocalizationCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type { AiLocalizationScope, AiSemanticSearchMode, LocalizationScopeSettings } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { KnowledgeCenterView, type KnowledgeTab } from './KnowledgeCenterView'
 import { OfficialCorpusView } from './OfficialCorpusView'
@@ -59,7 +60,6 @@ export type AiLocalizationViewProps = {
 export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: AiLocalizationViewProps) {
   const copy = useAiLocalizationCopy()
   const localization = useLocalization()
-  const publish = useNotificationPublisher()
   const [storedTab, setTab] = useAiLocalizationPersistentState('tab', 'overview', isString)
   const tab: Tab = ['overview', 'glossary', 'memory', 'style', 'official', 'quality'].includes(storedTab)
     ? (storedTab as Tab)
@@ -127,7 +127,16 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
 
   const refreshScopes = () => setScopeRetryToken((value) => value + 1)
   const failProfileAction = (error: unknown) => {
-    publish({ id: PROFILE_NOTICE, level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization', operation: 'profile-action' })
+      .emit({ notify: false })
+    appEvent('error', copy.knowledgeError)
+      .description(errorDetail(error))
+      .noticeId(PROFILE_NOTICE)
+      .error(error)
+      .context({ source: 'ai-localization', operation: 'profile-action' })
+      .emit()
   }
   const createProfile = async () => {
     const name = newProfileName.trim()
@@ -197,7 +206,16 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
       }
       dismissNotification(TRANSFER_NOTICE)
     } catch (error) {
-      publish({ id: TRANSFER_NOTICE, level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
+      appEvent('error', copy.knowledgeError)
+        .error(error)
+        .context({ source: 'ai-localization', operation: 'transfer-knowledge' })
+        .emit({ notify: false })
+      appEvent('error', copy.knowledgeError)
+        .description(errorDetail(error))
+        .noticeId(TRANSFER_NOTICE)
+        .error(error)
+        .context({ source: 'ai-localization', operation: 'transfer-knowledge' })
+        .emit()
     }
   }
 
@@ -488,7 +506,6 @@ function AiLocalizationOverview({
   const copy = useAiLocalizationCopy()
   const localization = useLocalization()
   const ai = useAi()
-  const publish = useNotificationPublisher()
   const [stats, setStats] = useState({ glossary: 0, memory: 0, reviews: 0, critical: 0 })
   const [readiness, setReadiness] = useState<{
     corpusInspected: boolean
@@ -508,7 +525,12 @@ function AiLocalizationOverview({
   const overviewFailures = useRef(new Set<'stats' | 'corpus' | 'semantic' | 'settings'>())
   const failOverview = (key: 'stats' | 'corpus' | 'semantic' | 'settings', error: unknown) => {
     overviewFailures.current.add(key)
-    publish({
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization-overview', operation: key })
+      .emit({ notify: false })
+    // observability-exempt: appEvent 不支持 eyebrow 字段，保留原通知结构
+    publishNotification({
       id: OVERVIEW_NOTICE,
       level: 'error',
       eyebrow: copy.projectMessage,

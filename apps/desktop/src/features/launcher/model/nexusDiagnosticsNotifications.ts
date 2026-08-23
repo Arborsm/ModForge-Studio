@@ -118,6 +118,7 @@ export function syncLauncherDiagnosticsNotification(
     return
   }
 
+  // observability-exempt: diagnostic variant card uses chips/summary/note/secondaryAction fields the appEvent builder does not model
   publishNotification({
     id: LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID,
     ...notificationContent,

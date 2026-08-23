@@ -317,6 +317,7 @@ export type WorkbenchShellCopy = {
     workbenchModuleRetry: string
     onlyTmxSupported: string
     directorySelectionFailed: string
+    knownDirectoriesLoadFailed: string
     loadedMapAssets: (count: number, format: string) => string
     loadedMapAssetsWithActiveMap: (count: number, format: string, mapName: string) => string
   }

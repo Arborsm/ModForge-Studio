@@ -59,21 +59,12 @@ import {
   subscribeLauncherUpdates,
 } from '@features/launcher/api'
 import { detectDefaultGameDirectory, loadResourceRegistry } from '@entities/game/api'
-import { reportAppEvent } from '@platform/observability'
 import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@platform/host'
 
 /** Creates a launcher port adapter that composes the launcher API and platform host commands into a LauncherPort instance. */
 export function createLauncherPortAdapter(): LauncherPort {
   return {
     loadSettings: () => loadLauncherSettings(),
-    writeDebugLog: (request) =>
-      reportAppEvent({
-        level: 'debug',
-        title: request.message,
-        notify: false,
-        logMessage: request.message,
-        keyValues: request.keyValues,
-      }),
     saveSettings: (request) => saveLauncherSettings(request),
     scanLibrary: (request) => scanLauncherLibrary(request),
     loadRuntimeInfo: () => loadLauncherRuntimeInfo(),

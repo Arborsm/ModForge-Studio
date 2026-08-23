@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { loadItemTextureAssetState, type ItemTextureAssetState } from '@entities/item'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 export const EMPTY_ITEM_TEXTURE_STATE: ItemTextureAssetState = {
   loading: false,
@@ -25,8 +26,14 @@ export function useItemTexture(assetName: string | null, gameRootPath: string | 
       .then((texture) => {
         if (!cancelled) setState(texture)
       })
-      .catch(() => {
-        if (!cancelled) setState(EMPTY_ITEM_TEXTURE_STATE)
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          appEvent('warning', 'Item texture unavailable')
+            .error(error)
+            .context({ source: 'item-authoring', operation: 'load-texture' })
+            .emit({ notify: false })
+          setState(EMPTY_ITEM_TEXTURE_STATE)
+        }
       })
     return () => {
       cancelled = true

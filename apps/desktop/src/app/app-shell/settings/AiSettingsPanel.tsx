@@ -17,10 +17,11 @@ import type {
   ModelsDevCatalog,
   ModelsDevModelEntry,
 } from '@shared/contracts'
+import { appEvent, reportRecovered } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { AiProfileEditor } from './AiProfileEditor'
 import { ModelsDevImportDialog } from './ModelsDevImportDialog'
@@ -92,7 +93,6 @@ export function AiSettingsPanel({
   const settingsCategories = settingsMenuCopy.categories
   const categoryDescriptions = settingsMenuCopy.categoryDescriptions
   const notificationCopy = useNotificationCopy().ai
-  const publishNotification = useNotificationPublisher()
   const [snapshot, setSnapshot] = useState<AiSettingsSnapshot | null>(null)
   const [profiles, setProfiles] = useState<ProfileDraft[]>([])
   const [defaultProfileId, setDefaultProfileId] = useState<string | null>(null)
@@ -344,13 +344,13 @@ export function AiSettingsPanel({
       if (!mountedRef.current) return
       const failure = parseAiFailure(cause)
       setError(failure.detail || copy.saveError)
-      publishNotification({
-        id: AI_SETTINGS_SAVE_NOTIFICATION_ID,
-        level: 'error',
-        title: notificationCopy.settingsSaveFailedTitle,
-        description: notificationCopy.failureDescriptions[failure.code],
-        action: { label: notificationCopy.retryAction, callback: () => actionsRef.current.save(), tone: 'primary' },
-      })
+      appEvent('error', notificationCopy.settingsSaveFailedTitle)
+        .error(cause)
+        .description(notificationCopy.failureDescriptions[failure.code])
+        .noticeId(AI_SETTINGS_SAVE_NOTIFICATION_ID)
+        .action({ label: notificationCopy.retryAction, callback: () => actionsRef.current.save(), tone: 'primary' })
+        .context({ source: 'ai-settings-panel', operation: 'save-settings' })
+        .emit()
     } finally {
       if (mountedRef.current) setSaving(false)
     }
@@ -362,33 +362,31 @@ export function AiSettingsPanel({
     dismissNotification(notificationId)
     dismissNotification(AI_SETTINGS_MODELS_NOTIFICATION_ID)
     setLoadingModelsId(id)
-    publishNotification({
-      id: AI_SETTINGS_MODELS_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.loadModelsRunning,
-      autoDismissMs: null,
-    })
+    appEvent('info', copy.loadModelsRunning)
+      .noticeId(AI_SETTINGS_MODELS_NOTIFICATION_ID)
+      .autoDismiss(null)
+      .context({ source: 'ai-settings', operation: 'load-models' })
+      .emit()
     try {
       const result = await ai.listModels(id)
       if (!mountedRef.current) return
       setModels((current) => ({ ...current, [id]: result }))
       dismissNotification(AI_SETTINGS_MODELS_NOTIFICATION_ID)
-      publishNotification({
-        id: AI_SETTINGS_MODELS_NOTIFICATION_ID,
-        level: 'success',
-        title: copy.loadModelsSuccess(result.length),
-      })
+      appEvent('success', copy.loadModelsSuccess(result.length))
+        .noticeId(AI_SETTINGS_MODELS_NOTIFICATION_ID)
+        .context({ source: 'ai-settings', operation: 'load-models' })
+        .emit()
     } catch (cause) {
       if (!mountedRef.current) return
       const failure = parseAiFailure(cause)
       dismissNotification(AI_SETTINGS_MODELS_NOTIFICATION_ID)
-      publishNotification({
-        id: notificationId,
-        level: 'error',
-        title: notificationCopy.modelListFailedTitle,
-        description: notificationCopy.failureDescriptions[failure.code],
-        action: { label: notificationCopy.retryAction, callback: () => actionsRef.current.loadModels(id), tone: 'primary' },
-      })
+      appEvent('error', notificationCopy.modelListFailedTitle)
+        .error(cause)
+        .description(notificationCopy.failureDescriptions[failure.code])
+        .noticeId(notificationId)
+        .action({ label: notificationCopy.retryAction, callback: () => actionsRef.current.loadModels(id), tone: 'primary' })
+        .context({ source: 'ai-settings-panel', operation: 'load-models' })
+        .emit()
     } finally {
       if (mountedRef.current) setLoadingModelsId(null)
     }
@@ -406,7 +404,8 @@ export function AiSettingsPanel({
       if (!mountedRef.current) return
       setModelsDevCatalog(catalog)
       setModelsDevLoading(false)
-    } catch {
+    } catch (error) {
+      reportRecovered(error, 'ai-settings.load-models-catalog')
       if (!mountedRef.current) return
       setModelsDevLoading(false)
       setModelsDevLoadFailed(true)
@@ -421,7 +420,8 @@ export function AiSettingsPanel({
       if (!mountedRef.current) return
       setModelsDevCatalog(catalog)
       setModelsDevLoading(false)
-    } catch {
+    } catch (error) {
+      reportRecovered(error, 'ai-settings.retry-models-catalog')
       if (!mountedRef.current) return
       setModelsDevLoading(false)
       setModelsDevLoadFailed(true)
@@ -460,12 +460,11 @@ export function AiSettingsPanel({
     dismissNotification(notificationId)
     dismissNotification(AI_SETTINGS_TEST_NOTIFICATION_ID)
     setTestingProfileId(id)
-    publishNotification({
-      id: AI_SETTINGS_TEST_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.testingConnection,
-      autoDismissMs: null,
-    })
+    appEvent('info', copy.testingConnection)
+      .noticeId(AI_SETTINGS_TEST_NOTIFICATION_ID)
+      .autoDismiss(null)
+      .context({ source: 'ai-settings', operation: 'test-profile-connection' })
+      .emit()
     try {
       const result = await ai.testProfile(id)
       if (!mountedRef.current) return
@@ -473,23 +472,22 @@ export function AiSettingsPanel({
       setTestReasoningExpanded(false)
       setTestedProfileIds((current) => ({ ...current, [id]: true }))
       dismissNotification(AI_SETTINGS_TEST_NOTIFICATION_ID)
-      publishNotification({
-        id: AI_SETTINGS_TEST_NOTIFICATION_ID,
-        level: 'success',
-        title: copy.testSuccess(result.latencyMs),
-      })
+      appEvent('success', copy.testSuccess(result.latencyMs))
+        .noticeId(AI_SETTINGS_TEST_NOTIFICATION_ID)
+        .context({ source: 'ai-settings', operation: 'test-profile-connection' })
+        .emit()
     } catch (cause) {
       if (!mountedRef.current) return
       const failure = parseAiFailure(cause)
       setTestedProfileIds((current) => ({ ...current, [id]: false }))
       dismissNotification(AI_SETTINGS_TEST_NOTIFICATION_ID)
-      publishNotification({
-        id: notificationId,
-        level: 'error',
-        title: notificationCopy.connectionTestFailedTitle,
-        description: notificationCopy.failureDescriptions[failure.code],
-        action: { label: notificationCopy.retryAction, callback: () => actionsRef.current.testProfile(id), tone: 'primary' },
-      })
+      appEvent('error', notificationCopy.connectionTestFailedTitle)
+        .error(cause)
+        .description(notificationCopy.failureDescriptions[failure.code])
+        .noticeId(notificationId)
+        .action({ label: notificationCopy.retryAction, callback: () => actionsRef.current.testProfile(id), tone: 'primary' })
+        .context({ source: 'ai-settings-panel', operation: 'test-profile-connection' })
+        .emit()
     } finally {
       if (mountedRef.current) setTestingProfileId(null)
     }
@@ -506,7 +504,11 @@ export function AiSettingsPanel({
       setExchangeStatus(copy.exportSuccess(count))
     } catch {
       setExchangeStatus(copy.saveError)
-      publishNotification({ id: 'ai-profile-export', level: 'error', title: copy.saveError, description: copy.saveError })
+      appEvent('error', copy.saveError)
+        .description(copy.saveError)
+        .noticeId('ai-profile-export')
+        .context({ source: 'ai-settings-panel', operation: 'export-profiles' })
+        .emit()
     }
   }
 
@@ -519,7 +521,11 @@ export function AiSettingsPanel({
       setExchangeStatus('')
     } catch {
       setExchangeStatus(copy.importError)
-      publishNotification({ id: 'ai-profile-import', level: 'error', title: copy.importError, description: copy.importError })
+      appEvent('error', copy.importError)
+        .description(copy.importError)
+        .noticeId('ai-profile-import')
+        .context({ source: 'ai-settings-panel', operation: 'preview-profile-import' })
+        .emit()
     }
   }
 
@@ -534,7 +540,11 @@ export function AiSettingsPanel({
       setExchangeStatus(copy.importSuccess(result.imported, result.overwritten, result.copied, result.skipped))
     } catch {
       setExchangeStatus(copy.importError)
-      publishNotification({ id: 'ai-profile-import', level: 'error', title: copy.importError, description: copy.importError })
+      appEvent('error', copy.importError)
+        .description(copy.importError)
+        .noticeId('ai-profile-import')
+        .context({ source: 'ai-settings-panel', operation: 'apply-profile-import' })
+        .emit()
     }
   }
 
@@ -550,13 +560,13 @@ export function AiSettingsPanel({
       if (!mountedRef.current) return
       const failure = parseAiFailure(cause)
       setCacheError(notificationCopy.failureDescriptions[failure.code])
-      publishNotification({
-        id: AI_SETTINGS_CACHE_NOTIFICATION_ID,
-        level: 'error',
-        title: notificationCopy.cacheClearFailedTitle,
-        description: notificationCopy.failureDescriptions[failure.code],
-        action: { label: notificationCopy.retryAction, callback: () => actionsRef.current.clearCache(), tone: 'primary' },
-      })
+      appEvent('error', notificationCopy.cacheClearFailedTitle)
+        .error(cause)
+        .description(notificationCopy.failureDescriptions[failure.code])
+        .noticeId(AI_SETTINGS_CACHE_NOTIFICATION_ID)
+        .action({ label: notificationCopy.retryAction, callback: () => actionsRef.current.clearCache(), tone: 'primary' })
+        .context({ source: 'ai-settings-panel', operation: 'clear-cache' })
+        .emit()
     }
   }
 

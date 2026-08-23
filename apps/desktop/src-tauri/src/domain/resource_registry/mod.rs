@@ -76,10 +76,18 @@ pub(crate) fn parse_item_entries(
             .or_else(|| value.get("Name").and_then(|field| field.as_str()))
             .unwrap_or(&item_id)
             .trim();
+        let internal_name = value
+            .get("Name")
+            .and_then(|field| field.as_str())
+            .unwrap_or(&item_id)
+            .trim();
         let item_value = format!("{qualifier}{item_id}");
         let mut metadata = BTreeMap::new();
         metadata.insert("id".to_string(), item_id.clone());
         metadata.insert("qualifiedId".to_string(), item_value.clone());
+        // Internal (unlocalized) item name; needed by editors that write
+        // name-based references such as Alternative Textures' ItemName.
+        metadata.insert("name".to_string(), internal_name.to_string());
         metadata.insert("asset".to_string(), asset_label.to_string());
         push_entry(
             entries,

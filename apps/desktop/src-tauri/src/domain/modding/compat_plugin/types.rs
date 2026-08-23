@@ -18,6 +18,11 @@ pub(crate) const CURRENT_MANIFEST_FORMAT: u32 = 1;
 /// match the directory name.
 pub(super) const PLUGIN_ID_PATTERN: &str = r"^[a-z0-9][a-z0-9.-]*$";
 
+/// Host capability id pattern (rule V8): kebab-case lowercase identifier.
+/// Builtin capability ids (`plugin.id`, `host.locale`, ...) are host-internal
+/// and never declared in a manifest, so dots are not allowed here.
+pub(super) const CAPABILITY_ID_PATTERN: &str = r"^[a-z][a-z0-9-]*$";
+
 /// A loaded compat plugin manifest (format 1).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,8 +79,11 @@ pub(crate) struct CompatPluginContributions {
     /// Stage 4: condition syntax contributions for When/GSQ editor autocomplete.
     #[serde(default)]
     pub condition_syntax: Vec<ConditionSyntaxContribution>,
-    // capabilities are added in later stages;
-    // serde ignores unknown keys so forward compatibility holds.
+    /// Referenced host capability ids in `contributions.capabilities`. Each id
+    /// must be non-blank and match `CAPABILITY_ID_PATTERN` (rule V8); the
+    /// frontend resolves declared ids against its capability registry.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
 
 /// Asset schema contribution: declares asset field metadata for CP editor merging.
@@ -200,6 +208,10 @@ pub(crate) struct PageSourceParams {
     pub entry_image: Option<String>,
     /// Subdirectory within the mod root containing entries (e.g. "Textures").
     pub root_subdir: Option<String>,
+    /// Whether to also aggregate entries from installed content packs whose
+    /// `ContentPackFor` UniqueID targets this mod.
+    #[serde(default)]
+    pub include_content_packs: Option<bool>,
 }
 
 /// `contributions.pages[].sections[]` — grouped field descriptors.
@@ -207,6 +219,9 @@ pub(crate) struct PageSourceParams {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PageSectionDecl {
     pub title_key: String,
+    /// When true, the section renders collapsed by default (advanced fields).
+    #[serde(default)]
+    pub collapsed: Option<bool>,
     #[serde(default)]
     pub fields: Vec<PageFieldDecl>,
 }
@@ -228,6 +243,10 @@ pub(crate) struct PageFieldDecl {
     #[serde(default)]
     pub validate: Vec<PageFieldValidateDecl>,
     pub visible_when: Option<PageFieldVisibleWhenDecl>,
+    /// For `game-item` fields: optional secondary path that receives the picked
+    /// item's unqualified id (e.g. AT's `ItemId` alongside `ItemName`).
+    #[serde(default)]
+    pub id_path: Option<String>,
     /// For `record-list` fields: sub-schema for each record's fields.
     #[serde(default)]
     pub fields: Vec<PageFieldDecl>,
@@ -314,6 +333,11 @@ pub(crate) struct CompatPluginSummary {
     pub asset_schemas: Vec<AssetSchemaWire>,
     /// Stage 4: condition syntax contributions for When/GSQ editor autocomplete.
     pub condition_syntax: Vec<ConditionSyntaxWire>,
+    /// Referenced host capability ids declared in `contributions.capabilities`.
+    /// The frontend resolves them against its capability registry; undeclared
+    /// ids are invisible to a plugin's `capabilities.get`.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
     pub load_error: Option<String>,
     /// Code-package entry file path relative to plugin root (e.g. "index.js");
     /// null for data-pack plugins.
@@ -404,6 +428,8 @@ pub(crate) struct PageSourceParamsWire {
     pub entry_file: Option<String>,
     pub entry_image: Option<String>,
     pub root_subdir: Option<String>,
+    #[serde(default)]
+    pub include_content_packs: Option<bool>,
 }
 
 /// Wire form of `PageSectionDecl`.
@@ -411,6 +437,8 @@ pub(crate) struct PageSourceParamsWire {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PageSectionWire {
     pub title_key: String,
+    #[serde(default)]
+    pub collapsed: Option<bool>,
     pub fields: Vec<PageFieldWire>,
 }
 
@@ -430,6 +458,9 @@ pub(crate) struct PageFieldWire {
     pub allow_values: Option<Vec<String>>,
     pub validate: Vec<PageFieldValidateWire>,
     pub visible_when: Option<PageFieldVisibleWhenWire>,
+    /// For `game-item` fields: optional secondary path receiving the picked item's unqualified id.
+    #[serde(default)]
+    pub id_path: Option<String>,
     pub fields: Vec<PageFieldWire>,
     pub sub_fields: Vec<PageFieldWire>,
 }

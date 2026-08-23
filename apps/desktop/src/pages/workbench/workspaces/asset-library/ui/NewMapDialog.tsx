@@ -141,7 +141,6 @@ export function NewMapDialog({
               value={templateTarget}
               label={copy.create.templateLabel}
               placeholder={copy.create.templatePlaceholder}
-              emptyLabel={copy.create.blankTemplate}
               options={mapOptions}
               selectionMode="confirm"
               triggerClassName="control-button"

@@ -47,6 +47,8 @@ import {
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
 import { loadModResultMapDocument } from '@pages/workbench/workspaces/mod'
 import type { ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from '@entities/map'
+import { appEvent } from '@platform/observability'
+import { TaskCancelledError, type TaskScope, useLatestTask } from '@shared/lib/task-runtime'
 import { useObjectLightItemIndex } from './useObjectLightItemIndex'
 
 const WORLD_ROOT_MAP_NAME = 'Town'
@@ -85,10 +87,6 @@ const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
 }
 
 const PRELOAD_STATE_THROTTLE_MS = 150
-
-function formatPreloadError(error: unknown) {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function getPathFileStem(path: string) {
   const normalizedPath = path.trim().replaceAll('\\', '/')
@@ -159,19 +157,28 @@ function cloneMapDocumentCache(cache: Map<string, MapDocument>) {
   return new Map(cache)
 }
 
-function waitForIdlePreloadTurn(isCancelled: () => boolean) {
-  return new Promise<void>((resolve) => {
-    if (isCancelled()) {
-      resolve()
+function waitForIdlePreloadTurn(scope: TaskScope) {
+  return new Promise<void>((resolve, reject) => {
+    if (!scope.isCurrent()) {
+      reject(new TaskCancelledError())
       return
     }
 
     if (typeof window === 'undefined' || typeof window.requestIdleCallback !== 'function') {
-      setTimeout(resolve, 0)
+      setTimeout(() => {
+        if (scope.isCurrent()) resolve()
+        else reject(new TaskCancelledError())
+      }, 0)
       return
     }
 
-    window.requestIdleCallback(() => resolve(), { timeout: 250 })
+    window.requestIdleCallback(
+      () => {
+        if (scope.isCurrent()) resolve()
+        else reject(new TaskCancelledError())
+      },
+      { timeout: 250 },
+    )
   })
 }
 
@@ -184,6 +191,11 @@ export function useMapWorkspace({
   onDirectoryInvalid,
   getWorldAtlasViewLabel,
 }: UseMapWorkspaceOptions) {
+  const directoryLoadTask = useLatestTask('map-workspace:load-directory')
+  const buildingDataTask = useLatestTask('map-workspace:building-data')
+  const preloadTask = useLatestTask('map-workspace:preload-resources')
+  const reloadLocalizedTask = useLatestTask('map-workspace:reload-localized-resources')
+  const worldOverlayTask = useLatestTask('map-workspace:world-overlay-textures')
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
   const [resourcePreloadState, setResourcePreloadState] = useState<ResourcePreloadState>(EMPTY_RESOURCE_PRELOAD_STATE)
   const [mapAssets, setMapAssets] = useState<MapAssetSummary[]>([])
@@ -221,19 +233,15 @@ export function useMapWorkspace({
   const objectLightIndex = useObjectLightItemIndex(active ? directoryInfo : null, locale)
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
-  const filteredAssets = useMemo(
-    () =>
-      mapAssets.filter((asset) => {
-        if (!deferredAssetFilter) {
-          return true
-        }
+  const filteredAssets = mapAssets.filter((asset) => {
+    if (!deferredAssetFilter) {
+      return true
+    }
 
-        const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
-        return haystack.includes(deferredAssetFilter)
-      }),
-    [deferredAssetFilter, mapAssets],
-  )
-  const mapLookup = useMemo(() => buildModEntryLookup(mapAssets, (asset) => asset.id), [mapAssets])
+    const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
+    return haystack.includes(deferredAssetFilter)
+  })
+  const mapLookup = buildModEntryLookup(mapAssets, (asset) => asset.id)
   const modMapGroups = useMemo(
     () =>
       buildModBrowserGroups({
@@ -246,15 +254,11 @@ export function useMapWorkspace({
       }),
     [assetFilter, mapLookup, modIndex.mods],
   )
-  const activeMapModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group) => group.maps,
-        key: activeMapId,
-      }),
-    [activeMapId, modIndex.mods],
-  )
+  const activeMapModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group) => group.maps,
+    key: activeMapId,
+  })
   const activeModMapEntry = useMemo(
     () => findModBrowserEntry(modMapGroups, activeModMapSelectionId),
     [activeModMapSelectionId, modMapGroups],
@@ -263,7 +267,7 @@ export function useMapWorkspace({
     (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ?? worldAtlasViews[0] ?? null
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
   const worldAtlasDocument = activeAtlasView?.document ?? null
-  const workspaceTabs = useMemo(() => buildMapWorkspaceTabs(worldAtlasDocument, mapTabs), [worldAtlasDocument, mapTabs])
+  const workspaceTabs = buildMapWorkspaceTabs(worldAtlasDocument, mapTabs)
 
   useEffect(() => {
     workspaceSignatureRef.current = active && directoryInfo?.rootPath ? getMapWorkspaceSignature(directoryInfo.rootPath, locale) : ''
@@ -338,15 +342,18 @@ export function useMapWorkspace({
       return
     }
 
-    let cancelled = false
-    void loadGameDirectoryInBackground(directoryInfo, () => cancelled)
+    void directoryLoadTask(async (scope) => {
+      await loadGameDirectoryInBackground(directoryInfo, scope)
+    }).catch((error) => {
+      if (error instanceof TaskCancelledError) return
+      throw error
+    })
 
     return () => {
-      cancelled = true
       idleResourcePreloadCancelRef.current()
       idleResourcePreloadCancelRef.current = () => {}
     }
-  }, [active, directoryInfo?.rootPath, locale])
+  }, [active, directoryInfo?.rootPath, directoryLoadTask, locale])
 
   useEffect(() => {
     if (!active) {
@@ -357,28 +364,29 @@ export function useMapWorkspace({
       return
     }
 
-    let cancelled = false
-
-    void (async () => {
+    void buildingDataTask(async (scope) => {
       try {
         const buildingsDataAsset = await loadTextAsset(directoryInfo.rootPath, 'Content\\Data\\Buildings.xnb', locale)
-        if (!cancelled) {
+        if (scope.isCurrent()) {
           setBuildingDataState({
             rootPath: directoryInfo.rootPath,
             index: buildBuildingDataIndex(buildingsDataAsset.content),
           })
         }
-      } catch {
-        if (!cancelled) {
+      } catch (error) {
+        if (error instanceof TaskCancelledError) return
+        appEvent('warning', 'Failed to load building data')
+          .error(error)
+          .context({ source: 'map-workspace', operation: 'load-building-data' })
+          .emit({ notify: false })
+        if (scope.isCurrent()) {
           setBuildingDataState({ rootPath: directoryInfo.rootPath, index: {} })
         }
       }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [active, directoryInfo?.rootPath, locale])
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [active, buildingDataTask, directoryInfo?.rootPath, locale])
 
   function publishParsedMapCacheSnapshot() {
     setParsedMapCacheSnapshot(cloneMapDocumentCache(parsedMapCacheRef.current))
@@ -411,14 +419,14 @@ export function useMapWorkspace({
     return parsedDocument
   }
 
-  async function preloadResources(assets: MapAssetSummary[], info: GameDirectoryInfo, isCancelled = () => false) {
+  async function preloadResources(assets: MapAssetSummary[], info: GameDirectoryInfo, scope: TaskScope) {
     const xnbAssets = assets.filter((asset) => asset.format === 'xnb')
     let completed = 0
     let total = xnbAssets.length + 1
     let lastPublishedAt = 0
 
     function updatePreloadState(message: string, currentLabel = '', force = false) {
-      if (isCancelled()) {
+      if (!scope.isCurrent()) {
         return
       }
 
@@ -439,10 +447,14 @@ export function useMapWorkspace({
     updatePreloadState(copy.messages.preloadingWorldData, 'Content\\Data\\WorldMap.xnb', true)
     try {
       await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
-    } catch {
+    } catch (error) {
       // WorldMap is optional; atlas construction already has its own fallback path.
+      appEvent('warning', 'Failed to preload world map data')
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'preload-world-map' })
+        .emit({ notify: false })
     }
-    if (isCancelled()) {
+    if (!scope.isCurrent()) {
       return
     }
     completed += 1
@@ -450,11 +462,11 @@ export function useMapWorkspace({
 
     const tilesetImagePaths = new Set<string>()
     for (const asset of xnbAssets) {
-      if (isCancelled()) {
+      if (!scope.isCurrent()) {
         return
       }
-      await waitForIdlePreloadTurn(isCancelled)
-      if (isCancelled()) {
+      await waitForIdlePreloadTurn(scope)
+      if (!scope.isCurrent()) {
         return
       }
       updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
@@ -467,12 +479,16 @@ export function useMapWorkspace({
           }
         }
       } catch (error) {
-        console.warn(`[resource-preload] skipped map preload for ${asset.absolutePath}: ${formatPreloadError(error)}`)
+        appEvent('warning', 'Failed to preload map resource')
+          .error(error)
+          .context({ source: 'map-workspace', operation: 'preload-map', path: asset.absolutePath })
+          .dedupe(`map-preload:${asset.absolutePath}`)
+          .emit({ notify: false })
       }
       completed += 1
       updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
     }
-    if (!isCancelled()) {
+    if (scope.isCurrent()) {
       publishParsedMapCacheSnapshot()
     }
 
@@ -481,56 +497,63 @@ export function useMapWorkspace({
     updatePreloadState(copy.messages.preloadingTilesets, '', true)
 
     for (const imagePath of imagePaths) {
-      if (isCancelled()) {
+      if (!scope.isCurrent()) {
         return
       }
-      await waitForIdlePreloadTurn(isCancelled)
-      if (isCancelled()) {
+      await waitForIdlePreloadTurn(scope)
+      if (!scope.isCurrent()) {
         return
       }
       updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
       try {
         await loadImageDataUrl(imagePath, locale)
       } catch (error) {
-        console.warn(`[resource-preload] skipped image preload for ${imagePath}: ${formatPreloadError(error)}`)
+        appEvent('warning', 'Failed to preload map image')
+          .error(error)
+          .context({ source: 'map-workspace', operation: 'preload-image', path: imagePath })
+          .dedupe(`map-image-preload:${imagePath}`)
+          .emit({ notify: false })
       }
       completed += 1
       updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
     }
 
-    if (!isCancelled()) {
+    if (scope.isCurrent()) {
       setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
     }
   }
 
-  function startIdleResourcePreload(assets: MapAssetSummary[], info: GameDirectoryInfo, isCancelled = () => false) {
-    let cancelled = false
-
-    void (async () => {
-      await waitForIdlePreloadTurn(() => cancelled || isCancelled())
-      if (cancelled || isCancelled()) {
-        return
-      }
+  function startIdleResourcePreload(assets: MapAssetSummary[], info: GameDirectoryInfo) {
+    void preloadTask(async (scope) => {
       try {
-        await preloadResources(assets, info, () => cancelled || isCancelled())
-        if (!cancelled && !isCancelled() && activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+        await waitForIdlePreloadTurn(scope)
+        await preloadResources(assets, info, scope)
+        if (scope.isCurrent() && activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
           await openWorldAtlasRef.current(assets, info, WORLD_ROOT_MAP_NAME, { preserveActiveTab: true })
         }
       } catch (error) {
-        console.warn(`[resource-preload] skipped idle preload: ${formatPreloadError(error)}`)
+        if (error instanceof TaskCancelledError || !scope.isCurrent()) return
+        appEvent('warning', 'Failed to preload map resources')
+          .error(error)
+          .context({ source: 'map-workspace', operation: 'preload-resources' })
+          .emit({ notify: false })
       } finally {
-        if (!cancelled && !isCancelled()) {
+        if (scope.isCurrent()) {
           setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
         }
       }
-    })()
-
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
     return () => {
-      cancelled = true
+      // Supersede the in-flight preload; its idle loop stops at the next checkpoint.
+      void preloadTask(async () => undefined).catch((error) => {
+        if (!(error instanceof TaskCancelledError)) throw error
+      })
     }
   }
 
-  async function loadGameDirectoryInBackground(info: GameDirectoryInfo, isCancelled = () => false) {
+  async function loadGameDirectoryInBackground(info: GameDirectoryInfo, scope: TaskScope) {
     if (!isCurrentWorkspace(info)) {
       return null
     }
@@ -546,7 +569,7 @@ export function useMapWorkspace({
 
     try {
       const assets = await scanMaps(info.rootPath, locale)
-      if (isCancelled() || !isCurrentWorkspace(info)) {
+      if (!scope.isCurrent() || !isCurrentWorkspace(info)) {
         return null
       }
 
@@ -554,14 +577,18 @@ export function useMapWorkspace({
       loadedResourceLocaleRef.current = locale
 
       await openWorldAtlas(assets, info, WORLD_ROOT_MAP_NAME, { initialOnly: true })
-      if (!isCancelled() && isCurrentWorkspace(info)) {
+      if (scope.isCurrent() && isCurrentWorkspace(info)) {
         setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
         idleResourcePreloadCancelRef.current()
-        idleResourcePreloadCancelRef.current = startIdleResourcePreload(assets, info, isCancelled)
+        idleResourcePreloadCancelRef.current = startIdleResourcePreload(assets, info)
       }
       return info
     } catch (error) {
-      if (!isCancelled()) {
+      appEvent('error', 'Map workspace game directory load failed')
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'load-game-directory' })
+        .emit({ notify: false })
+      if (scope.isCurrent()) {
         setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
         resetLoadedMaps()
         const message = `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`
@@ -662,6 +689,10 @@ export function useMapWorkspace({
         return
       }
 
+      appEvent('error', 'Failed to open map')
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'open-map', path: summary.absolutePath })
+        .emit({ notify: false })
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -753,6 +784,10 @@ export function useMapWorkspace({
         return
       }
 
+      appEvent('error', 'Failed to open mod map')
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'open-mod-map', path: summary.absolutePath })
+        .emit({ notify: false })
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -1097,11 +1132,10 @@ export function useMapWorkspace({
       return
     }
 
-    let cancelled = false
     const previousLoadedLocale = loadedResourceLocaleRef.current
     loadedResourceLocaleRef.current = locale
 
-    async function reloadLocalizedResources() {
+    async function reloadLocalizedResources(scope: TaskScope) {
       setResourcePreloadState({
         active: true,
         message: copy.messages.preloadingResources,
@@ -1113,7 +1147,7 @@ export function useMapWorkspace({
 
       try {
         const assets = await scanMaps(info.rootPath, locale)
-        if (cancelled) {
+        if (!scope.isCurrent()) {
           return
         }
 
@@ -1126,7 +1160,7 @@ export function useMapWorkspace({
 
         if (activeTabId === WORLD_ATLAS_TAB_ID || worldAtlasViews.length) {
           await openWorldAtlasRef.current(assets, info)
-          if (cancelled) {
+          if (!scope.isCurrent()) {
             return
           }
         }
@@ -1135,12 +1169,17 @@ export function useMapWorkspace({
           await openMapRef.current(nextAsset, info, assets.length, { forceReload: true })
         }
 
-        if (!cancelled) {
+        if (scope.isCurrent()) {
           idleResourcePreloadCancelRef.current()
-          idleResourcePreloadCancelRef.current = startIdleResourcePreloadRef.current(assets, info, () => cancelled)
+          idleResourcePreloadCancelRef.current = startIdleResourcePreloadRef.current(assets, info)
         }
       } catch (error) {
-        if (!cancelled) {
+        if (error instanceof TaskCancelledError) return
+        if (scope.isCurrent()) {
+          appEvent('error', 'Failed to reload localized map resources')
+            .error(error)
+            .context({ source: 'map-workspace', operation: 'reload-localized-resources', locale })
+            .emit({ notify: false })
           loadedResourceLocaleRef.current = previousLoadedLocale
           setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
           setWorkspaceStatus({
@@ -1151,10 +1190,11 @@ export function useMapWorkspace({
       }
     }
 
-    void reloadLocalizedResources()
+    void reloadLocalizedTask((scope) => reloadLocalizedResources(scope)).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
 
     return () => {
-      cancelled = true
       idleResourcePreloadCancelRef.current()
       idleResourcePreloadCancelRef.current = () => {}
     }
@@ -1169,6 +1209,7 @@ export function useMapWorkspace({
     mapDocument?.name,
     worldAtlasViews.length,
     active,
+    reloadLocalizedTask,
   ])
 
   const visibleResourcePreloadState = active ? resourcePreloadState : EMPTY_RESOURCE_PRELOAD_STATE
@@ -1237,15 +1278,13 @@ export function useMapWorkspace({
       return
     }
 
-    let cancelled = false
-
-    void (async () => {
+    void worldOverlayTask(async (scope) => {
       const resolvedEntries = await Promise.all(
         pendingWorldOverlayTextureRequests.map(
           async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const,
         ),
       )
-      if (cancelled) {
+      if (!scope.isCurrent()) {
         return
       }
 
@@ -1253,12 +1292,10 @@ export function useMapWorkspace({
         ...current,
         ...Object.fromEntries(resolvedEntries),
       }))
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [active, directoryInfo?.rootPath, pendingWorldOverlayTextureRequests])
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [active, directoryInfo?.rootPath, pendingWorldOverlayTextureRequests, worldOverlayTask])
 
   useEffect(() => {
     if (!active) {

@@ -13,7 +13,7 @@
  * revisiting a category costs nothing.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Languages, Loader2 } from 'lucide-react'
 import {
   STRING_CATALOG_CATEGORIES,
@@ -106,7 +106,7 @@ export function GameTextLibraryDialog({
     }
   }, [initialCategory, open])
 
-  const { results, total } = useMemo(() => searchStringCatalog(state.entries, query, RESULT_LIMIT), [state.entries, query])
+  const { results, total } = searchStringCatalog(state.entries, query, RESULT_LIMIT)
   const selected = results.find((entry) => entry.id === selectedId) ?? null
 
   return (

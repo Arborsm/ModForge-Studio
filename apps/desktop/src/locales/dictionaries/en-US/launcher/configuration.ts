@@ -298,6 +298,7 @@ const configuration: LauncherConfigurationCopy = {
       success: 'Success Notification',
       warning: 'Warning Notification',
       error: 'Error Notification',
+      fullAttributes: 'Full Attributes Card',
     },
     logButtons: {
       debug: 'Debug Log',

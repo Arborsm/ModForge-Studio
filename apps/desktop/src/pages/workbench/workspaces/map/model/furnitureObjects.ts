@@ -2,6 +2,7 @@ import { createFurnitureEntryIndex } from '@entities/item'
 import { loadTextAsset } from '@entities/game/api'
 import { findTilesheetByKey, VANILLA_TILESHEET_TILE_SIZE } from '@entities/map'
 import type { MapCatalogObject, MapCatalogObjectFrameInfo, MapObjectCategory } from '@entities/map'
+import { appEvent } from '@platform/observability'
 
 /**
  * @file Derives the furniture object catalog from live game data (no UI):
@@ -99,6 +100,7 @@ function parseStringTable(content: string | null): Record<string, string> | null
     }
     return table
   } catch {
+    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }
@@ -135,7 +137,7 @@ function resolveFurnitureNames(
  * text. Each furniture entry looks up its tilesheet by `textureAssetName` and
  * converts `spriteIndex` to a tile rectangle; entries with no matching sheet,
  * invalid spriteIndex (null/non-finite/negative), or out-of-bounds rectangles
- * are skipped (unknown textures log a console.warn). On missing or malformed
+ * are skipped (unknown textures record a warning-level app event). On missing or malformed
  * string tables, display names fall back to internalName. Pure function, no
  * caching, no I/O.
  */
@@ -155,9 +157,10 @@ export function deriveFurnitureObjects(
     if (!textureAssetName) continue
     const sheet = findTilesheetByKey(textureAssetName)
     if (!sheet) {
-      console.warn(
-        `[furnitureObjects] Furniture "${entry.internalName}" texture "${textureAssetName}" not found in tilesheet catalog, skipped`,
-      )
+      appEvent('warning', 'Furniture texture is missing from the tilesheet catalog')
+        .context({ source: 'map-furniture-objects', operation: 'derive-catalog', furniture: entry.internalName, texture: textureAssetName })
+        .dedupe(`map-furniture-texture:${textureAssetName}`)
+        .emit({ notify: false })
       continue
     }
 
@@ -206,10 +209,22 @@ export async function loadGameFurnitureObjects(gameRootPath: string, locale: str
   const furnitureAssetPath = `${gameRootPath}/Content/Data/Furniture.xnb`
   const stringsAssetPath = `${gameRootPath}/Content/Strings/Furniture.xnb`
 
+  const loadOptionalStrings = async (path: string, assetLocale?: string) => {
+    try {
+      return await loadTextAsset(gameRootPath, path, assetLocale)
+    } catch (error) {
+      appEvent('warning', 'Failed to load furniture localization data')
+        .error(error)
+        .context({ source: 'map-furniture-objects', operation: 'load-localized-strings', path, locale: assetLocale })
+        .dedupe(`map-furniture-strings:${assetLocale ?? 'default'}`)
+        .emit({ notify: false })
+      return null
+    }
+  }
   const [furnitureAsset, localizedStrings, enStrings] = await Promise.all([
     loadTextAsset(gameRootPath, furnitureAssetPath),
-    loadTextAsset(gameRootPath, stringsAssetPath, locale).catch(() => null),
-    locale === 'en-US' ? Promise.resolve(null) : loadTextAsset(gameRootPath, stringsAssetPath).catch(() => null),
+    loadOptionalStrings(stringsAssetPath, locale),
+    locale === 'en-US' ? Promise.resolve(null) : loadOptionalStrings(stringsAssetPath),
   ])
 
   const enContent = locale === 'en-US' ? (localizedStrings?.content ?? null) : (enStrings?.content ?? null)

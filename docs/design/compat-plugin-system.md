@@ -317,7 +317,7 @@ ScaleUp 是最理想的首个迁移对象，因为它的兼容**已经是纯数�
 
 1. 后端 `scaleup.rs` 的 descriptor 改写为 `compat-plugins/arborsm.scaleup-unofficial/manifest.json`，字段 1:1 映射（`Arborsm.ScaleUpUnofficial` → providerUniqueId；两个 provided ids；`Assets`=json、`PreviewTexture`=image）。
 2. `attached.rs` 从插件目录加载该 manifest，与内置空表合并。
-3. 前端 `scaleup.ts` 的纯函数挪为核心 capability（id `scaleup-frame-math`），`workspaces/mod/index.ts` 的导出面保持不变（薄转发），character 工作区无感知。
+3. 前端 `scaleup.ts` 的纯函数确认为通用精灵表帧数学（asset-format helper，唯一消费方是宿主 character 工作区），正名为 `shared/infra/asset-formats/spriteSheetFrameMath`（`getSpriteSheetFrameCount` / `getSpriteSheetFramePreviewMetrics`），character 工作区直接引用；`COMPAT_CAPABILITIES` 保留为空表，capability 机制（manifest 声明、declaredCapabilities 分发、V8 校验）不变。
 4. 验证标准：现有 `attached_api_tests.rs`、`assets_tests.rs`、`scaleup.test.ts`、`mods_tests.rs` 全部原样通过——证明迁移是行为等价变换。
 
 ## 5. 各库的可行性与排期映射

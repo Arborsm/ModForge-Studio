@@ -22,6 +22,7 @@ function makePlugin(overrides: Partial<CompatPluginSummary> = {}): CompatPluginS
     loadError: null,
     assetSchemas: [],
     conditionSyntax: [],
+    capabilities: [],
     ...overrides,
   }
 }

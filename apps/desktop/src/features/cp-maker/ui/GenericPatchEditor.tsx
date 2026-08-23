@@ -5,7 +5,7 @@
 import { Code2, FileWarning, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAssetAuthoringCopy, useEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import type { DraftPatch } from '../model/types'
 import type { EditorComponent } from '../model/workspaceRegistry'
 
@@ -25,7 +25,7 @@ export const GenericPatchEditor: EditorComponent = ({ patch, draftPort }) => {
   const desk = useEditorCopy().studioDesk
   const copy = desk.editorPage
   const rawCopy = useAssetAuthoringCopy().raw
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const [rawOpen, setRawOpen] = useState(false)
   const [jsonText, setJsonText] = useState(() => formatState(patch.editorState))
   const [jsonError, setJsonError] = useState(false)

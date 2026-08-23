@@ -115,28 +115,29 @@ export function buildMapsWorkspacePanels(options: BuildMapPanelsOptions): Worksp
               'workbench-map-viewport',
               1,
               <CentralWorkspace
-                tabs={workspaceTabs}
-                activeTabId={activeTabId}
-                onSelectTab={onSelectWorkspaceTab}
-                onCloseTab={onCloseWorkspaceTab}
-                onReorderTabs={onReorderWorkspaceTabs}
-                mapDocument={mapDocument}
-                worldAtlasViews={worldAtlasViews}
-                activeWorldAtlasViewId={activeWorldAtlasViewId}
-                onSelectWorldAtlasView={onSelectWorldAtlasView}
-                onOpenAtlasTarget={onOpenAtlasTarget}
-                theme={theme}
-                accentColor={accentColor}
-                gameRootPath={gameRootPath}
-                visibleLayerIds={visibleLayerIds}
-                visibleObjectGroupIds={visibleObjectGroupIds}
-                focusedObjectTarget={focusedObjectTarget}
-                showGameWorldAdditions={showGameWorldAdditions}
-                onToggleGameWorldAdditions={onToggleGameWorldAdditions}
-                worldOverlaySprites={worldOverlaySprites}
-                worldOverlayTextureAssets={worldOverlayTextureAssets}
-                objectLightIndex={objectLightIndex}
-                onHoverChange={onHoverChange}
+                tabState={{ tabs: workspaceTabs, activeTabId }}
+                atlasState={{ worldAtlasViews, activeWorldAtlasViewId }}
+                mapState={{
+                  mapDocument,
+                  visibleLayerIds,
+                  visibleObjectGroupIds,
+                  focusedObjectTarget,
+                  showGameWorldAdditions,
+                  worldOverlaySprites,
+                  worldOverlayTextureAssets,
+                  objectLightIndex,
+                  gameRootPath,
+                }}
+                display={{ theme, accentColor }}
+                actions={{
+                  selectTab: onSelectWorkspaceTab,
+                  closeTab: onCloseWorkspaceTab,
+                  reorderTabs: onReorderWorkspaceTabs,
+                  selectWorldAtlasView: onSelectWorldAtlasView,
+                  openAtlasTarget: onOpenAtlasTarget,
+                  toggleGameWorldAdditions: onToggleGameWorldAdditions,
+                  hoverChange: onHoverChange,
+                }}
               />,
             )}
           </DeferredWorkspaceReveal>

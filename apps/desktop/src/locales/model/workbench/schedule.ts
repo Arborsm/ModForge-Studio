@@ -168,6 +168,8 @@ export type ScheduleEditorCopy = {
     unsupportedFormatTemplate: string
     /** Shown when the NPC sheet is missing, explaining the fallback dot marker. */
     spriteUnavailableTemplate: string
+    /** Reason used when the game content simply has no sprite asset for the NPC. */
+    spriteMissingAsset: string
     retryAction: string
     markerTooltipTemplate: string
     departsToTemplate: string

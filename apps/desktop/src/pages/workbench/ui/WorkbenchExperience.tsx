@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceLayoutHandle } from '@shared/contracts'
 import { type AppMode } from '@locales/api'
-import { useEditorCopy, useModCopy } from '@locales/provider'
+import { useEditorCopy, useEventStageCopy, useModCopy } from '@locales/provider'
 import {
   useCpMaker,
   buildStudioDeskModel,
@@ -10,22 +10,20 @@ import {
   ExportDialog,
   ExpertModeButton,
   ProjectPropertiesDialog,
-  type WorkspaceId,
 } from '@features/cp-maker'
 import '../model/builtInWorkspaces'
 import type { SettingsWindowCategory } from '@shared/contracts'
-import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchModuleRegistration } from '@shared/contracts'
+import type { WorkbenchModuleRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchShell } from './WorkbenchShell'
 import { useEditModeStore, registerPatchNavigateFn } from '../model/editModeStore'
-import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
+import { selectActivePlayerAppearanceProfile, usePlayerAppearanceStore } from '../model/playerAppearanceStore'
 import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersistence'
 import { useWorkbenchNavigation } from '../model/useWorkbenchNavigation'
 import { useWorkbenchNavigationController } from '../model/useWorkbenchNavigationController'
 import { useWorkbenchProjectController } from '../model/useWorkbenchProjectController'
 import { useWorkbenchPersistenceController } from '../model/useWorkbenchPersistenceController'
 import { type WorkbenchUnsavedGuard } from '../model/workbenchModuleContexts'
-import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useDeferredWorkbenchModule } from '../model/useDeferredWorkbenchModule'
 import { useWorkbenchCloseController } from '../model/useWorkbenchCloseController'
 import { useWorkbenchProjectPresentationController } from '../model/useWorkbenchProjectPresentationController'
@@ -43,8 +41,6 @@ const WorkspaceDecisionDialog = lazy(() =>
 )
 
 type WorkbenchExperienceProps = {
-  pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
-  onClearPendingIntent: () => void
   active: boolean
   appUiStateReady: boolean
   desktopHost: boolean
@@ -56,31 +52,12 @@ type WorkbenchExperienceProps = {
   onCloseWindow: () => boolean | Promise<boolean>
   onWindowCloseRequestChange?: (handler: (() => boolean | Promise<boolean>) | null) => void
   onHomeRouteActiveChange?: (active: boolean) => void
-  onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchModuleRegistration: (moduleId: string) => WorkbenchModuleRegistration | null
   workbenchModules?: readonly WorkbenchModuleRegistration[]
   workbenchActivationKey?: number
 }
 
-const AUTHORING_MODULE_BY_WORKSPACE: Record<WorkspaceId, string> = {
-  mods: 'project-content',
-  map: 'map-authoring',
-  events: 'event-authoring',
-  characters: 'character-authoring',
-  buildings: 'building-authoring',
-  items: 'item-authoring',
-  dialogue: 'dialogue-editor',
-  schedules: 'schedule-editor',
-  mail: 'mail-editor',
-}
-
-function isWorkspaceId(value: string): value is WorkspaceId {
-  return Object.hasOwn(AUTHORING_MODULE_BY_WORKSPACE, value)
-}
-
 export default function WorkbenchExperience({
-  pendingWorkbenchIntent,
-  onClearPendingIntent,
   active,
   appUiStateReady,
   desktopHost,
@@ -92,7 +69,6 @@ export default function WorkbenchExperience({
   onCloseWindow,
   onWindowCloseRequestChange,
   onHomeRouteActiveChange,
-  onWorkbenchEvent,
   getWorkbenchModuleRegistration,
   workbenchModules = [],
 }: WorkbenchExperienceProps) {
@@ -173,17 +149,30 @@ export default function WorkbenchExperience({
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
-  const {
-    playerAppearanceProfiles,
-    activePlayerAppearanceProfileId,
-    activePlayerAppearanceProfile,
-    setActivePlayerAppearanceProfileId,
-    handleCreatePlayerAppearanceProfile,
-    handleDuplicatePlayerAppearanceProfile,
-    handleDeletePlayerAppearanceProfile,
-    handleImportPlayerAppearanceProfile,
-    handleChangePlayerAppearanceProfile,
-  } = usePlayerAppearanceState(appUiStateReady)
+  const playerAppearanceCopy = useEventStageCopy().playerAppearance
+  const playerAppearanceProfiles = usePlayerAppearanceStore((state) => state.profiles)
+  const activePlayerAppearanceProfileId = usePlayerAppearanceStore((state) => state.activeProfileId)
+  const activePlayerAppearanceProfile = usePlayerAppearanceStore(selectActivePlayerAppearanceProfile)
+  const setActivePlayerAppearanceProfileId = usePlayerAppearanceStore((state) => state.setActiveProfileId)
+  const createPlayerAppearanceProfile = usePlayerAppearanceStore((state) => state.createProfile)
+  const duplicateActivePlayerAppearanceProfile = usePlayerAppearanceStore((state) => state.duplicateActiveProfile)
+  const deleteActivePlayerAppearanceProfile = usePlayerAppearanceStore((state) => state.deleteActiveProfile)
+  const handleImportPlayerAppearanceProfile = usePlayerAppearanceStore((state) => state.importProfile)
+  const handleChangePlayerAppearanceProfile = usePlayerAppearanceStore((state) => state.changeProfile)
+
+  useEffect(() => {
+    if (appUiStateReady) {
+      usePlayerAppearanceStore.getState().hydrateFromAppUiState()
+    }
+  }, [appUiStateReady])
+
+  const handleCreatePlayerAppearanceProfile = () => {
+    createPlayerAppearanceProfile(playerAppearanceCopy.nextProfileName(playerAppearanceProfiles.length + 1))
+  }
+  const handleDuplicatePlayerAppearanceProfile = duplicateActivePlayerAppearanceProfile
+  const handleDeletePlayerAppearanceProfile = () => {
+    deleteActivePlayerAppearanceProfile(playerAppearanceCopy.defaultProfileName)
+  }
 
   const directoryController = useWorkbenchDirectoryController({
     active,
@@ -238,25 +227,6 @@ export default function WorkbenchExperience({
     })
   }, [navigateToPatch, projectController])
 
-  const navigateToAuthoringWorkspace = useCallback(
-    (workspaceId: string) => {
-      return isWorkspaceId(workspaceId)
-        ? handleOpenRegisteredWorkbenchView(AUTHORING_MODULE_BY_WORKSPACE[workspaceId])
-        : Promise.resolve(false)
-    },
-    [handleOpenRegisteredWorkbenchView],
-  )
-  useWorkbenchCommandIntent({
-    pendingIntent: pendingWorkbenchIntent,
-    cpMaker,
-    openModule: handleOpenRegisteredWorkbenchView,
-    navigateToAuthoringWorkspace,
-    runWithModUnsavedGuard,
-    runWithCpMakerUnsavedGuard,
-    navigateToPatch,
-    clearPendingIntent: onClearPendingIntent,
-  })
-
   const studioDeskModel = useMemo(
     () =>
       buildStudioDeskModel({
@@ -305,7 +275,6 @@ export default function WorkbenchExperience({
     projectController,
     gameRootPath: directoryInfo?.rootPath ?? null,
     importLabel: copy.studioDesk.importDraft,
-    onWorkbenchEvent,
     openHome: handleOpenHome,
     openModule: handleOpenRegisteredWorkbenchView,
     applyLocation: applyWorkbenchLocation,
@@ -314,16 +283,12 @@ export default function WorkbenchExperience({
     navigateToPatch,
   })
 
-  const projectMenuRecentProjects = useMemo(
-    () =>
-      studioDeskModel.gallery.projects.slice(0, 8).map((project) => ({
-        draftStorageKey: project.draftStorageKey,
-        title: project.title,
-        uniqueId: project.uniqueId,
-        isCurrent: project.isCurrent,
-      })),
-    [studioDeskModel.gallery.projects],
-  )
+  const projectMenuRecentProjects = studioDeskModel.gallery.projects.slice(0, 8).map((project) => ({
+    draftStorageKey: project.draftStorageKey,
+    title: project.title,
+    uniqueId: project.uniqueId,
+    isCurrent: project.isCurrent,
+  }))
 
   return (
     <>
@@ -466,9 +431,7 @@ export default function WorkbenchExperience({
             message={copy.studioDesk.unsavedChangesMessage}
             error={projectController.unsavedError}
             saving={projectController.unsavedSaving}
-            cancelLabel={modWorkspaceCopy.unsavedCancel}
-            secondaryLabel={modWorkspaceCopy.unsavedDiscardAndContinue}
-            primaryLabel={modWorkspaceCopy.unsavedSaveAndContinue}
+            decisionType="unsavedChanges"
             cancelDisabled={projectController.unsavedSaving}
             onCancel={projectController.cancelUnsavedDecision}
             onSecondary={() => void projectController.confirmDiscardAndContinue()}

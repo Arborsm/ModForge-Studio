@@ -17,9 +17,9 @@ const LOCALE_SOURCE_SEGMENT = /(?:^|\/)src\/locales\//
 const IMPERATIVE_LOCALE_GETTER_PATTERN =
   /\b(?:getSettingsMenuCopy|getEditorCopy|getLauncherCopy|getViewMenuCopy|getModWorkspaceCopy|getNotificationCopy)\b/g
 const PROPS_DECLARATION_PATTERN = /\b(?:type|interface)\s+(\w*Props)\b[^=]*=?\s*\{/g
-const PROPS_LOCALE_COPY_FIELD_PATTERN =
-  /\b(?:copy|labels)\??\s*:\s*(?:EditorCopy|SettingsMenuCopy|LauncherCopy|ViewMenuCopy|ModWorkspaceCopy|NotificationCopy|CompatModuleCopy|PluginManagerCopy|[\w.[\]'"]+Labels|ReturnType<typeof\s+\w+Copy>)\b/g
-const PROPS_LABEL_OBJECT_FIELD_PATTERN = /\blabels\??\s*:\s*\w*Labels\b/g
+const PROPS_LOCALE_COPY_FIELD_PATTERN = /\b\w+\??\s*:\s*(?:[\w.[\]'"]+(?:Copy|Labels)|ReturnType<typeof\s+\w+Copy>)\b/g
+const PROPS_STATIC_LABEL_FIELD_PATTERN = /\b\w*(?:Label|Placeholder)\??\s*:\s*string(?:\s*\|\s*null)?\b/g
+const PROPS_EXEMPT_PATTERN = /props-exempt:\s*\S/
 
 function isProductionSource(filePath: string) {
   const relativePath = relative(process.cwd(), filePath).replaceAll('\\', '/')
@@ -27,7 +27,7 @@ function isProductionSource(filePath: string) {
 }
 
 function extractPropsBlocks(source: string) {
-  const blocks: Array<{ name: string; body: string }> = []
+  const blocks: Array<{ name: string; body: string; bodyStart: number }> = []
 
   for (const match of source.matchAll(PROPS_DECLARATION_PATTERN)) {
     const name = match[1]
@@ -44,7 +44,7 @@ function extractPropsBlocks(source: string) {
       } else if (char === '}') {
         depth -= 1
         if (depth === 0) {
-          blocks.push({ name, body: source.slice(start + 1, index) })
+          blocks.push({ name, body: source.slice(start + 1, index), bodyStart: start + 1 })
           break
         }
       }
@@ -84,15 +84,34 @@ describe('props minimal interface architecture', () => {
       sourceFiles.map(async (file) => {
         const relativePath = relative(process.cwd(), file).replaceAll('\\', '/')
         const source = await readFile(file, 'utf8')
+        const lines = source.split('\n')
+        const usedExemptLines = new Set<number>()
+        const exemptLine = (index: number) => {
+          const line = source.slice(0, index).split('\n').length
+          const candidate = [line - 2, line - 1].find((lineNumber) => PROPS_EXEMPT_PATTERN.test(lines[lineNumber] ?? ''))
+          if (candidate === undefined) return false
+          usedExemptLines.add(candidate + 1)
+          return true
+        }
+
         for (const block of extractPropsBlocks(source)) {
           const matches = [
             ...block.body.matchAll(PROPS_LOCALE_COPY_FIELD_PATTERN),
-            ...block.body.matchAll(PROPS_LABEL_OBJECT_FIELD_PATTERN),
+            ...block.body.matchAll(PROPS_STATIC_LABEL_FIELD_PATTERN),
           ]
           for (const match of matches) {
-            violations.push(`${relativePath}: ${block.name}: ${match[0].replace(/\s+/g, ' ').slice(0, 160)}`)
+            const index = block.bodyStart + (match.index ?? 0)
+            if (!exemptLine(index)) {
+              violations.push(`${relativePath}: ${block.name}: ${match[0].replace(/\s+/g, ' ').slice(0, 160)}`)
+            }
           }
         }
+
+        lines.forEach((line, index) => {
+          if (PROPS_EXEMPT_PATTERN.test(line) && !usedExemptLines.has(index + 1)) {
+            violations.push(`${relativePath}: props-exempt orphan: ${line.trim()}`)
+          }
+        })
       }),
     )
 

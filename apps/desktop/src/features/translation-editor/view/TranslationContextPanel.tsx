@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useTranslationEditorCopy } from '@locales/provider'
 import type { KnowledgePolicy, LocalizationContextInspection } from '@shared/contracts'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import type { TranslationEntry } from '../model/translationEditor'
@@ -46,7 +48,10 @@ export function TranslationContextPanel({
       setValue(null)
       setLoading(false)
       setLoadFailed(false)
-      void runLoad(async () => undefined).catch(() => undefined)
+      void ignoreError(
+        runLoad(async () => undefined),
+        'translationContext.resetLoad',
+      )
       return
     }
     setLoading(true)
@@ -73,10 +78,15 @@ export function TranslationContextPanel({
           if (task.isCurrent() && !(error instanceof TaskCancelledError)) {
             setValue(null)
             setLoadFailed(true)
+            appEvent('error', copy.contextLoadFailed)
+              .error(error)
+              .context({ source: 'translation-editor-context', operation: 'inspect' })
+              .emit({ notify: false })
           }
         } finally {
           if (task.isCurrent()) setLoading(false)
         }
+        // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       }).catch(() => undefined)
     }, 180)
     return () => window.clearTimeout(handle)

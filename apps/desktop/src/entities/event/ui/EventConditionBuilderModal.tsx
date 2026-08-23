@@ -55,7 +55,8 @@ import {
   type SeasonId,
   type WeatherId,
 } from './eventConditionBuilderModel'
-import type { ConditionBuilderCopy, HubCopy } from './eventConditionBuilderTypes'
+import type { ConditionBuilderCopy } from './eventConditionBuilderTypes'
+import { useEditorCopy } from '@locales/provider'
 
 export interface EventConditionBuilderResult {
   eventKey: string
@@ -66,14 +67,14 @@ interface EventConditionBuilderModalProps {
   event: EventPatchHubEvent
   allEvents: EventPatchHubEvent[]
   alias: string
-  hubCopy: HubCopy
-  copy: ConditionBuilderCopy
   onApply: (result: EventConditionBuilderResult) => void
   onCancel: () => void
 }
 
 /** Renders the full event condition builder modal with catalog, chip chain, and preview dock. */
-export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, copy, onApply, onCancel }: EventConditionBuilderModalProps) {
+export function EventConditionBuilderModal({ event, allEvents, alias, onApply, onCancel }: EventConditionBuilderModalProps) {
+  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
+  const copy = hubCopy.conditionBuilder
   const [activeCategory, setActiveCategory] = useState<ConditionCategory>('world')
   const [eventId, setEventId] = useState(initialEventId(event))
   const [eventAlias, setEventAlias] = useState(alias)
@@ -1152,8 +1153,6 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
             chipDrag={chipDrag}
             compact={compactLogicChain}
             hasWeatherConflict={hasWeatherConflict}
-            copy={copy}
-            hubCopy={hubCopy}
             onToggleNegation={toggleChipNegation}
             onRemoveChip={removeChip}
             onChipPointerDown={handleChipPointerDown}
@@ -1162,7 +1161,6 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
           />
         </aside>
         <EventConditionBuilderPreviewDock
-          copy={copy}
           eventIdValidation={eventIdValidation}
           naturalPreview={naturalPreview}
           codePreview={codePreview}
@@ -1171,8 +1169,6 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
         />
         {gameStateQueryBuilderOpen ? (
           <EventGameStateQueryBuilderModal
-            copy={copy.gameStateQueryBuilder}
-            hubCopy={hubCopy}
             initialQuery={gameStateQueryFromChip(queryChip)}
             onApply={addGameStateQueryChip}
             onCancel={() => setGameStateQueryBuilderOpen(false)}

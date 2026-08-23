@@ -1,8 +1,10 @@
+import { orValue } from '@platform/observability'
+
 /**
  * @file Mail workspace state hook: manages mail catalog, attachment textures, trigger editing, and draft persistence.
  */
 import { useEffect, useRef, useState } from 'react'
-import { loadImageDataUrl, loadTextAsset } from '@entities/game/api'
+import { loadImageDataUrl, loadOptionalTextAsset } from '@entities/game/api'
 import {
   getAllTextureAssetNames,
   loadItemTextureAssetState,
@@ -93,7 +95,7 @@ function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string, loade
 
 async function loadVanillaMailLetters(rootPath: string, locale: LocaleCode): Promise<VanillaMailLetter[]> {
   return readCachedPromise(vanillaMailCache, `${rootPath}::${locale}`, async () => {
-    const asset = await loadTextAsset(rootPath, VANILLA_MAIL_ASSET_PATH, locale).catch(() => null)
+    const asset = await loadOptionalTextAsset(rootPath, VANILLA_MAIL_ASSET_PATH, locale, 'mailWorkspace.optionalLetters')
     if (!asset) {
       return []
     }
@@ -101,6 +103,7 @@ async function loadVanillaMailLetters(rootPath: string, locale: LocaleCode): Pro
     try {
       parsed = JSON.parse(asset.content) as Record<string, unknown>
     } catch {
+      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return []
     }
     return Object.entries(parsed).flatMap(([key, value]) =>
@@ -214,7 +217,7 @@ export function useMailWorkspace() {
     const cancel = deferToTimeout(() => {
       setVanillaMail({ status: 'loading', letters: [] })
       void (async () => {
-        const letters = await loadVanillaMailLetters(rootPath, locale).catch(() => [])
+        const letters = await orValue(loadVanillaMailLetters(rootPath, locale), [], 'mailWorkspace.loadLetters')
         if (!cancelled) {
           setVanillaMail({ status: 'ready', letters })
         }

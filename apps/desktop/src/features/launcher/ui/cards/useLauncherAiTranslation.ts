@@ -1,3 +1,5 @@
+import { appEvent, ignoreError } from '@platform/observability'
+
 /**
  * @file useLauncherAiTranslation hook: AI batch translation of launcher mod
  * detail text with streaming preview, corpus warmup, caching, and degradation.
@@ -27,8 +29,7 @@ import { useLocale, useNotificationCopy } from '@locales/provider'
 import { applyNexusModsBbcodeTextTranslations, extractNexusModsBbcodeTextSegments } from '@shared/infra/game-formats/nexusmods-bbcode'
 import type { AiTranslationItem, AiTranslationResultItem, AiTranslationStreamPayload } from '@shared/contracts'
 import type { LocaleCode } from '@locales/api'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
-import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
+import { dismissNotification } from '@shared/ui/notifications'
 import { resolveLauncherAiTranslationProfileId } from '@features/launcher/model/launcherAiTranslationProfile'
 import { getSessionCorpusWarmup, markSessionCorpusWarmed, startSessionCorpusWarmup } from '@features/launcher/model/sessionCorpusWarmup'
 import type { ChangelogListItem } from './launcherModDetailData'
@@ -101,6 +102,7 @@ function parseCached(value: string): LauncherTranslationPayload | null {
     const parsed = JSON.parse(value) as LauncherTranslationPayload
     return typeof parsed.overview === 'string' && typeof parsed.full === 'string' && Array.isArray(parsed.changelog) ? parsed : null
   } catch {
+    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }
@@ -119,10 +121,8 @@ export function useLauncherAiTranslation({
 }) {
   const ai = useAi()
   const localization = useLocalization()
-  const launcherPort = useLauncherPort()
   const locale = useLocale()
   const notificationCopy = useNotificationCopy().ai
-  const publishNotification = useNotificationPublisher()
   const target = TARGET_TRANSLATION_LOCALE[locale]
   const notificationId = `launcher-ai-translation-${scopeKey}`
   const usageNotificationId = `${notificationId}-usage`
@@ -233,7 +233,7 @@ export function useLauncherAiTranslation({
   // single-slot AiSemanticSearch pool. On warmup failure the user explicitly
   // retries (retryCorpus); manual retry always calls the backend directly and
   // is not blocked by the singleton.
-  const warmCorpus = useCallback(async () => {
+  const warmCorpus = async () => {
     setCorpusState('warming')
     try {
       const status = await localization.prewarmCorpus()
@@ -243,7 +243,7 @@ export function useLauncherAiTranslation({
       markSessionCorpusWarmed(false)
       setCorpusState('error')
     }
-  }, [localization])
+  }
 
   useEffect(() => {
     const session = getSessionCorpusWarmup()
@@ -281,7 +281,7 @@ export function useLauncherAiTranslation({
     setStreamPreview(null)
     setStreamingReasoning(null)
     setStreamProgress(null)
-    for (const jobId of activeJobs.current) void ai.cancelJob(jobId).catch(() => undefined)
+    for (const jobId of activeJobs.current) void ignoreError(ai.cancelJob(jobId), 'launcherAiTranslation.cancelJobs')
     activeJobs.current.clear()
   }, [ai])
 
@@ -322,6 +322,7 @@ export function useLauncherAiTranslation({
           setState('ready')
         }
       })
+      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false
@@ -339,333 +340,349 @@ export function useLauncherAiTranslation({
     }
   }, [cancelInFlight, notificationId, transientNotificationId, usageNotificationId])
 
-  const run = useCallback(
-    async (refresh = false) => {
-      const operation = ++operationRef.current
-      inFlightRef.current = { operation, scopeKey, source, target }
-      const ensureCurrent = () => {
-        if (operation !== operationRef.current) {
-          throw new Error('AI_ERROR::cancelled::AI translation context changed.')
-        }
+  const run = async (refresh = false) => {
+    const operation = ++operationRef.current
+    inFlightRef.current = { operation, scopeKey, source, target }
+    const ensureCurrent = () => {
+      if (operation !== operationRef.current) {
+        throw new Error('AI_ERROR::cancelled::AI translation context changed.')
       }
-      const guarded = async <T>(promise: Promise<T>) => {
-        try {
-          const result = await promise
-          ensureCurrent()
-          return result
-        } catch (cause) {
-          ensureCurrent()
-          throw cause
-        }
-      }
+    }
+    const guarded = async <T>(promise: Promise<T>) => {
       try {
-        if (corpusStateRef.current !== 'ready') {
-          // The UI has already disabled the translate button; this is a
-          // programmatic call (auto re-run / notification retry) double-guard.
-          throw new Error('AI_ERROR::corpus-not-ready::Localization corpus is not warmed up yet.')
-        }
-        dismissNotification(notificationId)
-        dismissNotification(usageNotificationId)
-        dismissNotification(transientNotificationId)
-        setState('loading')
-        setReasoning([])
-        setStreamPreview(null)
-        setStreamingReasoning(null)
-        const sourceHash = await guarded(hashAiTranslationSource(source))
-        if (!refresh) {
-          const cached = await guarded(ai.readCache({ scopeKey, targetLocale: target, sourceHash }))
-          const parsed = cached ? parseCached(cached.translatedText) : null
-          if (parsed) {
-            setTranslation(parsed)
-            setReasoning([])
-            setState('ready')
-            return
-          }
-        }
-
-        const settings = await guarded(ai.loadSettings())
-        const defaultEngine = settings.defaultProfileId ? null : await guarded(localization.loadDefaultEngine())
-        const profileId = resolveLauncherAiTranslationProfileId(settings.defaultProfileId, defaultEngine)
-        if (!profileId) throw new Error('AI_ERROR::not-configured::No default AI profile is configured.')
-        const profile = settings.profiles.find((value) => value.id === profileId)
-        const overviewSegments = extractNexusModsBbcodeTextSegments(overview)
-        const fullSegments = extractNexusModsBbcodeTextSegments(full)
-        const items: AiTranslationItem[] = [
-          ...overviewSegments.map((segment) => ({ id: `overview:${segment.id}`, text: segment.text, format: 'nexusBbcodeText' as const })),
-          ...fullSegments.map((segment) => ({ id: `full:${segment.id}`, text: segment.text, format: 'nexusBbcodeText' as const })),
-          ...changelog.flatMap((group, groupIndex) =>
-            group.lines.map((line, lineIndex) => ({
-              id: `changelog:${groupIndex}:${lineIndex}`,
-              text: line,
-              format: 'plainText' as const,
-              context: group.version,
-            })),
-          ),
-        ]
-        // Progress denominator = original item count (excluding chunks
-        // produced by batch splitting); completed count accumulates across batches.
-        totalItemsRef.current = items.length
-        overallCompletedRef.current = 0
-        setStreamProgress(null)
-        if (!items.length) {
-          setTranslation({ overview, full, changelog })
+        const result = await promise
+        ensureCurrent()
+        return result
+      } catch (cause) {
+        ensureCurrent()
+        throw cause
+      }
+    }
+    try {
+      if (corpusStateRef.current !== 'ready') {
+        // The UI has already disabled the translate button; this is a
+        // programmatic call (auto re-run / notification retry) double-guard.
+        throw new Error('AI_ERROR::corpus-not-ready::Localization corpus is not warmed up yet.')
+      }
+      dismissNotification(notificationId)
+      dismissNotification(usageNotificationId)
+      dismissNotification(transientNotificationId)
+      setState('loading')
+      setReasoning([])
+      setStreamPreview(null)
+      setStreamingReasoning(null)
+      const sourceHash = await guarded(hashAiTranslationSource(source))
+      if (!refresh) {
+        const cached = await guarded(ai.readCache({ scopeKey, targetLocale: target, sourceHash }))
+        const parsed = cached ? parseCached(cached.translatedText) : null
+        if (parsed) {
+          setTranslation(parsed)
           setReasoning([])
           setState('ready')
           return
         }
-        const prefix = `launcher-ai:${Date.now()}:${scopeKey}`
-        const plan = buildAiTranslationBatches(
-          {
-            profileId,
-            targetLocale: target,
-            usageContext: { pageSource: 'launcher', operation: 'translate' },
-            // Launcher detail text is extracted into bbcode segments, so the
-            // provider may legitimately reorder/normalize tokens inside segments;
-            // the backend skips only the placeholder multiset comparison while
-            // id uniqueness/count checks stay on (mergeResults reassembles by id).
-            skipFormatValidation: true,
-            maxBatchBytes: profile?.maxBatchBytes ?? null,
-          },
-          items,
-          prefix,
-          { contextWindowTokens: profile?.contextWindowTokens ?? null, maxBatchBytes: profile?.maxBatchBytes ?? null },
-        )
-        const batches = plan.batches
-        launcherPort.writeDebugLog({
-          message: 'launcher.ai.translation.batchPlan',
-          keyValues: {
-            scopeKey,
-            job: prefix,
-            batches: String(batches.length),
-            items: String(items.length),
-          },
-        })
-        const results: AiTranslationResultItem[] = []
-        const retainedIds: string[] = []
-        const transientRetainedIds: string[] = []
-        const reasoningByJob = new Map<string, string>()
-        let lastTransientCause: unknown = null
-        let usageRecordFailed = false
-        for (const batch of batches) {
-          let outcome: AiBatchDegradationResult
-          try {
-            outcome = await guarded(
-              translateBatchWithDegradation({
-                batch,
-                attempt: async (request) => {
-                  activeJobs.current.add(request.jobId)
-                  streamingRef.current = {
-                    jobId: request.jobId,
-                    operation,
-                    overview,
-                    full,
-                    changelog,
-                    overviewSegments,
-                    fullSegments,
-                    sentinelByItemId: buildPlaceholderSentinelMap(request.items),
-                  }
-                  streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
-                  streamCompletedCountRef.current = 0
-                  setStreamPreview(null)
-                  setStreamingReasoning(null)
-                  try {
-                    const result = await guarded(ai.translateBatch(request))
-                    usageRecordFailed ||= result.usageRecordState === 'failed'
-                    if (result.reasoning) reasoningByJob.set(request.jobId, result.reasoning)
-                    return result.items
-                  } finally {
-                    activeJobs.current.delete(request.jobId)
-                    if (streamingRef.current?.jobId === request.jobId) {
-                      // This job has settled: all late deltas are discarded
-                      // and the authoritative result takes over. Completed
-                      // items are merged into the accumulated progress so the
-                      // progress ring never regresses between batches.
-                      overallCompletedRef.current += streamCompletedCountRef.current
-                      streamingRef.current = null
-                      streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
-                      streamCompletedCountRef.current = 0
-                      setStreamPreview(null)
-                      setStreamingReasoning(null)
-                    }
-                  }
-                },
-                isPlaceholderMismatch: (cause) => parseAiFailure(cause).code === 'placeholder-mismatch',
-                isInvalidResponse: (cause) => parseAiFailure(cause).code === 'invalid-response',
-                checkCancelled: ensureCurrent,
-                onEvent: (event) => {
-                  switch (event.kind) {
-                    case 'batchRetry':
-                      launcherPort.writeDebugLog({
-                        message: 'launcher.ai.translation.batchRetry',
-                        keyValues: { scopeKey, jobId: event.jobId },
-                      })
-                      break
-                    case 'invalidResponseRetry':
-                      launcherPort.writeDebugLog({
-                        message: 'launcher.ai.translation.invalidResponseRetry',
-                        keyValues: { scopeKey, jobId: event.jobId },
-                      })
-                      break
-                    case 'splitRetry':
-                      launcherPort.writeDebugLog({
-                        message: 'launcher.ai.translation.splitRetry',
-                        keyValues: { scopeKey, jobId: event.jobId, items: String(event.itemCount) },
-                      })
-                      break
-                    case 'itemKeptOriginal':
-                      launcherPort.writeDebugLog({
-                        message: 'launcher.ai.translation.itemKeptOriginal',
-                        keyValues: { scopeKey, jobId: event.jobId, itemId: event.itemId },
-                      })
-                      break
-                    case 'attemptStart':
-                    case 'attemptEnd':
-                      break
-                  }
-                },
-              }),
-            )
-          } catch (cause) {
-            // A single batch timeout / network error is a transient failure:
-            // that batch keeps the original text and remaining batches continue,
-            // so one slow batch does not void the entire detail translation.
-            // Deterministic errors (auth, model, rate-limit, placeholder
-            // validation, cancellation) still propagate and are not masked.
-            ensureCurrent()
-            const failure = parseAiFailure(cause)
-            if (!isTransientAiFailure(failure)) throw cause
-            lastTransientCause = cause
-            transientRetainedIds.push(...batch.items.map((item) => item.id))
-            launcherPort.writeDebugLog({
-              message: 'launcher.ai.translation.batchTransientFailureKeptOriginal',
-              keyValues: {
-                scopeKey,
-                jobId: batch.jobId,
-                code: failure.code,
-                items: String(batch.items.length),
-                detail: failure.detail.slice(0, 200),
-              },
-            })
-            continue
-          }
-          results.push(...outcome.items)
-          retainedIds.push(...outcome.retainedIds)
-        }
-        if (results.length === 0 && transientRetainedIds.length > 0) {
-          // No batch succeeded at all: throw the last transient failure so the
-          // error toast still appears, instead of disguising "all batches
-          // timed out / network failed" as a success.
-          throw lastTransientCause ?? new Error('AI_ERROR::network::All translation batches failed with transient provider errors.')
-        }
-        const resultMap = new Map(plan.mergeResults(results).map((item) => [item.id, item.translatedText]))
-        const translated = buildLauncherTranslationPayload(overview, full, changelog, overviewSegments, fullSegments, resultMap)
-        await guarded(
-          ai.writeCache({
-            scopeKey,
-            targetLocale: target,
-            sourceHash,
-            translatedText: JSON.stringify(translated),
-            providerProfileId: profileId,
-            model: settings.profiles.find((profile) => profile.id === profileId)?.model ?? '',
-            updatedAtMs: Date.now(),
-          }),
-        )
-        ensureCurrent()
-        setTranslation(translated)
-        setReasoning([...reasoningByJob.values()])
-        setState('ready')
-        dismissNotification(notificationId)
-        if (retainedIds.length > 0) {
-          // Items with repeated placeholder mismatches keep the original text;
-          // the rest of the results land normally. A warning informs the user
-          // rather than failing the whole batch.
-          launcherPort.writeDebugLog({
-            message: 'launcher.ai.translation.partialKeptOriginal',
-            keyValues: { scopeKey, retained: String(retainedIds.length), itemIds: retainedIds.join(',') },
-          })
-          publishNotification({
-            id: notificationId,
-            level: 'warning',
-            title: notificationCopy.partialTranslationKeptOriginalTitle,
-            description: notificationCopy.partialTranslationKeptOriginalDescription(retainedIds.length),
-          })
-        }
-        if (transientRetainedIds.length > 0) {
-          // At least one batch kept the original text due to a transient
-          // timeout / network error, but the rest succeeded: a warning clearly
-          // tells the user which content was not translated, instead of letting
-          // them think the entire detail failed.
-          launcherPort.writeDebugLog({
-            message: 'launcher.ai.translation.partialTransientKeptOriginal',
-            keyValues: { scopeKey, retained: String(transientRetainedIds.length) },
-          })
-          publishNotification({
-            id: transientNotificationId,
-            level: 'warning',
-            title: notificationCopy.partialTranslationBatchFailedTitle,
-            description: notificationCopy.partialTranslationBatchFailedDescription(transientRetainedIds.length),
-          })
-        }
-        if (usageRecordFailed) {
-          publishNotification({
-            id: usageNotificationId,
-            level: 'warning',
-            title: notificationCopy.usageRecordFailedTitle,
-            description: notificationCopy.usageRecordFailedDescription,
-          })
-        }
-      } finally {
-        if (inFlightRef.current?.operation === operation) {
-          inFlightRef.current = null
-          // Structural guarantee: when the current run is the last in-flight
-          // owner and has settled, if the state is still stuck at loading
-          // (e.g. translate's catch was skipped by the sequence guard), it must
-          // be reset so the button never stays in "translating".
-          setState((current) => (current === 'loading' ? (translationRef.current ? 'ready' : 'idle') : current))
-        }
       }
-    },
-    [
-      ai,
-      changelog,
-      full,
-      localization,
-      notificationCopy,
-      notificationId,
-      overview,
-      publishNotification,
-      scopeKey,
-      source,
-      target,
-      transientNotificationId,
-      usageNotificationId,
-    ],
-  )
 
-  const translate = useCallback(
-    (refresh = false) => {
-      const sequence = ++runSequenceRef.current
-      void run(refresh).catch((cause) => {
-        if (sequence !== runSequenceRef.current) {
-          // A newer operation has taken over UI state (auto re-run after
-          // cancel or context switch); state reset is handled by run's finally.
-          return
-        }
-        const failure = parseAiFailure(cause)
-        if (failure.code === 'cancelled') {
-          return
-        }
-        publishNotification({
-          id: notificationId,
-          level: 'error',
-          title: failure.code === 'cache' ? notificationCopy.cacheFailedTitle : notificationCopy.translationFailedTitle,
-          description: notificationCopy.failureDescriptions[failure.code],
-          action: { label: notificationCopy.retryAction, callback: () => translateRef.current(refresh), tone: 'primary' },
+      const settings = await guarded(ai.loadSettings())
+      const defaultEngine = settings.defaultProfileId ? null : await guarded(localization.loadDefaultEngine())
+      const profileId = resolveLauncherAiTranslationProfileId(settings.defaultProfileId, defaultEngine)
+      if (!profileId) throw new Error('AI_ERROR::not-configured::No default AI profile is configured.')
+      const profile = settings.profiles.find((value) => value.id === profileId)
+      const overviewSegments = extractNexusModsBbcodeTextSegments(overview)
+      const fullSegments = extractNexusModsBbcodeTextSegments(full)
+      const items: AiTranslationItem[] = [
+        ...overviewSegments.map((segment) => ({ id: `overview:${segment.id}`, text: segment.text, format: 'nexusBbcodeText' as const })),
+        ...fullSegments.map((segment) => ({ id: `full:${segment.id}`, text: segment.text, format: 'nexusBbcodeText' as const })),
+        ...changelog.flatMap((group, groupIndex) =>
+          group.lines.map((line, lineIndex) => ({
+            id: `changelog:${groupIndex}:${lineIndex}`,
+            text: line,
+            format: 'plainText' as const,
+            context: group.version,
+          })),
+        ),
+      ]
+      // Progress denominator = original item count (excluding chunks
+      // produced by batch splitting); completed count accumulates across batches.
+      totalItemsRef.current = items.length
+      overallCompletedRef.current = 0
+      setStreamProgress(null)
+      if (!items.length) {
+        setTranslation({ overview, full, changelog })
+        setReasoning([])
+        setState('ready')
+        return
+      }
+      const prefix = `launcher-ai:${Date.now()}:${scopeKey}`
+      const plan = buildAiTranslationBatches(
+        {
+          profileId,
+          targetLocale: target,
+          usageContext: { pageSource: 'launcher', operation: 'translate' },
+          // Launcher detail text is extracted into bbcode segments, so the
+          // provider may legitimately reorder/normalize tokens inside segments;
+          // the backend skips only the placeholder multiset comparison while
+          // id uniqueness/count checks stay on (mergeResults reassembles by id).
+          skipFormatValidation: true,
+          maxBatchBytes: profile?.maxBatchBytes ?? null,
+        },
+        items,
+        prefix,
+        { contextWindowTokens: profile?.contextWindowTokens ?? null, maxBatchBytes: profile?.maxBatchBytes ?? null },
+      )
+      const batches = plan.batches
+      appEvent('debug', 'launcher.ai.translation.batchPlan')
+        .context({
+          source: 'launcher-ai-translation',
+          operation: 'build-batch-plan',
+          scopeKey,
+          job: prefix,
+          batches: String(batches.length),
+          items: String(items.length),
         })
-      })
-    },
-    [notificationCopy, notificationId, publishNotification, run],
-  )
+        .dedupe('launcher.ai.translation.batchPlan')
+        .emit({ notify: false })
+      const results: AiTranslationResultItem[] = []
+      const retainedIds: string[] = []
+      const transientRetainedIds: string[] = []
+      const reasoningByJob = new Map<string, string>()
+      let lastTransientCause: unknown = null
+      let usageRecordFailed = false
+      for (const batch of batches) {
+        let outcome: AiBatchDegradationResult
+        try {
+          outcome = await guarded(
+            translateBatchWithDegradation({
+              batch,
+              attempt: async (request) => {
+                activeJobs.current.add(request.jobId)
+                streamingRef.current = {
+                  jobId: request.jobId,
+                  operation,
+                  overview,
+                  full,
+                  changelog,
+                  overviewSegments,
+                  fullSegments,
+                  sentinelByItemId: buildPlaceholderSentinelMap(request.items),
+                }
+                streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
+                streamCompletedCountRef.current = 0
+                setStreamPreview(null)
+                setStreamingReasoning(null)
+                try {
+                  const result = await guarded(ai.translateBatch(request))
+                  usageRecordFailed ||= result.usageRecordState === 'failed'
+                  if (result.reasoning) reasoningByJob.set(request.jobId, result.reasoning)
+                  return result.items
+                } finally {
+                  activeJobs.current.delete(request.jobId)
+                  if (streamingRef.current?.jobId === request.jobId) {
+                    // This job has settled: all late deltas are discarded
+                    // and the authoritative result takes over. Completed
+                    // items are merged into the accumulated progress so the
+                    // progress ring never regresses between batches.
+                    overallCompletedRef.current += streamCompletedCountRef.current
+                    streamingRef.current = null
+                    streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
+                    streamCompletedCountRef.current = 0
+                    setStreamPreview(null)
+                    setStreamingReasoning(null)
+                  }
+                }
+              },
+              isPlaceholderMismatch: (cause) => parseAiFailure(cause).code === 'placeholder-mismatch',
+              isInvalidResponse: (cause) => parseAiFailure(cause).code === 'invalid-response',
+              checkCancelled: ensureCurrent,
+              onEvent: (event) => {
+                switch (event.kind) {
+                  case 'batchRetry':
+                    appEvent('debug', 'launcher.ai.translation.batchRetry')
+                      .context({ source: 'launcher-ai-translation', operation: 'batch-retry', scopeKey, jobId: event.jobId })
+                      .dedupe('launcher.ai.translation.batchRetry')
+                      .emit({ notify: false })
+                    break
+                  case 'invalidResponseRetry':
+                    appEvent('debug', 'launcher.ai.translation.invalidResponseRetry')
+                      .context({ source: 'launcher-ai-translation', operation: 'invalid-response-retry', scopeKey, jobId: event.jobId })
+                      .dedupe('launcher.ai.translation.invalidResponseRetry')
+                      .emit({ notify: false })
+                    break
+                  case 'splitRetry':
+                    appEvent('debug', 'launcher.ai.translation.splitRetry')
+                      .context({
+                        source: 'launcher-ai-translation',
+                        operation: 'split-retry',
+                        scopeKey,
+                        jobId: event.jobId,
+                        items: String(event.itemCount),
+                      })
+                      .dedupe('launcher.ai.translation.splitRetry')
+                      .emit({ notify: false })
+                    break
+                  case 'itemKeptOriginal':
+                    appEvent('debug', 'launcher.ai.translation.itemKeptOriginal')
+                      .context({
+                        source: 'launcher-ai-translation',
+                        operation: 'item-kept-original',
+                        scopeKey,
+                        jobId: event.jobId,
+                        itemId: event.itemId,
+                      })
+                      .dedupe('launcher.ai.translation.itemKeptOriginal')
+                      .emit({ notify: false })
+                    break
+                  case 'attemptStart':
+                  case 'attemptEnd':
+                    break
+                }
+              },
+            }),
+          )
+        } catch (cause) {
+          // A single batch timeout / network error is a transient failure:
+          // that batch keeps the original text and remaining batches continue,
+          // so one slow batch does not void the entire detail translation.
+          // Deterministic errors (auth, model, rate-limit, placeholder
+          // validation, cancellation) still propagate and are not masked.
+          ensureCurrent()
+          const failure = parseAiFailure(cause)
+          if (!isTransientAiFailure(failure)) throw cause
+          lastTransientCause = cause
+          transientRetainedIds.push(...batch.items.map((item) => item.id))
+          appEvent('debug', 'launcher.ai.translation.batchTransientFailureKeptOriginal')
+            .context({
+              source: 'launcher-ai-translation',
+              operation: 'batch-transient-failure-kept-original',
+              scopeKey,
+              jobId: batch.jobId,
+              code: failure.code,
+              items: String(batch.items.length),
+              detail: failure.detail.slice(0, 200),
+            })
+            .dedupe('launcher.ai.translation.batchTransientFailureKeptOriginal')
+            .emit({ notify: false })
+          continue
+        }
+        results.push(...outcome.items)
+        retainedIds.push(...outcome.retainedIds)
+      }
+      if (results.length === 0 && transientRetainedIds.length > 0) {
+        // No batch succeeded at all: throw the last transient failure so the
+        // error toast still appears, instead of disguising "all batches
+        // timed out / network failed" as a success.
+        throw lastTransientCause ?? new Error('AI_ERROR::network::All translation batches failed with transient provider errors.')
+      }
+      const resultMap = new Map(plan.mergeResults(results).map((item) => [item.id, item.translatedText]))
+      const translated = buildLauncherTranslationPayload(overview, full, changelog, overviewSegments, fullSegments, resultMap)
+      await guarded(
+        ai.writeCache({
+          scopeKey,
+          targetLocale: target,
+          sourceHash,
+          translatedText: JSON.stringify(translated),
+          providerProfileId: profileId,
+          model: settings.profiles.find((profile) => profile.id === profileId)?.model ?? '',
+          updatedAtMs: Date.now(),
+        }),
+      )
+      ensureCurrent()
+      setTranslation(translated)
+      setReasoning([...reasoningByJob.values()])
+      setState('ready')
+      dismissNotification(notificationId)
+      if (retainedIds.length > 0) {
+        // Items with repeated placeholder mismatches keep the original text;
+        // the rest of the results land normally. A warning informs the user
+        // rather than failing the whole batch.
+        appEvent('debug', 'launcher.ai.translation.partialKeptOriginal')
+          .context({
+            source: 'launcher-ai-translation',
+            operation: 'partial-translation-kept-original',
+            scopeKey,
+            retained: String(retainedIds.length),
+            itemIds: retainedIds.join(','),
+          })
+          .dedupe('launcher.ai.translation.partialKeptOriginal')
+          .emit({ notify: false })
+        appEvent('warning', notificationCopy.partialTranslationKeptOriginalTitle)
+          .description(notificationCopy.partialTranslationKeptOriginalDescription(retainedIds.length))
+          .noticeId(notificationId)
+          .context({
+            source: 'launcher-ai-translation',
+            operation: 'partial-translation-kept-original',
+          })
+          .emit()
+      }
+      if (transientRetainedIds.length > 0) {
+        // At least one batch kept the original text due to a transient
+        // timeout / network error, but the rest succeeded: a warning clearly
+        // tells the user which content was not translated, instead of letting
+        // them think the entire detail failed.
+        appEvent('debug', 'launcher.ai.translation.partialTransientKeptOriginal')
+          .context({
+            source: 'launcher-ai-translation',
+            operation: 'partial-translation-batch-failed',
+            scopeKey,
+            retained: String(transientRetainedIds.length),
+          })
+          .dedupe('launcher.ai.translation.partialTransientKeptOriginal')
+          .emit({ notify: false })
+        appEvent('warning', notificationCopy.partialTranslationBatchFailedTitle)
+          .description(notificationCopy.partialTranslationBatchFailedDescription(transientRetainedIds.length))
+          .noticeId(transientNotificationId)
+          .context({
+            source: 'launcher-ai-translation',
+            operation: 'partial-translation-batch-failed',
+          })
+          .emit()
+      }
+      if (usageRecordFailed) {
+        appEvent('warning', notificationCopy.usageRecordFailedTitle)
+          .description(notificationCopy.usageRecordFailedDescription)
+          .noticeId(usageNotificationId)
+          .context({
+            source: 'launcher-ai-translation',
+            operation: 'record-translation-usage',
+          })
+          .emit()
+      }
+    } finally {
+      if (inFlightRef.current?.operation === operation) {
+        inFlightRef.current = null
+        // Structural guarantee: when the current run is the last in-flight
+        // owner and has settled, if the state is still stuck at loading
+        // (e.g. translate's catch was skipped by the sequence guard), it must
+        // be reset so the button never stays in "translating".
+        setState((current) => (current === 'loading' ? (translationRef.current ? 'ready' : 'idle') : current))
+      }
+    }
+  }
+
+  const translate = (refresh = false) => {
+    const sequence = ++runSequenceRef.current
+    void run(refresh).catch((cause) => {
+      if (sequence !== runSequenceRef.current) {
+        // A newer operation has taken over UI state (auto re-run after
+        // cancel or context switch); state reset is handled by run's finally.
+        return
+      }
+      const failure = parseAiFailure(cause)
+      if (failure.code === 'cancelled') {
+        return
+      }
+      appEvent('error', failure.code === 'cache' ? notificationCopy.cacheFailedTitle : notificationCopy.translationFailedTitle)
+        .description(notificationCopy.failureDescriptions[failure.code])
+        .noticeId(notificationId)
+        .action({ label: notificationCopy.retryAction, callback: () => translateRef.current(refresh), tone: 'primary' })
+        .error(cause)
+        .context({
+          source: 'launcher-ai-translation',
+          operation: 'translate-launcher-detail',
+        })
+        .emit()
+    })
+  }
 
   translateRef.current = translate
 

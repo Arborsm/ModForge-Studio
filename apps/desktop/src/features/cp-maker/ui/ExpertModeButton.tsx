@@ -6,13 +6,13 @@
 import { Wrench } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { useAuthoringShellCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 
 /** Shared icon-only button controlling the global beginner/expert authoring preference. */
 export function ExpertModeButton() {
   const copy = useAuthoringShellCopy()
-  const expertMode = useEditorModeStore((state) => state.expertMode)
-  const setExpertMode = useEditorModeStore((state) => state.setExpertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
+  const setExpertMode = usePreferencesStore((state) => state.setExpertMode)
 
   return (
     <button

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Crosshair, Film, MousePointerClick, Pause, Play, Plus, Trash2 } from 'lucide-react'
 import type { MapDocument, MapTileset } from '@entities/map'
 import { MapTilesheetGallery } from '@entities/map/ui/MapTilesheetGallery'
@@ -13,6 +13,7 @@ import {
   type TileRegion,
 } from '@entities/map/lib/animationGroups'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogBody, DialogFooter, DialogAction, DialogHeader } from '@shared/ui/Dialog'
@@ -61,10 +62,7 @@ export function MapAnimationDialog({
     if (open) setSelectedTilesetName(null)
   }, [open])
 
-  const selectedTileset = useMemo(
-    () => document.tilesets.find((tileset) => tileset.name === selectedTilesetName) ?? null,
-    [document.tilesets, selectedTilesetName],
-  )
+  const selectedTileset = document.tilesets.find((tileset) => tileset.name === selectedTilesetName) ?? null
 
   return (
     <Dialog open={open} onClose={onClose} size="xl" labelledBy="map-animation-dialog-title">
@@ -153,7 +151,7 @@ function AnimationEditor({
   const margin = tileset.margin ?? 0
 
   // Extract animation groups from the tileset's animations map.
-  const groups = useMemo(() => extractAnimationGroups(tileset), [tileset])
+  const groups = extractAnimationGroups(tileset)
   const selectedGroup = selectedGroupIndex != null ? (groups[selectedGroupIndex] ?? null) : null
 
   // Load sheet image.
@@ -168,8 +166,14 @@ function AnimationEditor({
       .then((img) => {
         if (!cancelled) setImage(img)
       })
-      .catch(() => {
-        if (!cancelled) setImage(null)
+      .catch((error) => {
+        if (!cancelled) {
+          appEvent('warning', 'Failed to load map animation sheet')
+            .error(error)
+            .context({ source: 'map-animation-dialog', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setImage(null)
+        }
       })
     return () => {
       cancelled = true
@@ -418,7 +422,7 @@ function AnimationEditor({
     selectedGroup && previewOrigin != null ? cropRegionThumb(previewOrigin, selectedGroup.width, selectedGroup.height, 2) : null
 
   // Stamp preview for picking modes: shows the region that will be placed.
-  const stampPreview = useMemo(() => {
+  const stampPreview = (() => {
     if (mode === 'addFrameRegion' && selectedGroup) {
       const origin = selectedGroup.frameOrigins[selectedGroup.frameOrigins.length - 1]
       const src = cropRegionThumb(origin, selectedGroup.width, selectedGroup.height, 1)
@@ -436,7 +440,7 @@ function AnimationEditor({
       return src ? { src, tileWidth: last.width, tileHeight: last.height } : null
     }
     return null
-  }, [mode, selectedGroup, pendingFrames])
+  })()
 
   return (
     <div className="map-animation-editor">

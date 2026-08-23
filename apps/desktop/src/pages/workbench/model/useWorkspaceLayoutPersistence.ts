@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { appEvent } from '@platform/observability'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import type { WorkspaceStoredState } from '@shared/contracts'
 import { normalizeWorkspaceLayouts, areWorkspaceStoredStatesEqual } from './workbenchLogic'
@@ -39,7 +40,10 @@ export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, persiste
           modules: { [storageKey]: { layout: nextState as Record<string, unknown> } },
         },
       }).catch((error) => {
-        console.error('[appUiState] failed to save workspace layout state', error)
+        appEvent('error', 'Failed to save workspace layout state')
+          .error(error)
+          .context({ source: 'workspace-layout-persistence', operation: 'save' })
+          .emit({ notify: false })
       })
     },
     [appUiStateReady],

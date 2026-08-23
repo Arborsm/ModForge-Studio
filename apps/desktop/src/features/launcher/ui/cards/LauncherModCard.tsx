@@ -20,67 +20,66 @@ type LauncherModCardAction = {
 
 /** Props for {@link LauncherModCard}. */
 type LauncherModCardProps = {
-  title: string
-  titleTooltip?: string
-  meta: string
-  author?: string | null
-  version?: string | null
-  latestVersion?: string | null
-  imageUrl: string | null
-  imageModKey?: string | null
-  enabled?: boolean
-  onSelect?: () => void
-  onOpenDetails?: () => void
-  onOpenDirectTarget?: () => void
-  contextActions?: LauncherModCardAction[]
-  getContextActions?: () => LauncherModCardAction[] | undefined
-  dragging?: boolean
-  childCount?: number
-  childCountLabel?: string
-  expanded?: boolean
-  expandLabel?: string
-  collapseLabel?: string
-  onToggleExpanded?: (event: MouseEvent<HTMLElement>) => void
-  selectionMode?: boolean
-  selected?: boolean
-  missingDependencies?: string[]
-  missingDependenciesLabel?: string
-  /** True when the mod manifest requires a newer SMAPI than the one installed. */
-  requiresNewerSmapi?: boolean
-  /** Minimum SMAPI version declared by the mod manifest, used for the requirement badge. */
-  minimumApiVersion?: string | null
+  content: {
+    title: string
+    meta: string
+    author?: string | null
+    version?: string | null
+    latestVersion?: string | null
+  }
+  cover: {
+    imageUrl: string | null
+    imageModKey?: string | null
+  }
+  state: {
+    enabled?: boolean
+    dragging?: boolean
+    childCount?: number
+    expanded?: boolean
+    selectionMode?: boolean
+    selected?: boolean
+    missingDependencies?: string[]
+    /** True when the mod manifest requires a newer SMAPI than the one installed. */
+    requiresNewerSmapi?: boolean
+    /** Minimum SMAPI version declared by the mod manifest, used for the requirement badge. */
+    minimumApiVersion?: string | null
+  }
+  contextMenu?: {
+    contextActions?: LauncherModCardAction[]
+    getContextActions?: () => LauncherModCardAction[] | undefined
+  }
+  actions?: {
+    select?: () => void
+    openDetails?: () => void
+    openDirectTarget?: () => void
+    toggleExpanded?: (event: MouseEvent<HTMLElement>) => void
+  }
 }
 
 /** Internal content component for {@link LauncherModCard}; renders the card body and optional context menu. */
-function LauncherModCardContent({
-  title,
-  meta,
-  author,
-  version,
-  latestVersion,
-  imageUrl,
-  imageModKey = null,
-  enabled = true,
-  onSelect,
-  onOpenDetails,
-  onOpenDirectTarget,
-  contextActions,
-  getContextActions,
-  dragging = false,
-  childCount = 0,
-  childCountLabel,
-  expanded = false,
-  expandLabel,
-  collapseLabel,
-  onToggleExpanded,
-  selectionMode = false,
-  selected = false,
-  missingDependencies = [],
-  missingDependenciesLabel,
-  requiresNewerSmapi = false,
-  minimumApiVersion = null,
-}: LauncherModCardProps) {
+function LauncherModCardContent({ content, cover, state, contextMenu, actions }: LauncherModCardProps) {
+  const { title, meta, author, version, latestVersion } = content
+  const { imageUrl, imageModKey = null } = cover
+  const {
+    enabled = true,
+    dragging = false,
+    childCount = 0,
+    expanded = false,
+    selectionMode = false,
+    selected = false,
+    missingDependencies = [],
+    requiresNewerSmapi = false,
+    minimumApiVersion = null,
+  } = state
+  const { contextActions, getContextActions } = contextMenu ?? {}
+  const {
+    select: onSelect,
+    openDetails: onOpenDetails,
+    openDirectTarget: onOpenDirectTarget,
+    toggleExpanded: onToggleExpanded,
+  } = actions ?? {}
   const copy = useEditorCopy()
+  const libraryCopy = copy.launcher.library
   const fallbackPalette = getLauncherCardFallbackPalette(title)
   const coverWord = getLauncherCardCoverWord(title)
   const normalizedAuthor = author?.trim() ?? ''
@@ -168,7 +167,7 @@ function LauncherModCardContent({
             {visibleMissingDependencies.length ? (
               <span
                 className="launcher-mod-card-missing-dependencies"
-                aria-label={missingDependenciesLabel}
+                aria-label={libraryCopy.missingDependenciesCount(visibleMissingDependencies.length)}
                 data-tooltip={missingDependencyTitle}
               >
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -194,7 +193,7 @@ function LauncherModCardContent({
               <button
                 type="button"
                 className="launcher-mod-card-child-count"
-                aria-label={expanded ? collapseLabel : expandLabel}
+                aria-label={expanded ? libraryCopy.collapseChildMods(title) : libraryCopy.expandChildMods(title)}
                 aria-expanded={expanded}
                 onClick={(event) => {
                   event.preventDefault()
@@ -202,7 +201,7 @@ function LauncherModCardContent({
                   onToggleExpanded(event)
                 }}
               >
-                <span className="launcher-mod-card-child-count-label">{childCountLabel ?? String(childCount)}</span>
+                <span className="launcher-mod-card-child-count-label">{libraryCopy.childModsCount(childCount)}</span>
                 {expanded ? (
                   <ChevronUp className="launcher-mod-card-child-count-icon" aria-hidden="true" />
                 ) : (
@@ -211,7 +210,7 @@ function LauncherModCardContent({
               </button>
             ) : (
               <span className="launcher-mod-card-child-count">
-                <span className="launcher-mod-card-child-count-label">{childCountLabel ?? String(childCount)}</span>
+                <span className="launcher-mod-card-child-count-label">{libraryCopy.childModsCount(childCount)}</span>
               </span>
             )}
           </div>

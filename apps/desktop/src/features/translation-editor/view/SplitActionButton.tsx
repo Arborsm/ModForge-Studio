@@ -5,6 +5,7 @@
 
 import { ChevronDown } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
+import { useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 
 /** Props for the `SplitActionButton` component. */
@@ -16,12 +17,10 @@ type SplitActionButtonProps = {
   running?: boolean
   onMainClick: () => void
   mainDisabled?: boolean
-  mainAriaLabel?: string
   mainClassName?: string
   mainRef?: Ref<HTMLButtonElement>
   title?: string
   /** Accessible name for the chevron that opens the behavior popover. */
-  menuAriaLabel: string
   /** Prevents the popover from opening (e.g. while a run is active). */
   menuDisabled?: boolean
   /** Unmounts the popover content (e.g. while a run is active). */
@@ -42,16 +41,17 @@ export function SplitActionButton({
   running = false,
   onMainClick,
   mainDisabled = false,
-  mainAriaLabel,
   mainClassName,
   mainRef,
   title,
-  menuAriaLabel,
   menuDisabled = false,
   menuVisible = true,
   onMenuToggle,
   menu,
 }: SplitActionButtonProps) {
+  const copy = useTranslationEditorCopy()
+  const mainAriaLabel = running ? copy.reviewCancel : copy.aiTranslate
+  const menuAriaLabel = copy.aiTranslateMoreActions
   return (
     <div className="translation-split-button">
       <button

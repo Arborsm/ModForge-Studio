@@ -53,10 +53,19 @@ export interface PluginPageContribution {
 
 // ── Host commands ────────────────────────────────────────────────────────────
 
-/** Allowlisted host command names available to plugins. */
+/**
+ * Allowlisted host command names available to plugins. `deleteModEntry` removes
+ * an entry directory; `writeModEntryImage` writes a non-empty base64 image
+ * (`png`, `jpg`, `jpeg` or `webp`, max 16 MiB). Both paths are relative to a
+ * listed mod root and may use `sourceModRoot` only for a root under Mods.
+ * `loadModImage` reads an image file under Mods as a data URL (read-only).
+ */
 export type PluginCommandName =
   | 'readModFile'
   | 'writeModFile'
+  | 'deleteModEntry'
+  | 'writeModEntryImage'
+  | 'loadModImage'
   | 'listModDirectory'
   | 'readPluginAsset'
   | 'resolveTargetModRoot'
@@ -74,6 +83,24 @@ export interface PluginCommands {
 
 // ── Game asset payloads (returned by the game asset commands) ────────────────
 
+/**
+ * One directory-pack entry summary returned by `listModDirectory`. `id` is
+ * pack-local; the entry identity is the (`sourceModRoot`, `id`) pair. Pass
+ * `sourceModRoot` back to `readModFile`/`writeModFile` to route the operation
+ * to the mod directory the entry was listed from (the target mod itself or a
+ * content pack for it, when `includeContentPacks` was set).
+ */
+export interface PluginDirectoryEntry {
+  id: string
+  entryDir: string
+  entryFilePath: string
+  entryImagePath: string | null
+  /** Absolute path of the mod root containing this entry (target mod or a content pack for it). */
+  sourceModRoot: string
+  /** Display name of the mod containing this entry. */
+  sourceModName: string
+}
+
 /** Parsed text/data asset payload from `loadGameDataAsset`; `content` is the asset body (JSON-parseable for data assets). */
 export interface PluginGameDataAsset {
   absolutePath: string
@@ -89,9 +116,17 @@ export interface PluginAudioCueSummary {
 
 // ── Capabilities ─────────────────────────────────────────────────────────────
 
-/** Built-in capability lookup by id. */
+/**
+ * Capability lookup by id.
+ *
+ * Built-in ids (`plugin.id`, `plugin.targets`, `host.sdkVersion`,
+ * `host.locale`) are always available. Host capabilities are pure-function
+ * implementations owned by the host core; to reach one, the plugin must first
+ * declare its id in the manifest `contributions.capabilities` array.
+ * Undeclared or unknown ids return `undefined`.
+ */
 export interface PluginCapabilities {
-  /** Returns a built-in capability by id, or undefined if not found. */
+  /** Returns a capability by id, or undefined if not found or not declared. */
   get(id: string): unknown
 }
 
