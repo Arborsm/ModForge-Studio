@@ -1,5 +1,7 @@
 # 地图编辑器 UI 与操作逻辑改进方案
 
+> 状态：历史计划——要点已被后续迭代吸收（第二轮见 `map-editor-ux-improvement-plan-2.md`，调色板/壳层打磨见 `map-asset-ui-polish.md` 切片 C）。留存备查，落地情况以代码为准。
+
 ## 背景
 
 地图编辑器当前存在操作不直观、功能入口分散、交互不一致等问题，导致新手难以完成地图编辑制作。本方案基于对 MapAssetEditor / MapPatchEditor / MapTilesSessionEditor / CentralWorkspace 及其子组件的完整审查，给出分阶段改进路径。

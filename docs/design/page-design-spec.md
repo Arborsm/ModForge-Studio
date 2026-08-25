@@ -211,6 +211,7 @@
 
 - 用户可见字符串全部来自 typed locale bundles，不在组件中硬编码。
 - 数量、单位等动态文案也应通过 locale helper 格式化。
+- 文案口径（面向小白、去 CP 黑话、术语对照）以 [`workbench-design-principles.md`](./workbench-design-principles.md) §5 为准。
 
 ## 9. 交互状态
 
