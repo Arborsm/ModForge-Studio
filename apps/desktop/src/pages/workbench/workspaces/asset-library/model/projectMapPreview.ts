@@ -12,7 +12,6 @@ export function parseProjectMapDocument(content: string): MapDocument | null {
       ? (parsed as MapDocument)
       : null
   } catch {
-    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }

@@ -177,7 +177,6 @@ function loadVanillaSchedule(rootPath: string, npcId: string, locale: LocaleCode
       if (error instanceof Error && !/(does not exist|not found)/iu.test(error.message)) {
         reportRecovered(error, 'schedule-workspace.load-schedule')
       }
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     }
     return parseStringRecord(content)

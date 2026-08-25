@@ -103,7 +103,6 @@ async function loadVanillaMailLetters(rootPath: string, locale: LocaleCode): Pro
     try {
       parsed = JSON.parse(asset.content) as Record<string, unknown>
     } catch {
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return []
     }
     return Object.entries(parsed).flatMap(([key, value]) =>

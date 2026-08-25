@@ -178,13 +178,13 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     [applyUpdateResult, copy.updates, launcherPort, runUpdatesTask, settings.autoCheckModUpdates, settings.modsPath],
   )
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await loadUpdates(true)
-  }
+  }, [loadUpdates])
 
-  const revalidate = async () => {
+  const revalidate = useCallback(async () => {
     await loadUpdates(false)
-  }
+  }, [loadUpdates])
 
   const selectedItems = (() => {
     const selectedKeySet = new Set(selectedKeys)

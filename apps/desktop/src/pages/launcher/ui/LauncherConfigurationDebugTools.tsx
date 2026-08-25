@@ -59,7 +59,6 @@ export function NotificationTestButtons({ labels, debugEnabled }: { labels: Debu
         type="button"
         className="control-button launcher-debug-level-button"
         onClick={() =>
-          // observability-exempt: debug preview card intentionally exercises every notification attribute the builder does not model
           publishNotification({
             id: 'launcher-debug-full-attributes',
             level: 'warning',

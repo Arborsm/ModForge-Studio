@@ -426,19 +426,20 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const [latestVersionByModId, setLatestVersionByModId] = useState<Record<number, string>>({})
   const autoCoverFetchInFlightRef = useRef(false)
 
-  const persistLibraryState = async (
-    nextStateOrUpdater: LauncherLibraryState | ((currentState: LauncherLibraryState) => LauncherLibraryState),
-  ) => {
-    libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
-    return runLibraryStateSaveTask(async () => {
-      const nextState = typeof nextStateOrUpdater === 'function' ? nextStateOrUpdater(libraryStateRef.current) : nextStateOrUpdater
-      const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
-      const normalized = normalizeLibraryState(persisted)
-      libraryStateRef.current = normalized
-      setLibraryState(normalized)
-      return normalized
-    })
-  }
+  const persistLibraryState = useCallback(
+    async (nextStateOrUpdater: LauncherLibraryState | ((currentState: LauncherLibraryState) => LauncherLibraryState)) => {
+      libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
+      return runLibraryStateSaveTask(async () => {
+        const nextState = typeof nextStateOrUpdater === 'function' ? nextStateOrUpdater(libraryStateRef.current) : nextStateOrUpdater
+        const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
+        const normalized = normalizeLibraryState(persisted)
+        libraryStateRef.current = normalized
+        setLibraryState(normalized)
+        return normalized
+      })
+    },
+    [launcherPort, libraryRefreshTaskScope, runLibraryStateSaveTask],
+  )
 
   const cancelAutoCoverFetch = useCallback(() => {
     if (!autoCoverFetchInFlightRef.current) {
@@ -645,7 +646,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     })
   }, [launcherPort, settings.modsPath])
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await libraryRefreshTaskScope.runtime
       .latest(libraryRefreshTaskScope.key, async (scope: TaskScope) => {
         const activeScope = libraryRefreshTaskScope.capture(scope)
@@ -797,7 +798,15 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           throw nextError
         }
       })
-  }
+  }, [
+    cancelAutoCoverFetch,
+    copy,
+    launcherPort,
+    libraryRefreshTaskScope,
+    settings.autoCheckModUpdates,
+    settings.modsPath,
+    startAutoCoverFetch,
+  ])
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys

@@ -1,5 +1,5 @@
 import { Grid2x2, Grip, Info, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
 import { exportMapPng } from '@entities/game/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
@@ -119,7 +119,7 @@ export default function CentralWorkspace({ tabState, atlasState, mapState, displ
     viewportRef.current?.focusObject(focusedObjectTarget)
   }, [focusedObjectTarget])
 
-  const mapOverlay = (() => {
+  const mapOverlay = useMemo(() => {
     if (!showGameWorldAdditions || !mapDocument) {
       return null
     }
@@ -132,16 +132,20 @@ export default function CentralWorkspace({ tabState, atlasState, mapState, displ
         textureAssets={worldOverlayTextureAssets}
       />
     )
-  })()
-  const worldLighting = mapDocument
-    ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
-        objectLightIndex,
-      })
-    : null
+  }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
+  const worldLighting = useMemo(
+    () =>
+      mapDocument
+        ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+            objectLightIndex,
+          })
+        : null,
+    [lightingMode, lightingSeason, mapDocument, objectLightIndex],
+  )
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
-  const exportMapPngAtFullSize = async () => {
+  const exportMapPngAtFullSize = useCallback(async () => {
     if (!mapDocument) {
       return
     }
@@ -174,7 +178,7 @@ export default function CentralWorkspace({ tabState, atlasState, mapState, displ
         .context({ source: 'map-workspace', operation: 'export-map-png' })
         .emit()
     }
-  }
+  }, [copy.viewportLabels, mapDocument])
 
   return (
     <div className="bg-surface-viewport rounded-panel flex h-full flex-col overflow-hidden">

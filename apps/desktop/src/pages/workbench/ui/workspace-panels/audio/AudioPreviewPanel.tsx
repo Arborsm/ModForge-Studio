@@ -194,7 +194,6 @@ export function AudioPreviewPanel({
           const channels = Array.from({ length: buffer.numberOfChannels }, (_, index) => buffer.getChannelData(index))
           setPeaks(computeWaveformPeaks(channels, WAVEFORM_BUCKETS))
           setDuration(buffer.duration)
-          // observability-exempt: 音频波形解码失败时仅跳过 peaks/duration 预计算，Audio 元素仍可用自身 metadata 播放
         } catch {
           // Decode failure must not block playback: fall back to element metadata.
         }

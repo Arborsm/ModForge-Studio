@@ -124,7 +124,6 @@ export function getLauncherReorderPayloadFromDropId(dropId: string) {
     const afterKey = decodeURIComponent(payload.slice(separatorIndex + 1))
     return containerKey && afterKey ? { containerKey, afterKey } : null
   } catch {
-    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }

@@ -44,7 +44,6 @@ export interface GooeyNavProps {
   /** Fires when the user clicks a nav item. Receives the item index. */
   onChange?: (index: number) => void
   /** Accessible label for the `<nav>` element. */
-  // props-exempt: 通用 UI primitive，无障碍名称语义由使用场景决定，保留为合法组件 API
   ariaLabel?: string
   /** Additional class names appended to the root container. */
   className?: string

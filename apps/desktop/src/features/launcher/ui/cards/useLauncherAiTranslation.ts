@@ -102,7 +102,6 @@ function parseCached(value: string): LauncherTranslationPayload | null {
     const parsed = JSON.parse(value) as LauncherTranslationPayload
     return typeof parsed.overview === 'string' && typeof parsed.full === 'string' && Array.isArray(parsed.changelog) ? parsed : null
   } catch {
-    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }
@@ -322,7 +321,6 @@ export function useLauncherAiTranslation({
           setState('ready')
         }
       })
-      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false

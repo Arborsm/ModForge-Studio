@@ -141,7 +141,6 @@ export const CompatModuleRuntime: ComponentType<CompatModuleRuntimeProps> = func
       try {
         const catalog = await loadGameItemCatalog()
         if (!cancelled) setGameItemOptions(catalog.options)
-        // observability-exempt: 游戏物品目录加载失败时只隐藏 game-item 建议项，字段仍允许用户输入自由文本
       } catch {
         // Free-text entry still works without the catalog; silently degrade.
       }

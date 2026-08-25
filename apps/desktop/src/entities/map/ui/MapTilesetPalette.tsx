@@ -347,7 +347,6 @@ export function MapTilesetPalette({
           if (imported.length === 0) return
           const prefs = usePreferencesStore.getState().mapEditorPalette
           setPalettePrefs({ favorites: mergeFavoriteSelections(prefs.favorites, imported) })
-          // observability-exempt: 导入的调色板收藏 JSON 或条目字段非法时跳过本次导入，避免覆盖现有 favorites
         } catch {
           // Ignore malformed JSON
         }

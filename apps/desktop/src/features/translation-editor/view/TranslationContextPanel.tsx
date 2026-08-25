@@ -86,7 +86,6 @@ export function TranslationContextPanel({
         } finally {
           if (task.isCurrent()) setLoading(false)
         }
-        // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       }).catch(() => undefined)
     }, 180)
     return () => window.clearTimeout(handle)

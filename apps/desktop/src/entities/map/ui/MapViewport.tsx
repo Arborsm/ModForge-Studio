@@ -1223,7 +1223,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     forceViewportRefresh()
   }, [forceViewportRefresh])
 
-  const resetViewportToOrigin = () => {
+  const resetViewportToOrigin = useCallback(() => {
     const viewport = viewportRef.current
     if (!viewport) {
       return
@@ -1232,7 +1232,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     viewport.scrollLeft = 0
     viewport.scrollTop = 0
     forceViewportRefresh()
-  }
+  }, [forceViewportRefresh])
 
   const centerViewportOnWorldPoint = useCallback(
     (worldX: number, worldY: number) => {
@@ -1260,26 +1260,29 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       : defaultFocusWorldPoint
   }, [defaultFocusWorldPoint, focusWorldPoint])
 
-  const setZoomAnchorFromClient = (clientX: number, clientY: number) => {
-    const viewport = viewportRef.current
-    if (!viewport) {
-      pendingZoomAnchorRef.current = null
-      return
-    }
+  const setZoomAnchorFromClient = useCallback(
+    (clientX: number, clientY: number) => {
+      const viewport = viewportRef.current
+      if (!viewport) {
+        pendingZoomAnchorRef.current = null
+        return
+      }
 
-    const rect = viewport.getBoundingClientRect()
-    const viewportX = clientX - rect.left
-    const viewportY = clientY - rect.top
+      const rect = viewport.getBoundingClientRect()
+      const viewportX = clientX - rect.left
+      const viewportY = clientY - rect.top
 
-    pendingZoomAnchorRef.current = {
-      viewportX,
-      viewportY,
-      worldX: (viewport.scrollLeft + viewportX - canvasOffset.left) / zoom,
-      worldY: (viewport.scrollTop + viewportY - canvasOffset.top) / zoom,
-    }
-  }
+      pendingZoomAnchorRef.current = {
+        viewportX,
+        viewportY,
+        worldX: (viewport.scrollLeft + viewportX - canvasOffset.left) / zoom,
+        worldY: (viewport.scrollTop + viewportY - canvasOffset.top) / zoom,
+      }
+    },
+    [canvasOffset.left, canvasOffset.top, zoom],
+  )
 
-  const setZoomAnchorFromViewportCenter = () => {
+  const setZoomAnchorFromViewportCenter = useCallback(() => {
     const viewport = viewportRef.current
     if (!viewport) {
       pendingZoomAnchorRef.current = null
@@ -1288,62 +1291,68 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     const rect = viewport.getBoundingClientRect()
     setZoomAnchorFromClient(rect.left + rect.width / 2, rect.top + rect.height / 2)
-  }
+  }, [setZoomAnchorFromClient])
 
-  const applyManualZoom = (nextZoom: number, anchor?: { clientX: number; clientY: number }) => {
-    if (anchor) {
-      setZoomAnchorFromClient(anchor.clientX, anchor.clientY)
-    } else {
-      setZoomAnchorFromViewportCenter()
-    }
+  const applyManualZoom = useCallback(
+    (nextZoom: number, anchor?: { clientX: number; clientY: number }) => {
+      if (anchor) {
+        setZoomAnchorFromClient(anchor.clientX, anchor.clientY)
+      } else {
+        setZoomAnchorFromViewportCenter()
+      }
 
-    setZoomMode('manual')
-    setManualZoom(clampZoom(nextZoom))
-    onHoverChange?.(null)
-  }
+      setZoomMode('manual')
+      setManualZoom(clampZoom(nextZoom))
+      onHoverChange?.(null)
+    },
+    [onHoverChange, setZoomAnchorFromClient, setZoomAnchorFromViewportCenter],
+  )
 
-  const applyFitZoom = () => {
+  const applyFitZoom = useCallback(() => {
     pendingZoomAnchorRef.current = null
     setZoomMode('fit')
     onHoverChange?.(null)
-  }
+  }, [onHoverChange])
 
-  const zoomInStep = () => {
+  const zoomInStep = useCallback(() => {
     applyManualZoom(zoom * PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
-  }
+  }, [applyManualZoom, zoom])
 
-  const zoomOutStep = () => {
+  const zoomOutStep = useCallback(() => {
     applyManualZoom(zoom / PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
-  }
+  }, [applyManualZoom, zoom])
 
-  const focusObjectTarget = (target: FocusedMapObjectTarget) => {
-    if (!mapDocument) {
-      return
-    }
+  const focusObjectTarget = useCallback(
+    (target: FocusedMapObjectTarget) => {
+      if (!mapDocument) {
+        return
+      }
 
-    const group = mapDocument.objectGroups.find((candidate) => candidate.id === target.groupId)
-    const object = group?.objects.find((candidate) => candidate.id === target.objectId)
-    if (!group || !object) {
-      return
-    }
+      const group = mapDocument.objectGroups.find((candidate) => candidate.id === target.groupId)
+      const object = group?.objects.find((candidate) => candidate.id === target.objectId)
+      if (!group || !object) {
+        return
+      }
 
-    const bounds = getObjectBounds(object, 12)
-    const worldX = bounds.x + bounds.width / 2
-    const worldY = bounds.y + bounds.height / 2
+      const bounds = getObjectBounds(object, 12)
+      const worldX = bounds.x + bounds.width / 2
+      const worldY = bounds.y + bounds.height / 2
 
-    setHighlightedObjectTarget(target)
+      setHighlightedObjectTarget(target)
 
-    if (zoomMode === 'fit') {
-      pendingFocusWorldPointRef.current = { worldX, worldY }
-      setManualZoom(zoomRef.current)
-      setZoomMode('manual')
-      return
-    }
+      if (zoomMode === 'fit') {
+        pendingFocusWorldPointRef.current = { worldX, worldY }
+        setManualZoom(zoomRef.current)
+        setZoomMode('manual')
+        return
+      }
 
-    centerViewportOnWorldPoint(worldX, worldY)
-  }
+      centerViewportOnWorldPoint(worldX, worldY)
+    },
+    [centerViewportOnWorldPoint, mapDocument, zoomMode],
+  )
 
-  const exportPng = async () => {
+  const exportPng = useCallback(async () => {
     if (!mapDocument) {
       throw new Error(labels.failedToExportPng)
     }
@@ -1380,7 +1389,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
     }
     return btoa(binary)
-  }
+  }, [labels.failedToExportPng, mapDocument])
 
   useImperativeHandle(
     ref,

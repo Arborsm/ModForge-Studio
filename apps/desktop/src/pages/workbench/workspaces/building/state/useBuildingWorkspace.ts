@@ -82,9 +82,15 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(buildingFilter.trim().toLowerCase())
-  const filteredConstructibleGroups = constructibleGroups.filter((group) => !deferredFilter || group.searchText.includes(deferredFilter))
-  const filteredWorldBuildings = worldBuildings.filter((building) => !deferredFilter || building.searchText.includes(deferredFilter))
-  const buildingLookup = buildModEntryLookup(buildingEntries, (building) => building.key)
+  const filteredConstructibleGroups = useMemo(
+    () => constructibleGroups.filter((group) => !deferredFilter || group.searchText.includes(deferredFilter)),
+    [constructibleGroups, deferredFilter],
+  )
+  const filteredWorldBuildings = useMemo(
+    () => worldBuildings.filter((building) => !deferredFilter || building.searchText.includes(deferredFilter)),
+    [deferredFilter, worldBuildings],
+  )
+  const buildingLookup = useMemo(() => buildModEntryLookup(buildingEntries, (building) => building.key), [buildingEntries])
   const modBuildingGroups = useMemo(
     () =>
       buildModBrowserGroups({
@@ -202,7 +208,6 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
                 return JSON.parse(loadedAsset.content) as MapDocument
               } catch {
-                // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
                 return null
               }
             },

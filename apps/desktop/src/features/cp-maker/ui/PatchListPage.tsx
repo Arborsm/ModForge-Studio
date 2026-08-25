@@ -20,7 +20,7 @@ import {
   Search,
   Sun,
 } from 'lucide-react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { DraftPatch } from '@features/cp-maker'
 import type { WorkspaceId } from '@features/cp-maker'
@@ -155,7 +155,7 @@ export function PatchListPage({
     void warmEventEditorResources(gameRootPath, locale)
   }, [gameRootPath, locale])
 
-  const hubPatches = useMemo(() => buildEventPatchHubPatches(patches), [patches])
+  const hubPatches = buildEventPatchHubPatches(patches)
   const normalizedQuery = query.trim().toLowerCase()
   const visiblePatches = hubPatches.filter((patch) => !normalizedQuery || patch.searchText.includes(normalizedQuery))
   const existingEventTargets = patches

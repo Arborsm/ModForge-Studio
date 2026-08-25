@@ -174,7 +174,6 @@ export function LauncherUpdatesPage({
     setStatusRetryPending(true)
     try {
       await onRetryDiagnostics?.()
-      // observability-exempt: 更新诊断重试失败时由 finally 中的 updates.revalidate() 重新获取失败原因，保留现有更新卡片状态
     } catch {
       // The follow-up updates revalidation will surface the latest failure reason.
     } finally {

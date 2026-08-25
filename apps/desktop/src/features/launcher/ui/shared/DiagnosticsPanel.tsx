@@ -93,7 +93,6 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
       const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(routeId)
       setRoutes((currentRoutes) => mergeLauncherNexusDiagnostics(currentRoutes, diagnostics.routes))
       setLastRefreshedAt(Date.now())
-      // observability-exempt: 单条 Nexus 诊断路由重试失败时保留该路由的最后结果，面板仍显示原失败详情供再次重试
     } catch {
       // Keep last state on failure
     } finally {

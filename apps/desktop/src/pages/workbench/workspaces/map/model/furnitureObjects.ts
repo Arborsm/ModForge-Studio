@@ -100,7 +100,6 @@ function parseStringTable(content: string | null): Record<string, string> | null
     }
     return table
   } catch {
-    // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
     return null
   }
 }

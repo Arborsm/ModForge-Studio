@@ -61,7 +61,6 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     } catch (error) {
       if (error instanceof TaskCancelledError) {
         if (scanGenerationRef.current === generation) setLoading(false)
-        // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
         return []
       }
       if (scanGenerationRef.current !== generation) return []
@@ -157,7 +156,6 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
       return selected
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : String(error))
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     } finally {
       setLoading(false)

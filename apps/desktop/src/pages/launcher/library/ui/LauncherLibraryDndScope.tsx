@@ -340,11 +340,11 @@ export function LauncherLibraryDndScope({
     delete document.body.dataset[LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY]
   }, [])
 
-  const armReleaseClickSuppression = () => {
+  const armReleaseClickSuppression = useCallback(() => {
     clearReleaseClickSuppression()
     document.body.dataset[LAUNCHER_LIBRARY_SUPPRESS_RELEASE_CLICK_DATA_KEY] = 'true'
     releaseClickSuppressionTimeoutRef.current = window.setTimeout(clearReleaseClickSuppression, 80)
-  }
+  }, [clearReleaseClickSuppression])
 
   const activatePendingDrag = useCallback(() => {
     const drag = pendingDragRef.current

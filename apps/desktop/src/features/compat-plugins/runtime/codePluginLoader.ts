@@ -414,7 +414,6 @@ export function disposeCodePlugins(disposeHooks: (() => void)[]): void {
   for (const fn of disposeHooks) {
     try {
       fn()
-      // observability-exempt: 插件卸载钩子失败时继续执行其余 dispose hooks，并清空钩子列表，避免一个插件阻断整体卸载
     } catch {
       // Dispose errors are non-fatal; the plugin is being unloaded anyway.
     }

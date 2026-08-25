@@ -65,7 +65,6 @@ export function useWorkbenchGameDirectory({ active, desktopHost, copy }: UseWork
         message: `${copy.messages.validationFailed} ${error instanceof Error ? error.message : String(error)}`,
       })
       reportRecovered(error, 'workbench-game-directory.validate')
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     }
   }
@@ -91,7 +90,6 @@ export function useWorkbenchGameDirectory({ active, desktopHost, copy }: UseWork
       if (!isDirectorySelectionCancelled(error)) {
         reportRecovered(error, 'workbench-game-directory.choose')
       }
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     }
   }
@@ -132,7 +130,6 @@ export function useWorkbenchGameDirectory({ active, desktopHost, copy }: UseWork
         message: `${copy.messages.automaticDetectionFailed} ${error instanceof Error ? error.message : String(error)}`,
       })
       reportRecovered(error, 'workbench-game-directory.detect')
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return null
     }
   }

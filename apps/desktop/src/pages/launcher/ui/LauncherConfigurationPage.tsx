@@ -1730,7 +1730,6 @@ export function LauncherConfigurationPage({
       if (diagnostics.routes.some((route) => route.status === 'loading')) {
         handleRefreshDiagnostics()
       }
-      // observability-exempt: 切换 Nexus 强制离线模式失败时保留当前诊断路由，避免调试开关错误覆盖已显示的状态
     } catch {
       // The config page should keep the last visible route state if the debug override fails.
     } finally {
@@ -1747,7 +1746,6 @@ export function LauncherConfigurationPage({
         force: true,
         forceNonPremium: nextForceNonPremium,
       })
-      // observability-exempt: 强制非 Premium 刷新 API key 状态失败时保留当前账户层级开关，避免调试覆盖影响可见设置
     } catch {
       // Debug-only account tier override should keep the current state on failure.
     } finally {

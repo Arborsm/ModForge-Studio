@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   syncLightMapProperty,
   type MapDocument,
@@ -231,13 +231,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   // via useSyncExternalStore and re-renders on tile change.
   const hoverInfoRef = useRef<TileHoverInfo | null>(null)
   const hoverInfoListenersRef = useRef(new Set<() => void>())
-  const subscribeHoverInfo = (listener: () => void) => {
+  const subscribeHoverInfo = useCallback((listener: () => void) => {
     hoverInfoListenersRef.current.add(listener)
     return () => {
       hoverInfoListenersRef.current.delete(listener)
     }
-  }
-  const getHoverInfo = () => hoverInfoRef.current
+  }, [])
+  const getHoverInfo = useCallback(() => hoverInfoRef.current, [])
   // Hover fires per pointermove with a fresh info object; only the hovered tile
   // coordinates are displayed, so suppress updates that keep the same tile
   // to avoid notifying subscribers on every pixel of mouse travel.

@@ -167,10 +167,13 @@ export function useWorkbenchProjectController({
     setUnsavedError(null)
   }, [unsavedSaving])
 
-  const runProjectAction = (action: () => void | Promise<void>) =>
-    runWithExternalGuard(async () => {
-      await runWithUnsavedGuard(action)
-    })
+  const runProjectAction = useCallback(
+    (action: () => void | Promise<void>) =>
+      runWithExternalGuard(async () => {
+        await runWithUnsavedGuard(action)
+      }),
+    [runWithExternalGuard, runWithUnsavedGuard],
+  )
 
   const createDraft = useCallback(
     (input: Parameters<UseCpMakerReturn['createDraft']>[0], onCreated?: () => void | Promise<void>) =>

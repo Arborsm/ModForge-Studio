@@ -659,7 +659,6 @@ async function resolveEffectAsset(
   let image: LoadedImageResource | null = null
   try {
     image = await preloadImage(path, imageLoader)
-    // observability-exempt: 特效纹理缺失或不可读时返回 null 尺寸和 URL，让事件舞台跳过该纹理而继续渲染
   } catch {
     // Missing or unreadable effect textures should fail gracefully.
   }

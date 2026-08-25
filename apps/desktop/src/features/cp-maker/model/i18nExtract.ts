@@ -88,7 +88,6 @@ function parseExistingDefaults(draft: CpMakerDraft): Set<string> {
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
       return new Set(Object.keys(parsed as Record<string, unknown>))
     }
-    // observability-exempt: default locale 的 rawJson 非法时返回空已有键集合，让提取结果继续合并新条目
   } catch {
     // An unreadable default.json must not block extraction; entries merge later.
   }

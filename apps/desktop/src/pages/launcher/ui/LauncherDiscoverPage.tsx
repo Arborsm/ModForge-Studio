@@ -1020,7 +1020,6 @@ function LauncherDiscoverPageContent({
     setBlockedRetryPending(true)
     try {
       await onRetryDiagnostics?.()
-      // observability-exempt: 诊断重试失败时由 finally 中的 discover.revalidate() 重新获取阻塞原因，当前发现结果无需被清空
     } catch {
       // The follow-up discover revalidation will surface the latest blocked reason.
     } finally {

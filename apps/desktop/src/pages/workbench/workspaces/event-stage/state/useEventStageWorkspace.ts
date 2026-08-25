@@ -350,10 +350,17 @@ export function useEventStageWorkspace({
           : copy.stageWaiting
   const renderedPlaybackState = useMemo(() => deriveMapDrivenPlaybackState(playbackState, mapDocument), [mapDocument, playbackState])
 
-  const visibleLayerIds = mapDocument
-    ? mapDocument.layers.filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name))).map((layer) => layer.id)
-    : []
-  const visibleObjectGroupIds = mapDocument ? mapDocument.objectGroups.filter((group) => group.visible).map((group) => group.id) : []
+  const visibleLayerIds = useMemo(
+    () =>
+      mapDocument
+        ? mapDocument.layers.filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name))).map((layer) => layer.id)
+        : [],
+    [mapDocument, showMapPaths],
+  )
+  const visibleObjectGroupIds = useMemo(
+    () => (mapDocument ? mapDocument.objectGroups.filter((group) => group.visible).map((group) => group.id) : []),
+    [mapDocument],
+  )
   const worldOverlaySprites = useMemo<StageWorldOverlaySprite[]>(
     () => buildStageWorldOverlaySprites(mapDocument, buildingDataIndex),
     [buildingDataIndex, mapDocument],
@@ -621,7 +628,17 @@ export function useEventStageWorkspace({
     [characterTextureIndex, directoryInfo?.rootPath, playerAppearanceProfile, renderedPlaybackState.actors],
   )
 
-  const actorAssetRequests = actorAssetRequestsRaw
+  // The actors record gets a fresh identity on every actor-touching playback
+  // transition (move/animate/faceDirection...). Without stabilization the
+  // request array would look "new" each transition and re-fire the asset-change
+  // effect upstream, re-rendering the whole editor per command. The requestKey
+  // fully encodes what a request needs, so identical signatures keep the old array.
+  const actorAssetRequestSignature = actorAssetRequestsRaw.map((request) => `${request.actorKey}=${request.requestKey}`).join('||')
+  const actorAssetRequests = useMemo(
+    () => actorAssetRequestsRaw,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- signature captures raw contents
+    [actorAssetRequestSignature],
+  )
 
   const currentActorAssets = useMemo(
     () =>
@@ -837,12 +854,16 @@ export function useEventStageWorkspace({
     [renderedPlaybackState.notices, renderedPlaybackState.stageEffects, worldOverlaySprites],
   )
 
-  const currentEffectAssets = Object.fromEntries(
-    effectTextureRequests.flatMap((textureName) => {
-      const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
-      const asset = effectAssets[textureName]
-      return asset?.requestKey === requestKey ? [[textureName, asset] as const] : []
-    }),
+  const currentEffectAssets = useMemo(
+    () =>
+      Object.fromEntries(
+        effectTextureRequests.flatMap((textureName) => {
+          const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
+          const asset = effectAssets[textureName]
+          return asset?.requestKey === requestKey ? [[textureName, asset] as const] : []
+        }),
+      ),
+    [directoryInfo?.rootPath, effectAssets, effectTextureRequests],
   )
 
   const pendingEffectTextureRequests = useMemo(
@@ -910,7 +931,7 @@ export function useEventStageWorkspace({
   // Static lightmap for the multiply overlay; re-derives when the active event
   // (fork branches re-read their own preconditions), the map, or the playback
   // lights change — never per animation frame.
-  const worldLighting = (() => {
+  const worldLighting = useMemo(() => {
     const activeEvent =
       (renderedPlaybackState.activeEventKey ? parsedEventAsset?.eventIndex[renderedPlaybackState.activeEventKey] : null) ?? selectedEvent
     return deriveEventStageLighting({
@@ -919,7 +940,14 @@ export function useEventStageWorkspace({
       lanterns: renderedPlaybackState.lanternLights,
       ambientLightColor: renderedPlaybackState.ambientOverlayColor,
     })
-  })()
+  }, [
+    mapDocument,
+    parsedEventAsset?.eventIndex,
+    renderedPlaybackState.activeEventKey,
+    renderedPlaybackState.ambientOverlayColor,
+    renderedPlaybackState.lanternLights,
+    selectedEvent,
+  ])
 
   const currentDialogueActor =
     renderedPlaybackState.currentEntry?.tone === 'dialogue' && renderedPlaybackState.currentEntry.actorName

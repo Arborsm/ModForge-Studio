@@ -529,7 +529,6 @@ function AiLocalizationOverview({
       .error(error)
       .context({ source: 'ai-localization-overview', operation: key })
       .emit({ notify: false })
-    // observability-exempt: appEvent 不支持 eyebrow 字段，保留原通知结构
     publishNotification({
       id: OVERVIEW_NOTICE,
       level: 'error',

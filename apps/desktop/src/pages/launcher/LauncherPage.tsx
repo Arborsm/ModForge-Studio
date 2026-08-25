@@ -166,7 +166,6 @@ export function LauncherPage({
           .filter((label): label is string => label != null)
           .map((label) => ({ label, tone: 'warning' as const }))
 
-        // observability-exempt: diagnostic variant card uses chips/summary/note fields the appEvent builder does not model
         publishNotification({
           id: GMCM_PROBE_NOTIFICATION_ID,
           level: diagnostics.status === 'warning' ? 'warning' : 'error',

@@ -86,7 +86,6 @@ export function extractCompletedTranslationItems(accumulated: string): AiTransla
       if (isCompletedTranslationItem(parsed)) {
         items.push({ ...parsed, skippedSameLanguage: false })
       }
-      // observability-exempt: 流式缓冲中的嵌套或未闭合 JSON 片段解析失败时只丢弃该候选，已完成的翻译项继续输出
     } catch {
       // Nested or incomplete objects are skipped; streaming continues.
     }

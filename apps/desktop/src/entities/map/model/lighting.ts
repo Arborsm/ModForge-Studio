@@ -693,7 +693,6 @@ export function buildObjectLightItemIndex(
       return table
     } catch {
       // A malformed strings table simply disables token resolution.
-      // observability-exempt: the caller treats this parse or read failure as an explicit empty result, so the fallback is recoverable and intentional
       return {}
     }
   }
@@ -725,7 +724,6 @@ export function buildObjectLightItemIndex(
           index.bigCraftableIdsByName[lookupName] = id
         }
       }
-      // observability-exempt: big-craftable 资产 JSON 损坏时只保留空 bigCraftables 索引，家具和其他光源索引仍可构建
     } catch {
       // Malformed asset content simply yields an empty index.
     }
@@ -757,7 +755,6 @@ export function buildObjectLightItemIndex(
           index.furnitureIdsByName[lookupName] = id
         }
       }
-      // observability-exempt: furniture 资产 JSON 损坏时只保留空 furnitureTypes 索引，big-craftable 光源数据仍可使用
     } catch {
       // Malformed asset content simply yields an empty index.
     }

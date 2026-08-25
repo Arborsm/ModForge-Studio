@@ -20,7 +20,6 @@ type DialogHeaderProps = {
   /** Invoked by the close button. */
   onClose: () => void
   /** Accessible label for the close button. */
-  // props-exempt: 通用 UI primitive，无障碍名称语义由使用场景决定，保留为合法组件 API
   closeLabel: string
   /** Disables only the header close button; Escape/backdrop are controlled by Dialog props. */
   closeDisabled?: boolean

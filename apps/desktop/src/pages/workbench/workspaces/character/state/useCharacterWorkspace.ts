@@ -72,7 +72,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisua
 
   const deferredFilter = useDeferredValue(characterFilter.trim().toLowerCase())
   const filteredCharacters = characters.filter((character) => !deferredFilter || character.searchText.includes(deferredFilter))
-  const characterLookup = buildModEntryLookup(characters, (character) => character.key)
+  const characterLookup = useMemo(() => buildModEntryLookup(characters, (character) => character.key), [characters])
   const modCharacterGroups = useMemo(
     () =>
       buildModBrowserGroups({

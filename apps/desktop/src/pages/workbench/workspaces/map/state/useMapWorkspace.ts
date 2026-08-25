@@ -241,7 +241,7 @@ export function useMapWorkspace({
     const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
     return haystack.includes(deferredAssetFilter)
   })
-  const mapLookup = buildModEntryLookup(mapAssets, (asset) => asset.id)
+  const mapLookup = useMemo(() => buildModEntryLookup(mapAssets, (asset) => asset.id), [mapAssets])
   const modMapGroups = useMemo(
     () =>
       buildModBrowserGroups({

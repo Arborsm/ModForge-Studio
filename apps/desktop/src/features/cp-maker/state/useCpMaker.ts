@@ -3,7 +3,7 @@
  * content.json/manifest.json generation for the active draft.
  * @module features/cp-maker
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { CpMakerPort } from '@features/cp-maker/provider'
 import type {
@@ -983,7 +983,7 @@ export function useCpMaker() {
     })
   }
 
-  const updatePatch = (patchId: string, patch: Partial<DraftPatch>) => {
+  const updatePatch = useCallback((patchId: string, patch: Partial<DraftPatch>) => {
     const updatedAt = Date.now()
     setActiveDraft((current) => {
       if (!current) return current
@@ -994,7 +994,7 @@ export function useCpMaker() {
     })
     setIsDirty(true)
     setDirtyPatchIds((current) => new Set(current).add(patchId))
-  }
+  }, [])
 
   /** Moves one patch one position in the draft's export order; a boundary move is a no-op. `within` skips non-matching patches. */
   const reorderPatch = (patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) => {
@@ -1131,7 +1131,6 @@ export function useCpMaker() {
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             Object.assign(existing, parsed)
           }
-          // observability-exempt: 目标 locale 文件 JSON 损坏时将已有键视为空集合，并用本次提取 entries 重建该文件
         } catch {
           // An unreadable file is rebuilt from the incoming entries.
         }
@@ -1172,15 +1171,21 @@ export function useCpMaker() {
     setIsDirty(true)
   }
 
-  const readProjectAsset = async (relativePath: string) => {
-    if (!activeDraft) throw new Error('No active draft is available.')
-    return port.readProjectAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
-  }
+  const readProjectAsset = useCallback(
+    async (relativePath: string) => {
+      if (!activeDraft) throw new Error('No active draft is available.')
+      return port.readProjectAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
+    },
+    [activeDraft, port],
+  )
 
-  const loadProjectMapAsset = async (relativePath: string) => {
-    if (!activeDraft) throw new Error('No active draft is available.')
-    return port.loadProjectMapAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
-  }
+  const loadProjectMapAsset = useCallback(
+    async (relativePath: string) => {
+      if (!activeDraft) throw new Error('No active draft is available.')
+      return port.loadProjectMapAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
+    },
+    [activeDraft, port],
+  )
 
   const writeProjectAsset = async (
     asset: Pick<VirtualPreviewAsset, 'relativePath' | 'mediaType' | 'bytesBase64'>,

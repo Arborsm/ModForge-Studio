@@ -33,7 +33,6 @@ type CompactSelectProps<TValue extends string | number> = {
   /** Called with the value of the picked option. */
   onChange: (value: TValue) => void
   /** Accessible label for the trigger. */
-  // props-exempt: 通用 UI primitive，无障碍名称语义由使用场景决定，保留为合法组件 API
   ariaLabel: string
   /** Shown on the trigger when the value matches no option; without it the first option is displayed instead. */
   placeholder?: string

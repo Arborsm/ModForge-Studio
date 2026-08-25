@@ -129,7 +129,6 @@ export function useLauncherSettings() {
                 nextSettings.modsPath = deriveModsPath(detectedGamePath)
               }
             }
-            // observability-exempt: 默认游戏目录探测失败时继续使用已持久化的 launcher 路径，且宿主 command 错误已由 HostCommandClient 记录
           } catch {
             // Detection failure should not block loading persisted launcher settings.
           }
@@ -278,7 +277,6 @@ export function useLauncherSettings() {
 
     try {
       await saveSettingsRef.current(currentResolved)
-      // observability-exempt: 退出时保存失败只跳过本次 flush，常规自动保存路径已对持久化错误上报并保留 dirty 状态
     } catch {
       // Exit-time flush is best effort; the normal autosave path still reports save errors.
     }

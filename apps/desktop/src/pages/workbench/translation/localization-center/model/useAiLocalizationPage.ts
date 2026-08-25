@@ -97,7 +97,6 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
         if (active) unlisten = dispose
         else dispose()
       })
-      // observability-exempt: 预期取消、资源可选加载或兼容性 fallback，保留现有状态行为
       .catch(() => undefined)
     return () => {
       active = false

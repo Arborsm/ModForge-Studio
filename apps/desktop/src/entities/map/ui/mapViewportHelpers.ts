@@ -122,7 +122,6 @@ export function getRasterAlphaBounds(canvas: HTMLCanvasElement) {
       : null
   } catch (error) {
     reportRecovered(error, 'map-viewport.compute-raster-bounds')
-    // observability-exempt: canvas read failure is indistinguishable from an empty result, so the null fallback is intentional (already logged above)
     return null
   }
 }
@@ -179,7 +178,6 @@ function getTransparentTileIds(loadedTileset: LoadedTilesetImage): ReadonlySet<n
   } catch (error) {
     nextCacheForImage.set(cacheKey, null)
     reportRecovered(error, 'map-viewport.compute-transparent-tiles')
-    // observability-exempt: canvas read failure is indistinguishable from an empty result, so the null fallback is intentional (already logged above)
     return null
   }
 }
