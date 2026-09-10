@@ -84,8 +84,10 @@ export type MapAssetMapCardsCopy = {
   warpSummaryTitle: (fromX: number, fromY: number, toMap: string) => string
   /** Warp card subtitle: lands at (toX, toY) on the target map. */
   warpSummaryLanding: (toX: number, toY: number) => string
-  /** Door entry summary for a door at (x, y). */
+  /** Door entry summary for a door at (x, y) without a destination. */
   doorEntry: (x: number, y: number) => string
+  /** Door entry summary with its destination map, e.g. "(6, 6) → AnimalShop". */
+  doorSummary: (x: number, y: number, toMap: string) => string
   /** Source badge of a warp entry: it came from the `Warp` map property. */
   warpSourceProperty: string
   /** Source badge of a warp entry: Back-layer per-cell `TouchAction`. */
@@ -116,28 +118,30 @@ export type MapAssetMapCardsCopy = {
   doorTargetConflict: string
   /** Door form: also write the door's destination action. */
   doorSetTarget: string
-  /** One day/night replacement group summary; null tile values are omitted. */
-  dayNightEntry: (layer: string, x: number, y: number, dayTile: number | null, nightTile: number | null) => string
-  /** One contiguous day/night replacement block summary (width×height); null tile values are omitted. */
-  dayNightBlock: (
-    layer: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    dayTile: number | null,
-    nightTile: number | null,
-  ) => string
   /** Cell count of a contiguous day/night block, e.g. "6 cells". */
   dayNightBlockCells: (count: number) => string
   /** Day/night replacement group count for the section head, e.g. "8 swaps". */
   dayNightCount: (count: number) => string
-  /** Section-head add button title: opens the warp dialog after a cell pick. */
-  addWarpTitle: string
-  /** Section-head add button title: opens the door add form after a cell pick. */
-  addDoorTitle: string
-  /** Section-head add button title: opens the day/night add form after a cell pick. */
-  addDayNightTitle: string
+  /** Day/night studio dialog title for adding one swap. */
+  dayNightStudioAddTitle: string
+  /** Day/night studio dialog title for editing one swap. */
+  dayNightStudioEditTitle: string
+  /** Edit icon-button label that opens the day/night studio for one swap. */
+  dayNightEdit: string
+  /** Edit icon-button label that opens the door dialog for one door entry. */
+  doorEdit: string
+  /** Door dialog title for editing one door entry. */
+  doorEditTitle: string
+  /** Day/night studio hint while waiting for a cell pick on the map. */
+  dayNightPickCellHint: string
+  /** Day/night studio hint while waiting for a night-tile pick on the sheet. */
+  dayNightPickNightTileHint: string
+  /** Day/night studio: some picked cells are empty and will be skipped, e.g. "2 cells are empty and will be skipped". */
+  dayNightEmptyCellsSkipped: (count: number) => string
+  /** Day/night studio: the picked rect spans multiple tilesheets and can't be swapped as one region. */
+  dayNightMixedTilesets: string
+  /** Day/night studio: the picked night origin would push the region past the sheet edge. */
+  dayNightNightOutOfBounds: string
   /** Long-list collapse link, e.g. "View all 8 groups ›". */
   viewAll: (count: number) => string
   /** Long-list collapse link once expanded. */
@@ -146,10 +150,10 @@ export type MapAssetMapCardsCopy = {
   deleteEntry: string
   /** Icon-button label that opens the warp destination dialog. */
   warpEdit: string
-  /** Inline add-form submit label. */
-  confirm: string
   /** Button that opens the inline add-door form. */
   addDoor: string
+  /** Section-head button that starts adding a warp entry. */
+  addWarp: string
   /** Button that opens the inline add day/night group form. */
   addDayNight: string
   /** Warp destination dialog title. */
@@ -168,20 +172,10 @@ export type MapAssetMapCardsCopy = {
   warpDialogCancel: string
   /** Warp dialog: confirm action. */
   warpDialogConfirm: string
-  /** Door form: tile X field label. */
-  doorX: string
-  /** Door form: tile Y field label. */
-  doorY: string
-  /** Door form: tilesheet field label. */
-  doorSheet: string
   /** Door form: tile index field label. */
   doorTileIndex: string
   /** Day/night form: layer name field label. */
   dayNightLayer: string
-  /** Day/night form: tile X field label. */
-  dayNightX: string
-  /** Day/night form: tile Y field label. */
-  dayNightY: string
   /** Day/night form: day tile index field label. */
   dayNightDayTile: string
   /** Day/night form: night tile index field label. */
@@ -196,6 +190,8 @@ export type MapAssetMapCardsCopy = {
   pickCellHint: string
   /** Picked-cell summary from the canvas picker, e.g. "Back · (12, 34)". */
   pickedCell: (layer: string, x: number, y: number) => string
+  /** Picked-rectangle summary from the canvas picker, e.g. "Back · (12, 34), 3×2". */
+  pickedRect: (layer: string, x: number, y: number, width: number, height: number) => string
   /** Picked-cell empty state before the user picks a cell. */
   pickedCellNone: string
   /** Picked-cell state when the chosen cell has no tile. */
@@ -203,11 +199,8 @@ export type MapAssetMapCardsCopy = {
   /** Label for the auto day tile (taken from the current cell tile). */
   dayTileAuto: string
   /** Hint for picking the night tile inside the tileset panel. */
-  pickNightTileHint: string
   /** Night-tile empty state before the user picks one. */
   nightTileNone: string
-  /** Error when the picked night tile comes from a different tilesheet. */
-  nightTileSheetMismatch: (name: string) => string
   /** Label for the auto door tile (taken from the current cell tile). */
   doorTileAuto: string
   /** Toggle for the advanced tileset reference/raw-properties section. */
@@ -216,12 +209,12 @@ export type MapAssetMapCardsCopy = {
   warpCarrierTouchDisabledHint: string
   /** Disabled hint appended to the action carrier option when the picked cell has no Buildings-layer tile. */
   warpCarrierActionDisabledHint: string
-  /** Disabled reason for the warp add button when no canvas cell is selected. */
-  addWarpDisabledNoCell: string
-  /** Disabled reason for the door add button when no canvas cell is selected. */
-  addDoorDisabledNoCell: string
-  /** Disabled reason for the day/night add button when no canvas cell is selected. */
-  addDayNightDisabledNoCell: string
+  /** Studio hint while waiting for the warp origin cell pick on the map. */
+  warpOriginPickHint: string
+  /** Hint appended to carrier options while the origin cell has not been picked yet. */
+  warpCarrierOriginDisabledHint: string
+  /** Studio hint while waiting for the door cell pick on the map. */
+  doorPickCellHint: string
 }
 
 /** Copy for the map editor top bar chips (music, indoor/outdoor, ambient). */
@@ -360,7 +353,6 @@ export type MapAssetEditorCopy = {
   cancel: string
   tools: string
   toolLabels: Record<'inspect' | 'brush' | 'stamp' | 'fill' | 'erase' | 'rectangle' | 'eyedropper' | 'hand', string>
-  selectCell: string
   flipHorizontal: string
   flipVertical: string
   rotateClockwise: string
@@ -378,24 +370,6 @@ export type MapAssetEditorCopy = {
   historyPaintRule: (rule: string, layer: string) => string
   /** Hint when a walkable erase cannot clear tileset definition-level rules on some cells. */
   overlayTilesetEraseBlocked: (count: number) => string
-  /** Per-cell animation editor section in the inspector cell area. */
-  cellAnimationTitle: string
-  /** Button that seeds a one-frame per-cell animation on the selected cell. */
-  cellAnimationAdd: string
-  /** Per-frame tile id input label. */
-  cellAnimationFrame: string
-  /** Per-frame duration input label (milliseconds). */
-  cellAnimationDuration: string
-  /** Button appending a frame to the per-cell animation. */
-  cellAnimationAddFrame: string
-  /** Button removing the whole per-cell animation of the selected cell. */
-  cellAnimationDelete: string
-  /** Warning when per-cell frames carry differing durations (the game plays all frames at the first duration). */
-  cellAnimationMixedDurationHint: string
-  /** Warning when a frame tile id falls outside the owning tileset's tile range. */
-  cellAnimationInvalidTile: string
-  /** Save/convert message counting hoisted and conflict-dropped per-cell animations. */
-  cellAnimationHoistWarning: (hoisted: number, dropped: number) => string
   addTileData: string
   /** Section title for the light-source block (placed light items). */
   markersTitle: string
@@ -403,21 +377,13 @@ export type MapAssetEditorCopy = {
   objectsTitle: string
   /** Fallback list label for a generic (non-light-marker) object. */
   genericObject: (id: number) => string
-  /** Subtitle shown for an object matched to a furniture catalog entry. */
-  matchedFurniture: (name: string) => string
-  /** Label for the frame info line in inspector (e.g. "4-directional, has alt state"). */
-  objectFrameInfo: (rotations: number, hasAlt: boolean) => string
   /** Section title for placed-furniture list derived from tile scanning. */
   furnitureTitle: string
   /** Secondary label for a placed furniture entry showing tile position. */
   furniturePosition: (x: number, y: number, layer: string) => string
-  /** Hint shown under the add-marker button while no canvas cell is selected. */
-  addTileDataHint: string
-  /** Inspector tab label for the map properties view (warps, doors, music, etc.). */
-  inspectorTabMap: string
-  /** Inspector tab label for the objects & light sources view. */
-  inspectorTabObjects: string
-  /** Inspector tab label for the tile animation management view. */
+  /** Inspector tab label for the merged objects & animations view. */
+  inspectorTabContent: string
+  /** Inspector tab label reused as the animations section title inside the content tab. */
   inspectorTabAnimations: string
   /** Inspector tab label for the advanced/raw properties & diagnostics view. */
   inspectorTabAdvanced: string
@@ -460,7 +426,19 @@ export type MapAssetEditorCopy = {
   /** History label for moving a marker. */
   moveMarker: string
   deleteObject: string
-  selectObject: string
+  /** Tilesheet import dialog copy. */
+  tilesheetImportTitle: string
+  tilesheetImportSearch: string
+  tilesheetImportEmpty: string
+  tilesheetImportFromDisk: string
+  tilesheetImportChooseFiles: string
+  tilesheetImportSelected: (count: number) => string
+  tilesheetImportAttached: string
+  tilesheetImportNoNew: string
+  tilesheetImportConfirm: (count: number) => string
+  tilesheetImportCancel: string
+  tilesheetImportFailed: string
+  tilesheetAttachPartialFailed: string
   addTileset: string
   replaceTileset: string
   /** History label for removing a tileset from the map. */
@@ -476,13 +454,10 @@ export type MapAssetEditorCopy = {
   tilesetExternalTsx: string
   tilesetExternalTsxHint: (source: string) => string
   tilesetExternalTsxInvalid: string
-  animation: string
-  animationTile: (tileId: number) => string
   frameTile: string
   frameDuration: string
   removeFrame: string
   addFrame: string
-  animationDurationWarning: string
   /** Animation editor: pause playback button label. */
   animationPause: string
   /** Animation editor: play playback button label. */
@@ -522,6 +497,8 @@ export type MapAssetEditorCopy = {
   animationFrameCount: (count: number) => string
   /** Animation dialog: title. */
   animationDialogTitle: string
+  /** Inspector animations section: link opening the animation dialog. */
+  animationManageAction: string
   /** Animation dialog: close button label. */
   animationDialogClose: string
   /** Animation dialog: hint shown when no tile is selected. */
@@ -723,6 +700,13 @@ export type MapAuthoringCopy = {
   importFailed: string
   mapLoadSummary: MapLoadSummaryCopy
   tilesSession: MapTilesSessionCopy
+  /** Restore-state copy for the project map asset editor session. */
+  assetSession: {
+    loading: string
+    loadFailed: string
+    retry: string
+    close: string
+  }
   /** Human-readable descriptions for the unified map shortcut registry, keyed by `MapShortcutBinding.description`. */
   shortcuts: Record<string, string>
 }

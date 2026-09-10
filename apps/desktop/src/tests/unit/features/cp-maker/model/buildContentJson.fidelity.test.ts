@@ -103,13 +103,13 @@ describe('content.json export fidelity', () => {
         makeTestPatch(
           'p3',
           'Portraits/Abigail',
-          { entryLabels: { X: 'x' }, titles: { X: 't' }, disabledEntries: { X: 1 }, patchMode: 'Overlay' },
+          { entryLabels: { X: 'x' }, titles: { X: 't' }, disabledEntries: { X: 1 }, loadFamily: 'images', patchMode: 'Overlay' },
           { workspace: 'characters', action: 'EditImage', fromFile: 'assets/abigail.png' },
         ),
       ]),
     )
 
-    for (const key of ['entryLabels', 'titles', 'disabledEntries']) {
+    for (const key of ['entryLabels', 'titles', 'disabledEntries', 'loadFamily']) {
       expect(text).not.toContain(key)
     }
     expect(changes.find((change) => change['Target'] === 'Portraits/Abigail')).toEqual({
@@ -118,6 +118,17 @@ describe('content.json export fidelity', () => {
       FromFile: 'assets/abigail.png',
       PatchMode: 'Overlay',
     })
+  })
+
+  it('skips an unconfigured Load (empty Target) instead of writing an empty change', () => {
+    // The asset library creates Load bindings with an empty target and keeps
+    // them until the author picks one; the pack must not carry `Target: ""`.
+    const { content, changes, text } = readPack(
+      mailDraft([makeTestPatch('p1', '', {}, { workspace: 'map', action: 'Load', fromFile: 'assets/maps/Custom.tmx' })]),
+    )
+    expect(changes).toEqual([])
+    expect(content.Changes).toEqual([])
+    expect(text).not.toContain('"Target"')
   })
 
   it('round-trips a draft the port wrote, entry values and order included', () => {

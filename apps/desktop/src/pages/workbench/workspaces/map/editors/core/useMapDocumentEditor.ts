@@ -164,6 +164,8 @@ export type MapDocumentEditor = {
   commitStroke: (points: readonly { tileX: number; tileY: number }[]) => void
   clickTile: (x: number, y: number) => void
   addTileset: (relativePath: string, replaceName?: string) => Promise<void>
+  /** Attaches multiple project tilesheets in one document/history update. */
+  addTilesets: (relativePaths: string[]) => Promise<{ failures: { path: string; message: string }[] }>
   /**
    * Attaches a vanilla game sheet as a dynamic reference (no project copy)
    * using its predefined catalog split, then selects it in the palette.
@@ -176,7 +178,8 @@ export type MapDocumentEditor = {
    * is disabled or the tileset is not found.
    */
   removeTileset: (name: string) => void
-  deleteSelectedObject: () => void
+  /** Deletes one object by id; a no-op when the id does not exist. */
+  deleteObject: (objectId: number) => void
   updateSelectedObject: (updates: Partial<MapObject>) => void
   updateActiveLayer: (updates: Partial<MapLayer>) => void
   updateSelectedTileset: (updater: (tileset: MapTileset) => MapTileset) => void
@@ -615,6 +618,68 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     }
   }
 
+  async function addTilesets(relativePaths: string[]) {
+    const failures: { path: string; message: string }[] = []
+    if (!capabilities.tilesetManagement) return { failures }
+    setSaveState({ status: 'saving', message: copy.loadingTileset })
+    let next = mapDocument
+    const urls: Record<string, string> = {}
+    let lastName: string | null = null
+    for (const relativePath of relativePaths) {
+      try {
+        const payload = await readProjectAsset(relativePath)
+        const dataUrl = `data:${payload.asset.mediaType};base64,${payload.bytesBase64}`
+        const dimensions = await measureImageDimensions(dataUrl)
+        if (dimensions.width % mapDocument.tileWidth !== 0 || dimensions.height % mapDocument.tileHeight !== 0) {
+          throw new Error(copy.invalidTilesetDimensions(dimensions.width, dimensions.height, mapDocument.tileWidth, mapDocument.tileHeight))
+        }
+        const columns = dimensions.width / mapDocument.tileWidth
+        const tileCount = columns * (dimensions.height / mapDocument.tileHeight)
+        const baseName =
+          relativePath
+            .split('/')
+            .pop()
+            ?.replace(/\.[^.]+$/u, '') || 'tileset'
+        const usedNames = new Set(next.tilesets.map((tileset) => tileset.name.toLowerCase()))
+        let name = baseName
+        for (let suffix = 2; usedNames.has(name.toLowerCase()); suffix += 1) name = `${baseName}_${suffix}`
+        const tileset = {
+          firstGid: nextTilesetFirstGid(next),
+          name,
+          tileWidth: mapDocument.tileWidth,
+          tileHeight: mapDocument.tileHeight,
+          tileCount,
+          columns,
+          source: null,
+          margin: 0,
+          spacing: 0,
+          tileOffsetX: 0,
+          tileOffsetY: 0,
+          imageSource: relativeMapAssetReference(assetPath, relativePath),
+          imagePath: relativePath,
+          imageWidth: dimensions.width,
+          imageHeight: dimensions.height,
+          imageTrans: null,
+          properties: {},
+          tileProperties: {},
+          animations: {},
+        }
+        next = { ...next, tilesets: [...next.tilesets, tileset] }
+        urls[relativePath] = dataUrl
+        lastName = name
+      } catch (error) {
+        failures.push({ path: relativePath, message: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    if (next !== mapDocument) {
+      updateDocument(next, undefined, copy.addTileset)
+      setProjectImageUrls((current) => ({ ...current, ...urls }))
+      if (lastName) setPaletteSelection({ tilesetName: lastName, startIndex: 0, width: 1, height: 1 })
+    }
+    setSaveState({ status: 'idle', message: '' })
+    return { failures }
+  }
+
   /**
    * Attaches a vanilla game sheet as a dynamic reference: the predefined
    * catalog supplies the split, no image is copied into the project, and the
@@ -718,20 +783,21 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     )
   }
 
-  function deleteSelectedObject() {
-    if (!capabilities.objectGroups || !selectedObject) return
+  function deleteObject(objectId: number) {
+    if (!capabilities.objectGroups) return
+    if (!mapDocument.objectGroups.some((group) => group.objects.some((object) => object.id === objectId))) return
     updateDocument(
       syncLightMapProperty({
         ...mapDocument,
         objectGroups: mapDocument.objectGroups.map((group) => ({
           ...group,
-          objects: group.objects.filter((object) => object.id !== selectedObject.id),
+          objects: group.objects.filter((object) => object.id !== objectId),
         })),
       }),
       undefined,
       copy.deleteObject,
     )
-    setSelectedObjectId(null)
+    if (selectedObjectId === objectId) setSelectedObjectId(null)
   }
 
   function updateActiveLayer(updates: Partial<MapLayer>) {
@@ -933,9 +999,10 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     commitStroke,
     clickTile,
     addTileset,
+    addTilesets,
     attachGameSheet,
     removeTileset,
-    deleteSelectedObject,
+    deleteObject,
     updateSelectedObject,
     updateActiveLayer,
     updateSelectedTileset,

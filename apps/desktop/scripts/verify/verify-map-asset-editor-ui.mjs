@@ -227,12 +227,27 @@ async function main() {
     await skipGuides()
 
     // 3. Open the project map through the current product path: the asset
-    //    library inspector's "edit in map editor" action starts a real session.
+    //    library inspector's "edit in map editor" action hands off to the map
+    //    module's editor session, so the side navigation tracks the editor.
     await page.locator('.workbench-side-nav-item[data-tip="素材库"]').first().click()
     await page.waitForSelector('.asset-library-toolbar', { state: 'visible', timeout: 20_000 })
     await skipGuides()
     await page.locator('[data-asset-path="assets/maps/Untitled.tmx"] .asset-library-asset-main').first().click()
     await page.getByRole('button', { name: '地图编辑器', exact: true }).first().click()
+    await page.waitForSelector('.map-asset-editor', { state: 'visible', timeout: 20_000 })
+    await skipGuides()
+    if ((await page.locator('.workbench-side-nav-item[data-tip="地图制作"][aria-current="page"]').count()) !== 1) {
+      failures.push('map editor session did not activate the map module in the side navigation')
+    }
+    if ((await page.locator('.workbench-side-nav-item[data-tip="素材库"][aria-current="page"]').count()) !== 0) {
+      failures.push('asset library is still highlighted while the map editor session is open')
+    }
+
+    // 3.1. The session is module-scoped: switching away and back reopens the
+    //      editor instead of dropping on the map catalog.
+    await page.locator('.workbench-side-nav-item[data-tip="素材库"]').first().click()
+    await page.waitForSelector('.asset-library-toolbar', { state: 'visible', timeout: 20_000 })
+    await page.locator('.workbench-side-nav-item[data-tip="地图制作"]').first().click()
     await page.waitForSelector('.map-asset-editor', { state: 'visible', timeout: 20_000 })
     await skipGuides()
 

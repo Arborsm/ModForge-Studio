@@ -169,12 +169,14 @@ const ENTRY_LABELS_KEY = 'entryLabels'
 /**
  * Editor-state keys that describe how the workbench presents an entry rather
  * than what Content Patcher applies, so the export must drop them: the two
- * records above plus `titles`, the dialogue page's own label record.
+ * records above plus `titles`, the dialogue page's own label record, and
+ * `loadFamily`, the asset library's replacement-type intent for unconfigured
+ * Load bindings.
  *
  * `buildContentJson` reads this list, which is why it lives beside the port
  * that writes the records instead of being restated in the exporter.
  */
-export const EDITOR_ONLY_STATE_KEYS: readonly string[] = [DISABLED_ENTRIES_KEY, ENTRY_LABELS_KEY, 'titles']
+export const EDITOR_ONLY_STATE_KEYS: readonly string[] = [DISABLED_ENTRIES_KEY, ENTRY_LABELS_KEY, 'titles', 'loadFamily']
 
 /** Entry keys the author parked in a patch's `disabledEntries` record. */
 export function readDisabledEntryKeys(editorState: unknown): string[] {

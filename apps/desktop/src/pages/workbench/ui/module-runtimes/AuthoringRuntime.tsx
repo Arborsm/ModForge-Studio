@@ -1,7 +1,6 @@
 import { EditorPage, ExpertPanel, PatchListPage, resolveWorkspaceLanding, WorkspacePatchList, type WorkspaceId } from '@features/cp-maker'
 import { useAuthoringShellCopy, useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { usePendingMapAssetEditStore } from '@shared/lib/app-state/pendingMapAssetEditStore'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
 import { dismissNotification } from '@shared/ui/notifications'
 import { appEvent } from '@platform/observability'
@@ -10,18 +9,25 @@ import { useWorkbenchAssetDraftPort } from '../../model/useWorkbenchAssetDraftPo
 import { useEditModeStore } from '../../model/editModeStore'
 import { useWorkbenchEnvironment, useWorkbenchProject } from '../../model/workbenchModuleContexts'
 import { useWorkbenchRuntimeInputs } from './runtimeInputs'
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { MapDocument } from '@entities/map'
-import { MapAssetEditorSession, MapCatalog, MapTilesSessionEditor } from '../../workspaces/map'
+import { MapAssetEditorHost, MapCatalog, MapTilesSessionEditor } from '../../workspaces/map'
+import { useMapEditorSessionStore } from '../../workspaces/map/model/mapEditorSessions'
 import { CharacterCatalogPage } from '../../workspaces/character-data'
 import { BuildingCatalogPage } from '../../workspaces/building-data'
 import { ItemCatalogPage } from '../../workspaces/item-data'
 import { loadGameMapDocument } from '../../workspaces/map/model/gameMapLoad'
 import type { MapTileEditDraft } from '../../workspaces/map/model/mapPatchReducer'
 import { readCardMapTiles, withCardMapTiles } from '../../workspaces/map/model/mapTilesSession'
+import { useModulePersistentState } from '@shared/lib/app-state/useModulePersistentState'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
 function normalizeTarget(target: string): string {
   return target.trim().replaceAll('\\', '/').toLowerCase()
+}
+
+function isStringOrNull(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
 }
 
 export type AuthoringRuntimeProps = {
@@ -69,17 +75,21 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     }
     navigateToPatch(patchId)
   }
-  const [mapAssetSession, setMapAssetSession] = useState<{
-    relativePath: string
-    document: MapDocument
-  } | null>(null)
-  const [mapTilesSession, setMapTilesSession] = useState<{
-    patchId: string
-    cardId: string
-    target: string
-  } | null>(null)
-  const [mapTilesSessionDocument, setMapTilesSessionDocument] = useState<MapDocument | null>(null)
-  const [mapTilesSessionLoadError, setMapTilesSessionLoadError] = useState<string | null>(null)
+  // Editor sessions live in a module-scoped store so they survive module
+  // switches (AuthoringRuntime unmounts when the workbench swaps modules).
+  const mapAssetSession = useMapEditorSessionStore((state) => state.mapAsset)
+  const mapTilesSessionState = useMapEditorSessionStore((state) => state.mapTiles)
+  const openMapAssetSession = useMapEditorSessionStore((state) => state.openMapAsset)
+  const settleMapAssetDocument = useMapEditorSessionStore((state) => state.settleMapAssetDocument)
+  const closeMapAssetSession = useMapEditorSessionStore((state) => state.closeMapAsset)
+  const openMapTilesSession = useMapEditorSessionStore((state) => state.openMapTiles)
+  const settleMapTilesDocument = useMapEditorSessionStore((state) => state.settleMapTilesDocument)
+  const settleMapTilesLoadError = useMapEditorSessionStore((state) => state.settleMapTilesLoadError)
+  const retryMapTiles = useMapEditorSessionStore((state) => state.retryMapTiles)
+  const closeMapTilesSessionState = useMapEditorSessionStore((state) => state.closeMapTiles)
+  const mapTilesSession = mapTilesSessionState?.session ?? null
+  const mapTilesSessionDocument = mapTilesSessionState?.document ?? null
+  const mapTilesSessionLoadError = mapTilesSessionState?.loadError ?? null
   const previousPatchRef = useRef<string | null>(null)
   const { port, saveState } = useWorkbenchAssetDraftPort(workspaceId, {
     onOpenPatch: navigateToPatch,
@@ -133,34 +143,40 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     }
   }, [saveState, shellCopy.saveFailed])
 
-  // "Edit in map editor" handoffs from the asset library stage a transient
-  // request; consume it once the map draft port is ready and open the asset.
-  const pendingMapEditPath = usePendingMapAssetEditStore((state) => state.relativePath)
-  useEffect(() => {
-    if (workspaceId !== 'map' || !port || !pendingMapEditPath) return
-    const relativePath = usePendingMapAssetEditStore.getState().consumeEdit()
-    if (!relativePath) return
-    void openMapAsset(relativePath)
-  }, [pendingMapEditPath, port, workspaceId])
-
   // Resources: subset the editors bind — real gameRootPath, directoryInfo,
   // playerAppearanceProfile, appearance window callback, locale, theme, accent.
   function returnToLibrary() {
-    setMapAssetSession(null)
+    closeMapAssetSession()
     navigateToPatch(previousPatchRef.current)
   }
 
-  async function openMapAsset(relativePath: string, suppliedDocument?: MapDocument) {
-    const document = suppliedDocument ?? (JSON.parse((await project.loadProjectMapAsset(relativePath)).content) as MapDocument)
+  function openMapAsset(relativePath: string, suppliedDocument?: MapDocument) {
     previousPatchRef.current = activeEditPatchId
-    setMapAssetSession({ relativePath, document })
+    openMapAssetSession(relativePath)
+    if (suppliedDocument) settleMapAssetDocument(suppliedDocument)
     navigateToPatch(null)
   }
 
+  // Restart restore: the open asset session persists as a relative path and
+  // reopens on mount; closing the editor clears it.
+  const [persistedMapAssetPath, setPersistedMapAssetPath] = useModulePersistentState<string | null>(
+    'map-editor/asset-session',
+    null,
+    isStringOrNull,
+  )
+  const sessionRestoreAttemptedRef = useRef(false)
+  useEffect(() => {
+    if (workspaceId !== 'map' || sessionRestoreAttemptedRef.current) return
+    sessionRestoreAttemptedRef.current = true
+    if (!mapAssetSession && persistedMapAssetPath) openMapAssetSession(persistedMapAssetPath)
+  }, [workspaceId, mapAssetSession, persistedMapAssetPath, openMapAssetSession])
+  useEffect(() => {
+    if (workspaceId !== 'map') return
+    setPersistedMapAssetPath(mapAssetSession?.relativePath ?? null)
+  }, [workspaceId, mapAssetSession, setPersistedMapAssetPath])
+
   function closeMapTilesSession() {
-    setMapTilesSession(null)
-    setMapTilesSessionDocument(null)
-    setMapTilesSessionLoadError(null)
+    closeMapTilesSessionState()
     navigateToPatch(previousPatchRef.current)
   }
 
@@ -183,23 +199,44 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     closeMapTilesSession()
   }
 
-  async function editPatchTiles(args: { patchId: string; cardId: string; target: string }) {
+  function editPatchTiles(args: { patchId: string; cardId: string; target: string }) {
     const gameRootPath = environment.directoryInfo?.rootPath ?? null
     // The entry point is disabled for token targets and missing game roots, but
     // the runtime still guards in case a host triggers it programmatically.
     if (!gameRootPath || args.target.includes('{{')) return
     previousPatchRef.current = activeEditPatchId
-    setMapTilesSession(args)
-    setMapTilesSessionDocument(null)
-    setMapTilesSessionLoadError(null)
+    openMapTilesSession(args)
     navigateToPatch(null)
-    try {
-      const document = await loadGameMapDocument(gameRootPath, args.target, locale)
-      setMapTilesSessionDocument(document)
-    } catch (error) {
-      setMapTilesSessionLoadError(error instanceof Error ? error.message : String(error))
-    }
   }
+
+  // Tile-session documents load asynchronously; the store keeps the session
+  // alive across module switches, so the load re-runs on every mount.
+  const loadTilesSessionTask = useLatestTask('map-editor-tiles-session')
+  useEffect(() => {
+    if (workspaceId !== 'map' || !mapTilesSessionState || mapTilesSessionState.document || mapTilesSessionState.loadError) return
+    const gameRootPath = environment.directoryInfo?.rootPath ?? null
+    const target = mapTilesSessionState.session.target
+    if (!gameRootPath || target.includes('{{')) return
+    void loadTilesSessionTask(async (scope) => {
+      try {
+        const document = await loadGameMapDocument(gameRootPath, target, locale)
+        if (scope.isCurrent()) settleMapTilesDocument(document)
+      } catch (error) {
+        if (error instanceof TaskCancelledError || !scope.isCurrent()) return
+        settleMapTilesLoadError(error instanceof Error ? error.message : String(error))
+      }
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [
+    workspaceId,
+    mapTilesSessionState,
+    environment.directoryInfo,
+    locale,
+    loadTilesSessionTask,
+    settleMapTilesDocument,
+    settleMapTilesLoadError,
+  ])
 
   const resources = {
     gameRootPath: environment.directoryInfo?.rootPath ?? null,
@@ -211,21 +248,23 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
     accentColor: environment.accentColor,
     onReturnToLibrary: returnToLibrary,
     onOpenMapAsset: (relativePath: string) => {
-      void openMapAsset(relativePath)
+      openMapAsset(relativePath)
     },
     onEditPatchTiles: (args: { patchId: string; cardId: string; target: string }) => {
-      void editPatchTiles(args)
+      editPatchTiles(args)
     },
   }
 
+  // The asset session host owns document loading and the session render tree;
+  // this runtime only contributes its bookkeeping wrapper and return behavior.
   if (workspaceId === 'map' && port && mapAssetSession) {
     return (
-      <MapAssetEditorSession
-        key={mapAssetSession.relativePath}
-        relativePath={mapAssetSession.relativePath}
-        document={mapAssetSession.document}
+      <MapAssetEditorHost
         draftPort={port}
+        loadProjectMapAsset={project.loadProjectMapAsset}
         resources={resources}
+        onReturnToLibrary={returnToLibrary}
+        onSessionOpen={openMapAsset}
       />
     )
   }
@@ -252,7 +291,7 @@ export function AuthoringRuntime({ workspaceId, pendingAssetTarget = null, onPen
         {mapTilesSessionLoadError ? <p>{tilesSessionCopy.loadFailed}</p> : <span className="animate-spin">◌</span>}
         <div className="map-tiles-session-actions">
           {mapTilesSessionLoadError ? (
-            <button type="button" className="control-button" onClick={() => void editPatchTiles(mapTilesSession)}>
+            <button type="button" className="control-button" onClick={retryMapTiles}>
               {tilesSessionCopy.retry}
             </button>
           ) : null}

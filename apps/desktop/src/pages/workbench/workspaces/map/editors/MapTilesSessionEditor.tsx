@@ -6,6 +6,7 @@ import type { EditorResources } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
+import { classifyProjectAsset } from '../../asset-library/model/projectAssets'
 import { applyMapAssetStroke } from '../model/mapAssetReducer'
 import { rectangleTilePoints, type MapTileEditDraft } from '../model/mapPatchReducer'
 import { applyMapTilesToDocument, diffMapDocumentToMapTiles } from '../model/mapTilesSession'
@@ -57,7 +58,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
   const sessionCopy = copy.tilesSession
   const assetEditorCopy = copy.assetEditor
   const [document, setDocument] = useState<MapDocument>(() => applyMapTilesToDocument(baseDocument, initialEdits).document)
-  const imageAssets = project.projectAssets.filter((asset) => asset.mediaType.startsWith('image/'))
+  const imageAssets = project.projectAssets.filter((asset) => classifyProjectAsset(asset.mediaType, asset.relativePath) === 'image')
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
   const mapName = target.replace(/^Maps\//iu, '').trim()
   const assetPath = `Maps/${mapName}.tmx`
@@ -255,6 +256,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
                 selectedTileRect: !editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null,
                 cellOverlay: overlayCells,
               }}
+              lighting={{ gameRootPath: resources.gameRootPath }}
             />
             {!editor.overlayActive &&
             (editor.tool === 'brush' || editor.tool === 'stamp' || editor.tool === 'fill') &&
@@ -294,7 +296,7 @@ export function MapTilesSessionEditor({ target, baseDocument, initialEdits, onCo
             updateActiveLayer: editor.updateActiveLayer,
             updateSelectedTileset: editor.updateSelectedTileset,
             updateSelectedObject: editor.updateSelectedObject,
-            deleteSelectedObject: editor.deleteSelectedObject,
+            deleteObject: editor.deleteObject,
             addTileDataObject: editor.addTileDataObject,
             paletteSelectionChange: (selection) => {
               if (!selection) return

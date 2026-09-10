@@ -1,6 +1,6 @@
 import type { DraftPatch, ProjectAssetRef } from '@features/cp-maker'
 import { splitMapTargets } from '../../map/model/mapPatchReducer'
-import { classifyProjectAsset } from './projectAssets'
+import { classifyProjectAsset, type ProjectAssetKind } from './projectAssets'
 
 /**
  * Pure helpers for the structured Load binding editor.
@@ -41,6 +41,25 @@ export function loadAssetFamily(target: string): LoadAssetFamily {
 /** The full target asset name, normalized to forward slashes. */
 function targetAsWritten(target: string): string {
   return target.trim().replaceAll('\\', '/')
+}
+
+/**
+ * Editor-state key parking the replacement family chosen at creation time.
+ * Unconfigured bindings (empty target) have no target to classify yet, so the
+ * creation dialog's choice is stamped here; it is editor-only state and is
+ * stripped from the exported Content Patcher change (EDITOR_ONLY_STATE_KEYS).
+ */
+export const LOAD_FAMILY_INTENT_KEY = 'loadFamily'
+
+/**
+ * Reads the family intent stamped at creation, so the binding editor can offer
+ * the chosen family's point-and-click pickers before any target exists.
+ * Returns null for anything but a known family name.
+ */
+export function readLoadFamilyIntent(editorState: unknown): LoadAssetFamily | null {
+  if (editorState === null || typeof editorState !== 'object') return null
+  const value = (editorState as Record<string, unknown>)[LOAD_FAMILY_INTENT_KEY]
+  return LOAD_FAMILY_ORDER.includes(value as LoadAssetFamily) ? (value as LoadAssetFamily) : null
 }
 
 /** Last path segment of a target, e.g. `Maps/SpringObjects` → `SpringObjects`. */
@@ -99,6 +118,20 @@ export type LoadBindingPreviewRow = {
   resolvedFromFile: string
   /** Whether a project asset matches the resolved path, case/slash insensitive. */
   exists: boolean
+  /**
+   * False when the found asset's media kind contradicts the target family.
+   * Only maps/images/audio/data carry an expected kind; fonts/other targets and
+   * token expressions always match.
+   */
+  matchesFamily: boolean
+}
+
+/** Project asset kind each family accepts; families absent from the table skip the kind check. */
+const FAMILY_ASSET_KIND: Partial<Record<LoadAssetFamily, ProjectAssetKind>> = {
+  maps: 'map',
+  images: 'image',
+  audio: 'audio',
+  data: 'data',
 }
 
 function normalizeAssetPath(value: string): string {
@@ -107,24 +140,28 @@ function normalizeAssetPath(value: string): string {
 
 /**
  * Resolves every target of a Load patch against the `fromFile` template and
- * checks the result against the project's asset paths. The table is shown even
+ * checks the result against the project's assets. The table is shown even
  * when the template carries no target tokens, so identical resolved rows are
  * reported faithfully.
  */
 export function analyzeLoadBindings(
   targetExpression: string,
   fromFileTemplate: string,
-  projectAssetPaths: readonly string[],
+  projectAssets: readonly Pick<ProjectAssetRef, 'relativePath' | 'mediaType'>[],
 ): LoadBindingPreviewRow[] {
-  const knownPaths = new Set(projectAssetPaths.map(normalizeAssetPath))
+  const assetsByPath = new Map(projectAssets.map((asset) => [normalizeAssetPath(asset.relativePath), asset]))
   return splitMapTargets(targetExpression)
     .filter((target) => target.trim() !== '')
     .map((target) => {
       const resolvedFromFile = resolveLoadFromFile(fromFileTemplate, target)
+      const asset = resolvedFromFile === '' ? undefined : assetsByPath.get(normalizeAssetPath(resolvedFromFile))
+      const expectedKind = FAMILY_ASSET_KIND[loadAssetFamily(target)]
       return {
         target,
         resolvedFromFile,
-        exists: resolvedFromFile !== '' && knownPaths.has(normalizeAssetPath(resolvedFromFile)),
+        exists: asset !== undefined,
+        matchesFamily:
+          asset === undefined || expectedKind === undefined || classifyProjectAsset(asset.mediaType, asset.relativePath) === expectedKind,
       }
     })
 }
@@ -231,24 +268,6 @@ export const COMMON_LOAD_TARGETS: Record<LoadAssetFamily, readonly string[]> = {
     'Strings/Characters',
   ],
   other: [],
-}
-
-/** Placeholder target stamped on a freshly created Load patch per family. */
-export function placeholderLoadTarget(family: LoadAssetFamily): string {
-  switch (family) {
-    case 'maps':
-      return 'Maps/NewMap'
-    case 'images':
-      return 'Portraits/NewPortrait'
-    case 'audio':
-      return 'Audio/NewCue'
-    case 'fonts':
-      return 'Fonts/NewFont'
-    case 'data':
-      return 'Data/NewData'
-    case 'other':
-      return 'NewAsset'
-  }
 }
 
 /** Draft workspace a newly created Load patch belongs to: maps stay in the map workspace, the rest in mods. */

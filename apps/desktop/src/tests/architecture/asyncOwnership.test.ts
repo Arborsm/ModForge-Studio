@@ -75,9 +75,8 @@ const LEGACY_UNTRIAGED = new Set([
   'src/pages/workbench/workspaces/item/state/useItemWorkspace.ts',
   'src/pages/workbench/workspaces/mail/state/useMailWorkspace.ts',
   'src/pages/workbench/workspaces/map/editors/core/AnimatedTilePreview.tsx',
-  'src/pages/workbench/workspaces/map/editors/core/AnimationFrameEditor.tsx',
   'src/pages/workbench/workspaces/map/editors/core/MapAnimationDialog.tsx',
-  'src/pages/workbench/workspaces/map/editors/core/MapAssetMapCards.tsx',
+  'src/pages/workbench/workspaces/map/editors/core/tileIndexPreview.tsx',
   'src/pages/workbench/workspaces/map/state/useMapAuthoringCatalog.ts',
   'src/pages/workbench/workspaces/map/state/useObjectLightItemIndex.ts',
   'src/pages/workbench/workspaces/map/ui/MapCatalog.tsx',
@@ -111,9 +110,9 @@ const ZUSTAND_REGISTRY = new Set([
   'src/pages/workbench/model/editModeStore.ts', // 模块 session（工作区交互）
   'src/pages/workbench/model/playerAppearanceStore.ts', // 工作区持久
   'src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/editorStore.ts', // 模块 session
+  'src/pages/workbench/workspaces/map/model/mapEditorSessions.ts', // 模块 session（地图编辑器会话，跨模块切换存活）
   'src/shared/lib/app-state/assetLibraryFocusStore.ts', // 跨模块 handoff（补充机制）
   'src/shared/lib/app-state/launcherOverlayDismissStore.ts', // 跨模块一次性信号（补充机制，epoch）
-  'src/shared/lib/app-state/pendingMapAssetEditStore.ts', // 跨模块 handoff（补充机制）
   'src/shared/lib/app-state/preferencesStore.ts', // 全局偏好主 store
 ])
 

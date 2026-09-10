@@ -1091,6 +1091,10 @@ fn infer_media_type(path: &Path) -> &'static str {
         .as_str()
     {
         "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
         "tmx" => "application/xml",
         "tsx" => "application/xml",
         "tbin" => "application/x-tbin",

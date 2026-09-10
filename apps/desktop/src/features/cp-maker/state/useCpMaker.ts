@@ -588,6 +588,9 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     if (action === 'EditImage' && !change['FromFile']) {
       continue // CP requires FromFile for EditImage
     }
+    if (action === 'Load' && !change['Target']) {
+      continue // An unconfigured Load (empty target) has nothing to load into
+    }
     if (action === 'Load' && !change['FromFile']) {
       continue // CP requires FromFile for Load
     }

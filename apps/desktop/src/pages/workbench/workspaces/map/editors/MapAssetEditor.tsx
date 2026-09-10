@@ -19,6 +19,7 @@ import {
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
   getLightingPreviewTimeOfDay,
+  isLightMarkerObject,
   OUTDOORS_PROPERTY_KEY,
   asMapPropertyString,
   type GameSeason,
@@ -27,7 +28,6 @@ import {
 } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import { DAY_TILES_PROPERTY_KEY, NIGHT_TILES_PROPERTY_KEY } from '@entities/map'
-import { planCellAnimationHoist } from '@entities/map'
 import { registerCustomTilesheets, unregisterCustomTilesheets } from '@entities/map'
 import { type AssetDraftPort, type DraftPatch, type EditorComponent, type EditorResources } from '@features/cp-maker'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
@@ -65,13 +65,15 @@ import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
 import { MapAssetCellOverlayRules } from './core/MapAssetCellOverlayRules'
 import { MapAssetInspectPopover } from './core/MapAssetInspectPopover'
-import { mergeDayNight, parseDayNightGroups } from './core/dayNightEntries'
+import { applyDayNightPreviewSwap, mergeDayNight, parseDayNightGroups } from './core/dayNightEntries'
 import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
 import { MapAssetTopBarChips } from './core/MapAssetTopBarChips'
 import { MapCanvasZoomChip } from './core/MapCanvasZoomChip'
 import { useMapDocumentEditor } from './core/useMapDocumentEditor'
 import { useMapEditorShortcuts } from './core/useMapEditorShortcuts'
 import type { WarpDialogMapOption } from './core/WarpDialog'
+import { TilesheetImportDialog } from './core/TilesheetImportDialog'
+import { classifyProjectAsset } from '../../asset-library/model/projectAssets'
 import { loadGameFurnitureObjects } from '../model/furnitureObjects'
 import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 import { useObjectLightItemIndex } from '../state/useObjectLightItemIndex'
@@ -149,7 +151,7 @@ function MapAssetEditorContent({
   const authoringCopy = useMapAuthoringCopy()
   const copy = authoringCopy.assetEditor
   const assetPath = initialAssetPath(document, patch.fromFile)
-  const imageAssets = project.projectAssets.filter((asset) => asset.mediaType.startsWith('image/'))
+  const imageAssets = project.projectAssets.filter((asset) => classifyProjectAsset(asset.mediaType, asset.relativePath) === 'image')
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
   const editor = useMapDocumentEditor({
     document,
@@ -166,10 +168,21 @@ function MapAssetEditorContent({
   const diagnosticsFlashTimeoutRef = useRef<number | null>(null)
   /** Canvas highlight driven by inspector entry hover; null clears it. */
   const [inspectorHighlight, setInspectorHighlight] = useState<MapInspectorHighlight | null>(null)
+  // Hidden TileData rule carriers are invisible on the canvas by default; keep
+  // the selected one revealed through the inspector-highlight channel so
+  // locating it from the 内容 tab leaves a visible outline until deselected.
+  const selectedRuleCarrier =
+    editor.selectedObject && editor.selectedObject.name === 'TileData' && !isLightMarkerObject(editor.selectedObject)
+      ? editor.selectedObject
+      : null
+  const selectedRuleCarrierHighlight: MapInspectorHighlight | null = selectedRuleCarrier
+    ? { tileRects: [], objectIds: [selectedRuleCarrier.id] }
+    : null
   /** Tileset image src being hovered in the palette gallery; previewed as an overlay on the canvas. */
   const [hoverPreviewSrc, setHoverPreviewSrc] = useState<string | null>(null)
   /** Gallery selection mode active: shows a constant overlay backdrop on the canvas. */
   const [galleryMode, setGalleryMode] = useState(false)
+  const [tilesheetImportOpen, setTilesheetImportOpen] = useState(false)
   /** Layer id being hovered in the layers panel; when set, the canvas isolates that layer. */
   const [hoverLayerId, setHoverLayerId] = useState<number | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
@@ -267,12 +280,22 @@ function MapAssetEditorContent({
       objectLightIndex,
     },
   )
+  // Night lighting preview also swaps the map's NightTiles cells on the
+  // canvas, so the editor shows what the game renders after dark; the base
+  // document keeps its day tiles and nothing is persisted.
+  const nightPreviewDocument =
+    lightingMode === 'night'
+      ? applyDayNightPreviewSwap(
+          editor.renderDocument,
+          parseDayNightGroups(asMapPropertyString(document.properties[NIGHT_TILES_PROPERTY_KEY])).groups,
+        )
+      : editor.renderDocument
   /** Render document with the dragged marker's live position swapped in; never persisted. */
   const objectDragPreview = editor.objectDragPreview
   const viewportDocument = objectDragPreview
     ? {
-        ...editor.renderDocument,
-        objectGroups: editor.renderDocument.objectGroups.map((group) => ({
+        ...nightPreviewDocument,
+        objectGroups: nightPreviewDocument.objectGroups.map((group) => ({
           ...group,
           objects: group.objects.map((object) =>
             object.id === objectDragPreview.objectId
@@ -281,7 +304,7 @@ function MapAssetEditorContent({
           ),
         })),
       }
-    : editor.renderDocument
+    : nightPreviewDocument
 
   /**
    * Overlay view model for the active layer's cell rules: the derived rules
@@ -450,18 +473,6 @@ function MapAssetEditorContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.projectAssets, project.readProjectAsset])
 
-  /**
-   * Save message suffix counting per-cell animations the TMX write will hoist
-   * into tileset definitions or drop over a definition conflict. TBin saves
-   * keep the `cellAnimations` backing store, so only TMX output warns.
-   */
-  function cellAnimationHoistMessage(format: 'tmx' | 'tbin') {
-    if (format !== 'tmx') return null
-    const plan = planCellAnimationHoist(mapDocument)
-    if (plan.hoisted === 0 && plan.dropped === 0) return null
-    return copy.cellAnimationHoistWarning(plan.hoisted, plan.dropped)
-  }
-
   async function saveMap() {
     if (isXnbAsset || tbinIssues.length > 0 || layerNameIssues.length > 0 || invalidTsxSourceTilesets.length > 0) {
       const reasons: string[] = []
@@ -496,8 +507,7 @@ function MapAssetEditorContent({
         { record: false },
       )
       const savedMessage = copy.saved(asset.relativePath)
-      const hoistMessage = cellAnimationHoistMessage(normalizedDocument.format)
-      editor.setSaveState({ status: 'saved', message: hoistMessage ? `${savedMessage} ${hoistMessage}` : savedMessage })
+      editor.setSaveState({ status: 'saved', message: savedMessage })
     } catch (error) {
       appEvent('error', 'Failed to save map asset')
         .error(error)
@@ -542,8 +552,7 @@ function MapAssetEditorContent({
         { record: false },
       )
       const savedMessage = copy.tbinConverted(newPath)
-      const hoistMessage = cellAnimationHoistMessage('tmx')
-      editor.setSaveState({ status: 'saved', message: hoistMessage ? `${savedMessage} ${hoistMessage}` : savedMessage })
+      editor.setSaveState({ status: 'saved', message: savedMessage })
     } catch (error) {
       appEvent('error', 'Failed to convert map asset to TMX')
         .error(error)
@@ -802,7 +811,7 @@ function MapAssetEditorContent({
                     : null,
                 tilesetPreview: galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null,
                 selectedTileRect: !editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null,
-                inspectorHighlight,
+                inspectorHighlight: inspectorHighlight ?? selectedRuleCarrierHighlight,
                 cellOverlay: overlayCells,
                 dayNightHighlight,
               }}
@@ -932,7 +941,7 @@ function MapAssetEditorContent({
             updateActiveLayer: editor.updateActiveLayer,
             updateSelectedTileset: editor.updateSelectedTileset,
             updateSelectedObject: editor.updateSelectedObject,
-            deleteSelectedObject: editor.deleteSelectedObject,
+            deleteObject: editor.deleteObject,
             addTileDataObject: editor.addTileDataObject,
             locateObject: (object) => {
               editor.setSelectedObjectId(object.id)
@@ -953,7 +962,7 @@ function MapAssetEditorContent({
                 editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
               }
             },
-            paletteAddProjectImage: (relativePath) => void editor.addTileset(relativePath),
+            paletteImportTilesheet: () => setTilesheetImportOpen(true),
             paletteRemoveTileset: editor.capabilities.tilesetManagement ? editor.removeTileset : null,
             paletteReplaceTilesetImage: editor.capabilities.tilesetManagement
               ? (relativePath, replaceName) => void editor.addTileset(relativePath, replaceName)
@@ -1098,6 +1107,23 @@ function MapAssetEditorContent({
         <HoverInfoSpan subscribe={editor.subscribeHoverInfo} getSnapshot={editor.getHoverInfo} />
       </footer>
 
+      <TilesheetImportDialog
+        open={tilesheetImportOpen}
+        onClose={() => setTilesheetImportOpen(false)}
+        imageAssets={imageAssets}
+        attachedImagePaths={new Set(document.tilesets.map((tileset) => tileset.imagePath).filter((path): path is string => Boolean(path)))}
+        onAttach={async (paths) => {
+          const result = await editor.addTilesets(paths)
+          if (result.failures.length > 0) {
+            const error = new Error(result.failures.map((failure) => `${failure.path}: ${failure.message}`).join('; '))
+            appEvent('error', copy.tilesheetAttachPartialFailed)
+              .error(error)
+              .context({ source: 'map-asset-editor', operation: 'attach-tilesheets' })
+              .emit()
+          }
+          setTilesheetImportOpen(false)
+        }}
+      />
       <Dialog
         open={editor.pendingDeleteLayerId != null}
         onClose={() => editor.setPendingDeleteLayerId(null)}

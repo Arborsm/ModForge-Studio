@@ -18,62 +18,95 @@
     @apply text-text-primary text-body font-bold whitespace-nowrap;
   }
 
-  .asset-library-bindings-title-row .control-button {
-    @apply ml-auto min-w-0;
-  }
-
-  .asset-library-bindings-hint {
-    @apply text-text-tertiary text-caption leading-ui m-0;
+  .asset-library-bindings-title-row .icon-button {
+    @apply ml-auto;
   }
 
   .asset-library-load-binding-list {
     @apply p-2;
   }
 
-  /* The editor shares the right-hand main cell with the asset browser pane
-     (explicit placement keeps it stable while the family picker overlays). */
-  .asset-library-load-binding-editor {
-    @apply flex min-h-0 flex-col overflow-auto;
-    grid-column: 1;
-    grid-row: 1;
+  /* The binding editor renders inside the shared Dialog; the dialog body owns
+     scrolling and card chrome, so the standalone panel styling is neutralized
+     there. Other workspaces keep using .map-load-editor as a full panel. */
+  .asset-library-load-binding-dialog .map-load-editor {
+    @apply h-auto min-h-0 overflow-visible bg-transparent p-0;
   }
 
-  .asset-library-binding-editor-header {
-    @apply bg-surface-panel sticky flex flex-none items-center gap-2 px-4 py-2;
-    top: 0;
-    z-index: 4;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-  }
-
-  .asset-library-binding-editor-header > svg {
-    @apply text-text-tertiary flex-none;
-  }
-
-  .asset-library-binding-editor-header strong {
-    @apply text-text-primary min-w-0 overflow-hidden font-mono text-xs font-bold whitespace-nowrap;
+  /* Dialog header subtitle: the raw target expression, quiet and mono. */
+  .asset-library-binding-subtitle {
+    @apply text-text-tertiary text-caption max-w-full overflow-hidden font-mono whitespace-nowrap;
     text-overflow: ellipsis;
   }
 
-  .asset-library-binding-editor-header .icon-button {
-    @apply ml-auto flex-none;
+  /* Dialog footer: the auto-save pipeline stays a silent state dot; the
+     readable content is the binding's live effect state (save failure first,
+     then explicit disabled state, then missing parts, then active), with the
+     primary done action on the right. */
+  .asset-library-binding-footer-status {
+    @apply flex min-w-0 flex-auto items-center gap-2;
   }
 
+  .asset-library-binding-footer-status .asset-library-save-state {
+    @apply inline-flex flex-none items-center;
+  }
+
+  .asset-library-binding-status {
+    @apply text-caption leading-ui min-w-0 overflow-hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .asset-library-binding-status[data-tone='error'] {
+    @apply text-danger;
+  }
+
+  .asset-library-binding-status[data-tone='warning'] {
+    @apply text-warning;
+  }
+
+  .asset-library-binding-status[data-tone='pending'] {
+    @apply text-text-tertiary;
+  }
+
+  .asset-library-binding-status[data-tone='active'] {
+    @apply text-success;
+  }
+
+  /* Flat replacement rows: hairline separators within a family group, no card
+     chrome; hover and selection tint the row, the state badge is gone and a
+     disabled row dims to 45% instead. */
   .asset-library-load-binding-row {
-    @apply mb-1.5 flex items-center gap-1.5;
+    @apply flex items-center gap-1.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
+  }
+
+  .asset-library-load-binding-row:last-child {
+    border-bottom: none;
+  }
+
+  .asset-library-load-binding-row:hover .asset-library-load-binding-main {
+    @apply bg-surface-active;
+  }
+
+  .asset-library-load-binding-row .icon-button {
+    @apply opacity-0 transition-opacity;
+  }
+
+  .asset-library-load-binding-row:hover .icon-button,
+  .asset-library-load-binding-row:focus-within .icon-button {
+    @apply opacity-100;
   }
 
   .asset-library-load-binding-row.is-disabled .asset-library-load-binding-main {
-    @apply opacity-60;
+    @apply opacity-45;
   }
 
   .asset-library-load-binding-row.is-selected .asset-library-load-binding-main {
     @apply bg-accent-soft;
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
   }
 
   .asset-library-load-binding-main {
-    @apply border-border-subtle bg-surface-panel text-text-primary flex min-w-0 flex-auto cursor-pointer flex-col items-start gap-1 border px-2.5 py-2 text-left;
-    border-radius: var(--radius-md);
+    @apply text-text-primary flex min-w-0 flex-auto cursor-pointer flex-col items-start gap-1 border-0 bg-transparent px-2 py-2 text-left;
   }
 
   .asset-library-load-binding-target-row {
@@ -85,8 +118,12 @@
   }
 
   .asset-library-load-binding-target {
-    @apply max-w-full overflow-hidden font-mono text-xs font-bold whitespace-nowrap;
-    text-overflow: ellipsis;
+    @apply text-text-primary overflow-hidden font-mono text-xs font-bold;
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
   }
 
   .asset-library-load-binding-file {
@@ -108,49 +145,41 @@
     @apply bg-surface-panel flex h-full min-h-0 flex-col gap-3 overflow-auto p-4;
   }
 
-  .map-load-editor-cardflow {
-    @apply gap-3;
-  }
-
   .map-load-intro {
     @apply text-text-secondary text-meta m-0 leading-normal;
   }
 
-  .map-load-card {
+  /* ===== Load binding editor — two-stage flow ===== */
+  /* Stage blocks: a quiet bordered section each for targets and file; the
+     advanced fold carries no card chrome, just its toggle row. Section
+     headers hold no badges — only stage 2 may show a ✓/⚠ summary state. */
+  .load-binding-section {
     @apply border-border-subtle bg-surface-app flex min-w-0 flex-col border;
     border-radius: var(--radius-md);
   }
 
-  .map-load-card-header {
+  .load-binding-section-header {
     @apply border-border-subtle flex items-center gap-2.5 border-b px-3.5 py-2.5;
   }
 
-  .map-load-card-number {
-    @apply bg-accent-soft text-accent flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold;
+  .load-binding-section-state {
+    @apply ml-auto flex flex-none items-center;
   }
 
-  .map-load-card-titles {
-    @apply flex min-w-0 flex-col gap-0.5;
+  .load-binding-section-state.is-ok {
+    @apply text-success;
   }
 
-  .map-load-card-title {
-    @apply text-text-primary m-0 text-xs font-bold;
+  .load-binding-section-state.is-warn {
+    @apply text-warning;
   }
 
-  .map-load-card-hint {
-    @apply text-text-tertiary text-caption leading-ui;
-  }
-
-  .map-load-card-count {
-    @apply bg-accent-soft text-accent ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold;
-  }
-
-  .map-load-card-check {
-    @apply text-success ml-auto text-sm font-bold;
-  }
-
-  .map-load-card-body {
+  .load-binding-section-body {
     @apply flex flex-col gap-2.5 p-3.5;
+  }
+
+  .load-binding-section-advanced {
+    @apply border-transparent bg-transparent;
   }
 
   /* Keep old section class for GenericLoadSummaryEditor compatibility */
@@ -161,20 +190,6 @@
 
   .map-load-section-full {
     grid-column: 1 / -1;
-  }
-
-  .map-load-step-guide {
-    @apply bg-surface-app text-text-tertiary rounded-sm border-dashed px-3 py-4 text-center;
-    border: 1px dashed var(--border-color);
-  }
-
-  /* Advanced card has no border, just a toggle */
-  .map-load-card-advanced {
-    @apply border-transparent bg-transparent;
-  }
-
-  .map-load-card-advanced .map-load-advanced-toggle {
-    @apply text-text-secondary text-meta inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 font-semibold;
   }
 
   .map-load-section-title {
@@ -202,6 +217,21 @@
   .map-load-target-chip > span {
     @apply min-w-0 overflow-hidden whitespace-nowrap;
     text-overflow: ellipsis;
+  }
+
+  /* Chip copy column: the raw path plus the localized location name as
+     subtext when the two differ (vanilla location maps only). */
+  .map-load-target-chip-copy {
+    @apply flex min-w-0 flex-col;
+  }
+
+  .map-load-target-chip-copy > span {
+    @apply max-w-full min-w-0 overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .map-load-target-chip-display {
+    @apply text-text-tertiary text-meta leading-tight;
   }
 
   .map-load-target-chip button {
@@ -267,6 +297,38 @@
     @apply flex flex-col items-start gap-1;
   }
 
+  /* Stage 2 before a file is chosen: the whole block opens the project-file
+     picker — icon + label, dashed border so it reads as an affordance. */
+  .load-binding-file-select {
+    @apply border-border-subtle text-text-secondary text-meta flex w-full cursor-pointer items-center justify-center gap-2 border border-dashed bg-transparent px-3 py-4;
+    border-radius: var(--radius-sm);
+  }
+
+  .load-binding-file-select:hover {
+    @apply bg-surface-active text-text-primary;
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+  }
+
+  /* Stage 2 after a file is chosen: mono name, status badge, hover-revealed
+     change/clear actions. */
+  .load-binding-file-row {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .load-binding-file-name {
+    @apply text-text-primary text-caption min-w-0 flex-auto overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .load-binding-file-actions {
+    @apply flex flex-none items-center gap-0.5 opacity-0 transition-opacity;
+  }
+
+  .load-binding-file-row:hover .load-binding-file-actions,
+  .load-binding-file-row:focus-within .load-binding-file-actions {
+    @apply opacity-100;
+  }
+
   .map-load-preview-scroll {
     @apply overflow-auto;
     max-height: 14rem;
@@ -307,6 +369,11 @@
     @apply bg-danger-soft text-danger;
   }
 
+  /* Found project asset whose media kind contradicts the target family. */
+  .map-load-status-badge.is-mismatch {
+    @apply bg-warning-soft text-warning;
+  }
+
   .map-load-advanced-toggle {
     @apply text-text-secondary text-meta inline-flex cursor-pointer items-center gap-1.5 bg-transparent p-0 font-semibold;
     align-self: flex-start;
@@ -318,7 +385,7 @@
   }
 
   .map-load-advanced {
-    @apply flex flex-col gap-2.5;
+    @apply flex flex-col gap-3;
   }
 
   .map-load-field {
@@ -336,6 +403,50 @@
 
   .map-load-enabled {
     @apply text-text-secondary text-caption flex items-center gap-1.5;
+  }
+
+  /* Enabled toggle: the app's switch idiom (settings windows use the same
+     track/thumb pattern) instead of a bare checkbox. */
+  .load-binding-switch {
+    @apply text-text-secondary inline-flex cursor-pointer items-center gap-2 bg-transparent p-0;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  .load-binding-switch.is-on {
+    @apply text-text-primary;
+  }
+
+  .load-binding-switch-track {
+    @apply flex flex-none items-center rounded-full;
+    width: 2.35rem;
+    height: 1.35rem;
+    padding: 0.15rem;
+    justify-content: flex-start;
+    background: color-mix(in srgb, var(--border-color) 85%, var(--bg-panel-muted));
+    transition: background-color 160ms ease;
+  }
+
+  .load-binding-switch.is-on .load-binding-switch-track {
+    justify-content: flex-end;
+    background: color-mix(in srgb, var(--accent) 88%, white 12%);
+  }
+
+  .load-binding-switch-thumb {
+    @apply rounded-full;
+    width: 1.05rem;
+    height: 1.05rem;
+    background: var(--bg-panel);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 16%, transparent);
+  }
+
+  .load-binding-switch:focus-visible {
+    outline: none;
+  }
+
+  .load-binding-switch:focus-visible .load-binding-switch-track {
+    box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--accent-soft) 100%, transparent);
   }
 
   .map-enabled-token-chip {
@@ -362,30 +473,7 @@
     @apply text-text-secondary text-caption tracking-ui flex items-center gap-1.5 px-1.5 py-1 font-bold;
   }
 
-  /* ===== Family picker ===== */
-  /* Floats over the top of the right-hand main cell so the browser/editor keep
-     their grid placement; solid panel background + float shadow separate it
-     from the content behind. */
-  .load-family-picker {
-    @apply border-border-subtle bg-surface-panel shadow-float m-3 flex flex-col gap-2.5 self-start border p-3;
-    grid-column: 1;
-    grid-row: 1;
-    z-index: 5;
-    border-radius: var(--radius-md);
-  }
-
-  .load-family-picker-header {
-    @apply flex flex-col gap-1;
-  }
-
-  .load-family-picker-header strong {
-    @apply text-text-primary text-xs;
-  }
-
-  .load-family-picker > .control-button {
-    align-self: flex-end;
-  }
-
+  /* ===== Family picker (inside the shared Dialog) ===== */
   .load-family-picker-grid {
     @apply grid gap-2;
     grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));

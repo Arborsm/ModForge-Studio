@@ -91,11 +91,10 @@ export function MapAnimationDialog({
             gameRootPath={gameRootPath}
             attachedTilesets={document.tilesets}
             activeTilesetName={null}
-            projectImageOptions={[]}
             gameSheetsEnabled={false}
             onPickAttached={(name) => setSelectedTilesetName(name)}
             onPickGameSheet={null}
-            onPickProjectImage={null}
+            onImport={null}
             onClose={() => {}}
           />
         )}

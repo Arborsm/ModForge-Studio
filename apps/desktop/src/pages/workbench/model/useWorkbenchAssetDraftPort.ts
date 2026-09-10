@@ -30,6 +30,12 @@ export type WorkbenchAssetDraftPort = {
   port: AssetDraftPort | null
   /** Outcome of the most recent `commit`, reset by the next staged edit. */
   saveState: WorkbenchDraftSaveState
+  /**
+   * Original message of the most recent save failure. Null unless `saveState`
+   * is `error` and the save pipeline rejected with an error; cleared by the
+   * next staged edit or successful save.
+   */
+  saveError: string | null
 }
 
 /**
@@ -49,30 +55,38 @@ export function useWorkbenchAssetDraftPort(
   const project = useWorkbenchProject()
   const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<WorkbenchDraftSaveState>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const draftKey = project.activeDraft?.draftStorageKey ?? null
 
   useEffect(() => {
     setSelectedEntryKey(null)
     setSaveState('idle')
+    setSaveError(null)
   }, [draftKey])
 
-  function stagePatchChange(patchId: string, changes: Partial<DraftPatch>) {
+  /** Marks the draft as edited: the previous save outcome no longer applies. */
+  function markStaged() {
     setSaveState('idle')
+    setSaveError(null)
+  }
+
+  function stagePatchChange(patchId: string, changes: Partial<DraftPatch>) {
+    markStaged()
     project.updatePatch(patchId, changes)
   }
 
   function stagePatchReorder(patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) {
-    setSaveState('idle')
+    markStaged()
     project.reorderPatch(patchId, delta, within)
   }
 
   function stagePatchDuplicate(patchId: string) {
-    setSaveState('idle')
+    markStaged()
     project.duplicatePatch(patchId)
   }
 
   function stagePatchRemove(patchId: string) {
-    setSaveState('idle')
+    markStaged()
     project.removePatch(patchId)
   }
 
@@ -83,9 +97,16 @@ export function useWorkbenchAssetDraftPort(
    */
   function commitDraft() {
     setSaveState('saving')
+    setSaveError(null)
     return project.saveDraft().then(
-      (saved) => setSaveState(saved ? 'saved' : 'error'),
-      () => setSaveState('error'),
+      (saved) => {
+        setSaveState(saved ? 'saved' : 'error')
+        if (!saved) setSaveError(null)
+      },
+      (error) => {
+        setSaveState('error')
+        setSaveError(error instanceof Error ? error.message : String(error))
+      },
     )
   }
 
@@ -98,7 +119,7 @@ export function useWorkbenchAssetDraftPort(
         activePatchId: null,
         onPatchChange: stagePatchChange,
         onPatchAdd: (action, target, fromFile) => {
-          setSaveState('idle')
+          markStaged()
           return project.addPatch(workspaceId, target, action, fromFile)
         },
         onPatchReorder: stagePatchReorder,
@@ -112,7 +133,10 @@ export function useWorkbenchAssetDraftPort(
         },
         onReloadDraft: () => {
           void project.discardDraftChanges().then(
-            () => setSaveState('idle'),
+            () => {
+              setSaveState('idle')
+              setSaveError(null)
+            },
             // A draft that cannot be reloaded keeps its in-memory edits; surfacing
             // the failure is the only honest signal the page can give.
             () => setSaveState('error'),
@@ -133,5 +157,5 @@ export function useWorkbenchAssetDraftPort(
     onSave: commitDraft,
   })
 
-  return { port, saveState: port ? saveState : 'idle' }
+  return { port, saveState: port ? saveState : 'idle', saveError: port ? saveError : null }
 }

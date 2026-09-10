@@ -32,7 +32,6 @@ export {
   loadFamilyWorkspace,
   LOAD_FAMILY_ORDER,
   normalizeLoadTargetInput,
-  placeholderLoadTarget,
   projectAssetsForLoadFamily,
   resolveLoadFromFile,
   type LoadAssetFamily,

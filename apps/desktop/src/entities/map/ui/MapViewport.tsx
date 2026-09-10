@@ -2395,9 +2395,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                       top: `${rect.y * mapDocument.tileHeight * zoom}px`,
                       width: `${rect.width * mapDocument.tileWidth * zoom}px`,
                       height: `${rect.height * mapDocument.tileHeight * zoom}px`,
-                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.1 : 0.13),
-                      border: `1.5px dashed ${rgbaFromHex(accentColor, 0.92)}`,
-                      boxShadow: `inset 0 0 0 1px ${rgbaFromHex(accentColor, 0.18)}`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.1 : 0.14),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.95)}`,
+                      borderRadius: '2px',
                     }}
                   />
                 ))}

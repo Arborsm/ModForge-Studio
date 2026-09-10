@@ -402,6 +402,7 @@ const assetAuthoring: AssetAuthoringCopy = {
     'event.preconditionUnknown': (params) => `无法识别前置条件“${params['precondition'] ?? ''}”，事件可能永远不会触发。`,
     'event.preconditionDeprecated': (params) => `前置条件“${params['precondition'] ?? ''}”已废弃，请改用 ${params['replacement'] ?? ''}。`,
     'patch.sourceFileMissing': (params) => `${params['action'] ?? ''}（${params['target'] ?? ''}）没有指定源文件，导出后不会生效。`,
+    'patch.targetMissing': (params) => `${params['action'] ?? ''} 替换还没有选择目标资源，导出后不会生效。`,
     'manifest.nameMissing': () => 'manifest 缺少 Name，SMAPI 会拒绝加载这个内容包。',
     'manifest.uniqueIdMissing': () => 'manifest 缺少 UniqueID，SMAPI 会拒绝加载这个内容包。',
     'manifest.uniqueIdShape': (params) => `UniqueID“${params['value'] ?? ''}”不符合“作者.名称”的约定（不应包含空格，且要有一个点）。`,

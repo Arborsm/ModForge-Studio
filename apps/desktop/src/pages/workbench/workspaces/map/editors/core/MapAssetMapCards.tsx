@@ -1,6 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { DoorOpen, MapPin, Pencil, Plus, SunMoon, Trash2 } from 'lucide-react'
+import * as Popover from '@radix-ui/react-popover'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { cx } from '@shared/lib/helper'
 import {
   DAY_TILES_PROPERTY_KEY,
   DOORS_PROPERTY_KEY,
@@ -12,11 +14,11 @@ import {
   findTilesetForGid,
   formatActionWarp,
   formatTouchActionWarp,
+  gidAtCell,
   isLightMarkerObject,
   parseCellWarpAction,
   parseDoorGroups,
   parseWarpGroups,
-  resolveTilesetImagePath,
   serializeDoorGroups,
   serializeWarpGroups,
   stripTileGidFlags,
@@ -27,18 +29,26 @@ import {
   type MapInspectorHighlight,
   type MapLayer,
   type MapPropertyValue,
-  type MapTileset,
-  type MapTilesetPaletteSelection,
+  type MapTileRect,
   type WarpGroup,
   type WarpSourceEntry,
 } from '@entities/map'
 import type { LocaleCode, ThemeMode } from '@locales/api'
-import { useEditorCopy, useLocale, useMapAuthoringCopy } from '@locales/provider'
-import { appEvent } from '@platform/observability'
-import { loadImage } from '@entities/map/ui/mapViewportHelpers'
+import { useMapAuthoringCopy } from '@locales/provider'
 import { propertyEditMergeKey } from '../../model/mapHistoryStack'
+import { TileIndexPreview, TileRegionPreview, resolveTileIndexTileset } from './tileIndexPreview'
 import { WarpDialog, type WarpCarrier, type WarpCarrierOption, type WarpDialogMapOption } from './WarpDialog'
-import { groupDayNightRects, mergeDayNight, parseDayNightGroups, serializeDayNightGroups, type DayNightGroup } from './dayNightEntries'
+import {
+  dayNightColumnsResolver,
+  groupDayNightDisplayRects,
+  mergeDayNight,
+  parseDayNightGroups,
+  serializeDayNightGroups,
+  type DayNightGroup,
+} from './dayNightEntries'
+import { DoorDialog, type DoorDialogTarget } from './DoorDialog'
+import { DayNightStudioDialog } from './DayNightStudioDialog'
+import { WarpTargetPreview } from '../../ui/WarpTargetPreview'
 
 type CardProps = {
   properties: Record<string, MapPropertyValue>
@@ -60,22 +70,23 @@ function writePropertyRaw(properties: Record<string, MapPropertyValue>, key: str
   }
   const existing = properties[key]
   if (typeof existing === 'object' && existing !== null && 'value' in existing) {
-    const typed = existing as { value: MapPropertyValue; tmxType: string; propertyType?: string }
+    const typed = existing as {
+      value: MapPropertyValue
+      tmxType: string
+      propertyType?: string
+    }
     next[key] =
       typed.propertyType != null
-        ? { value: trimmed, tmxType: typed.tmxType, propertyType: typed.propertyType }
+        ? {
+            value: trimmed,
+            tmxType: typed.tmxType,
+            propertyType: typed.propertyType,
+          }
         : { value: trimmed, tmxType: typed.tmxType }
   } else {
     next[key] = trimmed
   }
   return next
-}
-
-/** Returns the flag-stripped gid at (x, y) on the named layer, or 0 when the layer/cell is missing or out of range. */
-function gidAtCell(document: MapDocument, layerName: string, x: number, y: number) {
-  const layer = document.layers.find((candidate) => candidate.name === layerName)
-  if (!layer || x < 0 || y < 0 || x >= layer.width || y >= layer.height) return 0
-  return stripTileGidFlags(layer.gids[y * layer.width + x] >>> 0)
 }
 
 /**
@@ -104,52 +115,59 @@ function tileDataObjectIdAt(document: MapDocument, layerName: string, x: number,
 function warpHighlightTarget(document: MapDocument, entry: WarpSourceEntry | null): MapInspectorHighlight | null {
   if (!entry) return null
   if (entry.kind === 'property') {
-    return { tileRects: [{ x: entry.group.fromX, y: entry.group.fromY, width: 1, height: 1 }], objectIds: [] }
+    return {
+      tileRects: [{ x: entry.group.fromX, y: entry.group.fromY, width: 1, height: 1 }],
+      objectIds: [],
+    }
   }
   if (entry.source === 'tileDataObject') {
     const layerName = entry.kind === 'touch' ? 'Back' : 'Buildings'
     const objectId = tileDataObjectIdAt(document, layerName, entry.x, entry.y)
     if (objectId != null) return { tileRects: [], objectIds: [objectId] }
   }
-  return { tileRects: [{ x: entry.x, y: entry.y, width: 1, height: 1 }], objectIds: [] }
+  return {
+    tileRects: [{ x: entry.x, y: entry.y, width: 1, height: 1 }],
+    objectIds: [],
+  }
 }
 
 /**
- * Section header per the v2.8 inspector: title · count on the left, a quiet
- * ＋ that owns the add operation (guidance lives in the button's tooltip).
+ * Content-tab section frame shared by every inspector card list (semantic
+ * cards, animations, objects): `title · count` on the left and the section's
+ * single add/manage entry as a quiet icon button on the right (guidance lives
+ * in the title tooltip, not the body). Sections without entries render the
+ * quiet `is-empty` header variant so populated sections stay the visual
+ * anchors of the tab.
  */
-function CardSection({
+export function CardSection({
   title,
   countLabel,
-  addTitle,
-  addDisabled,
-  onAdd,
+  addAction,
   children,
 }: {
   title: string
   countLabel?: string | null
-  addTitle?: string
-  addDisabled?: boolean
-  onAdd?: () => void
+  /** Section head action rendered as a quiet icon button (＋ by default). */
+  addAction?: { label: string; onClick: () => void; disabled?: boolean; icon?: ReactNode }
   children: ReactNode
 }) {
   return (
-    <section className="map-asset-card-section">
+    <section className={cx('map-asset-card-section', countLabel == null && 'is-empty')}>
       <header>
         <span className="map-asset-card-heading">
           {title}
           {countLabel ? <span className="map-asset-card-count"> · {countLabel}</span> : null}
         </span>
-        {onAdd ? (
+        {addAction ? (
           <button
             type="button"
             className="map-asset-card-add-head"
-            title={addTitle}
-            aria-label={addTitle}
-            disabled={addDisabled}
-            onClick={onAdd}
+            aria-label={addAction.label}
+            title={addAction.label}
+            disabled={addAction.disabled}
+            onClick={addAction.onClick}
           >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            {addAction.icon ?? <Plus className="h-3.5 w-3.5" aria-hidden="true" />}
           </button>
         ) : null}
       </header>
@@ -163,7 +181,6 @@ function CardSection({
  * rest through a "view all N ›" toggle link (the confirmed long-list pattern).
  */
 function CollapsibleEntryList({
-  icon,
   cards,
   editLabel,
   onEdit,
@@ -172,8 +189,6 @@ function CollapsibleEntryList({
   onHighlightEntry,
   onClearHighlight,
 }: {
-  /** Icon shown in each card's leading 24px block. */
-  icon: ReactNode
   cards: ReactNode[]
   editLabel?: string
   onEdit?: (index: number) => void
@@ -203,9 +218,6 @@ function CollapsibleEntryList({
               onPointerEnter={onHighlightEntry ? () => onHighlightEntry(index) : undefined}
               onPointerLeave={onClearHighlight}
             >
-              <span className="map-asset-entry-icon" aria-hidden="true">
-                {icon}
-              </span>
               <div className="map-asset-entry-card-body">{card}</div>
               <div className="map-asset-entry-card-actions">
                 {onEdit ? (
@@ -254,138 +266,6 @@ function CollapsibleEntryList({
   )
 }
 
-/**
- * Capture row shared by the door/day-night forms: shows the cell picked
- * on the canvas (or a hint when none was picked yet) plus a small pick hint.
- */
-function PickedCellRow({
-  layerName,
-  selectedTile,
-  label,
-}: {
-  layerName: string
-  selectedTile: { x: number; y: number } | null
-  /** Optional row label shown before the picked-cell summary. */
-  label?: string
-}) {
-  const copy = useMapAuthoringCopy().assetEditor.mapCards
-  return (
-    <div className="map-asset-picked-cell">
-      {label ? <span className="map-asset-picked-cell-label">{label}</span> : null}
-      <span>{selectedTile ? copy.pickedCell(layerName, selectedTile.x, selectedTile.y) : copy.pickedCellNone}</span>
-      <small>{copy.pickCellHint}</small>
-    </div>
-  )
-}
-
-/**
- * Resolves the tileset a tile-index preview should crop from: the tileset
- * owning the layer's (x, y) gid when that layer exists and holds a tile and
- * can contain `tileIndex`; otherwise the first tileset whose tile count can
- * hold the index. Returns null when nothing can host it.
- */
-function resolveTileIndexTileset(
-  renderDocument: MapDocument,
-  layerName: string,
-  x: number,
-  y: number,
-  tileIndex: number,
-): MapTileset | null {
-  const normalizedLayerName = layerName.trim().toLowerCase()
-  const layer = renderDocument.layers.find((candidate) => candidate.name.trim().toLowerCase() === normalizedLayerName)
-  if (layer && x >= 0 && y >= 0 && x < layer.width && y < layer.height) {
-    const gid = stripTileGidFlags(layer.gids[y * layer.width + x] >>> 0)
-    if (gid !== 0) {
-      const owningTileset = findTilesetForGid(renderDocument.tilesets, gid)
-      if (owningTileset && tileIndex >= 0 && tileIndex < owningTileset.tileCount) {
-        return owningTileset
-      }
-    }
-  }
-  return renderDocument.tilesets.find((tileset) => tileIndex >= 0 && tileIndex < tileset.tileCount) ?? null
-}
-
-/** Crops one tileset-local tile into a 3x data URL; null when the canvas is unavailable. */
-function renderTileIndexDataUrl(image: HTMLImageElement, tileset: MapTileset, tileIndex: number): string | null {
-  const canvas = globalThis.document.createElement('canvas')
-  const scale = 3
-  canvas.width = tileset.tileWidth * scale
-  canvas.height = tileset.tileHeight * scale
-  const context = canvas.getContext('2d')
-  if (!context) return null
-  const sourceX = (tileset.margin ?? 0) + (tileIndex % tileset.columns) * (tileset.tileWidth + (tileset.spacing ?? 0))
-  const sourceY = (tileset.margin ?? 0) + Math.floor(tileIndex / tileset.columns) * (tileset.tileHeight + (tileset.spacing ?? 0))
-  context.imageSmoothingEnabled = false
-  context.drawImage(image, sourceX, sourceY, tileset.tileWidth, tileset.tileHeight, 0, 0, canvas.width, canvas.height)
-  return canvas.toDataURL('image/png')
-}
-
-type TileIndexPreviewProps = {
-  /** Render document whose tileset image paths are loadable data URLs. */
-  renderDocument: MapDocument
-  /** Layer whose (x, y) cell selects the owning tileset; may be missing in the document. */
-  layerName: string
-  /** Tile X of the referenced cell. */
-  x: number
-  /** Tile Y of the referenced cell. */
-  y: number
-  /** Tileset-local tile index to crop (day/night swap or door tile). */
-  tileIndex: number
-  /** Accessible label and tooltip for the preview image. */
-  label: string
-  /** When set, crops from the named tileset directly instead of resolving the owner from the layer cell. */
-  tilesetName?: string
-  /** Game root used to resolve dynamically referenced vanilla sheets; null leaves their previews blank. */
-  gameRootPath?: string | null
-}
-
-/**
- * Hover-preview for one tileset-local tile index: crops the tile from the
- * tileset that owns the referenced layer cell (falling back to the first
- * tileset that can hold the index) and renders it at 3x as a data URL. When
- * `tilesetName` is set, that tileset is used directly instead of resolving
- * the owner from the layer cell. The tileset re-resolves on every
- * document/prop change, so tile edits and property edits reflect
- * immediately; loading and failure render a placeholder square.
- */
-function TileIndexPreview({ renderDocument, layerName, x, y, tileIndex, label, tilesetName, gameRootPath = null }: TileIndexPreviewProps) {
-  const locale = useLocale()
-  const viewportCopy = useEditorCopy().viewportLabels
-  const tileset = tilesetName
-    ? (renderDocument.tilesets.find((candidate) => candidate.name === tilesetName) ?? null)
-    : resolveTileIndexTileset(renderDocument, layerName, x, y, tileIndex)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!tileset) return undefined
-    let cancelled = false
-    setImageUrl(null)
-    const imagePath = resolveTilesetImagePath(renderDocument, tileset, gameRootPath)
-    if (!imagePath) return undefined
-    void loadImage(imagePath, locale, (failedPath) => viewportCopy.failedToLoadTilesetImage(failedPath))
-      .then((image) => {
-        if (cancelled) return
-        setImageUrl(renderTileIndexDataUrl(image, tileset, tileIndex))
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          appEvent('warning', 'Failed to load map tile preview')
-            .error(error)
-            .context({ source: 'map-asset-map-cards', operation: 'load-tile-preview', path: imagePath })
-            .emit({ notify: false })
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [gameRootPath, locale, renderDocument, tileIndex, tileset, viewportCopy])
-
-  if (!tileset || !imageUrl) {
-    return <span className="map-asset-tile-ref-ph" aria-hidden="true" />
-  }
-  return <img className="map-asset-tile-ref-img" src={imageUrl} alt={label} title={label} draggable={false} />
-}
-
 type WarpDialogState = { kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; entryIndex: number }
 
 /**
@@ -401,7 +281,10 @@ function WarpCard({
   onChange,
   document,
   onUpdateDocument,
-  selectedTile,
+  renderDocument,
+  addNonce = 0,
+  onRequestAdd,
+  gameRootPath = null,
   locale,
   theme,
   accentColor,
@@ -411,7 +294,14 @@ function WarpCard({
 }: CardProps & {
   document: MapDocument
   onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
-  selectedTile: { x: number; y: number } | null
+  /** Render document feeding the warp dialog's origin map picker. */
+  renderDocument: MapDocument
+  /** Monotonic nonce from the section add entry; 0 → positive opens the add dialog. */
+  addNonce?: number
+  /** Section head ＋ action: asks the parent to open this card's add dialog. */
+  onRequestAdd: () => void
+  /** Game root used to resolve dynamically referenced vanilla sheets in the origin picker. */
+  gameRootPath?: string | null
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
@@ -423,8 +313,22 @@ function WarpCard({
   const copy = assetCopy.mapCards
   const warpEntries = collectWarpEntries(document)
   const propertyGroups = parseWarpGroups(readPropertyRaw(properties, WARP_PROPERTY_KEY))
-  const [dialogState, setDialogState] = useState<WarpDialogState>({ kind: 'closed' })
+  const [dialogState, setDialogState] = useState<WarpDialogState>({
+    kind: 'closed',
+  })
   const [carrier, setCarrier] = useState<WarpCarrier>('property')
+  /** Row currently hovered; mounts its target-map preview popover lazily. */
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  /** Row elements by entry index, anchoring the hovered row's preview popover. */
+  const rowElementRefs = useRef(new Map<number, HTMLElement>())
+  const seenAddNonceRef = useRef(0)
+
+  useEffect(() => {
+    if (addNonce > 0 && addNonce !== seenAddNonceRef.current) {
+      seenAddNonceRef.current = addNonce
+      openAdd()
+    }
+  }, [addNonce])
 
   function commitGroups(nextGroups: readonly WarpGroup[]) {
     onChange(
@@ -435,18 +339,50 @@ function WarpCard({
   }
 
   /**
-   * Writes one per-cell action; when the cell already carries a different
-   * non-empty value, the change is confirmed first (an empty value is a delete
-   * and never confirms).
+   * Applies one per-cell action write onto `base` and returns the next
+   * document; when the cell already carries a different non-empty value, the
+   * change is confirmed first (an empty value is a delete and never confirms).
+   * Returns null when the change was rejected by the user.
    */
-  function commitCellAction(layerName: string, key: string, point: { x: number; y: number }, value: string) {
-    const existing = collectCellActions(document, layerName, [key]).find((entry) => entry.x === point.x && entry.y === point.y)
+  function applyCellAction(
+    base: MapDocument,
+    layerName: string,
+    key: string,
+    point: { x: number; y: number },
+    value: string,
+  ): MapDocument | null {
+    const existing = collectCellActions(base, layerName, [key]).find((entry) => entry.x === point.x && entry.y === point.y)
     const trimmed = value.trim()
     if (trimmed && existing && existing.value !== trimmed && !globalThis.confirm(copy.warpReplaceConfirm)) {
-      return
+      return null
     }
-    onUpdateDocument(writeCellAction(document, layerName, point, key, value), null, assetCopy.editWarp)
+    return writeCellAction(base, layerName, point, key, value)
   }
+
+  function commitCellAction(layerName: string, key: string, point: { x: number; y: number }, value: string) {
+    const next = applyCellAction(document, layerName, key, point, value)
+    if (next) onUpdateDocument(next, null, assetCopy.editWarp)
+  }
+
+  // Carrier labels/descriptions for the dialog's select; disabled state is
+  // derived inside the dialog from its own picked origin cell.
+  const carrierOptions: readonly WarpCarrierOption[] = [
+    {
+      value: 'property',
+      label: copy.warpCarrierProperty,
+      description: copy.warpCarrierPropertyHint,
+    },
+    {
+      value: 'touch',
+      label: copy.warpCarrierTouch,
+      description: copy.warpCarrierTouchHint,
+    },
+    {
+      value: 'action',
+      label: copy.warpCarrierAction,
+      description: copy.warpCarrierActionHint,
+    },
+  ]
 
   function openAdd() {
     setCarrier('property')
@@ -462,22 +398,36 @@ function WarpCard({
 
   const dialogEntry = dialogState.kind === 'edit' ? warpEntries[dialogState.entryIndex] : null
 
-  function handleConfirm(confirmCarrier: WarpCarrier, toMap: string, toX: number, toY: number) {
-    if (dialogState.kind === 'add' && selectedTile) {
+  function handleConfirm(confirmCarrier: WarpCarrier, origin: { x: number; y: number }, toMap: string, toX: number, toY: number) {
+    if (dialogState.kind === 'add') {
       if (confirmCarrier === 'property') {
-        commitGroups([...propertyGroups.groups, { fromX: selectedTile.x, fromY: selectedTile.y, toMap, toX, toY }])
+        commitGroups([...propertyGroups.groups, { fromX: origin.x, fromY: origin.y, toMap, toX, toY }])
       } else if (confirmCarrier === 'touch') {
-        commitCellAction('Back', 'TouchAction', selectedTile, formatTouchActionWarp(toMap, toX, toY))
+        commitCellAction('Back', 'TouchAction', origin, formatTouchActionWarp(toMap, toX, toY))
       } else {
-        commitCellAction('Buildings', 'Action', selectedTile, formatActionWarp(toX, toY, toMap))
+        commitCellAction('Buildings', 'Action', origin, formatActionWarp(toX, toY, toMap))
       }
     } else if (dialogState.kind === 'edit' && dialogEntry) {
       if (dialogEntry.kind === 'property') {
-        commitGroups(propertyGroups.groups.map((group, index) => (index === dialogEntry.index ? { ...group, toMap, toX, toY } : group)))
+        commitGroups(
+          propertyGroups.groups.map((group, index) =>
+            index === dialogEntry.index ? { ...group, fromX: origin.x, fromY: origin.y, toMap, toX, toY } : group,
+          ),
+        )
       } else if (dialogEntry.kind === 'touch') {
-        commitCellAction('Back', 'TouchAction', { x: dialogEntry.x, y: dialogEntry.y }, formatTouchActionWarp(toMap, toX, toY))
+        let base: MapDocument | null = document
+        if (dialogEntry.x !== origin.x || dialogEntry.y !== origin.y) {
+          base = applyCellAction(base, 'Back', 'TouchAction', { x: dialogEntry.x, y: dialogEntry.y }, '')
+        }
+        const next = base ? applyCellAction(base, 'Back', 'TouchAction', origin, formatTouchActionWarp(toMap, toX, toY)) : null
+        if (next) onUpdateDocument(next, null, assetCopy.editWarp)
       } else {
-        commitCellAction('Buildings', 'Action', { x: dialogEntry.x, y: dialogEntry.y }, formatActionWarp(toX, toY, toMap))
+        let base: MapDocument | null = document
+        if (dialogEntry.x !== origin.x || dialogEntry.y !== origin.y) {
+          base = applyCellAction(base, 'Buildings', 'Action', { x: dialogEntry.x, y: dialogEntry.y }, '')
+        }
+        const next = base ? applyCellAction(base, 'Buildings', 'Action', origin, formatActionWarp(toX, toY, toMap)) : null
+        if (next) onUpdateDocument(next, null, assetCopy.editWarp)
       }
     }
     setDialogState({ kind: 'closed' })
@@ -495,77 +445,139 @@ function WarpCard({
     }
   }
 
-  // Per-cell carriers need a picked cell that holds a tile on the target layer
-  // (TMX rules attach to placed tiles only) and a layer that exists.
-  function perCellCarrierEnabled(layerName: string) {
-    if (!selectedTile) return false
-    if (!document.layers.some((layer) => layer.name === layerName)) return false
-    return gidAtCell(document, layerName, selectedTile.x, selectedTile.y) !== 0
+  // Origin rectangles of every existing warp, framed as picker highlights in
+  // the dialog; the entry being edited is excluded so its origin stays free.
+  const isEditedEntry = (entry: WarpSourceEntry) => {
+    if (!dialogEntry) return false
+    if (entry.kind === 'property' && dialogEntry.kind === 'property') return entry.index === dialogEntry.index
+    if (entry.kind !== 'property' && dialogEntry.kind !== 'property') {
+      return entry.kind === dialogEntry.kind && entry.x === dialogEntry.x && entry.y === dialogEntry.y
+    }
+    return false
   }
-
-  const carrierOptions: readonly WarpCarrierOption[] = [
-    { value: 'property', label: copy.warpCarrierProperty, description: copy.warpCarrierPropertyHint },
-    {
-      value: 'touch',
-      label: perCellCarrierEnabled('Back') ? copy.warpCarrierTouch : `${copy.warpCarrierTouch}${copy.warpCarrierTouchDisabledHint}`,
-      description: copy.warpCarrierTouchHint,
-      disabled: !perCellCarrierEnabled('Back'),
-    },
-    {
-      value: 'action',
-      label: perCellCarrierEnabled('Buildings') ? copy.warpCarrierAction : `${copy.warpCarrierAction}${copy.warpCarrierActionDisabledHint}`,
-      description: copy.warpCarrierActionHint,
-      disabled: !perCellCarrierEnabled('Buildings'),
-    },
-  ]
+  const warpOriginRects: MapTileRect[] = warpEntries
+    .filter((entry) => !isEditedEntry(entry))
+    .map((entry) =>
+      entry.kind === 'property'
+        ? { x: entry.group.fromX, y: entry.group.fromY, width: 1, height: 1 }
+        : { x: entry.x, y: entry.y, width: 1, height: 1 },
+    )
 
   return (
-    <CardSection
-      title={copy.warpsTitle}
-      countLabel={warpEntries.length > 0 ? String(warpEntries.length) : null}
-      addTitle={selectedTile == null ? copy.addWarpDisabledNoCell : copy.addWarpTitle}
-      addDisabled={selectedTile == null}
-      onAdd={openAdd}
-    >
-      {warpEntries.length > 0 ? (
-        <CollapsibleEntryList
-          icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />}
-          cards={warpEntries.map((entry) => {
-            const title =
-              entry.kind === 'property'
-                ? copy.warpSummaryTitle(entry.group.fromX, entry.group.fromY, entry.group.toMap)
-                : copy.warpSummaryTitle(entry.x, entry.y, entry.toMap)
-            const landing =
-              entry.kind === 'property'
-                ? copy.warpSummaryLanding(entry.group.toX, entry.group.toY)
-                : copy.warpSummaryLanding(entry.toX, entry.toY)
-            const sourceLabel =
-              entry.kind === 'property' ? copy.warpSourceProperty : entry.kind === 'touch' ? copy.warpSourceTouch : copy.warpSourceAction
-            return (
-              <div
-                className="map-asset-entry-card-text"
-                key={`${entry.kind}:${entry.kind === 'property' ? entry.index : `${entry.x},${entry.y}`}`}
-              >
-                <strong>{title}</strong>
-                <small>
-                  {landing} · {sourceLabel}
-                </small>
-              </div>
-            )
-          })}
-          editLabel={copy.warpEdit}
-          onEdit={openEdit}
-          deleteLabel={copy.deleteEntry}
-          onDelete={deleteEntry}
-          onHighlightEntry={(index) => onHighlightInspector?.(warpHighlightTarget(document, warpEntries[index] ?? null))}
-          onClearHighlight={() => onHighlightInspector?.(null)}
-        />
-      ) : null}
+    <>
+      <CardSection
+        title={copy.warpsTitle}
+        countLabel={warpEntries.length > 0 ? String(warpEntries.length) : null}
+        addAction={{ label: copy.addWarp, onClick: onRequestAdd }}
+      >
+        {warpEntries.length > 0 ? (
+          <CollapsibleEntryList
+            cards={warpEntries.map((entry, index) => {
+              const title =
+                entry.kind === 'property'
+                  ? copy.warpSummaryTitle(entry.group.fromX, entry.group.fromY, entry.group.toMap)
+                  : copy.warpSummaryTitle(entry.x, entry.y, entry.toMap)
+              const landing =
+                entry.kind === 'property'
+                  ? copy.warpSummaryLanding(entry.group.toX, entry.group.toY)
+                  : copy.warpSummaryLanding(entry.toX, entry.toY)
+              const sourceLabel =
+                entry.kind === 'property' ? copy.warpSourceProperty : entry.kind === 'touch' ? copy.warpSourceTouch : copy.warpSourceAction
+              // The source cell's tile as the row's icon block; warps on empty
+              // cells (property rows over void) render text-only.
+              const sourceLayer = entry.kind === 'action' ? 'Buildings' : 'Back'
+              const sourceX = entry.kind === 'property' ? entry.group.fromX : entry.x
+              const sourceY = entry.kind === 'property' ? entry.group.fromY : entry.y
+              const sourceGid = stripTileGidFlags(gidAtCell(document, sourceLayer, sourceX, sourceY))
+              const sourceTileset = sourceGid !== 0 ? findTilesetForGid(document.tilesets, sourceGid) : null
+              const target = entry.kind === 'property' ? entry.group.toMap : entry.toMap
+              const targetX = entry.kind === 'property' ? entry.group.toX : entry.toX
+              const targetY = entry.kind === 'property' ? entry.group.toY : entry.toY
+              return (
+                <Fragment key={`${entry.kind}:${entry.kind === 'property' ? entry.index : `${entry.x},${entry.y}`}`}>
+                  <div
+                    className="map-asset-warp-ref"
+                    ref={(node) => {
+                      if (node) rowElementRefs.current.set(index, node)
+                      else rowElementRefs.current.delete(index)
+                    }}
+                  >
+                    {sourceTileset ? (
+                      <span className="map-asset-entry-thumbs">
+                        <TileIndexPreview
+                          renderDocument={renderDocument}
+                          layerName={sourceLayer}
+                          x={sourceX}
+                          y={sourceY}
+                          tileIndex={sourceGid - sourceTileset.firstGid}
+                          label={title}
+                          gameRootPath={gameRootPath}
+                        />
+                      </span>
+                    ) : null}
+                    <div className="map-asset-entry-card-text">
+                      <strong>{title}</strong>
+                      <small>{landing}</small>
+                    </div>
+                    <span className="map-asset-entry-tag">{sourceLabel}</span>
+                    <Popover.Root open={previewIndex === index}>
+                      <Popover.Anchor virtualRef={{ current: rowElementRefs.current.get(index) ?? null }} />
+                      <Popover.Portal>
+                        <Popover.Content
+                          side="top"
+                          align="end"
+                          sideOffset={6}
+                          collisionPadding={12}
+                          className="map-asset-warp-preview-pop"
+                          onOpenAutoFocus={(event) => event.preventDefault()}
+                        >
+                          <WarpTargetPreview
+                            target={target}
+                            x={targetX}
+                            y={targetY}
+                            locale={locale}
+                            theme={theme}
+                            accentColor={accentColor}
+                            loadTargetDocument={loadTargetDocument}
+                          />
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
+                  </div>
+                </Fragment>
+              )
+            })}
+            editLabel={copy.warpEdit}
+            onEdit={openEdit}
+            deleteLabel={copy.deleteEntry}
+            onDelete={deleteEntry}
+            onHighlightEntry={(index) => {
+              setPreviewIndex(index)
+              onHighlightInspector?.(warpHighlightTarget(document, warpEntries[index] ?? null))
+            }}
+            onClearHighlight={() => {
+              setPreviewIndex(null)
+              onHighlightInspector?.(null)
+            }}
+          />
+        ) : null}
+      </CardSection>
       <WarpDialog
         open={dialogState.kind !== 'closed'}
+        document={document}
+        renderDocument={renderDocument}
         initialMap={dialogEntry ? (dialogEntry.kind === 'property' ? dialogEntry.group.toMap : dialogEntry.toMap) : ''}
         initialX={dialogEntry ? (dialogEntry.kind === 'property' ? dialogEntry.group.toX : dialogEntry.toX) : 0}
         initialY={dialogEntry ? (dialogEntry.kind === 'property' ? dialogEntry.group.toY : dialogEntry.toY) : 0}
+        initialOrigin={
+          dialogEntry
+            ? dialogEntry.kind === 'property'
+              ? { x: dialogEntry.group.fromX, y: dialogEntry.group.fromY }
+              : { x: dialogEntry.x, y: dialogEntry.y }
+            : null
+        }
+        originRects={warpOriginRects}
+        gameRootPath={gameRootPath}
         carrier={carrier}
         carrierOptions={dialogState.kind === 'add' ? carrierOptions : []}
         onCarrierChange={setCarrier}
@@ -577,16 +589,19 @@ function WarpCard({
         onClose={() => setDialogState({ kind: 'closed' })}
         onConfirm={handleConfirm}
       />
-    </CardSection>
+    </>
   )
 }
 
 /**
  * The doors card manages the `Doors` map property (door tiles) and, for each
  * door, the Buildings-layer per-cell `Action` that sends the player through
- * it. Door cards show the linked destination when the cell has one, flag
- * cells that hold a conflicting non-warp action, and the add form can write
- * the door's destination action together with the door entry.
+ * it. Door cards show the linked destination when the cell has one and flag
+ * cells that hold a conflicting non-warp action; the dialog picks the door's
+ * cell on the embedded map and can write the door's destination action
+ * together with the door entry, and opens for an existing entry (row edit) to
+ * re-pick its cell and destination. The section renders nothing when no door
+ * entries exist (and no dialog is open).
  */
 function DoorsCard({
   properties,
@@ -595,33 +610,50 @@ function DoorsCard({
   onUpdateDocument,
   renderDocument,
   activeLayer,
-  selectedTile,
+  addNonce = 0,
+  onRequestAdd,
   mapOptions,
+  loadTargetDocument,
   onHighlightInspector,
   gameRootPath = null,
+  locale,
+  theme,
+  accentColor,
 }: CardProps & {
   document: MapDocument
   onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
   renderDocument: MapDocument
   activeLayer?: MapLayer | null
-  selectedTile: { x: number; y: number } | null
+  /** Monotonic nonce from the section add entry; 0 → positive opens the add dialog. */
+  addNonce?: number
+  /** Section head ＋ action: asks the parent to open this card's add dialog. */
+  onRequestAdd: () => void
   mapOptions: readonly WarpDialogMapOption[]
+  loadTargetDocument: (target: string) => Promise<MapDocument>
   onHighlightInspector?: (target: MapInspectorHighlight | null) => void
   gameRootPath?: string | null
+  locale: LocaleCode
+  theme: ThemeMode
+  accentColor: string
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
   const { groups, leftover } = parseDoorGroups(readPropertyRaw(properties, DOORS_PROPERTY_KEY))
-  const [formOpen, setFormOpen] = useState(false)
-  const [draft, setDraft] = useState({ setTarget: false, toMap: '', toX: 0, toY: 0 })
+  const [dialogState, setDialogState] = useState<{ kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; index: number }>({
+    kind: 'closed',
+  })
+  const seenAddNonceRef = useRef(0)
+
+  useEffect(() => {
+    if (addNonce > 0 && addNonce !== seenAddNonceRef.current) {
+      seenAddNonceRef.current = addNonce
+      setDialogState({ kind: 'add' })
+    }
+  }, [addNonce])
 
   const buildingsLayer = document.layers.find((layer) => layer.name.trim().toLowerCase() === 'buildings')
   const actionLayerName = buildingsLayer?.name ?? 'Buildings'
   const doorLayerName = buildingsLayer?.name ?? activeLayer?.name ?? ''
-  const doorGid = selectedTile && doorLayerName ? gidAtCell(document, doorLayerName, selectedTile.x, selectedTile.y) : 0
-  const doorTileset = doorGid !== 0 ? findTilesetForGid(document.tilesets, doorGid) : null
-  const doorSheet = doorTileset ? document.tilesets.indexOf(doorTileset) + 1 : 0
-  const doorTileIndex = doorTileset ? doorGid - doorTileset.firstGid : 0
 
   // One Action per cell (cellProperties wins over TileData objects), so each
   // door card can show where its cell sends the player.
@@ -636,19 +668,12 @@ function DoorsCard({
     onChange(writePropertyRaw(properties, DOORS_PROPERTY_KEY, serializeDoorGroups(nextGroups, leftover)), null, assetCopy.editDoor)
   }
 
-  function doorTargetLabel(door: DoorGroup) {
-    const action = doorActions.get(`${door.x},${door.y}`)
-    if (!action) return copy.doorTargetMissing
-    const parsed = parseCellWarpAction(action.value)
-    return parsed ? `→ ${parsed.toMap}` : copy.doorTargetConflict
-  }
-
-  /** Commits the door groups and, when the form asked for it, the cell's warp Action. */
-  function commitWithTarget(nextGroups: readonly DoorGroup[], point: { x: number; y: number }) {
+  /** Commits the door groups and, when the dialog asked for it, the cell's warp Action. */
+  function commitWithTarget(nextGroups: readonly DoorGroup[], point: { x: number; y: number }, target: DoorDialogTarget) {
     const nextProperties = writePropertyRaw(properties, DOORS_PROPERTY_KEY, serializeDoorGroups(nextGroups, leftover))
     let nextDocument = document
-    if (draft.setTarget && draft.toMap.trim()) {
-      const value = formatActionWarp(draft.toX, draft.toY, draft.toMap.trim())
+    if (target.setTarget && target.toMap.trim()) {
+      const value = formatActionWarp(target.toX, target.toY, target.toMap.trim())
       const existing = doorActions.get(`${point.x},${point.y}`)
       if (existing && existing.value !== value && !globalThis.confirm(copy.warpReplaceConfirm)) {
         return
@@ -662,173 +687,222 @@ function DoorsCard({
     }
   }
 
+  /**
+   * Commits the door entry confirmed by the dialog: the sheet/tile pair is
+   * re-derived from the dialog-reported cell (the tile preview inside the
+   * dialog used the same derivation), then the destination action is written.
+   * Editing replaces the entry in place; the door's own destination follows
+   * the door — a warp-shaped action on the old cell moves to the new cell
+   * (the dialog's destination, when set, wins), non-warp actions stay put.
+   */
+  function handleConfirm(point: { x: number; y: number }, target: DoorDialogTarget) {
+    const gid = doorLayerName ? gidAtCell(document, doorLayerName, point.x, point.y) : 0
+    const tileset = gid !== 0 ? findTilesetForGid(document.tilesets, gid) : null
+    if (!tileset) return
+    const nextDoor = {
+      x: point.x,
+      y: point.y,
+      sheet: document.tilesets.indexOf(tileset) + 1,
+      tileIndex: gid - tileset.firstGid,
+    }
+    if (dialogState.kind === 'add') {
+      commitWithTarget([...groups, nextDoor], point, target)
+      setDialogState({ kind: 'closed' })
+      return
+    }
+    if (dialogState.kind !== 'edit') return
+    const edited = groups[dialogState.index]
+    if (!edited) return
+    const cellChanged = edited.x !== point.x || edited.y !== point.y
+    const oldAction = doorActions.get(`${edited.x},${edited.y}`)
+    const oldWarp = oldAction ? parseCellWarpAction(oldAction.value) : null
+    const destination = target.setTarget
+      ? { toMap: target.toMap.trim(), toX: target.toX, toY: target.toY }
+      : cellChanged && oldWarp
+        ? { toMap: oldWarp.toMap, toX: oldWarp.toX, toY: oldWarp.toY }
+        : null
+    if (destination) {
+      const value = formatActionWarp(destination.toX, destination.toY, destination.toMap)
+      const existing = doorActions.get(`${point.x},${point.y}`)
+      if (existing && existing.value !== value && !globalThis.confirm(copy.warpReplaceConfirm)) return
+    }
+    let nextDocument = document
+    if (cellChanged && oldWarp) {
+      nextDocument = writeCellAction(nextDocument, actionLayerName, { x: edited.x, y: edited.y }, 'Action', '')
+    }
+    if (destination) {
+      nextDocument = writeCellAction(
+        nextDocument,
+        actionLayerName,
+        point,
+        'Action',
+        formatActionWarp(destination.toX, destination.toY, destination.toMap),
+      )
+    }
+    const nextGroups = groups.map((group, index) => (index === dialogState.index ? nextDoor : group))
+    const nextProperties = writePropertyRaw(properties, DOORS_PROPERTY_KEY, serializeDoorGroups(nextGroups, leftover))
+    onUpdateDocument({ ...nextDocument, properties: nextProperties }, null, assetCopy.editDoor)
+    setDialogState({ kind: 'closed' })
+  }
+
+  // Edit draft handed to the dialog: the edited door's cell plus its current
+  // destination (when the cell's action parses as a warp).
+  const editDoorDraft =
+    dialogState.kind === 'edit'
+      ? (() => {
+          const door = groups[dialogState.index]
+          if (!door) return null
+          const action = doorActions.get(`${door.x},${door.y}`)
+          const parsed = action ? parseCellWarpAction(action.value) : null
+          return {
+            x: door.x,
+            y: door.y,
+            setTarget: parsed != null,
+            toMap: parsed?.toMap ?? '',
+            toX: parsed?.toX ?? 0,
+            toY: parsed?.toY ?? 0,
+          }
+        })()
+      : null
+
+  // Existing door cells framed as picker highlights; the entry being edited
+  // stays out so its own cell remains free in the dialog.
+  const existingDoorRects: MapTileRect[] = groups
+    .filter((_, index) => dialogState.kind !== 'edit' || index !== dialogState.index)
+    .map((door) => ({
+      x: door.x,
+      y: door.y,
+      width: 1,
+      height: 1,
+    }))
+
   return (
-    <CardSection
-      title={copy.doorsTitle}
-      countLabel={groups.length > 0 ? String(groups.length) : null}
-      addTitle={selectedTile == null ? copy.addDoorDisabledNoCell : copy.addDoorTitle}
-      addDisabled={selectedTile == null}
-      onAdd={() => {
-        setDraft({ setTarget: false, toMap: '', toX: 0, toY: 0 })
-        setFormOpen(true)
-      }}
-    >
-      {groups.length > 0 ? (
-        <CollapsibleEntryList
-          icon={<DoorOpen className="h-3.5 w-3.5" aria-hidden="true" />}
-          cards={groups.map((door) => (
-            <div className="map-asset-tile-ref" key={`${door.x},${door.y}`}>
-              <div className="map-asset-entry-card-text">
-                <strong>{copy.doorEntry(door.x, door.y)}</strong>
-                <small>
-                  {copy.doorSheet} {door.sheet} · {copy.doorTileIndex} {door.tileIndex} · {doorTargetLabel(door)}
-                </small>
-              </div>
-              <div className="map-asset-tile-ref-pop">
-                <div className="map-asset-tile-ref-block">
-                  <span className="map-asset-tile-ref-label">{copy.doorTileIndex}</span>
-                  <TileIndexPreview
-                    renderDocument={renderDocument}
-                    layerName="Buildings"
-                    x={door.x}
-                    y={door.y}
-                    tileIndex={door.tileIndex}
-                    label={copy.doorTileIndex}
-                    gameRootPath={gameRootPath}
-                  />
+    <>
+      <CardSection
+        title={copy.doorsTitle}
+        countLabel={groups.length > 0 ? String(groups.length) : null}
+        addAction={{ label: copy.addDoor, onClick: onRequestAdd }}
+      >
+        {groups.length > 0 ? (
+          <CollapsibleEntryList
+            cards={groups.map((door) => {
+              const action = doorActions.get(`${door.x},${door.y}`)
+              const target = action ? parseCellWarpAction(action.value) : null
+              return (
+                <div className="map-asset-tile-ref" key={`${door.x},${door.y}`}>
+                  <span className="map-asset-entry-thumbs">
+                    <TileIndexPreview
+                      renderDocument={renderDocument}
+                      layerName={doorLayerName}
+                      x={door.x}
+                      y={door.y}
+                      tileIndex={door.tileIndex}
+                      label={copy.doorTileIndex}
+                      gameRootPath={gameRootPath}
+                    />
+                  </span>
+                  <div className="map-asset-entry-card-text">
+                    <strong>{target ? copy.doorSummary(door.x, door.y, target.toMap) : copy.doorEntry(door.x, door.y)}</strong>
+                    <small>
+                      {target ? copy.warpSummaryLanding(target.toX, target.toY) : action ? copy.doorTargetConflict : copy.doorTargetMissing}
+                    </small>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-          deleteLabel={copy.deleteEntry}
-          onDelete={(index) => commit(groups.filter((_, groupIndex) => groupIndex !== index))}
-          onHighlightEntry={(index) => {
-            const door = groups[index]
-            onHighlightInspector?.(door ? { tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }], objectIds: [] } : null)
-          }}
-          onClearHighlight={() => onHighlightInspector?.(null)}
-        />
-      ) : null}
-      {formOpen ? (
-        <form
-          className="map-asset-card-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!selectedTile || !doorTileset) return
-            const point = { x: selectedTile.x, y: selectedTile.y }
-            commitWithTarget([...groups, { x: point.x, y: point.y, sheet: doorSheet, tileIndex: doorTileIndex }], point)
-            setFormOpen(false)
-          }}
-        >
-          <PickedCellRow layerName={doorLayerName} selectedTile={selectedTile} />
-          <div className="map-asset-picked-tile">
-            <span className="map-asset-tile-ref-label">{copy.doorTileAuto}</span>
-            {doorGid !== 0 && doorTileset && selectedTile ? (
-              <TileIndexPreview
-                renderDocument={renderDocument}
-                tilesetName={doorTileset.name}
-                layerName={doorLayerName}
-                x={selectedTile.x}
-                y={selectedTile.y}
-                tileIndex={doorTileIndex}
-                label={copy.doorTileAuto}
-                gameRootPath={gameRootPath}
-              />
-            ) : (
-              <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
-            )}
-          </div>
-          <label className="map-asset-checkbox">
-            <input
-              type="checkbox"
-              checked={draft.setTarget}
-              onChange={(event) => setDraft((current) => ({ ...current, setTarget: event.target.checked }))}
-            />
-            <span>{copy.doorSetTarget}</span>
-          </label>
-          {draft.setTarget ? (
-            <>
-              <label className="map-asset-card-field">
-                <span>{copy.warpDialogMapLabel}</span>
-                <select value={draft.toMap} onChange={(event) => setDraft((current) => ({ ...current, toMap: event.target.value }))}>
-                  <option value="">{copy.warpDialogMapPlaceholder}</option>
-                  {mapOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="map-asset-card-form-row">
-                <label className="map-asset-card-field">
-                  <span>{copy.doorX}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={draft.toX}
-                    onChange={(event) => setDraft((current) => ({ ...current, toX: Number(event.target.value) }))}
-                  />
-                </label>
-                <label className="map-asset-card-field">
-                  <span>{copy.doorY}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={draft.toY}
-                    onChange={(event) => setDraft((current) => ({ ...current, toY: Number(event.target.value) }))}
-                  />
-                </label>
-              </div>
-            </>
-          ) : null}
-          <div className="map-asset-card-form-actions">
-            <button type="submit" className="control-button" disabled={!selectedTile || doorGid === 0}>
-              {copy.confirm}
-            </button>
-            <button type="button" className="control-button" onClick={() => setFormOpen(false)}>
-              {assetCopy.cancel}
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </CardSection>
+              )
+            })}
+            deleteLabel={copy.deleteEntry}
+            editLabel={copy.doorEdit}
+            onEdit={(index) => setDialogState({ kind: 'edit', index })}
+            onDelete={(index) => commit(groups.filter((_, groupIndex) => groupIndex !== index))}
+            onHighlightEntry={(index) => {
+              const door = groups[index]
+              onHighlightInspector?.(
+                door
+                  ? {
+                      tileRects: [{ x: door.x, y: door.y, width: 1, height: 1 }],
+                      objectIds: [],
+                    }
+                  : null,
+              )
+            }}
+            onClearHighlight={() => onHighlightInspector?.(null)}
+          />
+        ) : null}
+      </CardSection>
+      <DoorDialog
+        open={dialogState.kind !== 'closed'}
+        document={document}
+        renderDocument={renderDocument}
+        layerName={doorLayerName}
+        existingDoorRects={existingDoorRects}
+        editDoor={editDoorDraft}
+        gameRootPath={gameRootPath}
+        mapOptions={mapOptions}
+        loadTargetDocument={loadTargetDocument}
+        locale={locale}
+        theme={theme}
+        accentColor={accentColor}
+        onClose={() => setDialogState({ kind: 'closed' })}
+        onConfirm={handleConfirm}
+      />
+    </>
   )
 }
 
+/**
+ * The day/night card manages the paired `DayTiles`/`NightTiles` map
+ * properties: cells that swap to another tile index at night. Display entries
+ * are collapsed into contiguous rectangles, one list card per rectangle; the
+ * studio dialog captures the cell (map picker), the day tile (auto-derived
+ * from the cell's gid) and the night tile (sheet pick on the day tile's own
+ * tileset) in one pass. The section head always renders so its ＋ stays
+ * reachable; the entry list appears once swaps exist.
+ */
 function DayNightCard({
   properties,
   onChange,
   document,
   renderDocument,
   activeLayer,
-  selectedTile,
-  paletteSelection,
+  addNonce = 0,
+  onRequestAdd,
   onHighlightInspector,
   gameRootPath = null,
+  locale,
+  theme,
+  accentColor,
 }: CardProps & {
   document: MapDocument
   renderDocument: MapDocument
   activeLayer?: MapLayer | null
-  selectedTile: { x: number; y: number } | null
-  paletteSelection: MapTilesetPaletteSelection | null
+  /** Monotonic nonce from the section add entry; 0 → positive opens the add dialog. */
+  addNonce?: number
+  /** Section head ＋ action: asks the parent to open this card's add dialog. */
+  onRequestAdd: () => void
   onHighlightInspector?: (target: MapInspectorHighlight | null) => void
   gameRootPath?: string | null
+  locale: LocaleCode
+  theme: ThemeMode
+  accentColor: string
 }) {
   const assetCopy = useMapAuthoringCopy().assetEditor
   const copy = assetCopy.mapCards
   const day = parseDayNightGroups(readPropertyRaw(properties, DAY_TILES_PROPERTY_KEY))
   const night = parseDayNightGroups(readPropertyRaw(properties, NIGHT_TILES_PROPERTY_KEY))
   const entries = mergeDayNight(day.groups, night.groups)
-  /** Display entries collapsed into contiguous rectangles; one list card per rectangle. */
-  const rects = groupDayNightRects(entries)
-  const [formOpen, setFormOpen] = useState(false)
-  const [draft, setDraft] = useState({ layer: '' })
+  /** Display entries collapsed into commit rectangles; one list card per rectangle. */
+  const rects = groupDayNightDisplayRects(entries, dayNightColumnsResolver(document))
+  const [studioState, setStudioState] = useState<{ kind: 'closed' } | { kind: 'add' } | { kind: 'edit'; index: number }>({
+    kind: 'closed',
+  })
+  const seenAddNonceRef = useRef(0)
 
-  const dayGid = selectedTile && draft.layer ? gidAtCell(document, draft.layer, selectedTile.x, selectedTile.y) : 0
-  const dayTileset = dayGid !== 0 ? findTilesetForGid(document.tilesets, dayGid) : null
-  const dayTile = dayTileset ? dayGid - dayTileset.firstGid : null
-  const nightSheetMismatch = paletteSelection != null && dayTileset != null && paletteSelection.tilesetName !== dayTileset.name
-  const canConfirm = draft.layer.trim() !== '' && selectedTile != null && dayGid !== 0 && !nightSheetMismatch
+  useEffect(() => {
+    if (addNonce > 0 && addNonce !== seenAddNonceRef.current) {
+      seenAddNonceRef.current = addNonce
+      setStudioState({ kind: 'add' })
+    }
+  }, [addNonce])
 
   /** Deletes one display rectangle: every covered cell is removed from both day and night groups. */
   function removeEntry(index: number) {
@@ -856,190 +930,178 @@ function DayNightCard({
     onChange(next, null, assetCopy.editDayNight)
   }
 
-  function addEntry() {
-    if (!selectedTile) return
-    const layer = draft.layer.trim()
-    if (!layer) return
-    const gid = gidAtCell(document, layer, selectedTile.x, selectedTile.y)
-    if (gid === 0) return
-    const tileset = findTilesetForGid(document.tilesets, gid)
-    if (!tileset) return
-    const { x, y } = selectedTile
+  /**
+   * Commits the swaps confirmed by the studio: every covered cell is first
+   * removed from both day and night groups (so editing replaces in place),
+   * then the new day values — and the night values for cells with one — are
+   * appended.
+   */
+  function commitSwap(payload: { layer: string; cells: { x: number; y: number; dayTile: number; nightTile: number | null }[] }) {
+    const cellKeys = new Set(payload.cells.map((cell) => `${cell.x},${cell.y}`))
+    const kept = (group: DayNightGroup) => !(group.layer === payload.layer && cellKeys.has(`${group.x},${group.y}`))
     let next = properties
     next = writePropertyRaw(
       next,
       DAY_TILES_PROPERTY_KEY,
-      serializeDayNightGroups([...day.groups, { layer, x, y, tileIndex: gid - tileset.firstGid }], day.leftover),
+      serializeDayNightGroups(
+        [
+          ...day.groups.filter(kept),
+          ...payload.cells.map((cell) => ({
+            layer: payload.layer,
+            x: cell.x,
+            y: cell.y,
+            tileIndex: cell.dayTile,
+          })),
+        ],
+        day.leftover,
+      ),
     )
-    const nightTile = paletteSelection && paletteSelection.tilesetName === tileset.name ? paletteSelection.startIndex : null
-    if (nightTile != null) {
-      next = writePropertyRaw(
-        next,
-        NIGHT_TILES_PROPERTY_KEY,
-        serializeDayNightGroups([...night.groups, { layer, x, y, tileIndex: nightTile }], night.leftover),
-      )
-    }
+    next = writePropertyRaw(
+      next,
+      NIGHT_TILES_PROPERTY_KEY,
+      serializeDayNightGroups(
+        [
+          ...night.groups.filter(kept),
+          ...payload.cells.flatMap((cell) =>
+            cell.nightTile != null ? [{ layer: payload.layer, x: cell.x, y: cell.y, tileIndex: cell.nightTile }] : [],
+          ),
+        ],
+        night.leftover,
+      ),
+    )
     onChange(next, null, assetCopy.editDayNight)
-    setFormOpen(false)
+    setStudioState({ kind: 'closed' })
   }
 
   const entryCards = rects.map((rect) => {
     const isBlock = rect.width !== 1 || rect.height !== 1
     const title = isBlock
-      ? copy.dayNightBlock(rect.layer, rect.x, rect.y, rect.width, rect.height, rect.dayTile, rect.nightTile)
-      : copy.dayNightEntry(rect.layer, rect.x, rect.y, rect.dayTile, rect.nightTile)
+      ? copy.pickedRect(rect.layer, rect.x, rect.y, rect.width, rect.height)
+      : copy.pickedCell(rect.layer, rect.x, rect.y)
+    // Day and night tiles live on the same sheet (the studio locks the night
+    // pick to the day tiles' tileset), so one resolution serves both sides.
+    const anchorTile = rect.cells.find((cell) => cell.dayTile != null)?.dayTile ?? rect.cells[0]?.nightTile ?? null
+    const tileset = anchorTile != null ? resolveTileIndexTileset(renderDocument, rect.layer, rect.x, rect.y, anchorTile) : null
+    const dayCells = rect.cells.flatMap((cell) =>
+      cell.dayTile != null ? [{ dx: cell.x - rect.x, dy: cell.y - rect.y, tileIndex: cell.dayTile }] : [],
+    )
+    const nightCells = rect.cells.flatMap((cell) =>
+      cell.nightTile != null ? [{ dx: cell.x - rect.x, dy: cell.y - rect.y, tileIndex: cell.nightTile }] : [],
+    )
     return (
-      <div className="map-asset-tile-ref">
+      <div className="map-asset-tile-ref" key={`${rect.layer}\u0000${rect.x},${rect.y}`}>
+        <div className="map-asset-entry-thumbs">
+          {dayCells.length > 0 ? (
+            <TileRegionPreview
+              renderDocument={renderDocument}
+              tileset={tileset}
+              width={rect.width}
+              height={rect.height}
+              cells={dayCells}
+              label={copy.dayNightDayTile}
+              gameRootPath={gameRootPath}
+            />
+          ) : null}
+          {dayCells.length > 0 && nightCells.length > 0 ? (
+            <span className="map-asset-daynight-preview-swap" aria-hidden="true">
+              ⇄
+            </span>
+          ) : null}
+          {nightCells.length > 0 ? (
+            <TileRegionPreview
+              renderDocument={renderDocument}
+              tileset={tileset}
+              width={rect.width}
+              height={rect.height}
+              cells={nightCells}
+              label={copy.dayNightNightTile}
+              gameRootPath={gameRootPath}
+            />
+          ) : null}
+        </div>
         <div className="map-asset-entry-card-text">
           <strong>{title}</strong>
-          <small>
-            {copy.dayNightLayer} {rect.layer}
-            {isBlock ? ` · ${copy.dayNightBlockCells(rect.cells.length)}` : null}
-          </small>
+          {isBlock ? <small>{copy.dayNightBlockCells(rect.cells.length)}</small> : null}
         </div>
-        {rect.dayTile != null || rect.nightTile != null ? (
-          <div className="map-asset-tile-ref-pop">
-            {rect.dayTile != null ? (
-              <div className="map-asset-tile-ref-block">
-                <span className="map-asset-tile-ref-label">{copy.dayNightDayTile}</span>
-                <TileIndexPreview
-                  renderDocument={renderDocument}
-                  layerName={rect.layer}
-                  x={rect.x}
-                  y={rect.y}
-                  tileIndex={rect.dayTile}
-                  label={copy.dayNightDayTile}
-                  gameRootPath={gameRootPath}
-                />
-              </div>
-            ) : null}
-            {rect.nightTile != null ? (
-              <div className="map-asset-tile-ref-block">
-                <span className="map-asset-tile-ref-label">{copy.dayNightNightTile}</span>
-                <TileIndexPreview
-                  renderDocument={renderDocument}
-                  layerName={rect.layer}
-                  x={rect.x}
-                  y={rect.y}
-                  tileIndex={rect.nightTile}
-                  label={copy.dayNightNightTile}
-                  gameRootPath={gameRootPath}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     )
   })
 
   return (
-    <CardSection
-      title={copy.dayNightTitle}
-      countLabel={rects.length > 0 ? copy.dayNightCount(rects.length) : null}
-      addTitle={selectedTile == null ? copy.addDayNightDisabledNoCell : copy.addDayNightTitle}
-      addDisabled={selectedTile == null}
-      onAdd={() => {
-        setDraft({ layer: activeLayer?.name ?? document.layers[0]?.name ?? '' })
-        setFormOpen(true)
-      }}
-    >
-      {rects.length > 0 ? (
-        <CollapsibleEntryList
-          icon={<SunMoon className="h-3.5 w-3.5" aria-hidden="true" />}
-          cards={entryCards}
-          deleteLabel={copy.deleteEntry}
-          onDelete={removeEntry}
-          onHighlightEntry={(index) => {
-            const rect = rects[index]
-            onHighlightInspector?.(
-              rect ? { tileRects: [{ x: rect.x, y: rect.y, width: rect.width, height: rect.height }], objectIds: [] } : null,
-            )
-          }}
-          onClearHighlight={() => onHighlightInspector?.(null)}
-        />
-      ) : null}
-      {formOpen ? (
-        <form
-          className="map-asset-card-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            addEntry()
-          }}
-        >
-          <label className="map-asset-card-field">
-            <span>{copy.dayNightLayer}</span>
-            <select value={draft.layer} onChange={(event) => setDraft((current) => ({ ...current, layer: event.target.value }))}>
-              {document.layers.map((layer) => (
-                <option key={layer.id} value={layer.name}>
-                  {layer.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <PickedCellRow layerName={draft.layer} selectedTile={selectedTile} />
-          <div className="map-asset-picked-tile">
-            <span className="map-asset-tile-ref-label">{copy.dayTileAuto}</span>
-            {dayTile != null && selectedTile ? (
-              <TileIndexPreview
-                renderDocument={renderDocument}
-                layerName={draft.layer}
-                x={selectedTile.x}
-                y={selectedTile.y}
-                tileIndex={dayTile}
-                label={copy.dayTileAuto}
-                gameRootPath={gameRootPath}
-              />
-            ) : (
-              <span className="map-asset-picked-warn">{copy.pickedCellEmpty}</span>
-            )}
-          </div>
-          <div className="map-asset-picked-tile">
-            <span className="map-asset-tile-ref-label">{copy.dayNightNightTile}</span>
-            {paletteSelection && selectedTile ? (
-              <TileIndexPreview
-                renderDocument={renderDocument}
-                tilesetName={paletteSelection.tilesetName}
-                layerName={draft.layer}
-                x={selectedTile.x}
-                y={selectedTile.y}
-                tileIndex={paletteSelection.startIndex}
-                label={copy.dayNightNightTile}
-                gameRootPath={gameRootPath}
-              />
-            ) : (
-              <span className="map-asset-picked-warn">{copy.nightTileNone}</span>
-            )}
-            {!paletteSelection ? <small>{copy.pickNightTileHint}</small> : null}
-          </div>
-          {nightSheetMismatch && dayTileset ? (
-            <p className="map-asset-picked-warn">{copy.nightTileSheetMismatch(dayTileset.name)}</p>
-          ) : null}
-          <div className="map-asset-card-form-actions">
-            <button type="submit" className="control-button" disabled={!canConfirm}>
-              {copy.confirm}
-            </button>
-            <button type="button" className="control-button" onClick={() => setFormOpen(false)}>
-              {assetCopy.cancel}
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </CardSection>
+    <>
+      <CardSection
+        title={copy.dayNightTitle}
+        countLabel={rects.length > 0 ? copy.dayNightCount(rects.length) : null}
+        addAction={{ label: copy.dayNightStudioAddTitle, onClick: onRequestAdd }}
+      >
+        {rects.length > 0 ? (
+          <CollapsibleEntryList
+            cards={entryCards}
+            editLabel={copy.dayNightEdit}
+            onEdit={(index) => setStudioState({ kind: 'edit', index })}
+            deleteLabel={copy.deleteEntry}
+            onDelete={removeEntry}
+            onHighlightEntry={(index) => {
+              const rect = rects[index]
+              onHighlightInspector?.(
+                rect
+                  ? {
+                      tileRects: [
+                        {
+                          x: rect.x,
+                          y: rect.y,
+                          width: rect.width,
+                          height: rect.height,
+                        },
+                      ],
+                      objectIds: [],
+                    }
+                  : null,
+              )
+            }}
+            onClearHighlight={() => onHighlightInspector?.(null)}
+          />
+        ) : null}
+      </CardSection>
+      <DayNightStudioDialog
+        open={studioState.kind !== 'closed'}
+        document={document}
+        renderDocument={renderDocument}
+        activeLayerName={activeLayer?.name}
+        editEntry={
+          studioState.kind === 'edit'
+            ? (() => {
+                const rect = rects[studioState.index]
+                if (!rect) return null
+                const cell = rect.cells[0]
+                return {
+                  layer: rect.layer,
+                  x: cell.x,
+                  y: cell.y,
+                  dayTile: cell.dayTile,
+                  nightTile: cell.nightTile,
+                }
+              })()
+            : null
+        }
+        gameRootPath={gameRootPath}
+        locale={locale}
+        theme={theme}
+        accentColor={accentColor}
+        onClose={() => setStudioState({ kind: 'closed' })}
+        onConfirm={commitSwap}
+      />
+    </>
   )
 }
 
 export type MapAssetMapCardsProps = {
   document: MapDocument
-  /** Render document whose tileset image paths are loadable data URLs (used by tile hover previews). */
+  /** Render document whose tileset image paths are loadable data URLs (used by tile previews and dialog map pickers). */
   renderDocument: MapDocument
   onUpdateDocument: (nextDocument: MapDocument, mergeKey?: string | null, label?: string) => void
-  /** Active layer; feeds the door/day-night tile capture rows. */
+  /** Active layer; feeds the door capture rows and the day/night studio's preselected layer. */
   activeLayer?: MapLayer | null
-  /** Cell picked on the canvas (check tool); null until one is picked. Feeds the warp/door/day-night capture rows. */
-  selectedTile: { x: number; y: number } | null
-  /** Tile picked in the tileset palette; captures the night/door tile when its sheet matches the cell. */
-  paletteSelection: MapTilesetPaletteSelection | null
   /** Target-map choices for the warp dialog (localized names from the map catalog). */
   mapOptions: readonly WarpDialogMapOption[]
   /** Loads a target map document for the warp destination preview. */
@@ -1054,20 +1116,19 @@ export type MapAssetMapCardsProps = {
 }
 
 /**
- * Semantic map-property cards for the asset editor inspector: warp entries
- * (dialog-picked destinations), doors and day/night swaps. Warps and doors
- * read and write both `document.properties` and per-cell action strings
- * through `onUpdateDocument`; music and ambient light live in the top-bar
- * chips; the raw-properties collapsible lives at the bottom of the inspector
- * and edits the same properties object.
+ * Semantic map-property cards for the asset editor inspector's content tab:
+ * warp entries (dialog-picked origin + destination), doors and day/night
+ * swaps, each a section whose head ＋ opens its own add dialog directly. The
+ * warp and door dialogs pick their cell on an embedded map picker, so adding
+ * never requires a canvas pick first; warps and doors read and write both
+ * `document.properties` and per-cell action strings through
+ * `onUpdateDocument`; music and ambient light live in the top-bar chips.
  */
 export function MapAssetMapCards({
   document,
   renderDocument,
   onUpdateDocument,
   activeLayer,
-  selectedTile,
-  paletteSelection,
   mapOptions,
   loadTargetDocument,
   onHighlightInspector,
@@ -1083,14 +1144,31 @@ export function MapAssetMapCards({
       mergeKey ?? propertyEditMergeKey('map-property', document.properties, nextProperties as Record<string, unknown>),
       label ?? copy.editMapProperties,
     )
+  // Each section head's ＋ opens its own card's add dialog through a monotonic
+  // per-type nonce; the card watches its nonce and opens on 0 → positive.
+  const [addSignal, setAddSignal] = useState<{
+    type: 'warp' | 'door' | 'dayNight'
+    nonce: number
+  } | null>(null)
+  const nextAddNonceRef = useRef(1)
+
+  /** Bumps the type's nonce so the matching card opens its add dialog. */
+  function requestAdd(type: 'warp' | 'door' | 'dayNight') {
+    setAddSignal({ type, nonce: nextAddNonceRef.current })
+    nextAddNonceRef.current += 1
+  }
+
   return (
-    <>
+    <div className="map-asset-card-stack">
       <WarpCard
         properties={document.properties}
         onChange={updateProperties}
         document={document}
         onUpdateDocument={onUpdateDocument}
-        selectedTile={selectedTile}
+        renderDocument={renderDocument}
+        addNonce={addSignal?.type === 'warp' ? addSignal.nonce : 0}
+        onRequestAdd={() => requestAdd('warp')}
+        gameRootPath={gameRootPath}
         locale={locale}
         theme={theme}
         accentColor={accentColor}
@@ -1105,10 +1183,15 @@ export function MapAssetMapCards({
         onUpdateDocument={onUpdateDocument}
         renderDocument={renderDocument}
         activeLayer={activeLayer}
-        selectedTile={selectedTile}
+        addNonce={addSignal?.type === 'door' ? addSignal.nonce : 0}
+        onRequestAdd={() => requestAdd('door')}
         mapOptions={mapOptions}
+        loadTargetDocument={loadTargetDocument}
         onHighlightInspector={onHighlightInspector}
         gameRootPath={gameRootPath}
+        locale={locale}
+        theme={theme}
+        accentColor={accentColor}
       />
       <DayNightCard
         properties={document.properties}
@@ -1116,11 +1199,14 @@ export function MapAssetMapCards({
         document={document}
         renderDocument={renderDocument}
         activeLayer={activeLayer}
-        selectedTile={selectedTile}
-        paletteSelection={paletteSelection}
+        addNonce={addSignal?.type === 'dayNight' ? addSignal.nonce : 0}
+        onRequestAdd={() => requestAdd('dayNight')}
         onHighlightInspector={onHighlightInspector}
         gameRootPath={gameRootPath}
+        locale={locale}
+        theme={theme}
+        accentColor={accentColor}
       />
-    </>
+    </div>
   )
 }

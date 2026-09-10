@@ -1,16 +1,18 @@
 @layer components {
-  /* Map inspector semantic cards (warps/doors/day-night), tile hover previews
-   * and object locate rows. Split from map-asset-shell.css to stay under the
-   * architecture file-size cap. */
+  /* Map inspector content tab: semantic card sections (warps/doors/day-night),
+   * flat entry rows, tile hover previews and object locate rows. The map
+   * animation dialog lives in map-animation-dialog.css. */
   .map-asset-card-section {
     @apply grid min-w-0;
     gap: 0.375rem;
+    padding: 0.5rem 0 0.625rem;
   }
 
   .map-asset-card-section > header {
     @apply text-text-primary flex items-center justify-between;
-    min-height: 1.375rem;
+    min-height: 1.75rem;
     gap: 0.375rem;
+    padding: 0 0.25rem;
     font-size: 0.6875rem;
     font-weight: 600;
   }
@@ -28,10 +30,15 @@
     font-size: 0.625rem;
   }
 
+  /* Empty sections keep their reachable ＋ but recede behind populated ones. */
+  .map-asset-card-section.is-empty .map-asset-card-heading {
+    @apply text-text-secondary;
+  }
+
   .map-asset-card-add-head {
     @apply text-text-tertiary inline-flex items-center justify-center;
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 1.375rem;
+    height: 1.375rem;
     flex: 0 0 auto;
     border: none;
     background: transparent;
@@ -55,33 +62,41 @@
 
   .map-asset-card-list {
     @apply grid min-w-0;
-    gap: 0.375rem;
   }
 
-  /* v2.8 entry card: 24px icon block + two-line summary; the card tint and its
-     action buttons only appear on hover. */
+  /* Content tab: one continuous hairline-grouped column. Top-level blocks
+     (object details, semantic cards, animations, objects) separate with a
+     full-strength divider; entry rows inside use the lighter row hairline. */
+  .map-asset-content-tab {
+    @apply grid min-w-0;
+  }
+
+  .map-asset-content-tab > * + *,
+  .map-asset-card-stack > * + * {
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* Vertical stack of the semantic card sections (warps / doors / day-night). */
+  .map-asset-card-stack {
+    @apply grid min-w-0;
+  }
+
+  /* v2.8 entry row: flat borderless row — hairline separators; actions only on hover. */
   .map-asset-entry-card {
     @apply flex items-center;
     min-width: 0;
     gap: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    padding: 0.4375rem 0.5rem;
+    padding: 0.375rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     transition: background 0.15s ease;
+  }
+
+  .map-asset-entry-card:last-child {
+    border-bottom: none;
   }
 
   .map-asset-entry-card:hover {
     background: var(--bg-hover);
-  }
-
-  .map-asset-entry-icon {
-    @apply text-text-tertiary inline-flex flex-none items-center justify-center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.4375rem;
-    background: var(--bg-panel-muted);
   }
 
   .map-asset-entry-card-actions {
@@ -101,11 +116,6 @@
   .map-asset-entry-card-body {
     @apply flex min-w-0 flex-1 items-center;
     gap: 0.5rem;
-  }
-
-  .map-asset-entry-card-body > svg {
-    @apply text-text-tertiary;
-    flex: 0 0 auto;
   }
 
   .map-asset-entry-card-text {
@@ -132,39 +142,67 @@
     line-height: 1.35;
   }
 
-  .map-asset-card-form {
-    @apply grid min-w-0;
-    gap: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 0.5rem;
+  /* Row-tail meta (warp carrier), kept out of the two-line summary. */
+  .map-asset-entry-tag {
+    @apply text-text-tertiary flex-none overflow-hidden;
+    font-size: 0.625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .map-asset-card-form-actions {
-    @apply flex;
-    gap: 0.375rem;
-  }
-
-  .map-asset-card-form-actions .control-button {
-    height: auto;
-    min-height: 1.75rem;
-    flex: 1 1 auto;
-  }
-
-  .map-asset-card-field {
-    @apply text-text-secondary grid min-w-0 gap-1;
-  }
-
-  /* Two-column coordinate inputs inside the door target form. */
-  .map-asset-card-form-row {
-    @apply grid min-w-0;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.375rem;
+  /* Type subgroup label inside the merged object section (lights / objects / furniture)
+     and inside the animation section (per tilesheet). */
+  .map-asset-subgroup {
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
+    padding: 0.125rem 0.25rem 0;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
   }
 
   /* ===== Tile-index hover previews (day/night swaps, doors) ===== */
   .map-asset-tile-ref {
     @apply relative min-w-0 flex-1;
+  }
+
+  /* Warp rows: same flat row language, plus a hover peek of the target map.
+     The popover is a Radix Popover anchored to the hovered row; only the
+     chrome lives here. */
+  .map-asset-warp-ref {
+    @apply relative flex min-w-0 flex-1 items-center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-warp-preview-pop {
+    width: 16rem;
+    padding: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
+    z-index: var(--z-popover);
+    /* Peek-only: the row keeps the interaction, the preview never steals it. */
+    pointer-events: none;
+  }
+
+  .map-asset-warp-preview {
+    @apply grid overflow-hidden;
+    height: 10rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+  }
+
+  .map-asset-warp-preview > .map-viewport-root {
+    min-height: 0;
+  }
+
+  .map-asset-warp-preview.is-loading,
+  .map-asset-warp-preview.is-error {
+    @apply text-text-secondary flex items-center justify-center gap-2;
+    padding: 1rem;
+    font-size: 0.6875rem;
+    text-align: center;
   }
 
   .map-asset-tile-ref-pop {
@@ -219,6 +257,33 @@
     border: 1px dashed var(--border-color);
   }
 
+  /* Row-head thumbs (day/night swaps, doors, warp sources) sit at the row head as the icon block. */
+  .map-asset-entry-card-body > .map-asset-tile-ref:has(> .map-asset-entry-thumbs) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-entry-thumbs {
+    @apply flex-none self-start;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .map-asset-entry-thumbs .map-asset-tile-ref-img,
+  .map-asset-entry-thumbs .map-asset-tile-ref-ph {
+    width: auto;
+    height: auto;
+    max-width: 4.5rem;
+    max-height: 2rem;
+  }
+
+  .map-asset-entry-thumbs .map-asset-tile-ref-ph {
+    width: 2rem;
+    height: 2rem;
+  }
+
   /* ===== Advanced raw-property collapsible ===== */
   .map-asset-raw-toggle {
     @apply grid min-w-0;
@@ -269,64 +334,41 @@
     @apply text-text-primary;
   }
 
-  /* ===== Animation tab entry (Inspector) ===== */
-  .map-asset-animation-tab-entry {
-    @apply flex flex-col items-center justify-center text-center;
-    gap: 0.75rem;
-    padding: 2rem 1rem;
-  }
-
+  /* ===== Inspector animations-tab empty hint ===== */
   .map-asset-animation-tab-hint {
     @apply text-text-tertiary m-0;
     font-size: 0.6875rem;
   }
 
-  /* Animation group list in the inspector animations tab */
+  /* Animation group list in the inspector content tab: flat hairline rows matching entry cards. */
   .map-asset-animation-list {
     @apply flex flex-col;
-    gap: 0.75rem;
-    padding: 0 0.75rem 1rem;
+    gap: 0.25rem;
   }
 
   .map-asset-animation-list-group {
     @apply flex flex-col;
-    gap: 0.375rem;
-  }
-
-  .map-asset-animation-list-group-header {
-    @apply flex items-center justify-between;
-    padding: 0 0.25rem;
-  }
-
-  .map-asset-animation-list-group-title {
-    @apply text-text-primary;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .map-asset-animation-list-group-count {
-    @apply text-text-tertiary;
-    font-size: 0.625rem;
-    font-variant-numeric: tabular-nums;
+    gap: 0.125rem;
   }
 
   .map-asset-animation-list-items {
     @apply flex flex-col;
-    gap: 0.25rem;
   }
 
   .map-asset-animation-list-item {
     @apply flex items-center;
     gap: 0.5rem;
-    padding: 0.375rem 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    transition: border-color 0.15s ease;
+    padding: 0.375rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .map-asset-animation-list-item:last-child {
+    border-bottom: none;
   }
 
   .map-asset-animation-list-item:hover {
-    border-color: var(--accent);
+    background: var(--bg-hover);
   }
 
   .map-asset-animation-list-item-body {
@@ -349,471 +391,36 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Use-tile action: hover-revealed like entry-card actions. */
   .map-asset-animation-list-item-use {
-    @apply flex flex-none items-center gap-1;
-    font-size: 0.625rem;
-    padding: 0.25rem 0.5rem;
-  }
-
-  /* Animated tile preview */
-  .map-anim-preview {
-    @apply block flex-none;
-    border-radius: var(--radius-sm);
-    background-color: var(--bg-surface);
-    background-repeat: no-repeat;
-    image-rendering: pixelated;
-  }
-
-  .map-anim-preview-loading {
-    @apply block flex-none;
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-  }
-
-  /* ===== Animation dialog ===== */
-  .map-animation-dialog-body {
-    padding: 0 !important;
-    overflow: hidden;
-  }
-
-  .map-animation-dialog-empty {
-    @apply text-text-tertiary m-0;
-    font-size: 0.75rem;
-    padding: 2rem 1rem;
-    text-align: center;
-  }
-
-  .map-animation-dialog-hint {
-    @apply text-text-tertiary m-0;
-    font-size: 0.6875rem;
-    padding: 1rem;
-    text-align: center;
-  }
-
-  /* Two-column layout: sheet on the left, frame editor on the right */
-  .map-animation-editor {
-    @apply grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    height: 64vh;
-    min-height: 400px;
-  }
-
-  /* Left: sheet canvas */
-  .map-animation-editor-sheet {
-    @apply flex flex-col;
-    min-height: 0;
-    border-right: 1px solid var(--border-color);
-    background: var(--bg-panel);
-  }
-
-  .map-animation-editor-sheet-badge {
-    border: 2px solid var(--accent);
-    border-radius: 2px;
-    box-sizing: border-box;
-  }
-
-  .map-animation-editor-sheet-footer {
+    display: none;
+    width: 1.5rem;
+    height: 1.5rem;
     flex: 0 0 auto;
-    border-top: 1px solid var(--border-color);
-  }
-
-  .map-animation-editor-sheet-hint {
-    @apply text-text-tertiary m-0;
-    font-size: 0.625rem;
-    padding: 0.375rem 0.5rem;
-  }
-
-  .map-animation-editor-sheet-mode-hint {
-    @apply text-text-primary m-0 flex items-center gap-1;
-    font-size: 0.625rem;
-    padding: 0.375rem 0.5rem;
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  /* Right: panel with sections */
-  .map-animation-editor-panel {
-    @apply flex flex-col;
-    min-height: 0;
-    overflow: hidden;
     padding: 0;
   }
 
-  .map-animation-editor-section {
-    @apply flex flex-none flex-col;
-    padding: 0.625rem 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    gap: 0.5rem;
+  .map-asset-animation-list-item:hover .map-asset-animation-list-item-use,
+  .map-asset-animation-list-item:focus-within .map-asset-animation-list-item-use {
+    display: inline-flex;
   }
 
-  .map-animation-editor-section.is-flex {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-
-  .map-animation-editor-section:last-child {
-    border-bottom: none;
-  }
-
-  /* Animation list header */
-  .map-animation-editor-list-header {
-    @apply flex items-center justify-between;
-    gap: 0.5rem;
-  }
-
-  .map-animation-editor-list-label {
-    @apply text-text-tertiary;
-    font-size: 0.625rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .map-animation-editor-list-empty {
-    @apply text-text-tertiary m-0;
-    font-size: 0.625rem;
-    padding: 0.25rem 0;
-  }
-
-  .map-animation-editor-list-items {
-    @apply flex gap-1.5 overflow-x-auto;
-    padding-bottom: 0.25rem;
-    scrollbar-width: thin;
-  }
-
-  .map-animation-editor-list-item {
-    @apply flex flex-none flex-col items-center gap-1;
-    width: 3.5rem;
-    padding: 0.375rem 0.25rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    cursor: pointer;
-    transition:
-      border-color 0.15s ease,
-      background 0.15s ease;
-  }
-
-  .map-animation-editor-list-item:hover {
-    border-color: var(--accent);
-  }
-
-  .map-animation-editor-list-item.is-active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .map-animation-editor-list-item img {
-    @apply block;
-    width: 2.5rem;
-    height: 2.5rem;
-    image-rendering: pixelated;
-    border-radius: var(--radius-sm);
-  }
-
-  .map-animation-editor-list-item-meta {
-    @apply flex flex-col items-center;
-    gap: 0.0625rem;
-    line-height: 1.2;
-  }
-
-  .map-animation-editor-list-item-id {
-    @apply text-text-primary;
-    font-size: 0.625rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .map-animation-editor-list-item-size {
-    @apply text-text-tertiary;
-    font-size: 0.5625rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .map-animation-editor-empty {
-    @apply flex flex-col items-center justify-center text-center;
-    flex: 1;
-    gap: 0.5rem;
-    color: var(--text-tertiary);
-    padding: 2rem 1rem;
-  }
-
-  .map-animation-editor-empty p {
-    @apply m-0;
-    font-size: 0.75rem;
-  }
-
-  /* Frame editor header */
-  .map-animation-editor-header {
-    @apply flex items-center;
-    gap: 0.375rem;
-  }
-
-  .map-animation-editor-header strong {
-    @apply text-text-primary;
-    font-size: 0.75rem;
-    flex: 1;
-  }
-
-  .map-animation-editor-use-tile {
-    font-size: 0.625rem;
-    padding: 0.25rem 0.5rem;
-  }
-
-  .map-animation-editor-bind-hint {
-    @apply text-text-tertiary m-0;
-    font-size: 0.5625rem;
-    line-height: 1.4;
-    padding: 0.375rem 0.5rem;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
-    border: 1px solid var(--border-color);
-  }
-
-  /* Pending frames panel (new-animation drag-select mode) */
-  .map-animation-editor-pending {
-    @apply flex flex-col;
-    padding: 0.625rem 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    gap: 0.5rem;
-    background: color-mix(in srgb, var(--accent) 6%, transparent);
-  }
-
-  .map-animation-editor-pending.is-flex {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .map-animation-editor-pending-header {
-    @apply flex flex-none items-center justify-between;
-    gap: 0.5rem;
-  }
-
-  .map-animation-editor-pending-actions {
-    @apply flex gap-1;
-  }
-
-  .map-animation-editor-pending-frames {
-    @apply flex flex-col;
-    gap: 0.375rem;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-
-  .map-animation-editor-pending-empty {
-    @apply flex flex-col items-center justify-center text-center;
-    flex: 1;
-    gap: 0.5rem;
-    color: var(--text-tertiary);
-    padding: 1.5rem 1rem;
-  }
-
-  .map-animation-editor-pending-empty p {
-    @apply m-0;
-    font-size: 0.6875rem;
-    line-height: 1.5;
-  }
-
-  .map-animation-editor-pending-frame {
-    @apply flex items-center gap-2;
-    padding: 0.375rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-  }
-
-  .map-animation-editor-pending-frame-index {
-    @apply text-text-tertiary flex-none;
-    width: 1.25rem;
-    text-align: center;
-    font-size: 0.625rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .map-animation-editor-pending-frame-grid {
-    @apply grid flex-1;
-    gap: 1px;
-  }
-
-  .map-animation-editor-pending-frame-grid > i {
-    @apply block;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    image-rendering: pixelated;
-    border-radius: 1px;
-  }
-
-  .map-animation-editor-pending-frame-thumb {
-    @apply block flex-none;
-    image-rendering: pixelated;
-    border-radius: var(--radius-sm);
-    width: 2.5rem;
-    height: 2.5rem;
-    object-fit: contain;
-  }
-
-  .map-animation-editor-pending-frame-size {
-    @apply text-text-tertiary flex-1;
-    font-size: 0.5625rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Animation group outline on sheet */
-  .map-anim-group-outline {
-    @apply pointer-events-none absolute;
-    border: 2px solid var(--accent);
-    border-radius: 2px;
-    box-sizing: border-box;
-    opacity: 0.6;
-  }
-
-  .map-anim-group-outline.is-selected {
-    opacity: 1;
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-  }
-
-  /* Frame index label in frame strip */
-  .map-animation-editor-frame-index {
-    @apply text-text-tertiary;
-    font-size: 0.5625rem;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-  }
-
-  /* Live preview */
-  .map-animation-editor-preview {
-    @apply flex items-center gap-3;
-    padding: 0.625rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-  }
-
-  .map-animation-editor-preview img {
-    @apply block flex-none;
-    image-rendering: pixelated;
-    border-radius: var(--radius-sm);
-  }
-
-  .map-animation-editor-preview-meta {
-    @apply text-text-secondary;
-    font-size: 0.6875rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Frame strip */
-  .map-animation-editor-strip {
-    @apply grid;
-    gap: 0.375rem;
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-
-  .map-animation-editor-frame {
-    @apply grid items-center;
-    grid-template-columns: 2.75rem 1fr 1.5rem;
-    gap: 0.5rem;
-    padding: 0.375rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    cursor: grab;
-    transition: border-color 0.15s ease;
-  }
-
-  .map-animation-editor-frame.is-playing {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-
-  .map-animation-editor-frame.is-dragging {
-    opacity: 0.5;
-    cursor: grabbing;
-  }
-
-  .map-animation-editor-frame.is-picking {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  .map-animation-editor-frame-thumb {
-    @apply grid place-items-center;
-    width: 2.75rem;
-    height: 2.75rem;
-    padding: 0;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-panel);
-    cursor: pointer;
-    transition: border-color 0.15s ease;
-  }
-
-  .map-animation-editor-frame-thumb:hover {
-    border-color: var(--accent);
-  }
-
-  .map-animation-editor-frame-thumb img {
-    @apply block;
-    width: 2.5rem;
-    height: 2.5rem;
-    image-rendering: pixelated;
-    border-radius: var(--radius-sm);
-    object-fit: contain;
-  }
-
-  .map-animation-editor-frame-field {
-    @apply grid;
-    gap: 0.125rem;
-  }
-
-  .map-animation-editor-frame-field span {
-    @apply text-text-tertiary;
-    font-size: 0.625rem;
-  }
-
-  .map-animation-editor-frame-field input {
-    @apply text-text-primary;
-    font-size: 0.6875rem;
-    width: 100%;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    background: var(--bg-panel);
-  }
-
-  .map-animation-editor-add-frame {
-    @apply flex items-center justify-center gap-1;
-    padding: 0.625rem;
-    border: 1px dashed var(--border-color);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.6875rem;
-    cursor: pointer;
-    transition:
-      border-color 0.15s ease,
-      color 0.15s ease;
-  }
-
-  .map-animation-editor-add-frame:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .map-animation-editor-add-frame.is-active {
-    border-style: solid;
-    border-color: var(--accent);
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  /* ===== Object locate rows ===== */
+  /* ===== Object locate rows (same flat-row language as entry cards) ===== */
   .map-asset-object-row {
     @apply flex items-center;
     min-width: 0;
     gap: 0.25rem;
+    padding: 0.25rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .map-asset-object-row:last-child {
+    border-bottom: none;
+  }
+
+  .map-asset-object-row:hover {
+    background: var(--bg-hover);
   }
 
   .map-asset-object-row > button:first-child {
@@ -826,16 +433,29 @@
     height: 1.5rem;
     flex: 0 0 auto;
     padding: 0;
+    visibility: hidden;
   }
 
-  .map-asset-furniture-row-label {
+  .map-asset-object-row:hover .icon-button,
+  .map-asset-object-row:focus-within .icon-button {
+    visibility: visible;
+  }
+
+  .map-asset-object-row .icon-button.is-danger:hover {
+    @apply text-danger;
+    background: var(--danger-soft);
+  }
+
+  .map-asset-furniture-row-label,
+  .map-asset-object-row-label {
     @apply flex flex-col items-start;
     min-width: 0;
     flex: 1 1 auto;
     line-height: 1.25;
   }
 
-  .map-asset-furniture-row-pos {
+  .map-asset-furniture-row-pos,
+  .map-asset-object-row-pos {
     font-size: 0.6875rem;
     opacity: 0.55;
   }
@@ -863,6 +483,13 @@
   .map-asset-object-details-meta {
     @apply text-text-secondary;
     font-size: 0.75rem;
+  }
+
+  /* Selected-object editor block inside its section: a hairline below keeps it
+     separated from the flat rows, and disappears when it is the only content. */
+  .map-asset-card-section .map-asset-object-details:not(:last-child) {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    padding-bottom: 0.375rem;
   }
 
   /* ===== Cell-pick capture rows (warp / doors / day-night forms) ===== */

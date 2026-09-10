@@ -1,9 +1,11 @@
-import { Fragment, useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type HTMLAttributes } from 'react'
+import { Fragment, Suspense, lazy, useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type HTMLAttributes } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
+import * as Popover from '@radix-ui/react-popover'
 import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import {
   AlertCircle,
   Check,
+  ChevronDown,
   FileCode2,
   FileInput,
   FilePlus2,
@@ -13,19 +15,19 @@ import {
   Image as ImageIcon,
   Link2,
   List,
+  Loader2,
   Map as MapIcon,
   Music2,
   Pencil,
+  Plus,
   RefreshCw,
   Search,
   Trash2,
   Upload,
   X,
 } from 'lucide-react'
-import { type EditorResources, type ProjectAssetRef, type VirtualPreviewAsset } from '@features/cp-maker'
-import { scanAudioAssets, scanDataAssets, scanImageAssets, type MapAssetSummary } from '@entities/game/api'
-import type { MapDocument } from '@entities/map'
-import { MapAssetEditorSession } from '../../map'
+import { type DraftPatch, type EditorResources, type ProjectAssetRef, type VirtualPreviewAsset } from '@features/cp-maker'
+import { scanAudioAssets, scanDataAssets, scanImageAssets, useMapTargetDisplayName, type MapAssetSummary } from '@entities/game/api'
 import {
   ResourcePicker,
   toGameAudioResourceBrowserOptions,
@@ -37,7 +39,9 @@ import {
 import { useAssetLibraryCopy } from '@locales/provider'
 import { appEvent } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
+import { TaskCancelledError } from '@shared/lib/task-runtime'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
+import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification } from '@shared/ui/notifications'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
@@ -46,6 +50,8 @@ import { useWorkbenchEnvironment, useWorkbenchProject } from '../../../model/wor
 import { useWorkbenchRuntimeInputs } from '../../../ui/module-runtimes/runtimeInputs'
 import { mapCatalogCategory, mapTargetFromAsset } from '../../map/state/mapAuthoringCatalog'
 import { useMapAuthoringCatalog } from '../../map/state/useMapAuthoringCatalog'
+import { useMapEditorSessionStore } from '../../map/model/mapEditorSessions'
+import { splitMapTargets } from '../../map/model/mapPatchReducer'
 import {
   allocateProjectAssetPath,
   classifyProjectAsset,
@@ -60,8 +66,8 @@ import {
   groupLoadPatchesByFamily,
   loadAssetFamily,
   loadFamilyWorkspace,
+  LOAD_FAMILY_INTENT_KEY,
   LOAD_FAMILY_ORDER,
-  placeholderLoadTarget,
   type LoadAssetFamily,
 } from '../model/mapLoadBinding'
 import { prepareProjectMapCopy } from '../model/importGameMap'
@@ -90,6 +96,13 @@ const GAME_IMPORT_KINDS: Array<{
   { kind: 'audio', icon: Music2 },
   { kind: 'data', icon: FileCode2 },
 ]
+
+// The map editor suite lives in the map workspace chunk; loading the host
+// lazily keeps the asset library chunk free of the editor bundle until a
+// session actually opens.
+const MapAssetEditorHost = lazy(() =>
+  import('../../map/editors/MapAssetEditorHost').then((module) => ({ default: module.MapAssetEditorHost })),
+)
 
 function assetDataUrl(asset: VirtualPreviewAsset) {
   return `data:${asset.mediaType};base64,${asset.bytesBase64}`
@@ -133,6 +146,8 @@ export function AssetLibraryWorkspace() {
   const renameTitleId = useId()
   const deleteTitleId = useId()
   const deleteSelectedTitleId = useId()
+  const familyPickerTitleId = useId()
+  const bindingEditorTitleId = useId()
   const browserRef = useRef<HTMLDivElement | null>(null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<AssetFilter>('all')
@@ -144,7 +159,7 @@ export function AssetLibraryWorkspace() {
   const [browserElement, setBrowserElement] = useState<HTMLDivElement | null>(null)
   const [selectedLoadBindingId, setSelectedLoadBindingId] = useState<string | null>(null)
   const [showLoadFamilyPicker, setShowLoadFamilyPicker] = useState(false)
-  const [showGameImportPicker, setShowGameImportPicker] = useState(false)
+  const [showImportMenu, setShowImportMenu] = useState(false)
   const [gameImportPicker, setGameImportPicker] = useState<{
     kind: GameAssetImportKind
     request: number
@@ -161,7 +176,6 @@ export function AssetLibraryWorkspace() {
   const [createMapOpen, setCreateMapOpen] = useState(false)
   const [repairingKey, setRepairingKey] = useState<string | null>(null)
   const [dismissedMissingSignature, setDismissedMissingSignature] = useState<string | null>(null)
-  const [mapAssetSession, setMapAssetSession] = useState<{ relativePath: string; document: MapDocument } | null>(null)
   const assets = project.projectAssets
   const missingDependencies = findMissingAssetDependencies(assets)
   const missingSignature = missingDependencies.map((missing) => `${missing.assetPath}\u0000${missing.missingPath}`).join('\n')
@@ -169,7 +183,10 @@ export function AssetLibraryWorkspace() {
 
   const environment = useWorkbenchEnvironment()
   const { locale, theme } = useWorkbenchRuntimeInputs()
-  const { port, saveState } = useWorkbenchAssetDraftPort('map')
+  const { port, saveState, saveError } = useWorkbenchAssetDraftPort('map')
+  // The map editor session is a module-scoped store; while a session is open
+  // the editor host below replaces the whole library region.
+  const mapAssetSession = useMapEditorSessionStore((state) => state.mapAsset)
   const gameRootPath = environment.directoryInfo?.rootPath ?? null
   const mapCatalog = useMapAuthoringCatalog(gameRootPath, environment.directoryInfo, locale)
   // The non-map game asset scans run beside the map catalog and surface their
@@ -190,16 +207,35 @@ export function AssetLibraryWorkspace() {
     onOpenPlayerAppearanceWindow: environment.onOpenPlayerAppearanceWindow,
     onReadProjectAsset: (relativePath) => project.readProjectAsset(relativePath),
   }
-  async function openMapAsset(relativePath: string) {
-    const loaded = await project.loadProjectMapAsset(relativePath)
-    setMapAssetSession({ relativePath, document: JSON.parse(loaded.content) as MapDocument })
-  }
-  function closeMapAsset() {
-    setMapAssetSession(null)
+  /**
+   * Opens the map editor session for this asset on the current page: the
+   * editor host renders in place of the library view while the session is
+   * open, and returning closes the session without touching the selection.
+   */
+  function openMapAsset(relativePath: string) {
+    useMapEditorSessionStore.getState().openMapAsset(relativePath)
   }
   const loadBindings = port ? collectLoadPatches(port.draft.patches) : []
-  const loadBindingsByFamily = groupLoadPatchesByFamily(loadBindings)
+  // Unconfigured bindings (empty target) read as their own group instead of
+  // being classified into a family the author never picked.
+  const unconfiguredBindings = loadBindings.filter((patch) => patch.target.trim() === '')
+  const loadBindingsByFamily = groupLoadPatchesByFamily(loadBindings.filter((patch) => patch.target.trim() !== ''))
   const selectedBinding = loadBindings.find((patch) => patch.id === selectedLoadBindingId) ?? null
+  // Vanilla location names localize the dialog title; non-location maps and
+  // non-map families fall back to the raw first target's file name.
+  const displayNameFor = useMapTargetDisplayName(gameRootPath, locale)
+  // The editor dialog names the binding in product terms — what it replaces
+  // and the first target's file name — while the raw expression moves to the
+  // subtitle; unconfigured bindings read as "new replacement".
+  const selectedBindingFamily = selectedBinding ? loadAssetFamily(selectedBinding.target) : 'other'
+  const selectedBindingTargets = selectedBinding ? splitMapTargets(selectedBinding.target).filter((target) => target.trim() !== '') : []
+  const selectedBindingTitle =
+    selectedBinding === null || selectedBindingTargets.length === 0
+      ? copy.newLoadBindingAction
+      : copy.loadBindingEditorTitle(
+          copy.loadFamilyNames[selectedBindingFamily],
+          displayNameFor(selectedBindingTargets[0]) ?? selectedBindingTargets[0].split('/').at(-1) ?? selectedBindingTargets[0],
+        )
 
   // The game map scan failure is an environment problem, not page state:
   // surface it through the notification system and clear it once the scan recovers.
@@ -388,9 +424,10 @@ export function AssetLibraryWorkspace() {
           dismissNotification('asset-library-preview')
         }
       })
-      .catch(() => {
-        if (current)
+      .catch((error) => {
+        if (current && !(error instanceof TaskCancelledError))
           appEvent('error', copy.previewFailed)
+            .error(error)
             .noticeId('asset-library-preview')
             .context({ source: 'asset-library', operation: 'preview-asset' })
             .emit()
@@ -412,8 +449,10 @@ export function AssetLibraryWorkspace() {
       const imported = await project.importProjectAssets(sourcePaths)
       const firstImported = imported.projectAssets.find((asset) => !previousPaths.has(asset.relativePath.toLowerCase()))
       if (firstImported) setSelectedPath(firstImported.relativePath)
-    } catch {
+    } catch (error) {
+      if (error instanceof TaskCancelledError) return
       appEvent('error', copy.importFailed)
+        .error(error)
         .noticeId('asset-library-import')
         .context({ source: 'asset-library-workspace', operation: 'import-asset' })
         .emit()
@@ -433,34 +472,55 @@ export function AssetLibraryWorkspace() {
   }
 
   /**
-   * Creates a fresh `Load` patch for one asset family and selects it so the
-   * graphical binding editor opens. Maps stay in the map workspace (the map
-   * catalog lists them); every other family lands in the mods workspace since
-   * no other workspace owns them. Load bindings are owned by the asset
-   * library, so other workspaces only see read-only summaries.
+   * Reuses an unconfigured Load binding (empty target) of the family's final
+   * workspace, or creates a fresh one. The reuse check runs against the final
+   * workspace because the port only dedupes by workspace + target at creation,
+   * and the workspace fix-up after `addPatch` bypasses that dedupe for non-map
+   * families — without it, repeated creates would stack identical rows and an
+   * unconfigured binding would hijack the next create of any family.
    */
-  function createLoadBindingForFamily(family: LoadAssetFamily) {
-    if (!port) return
-    const patchId = port.addPatch('Load', placeholderLoadTarget(family))
-    if (!patchId) return
+  function reuseOrCreateLoadBinding(family: LoadAssetFamily, fromFile?: string): string | null {
+    if (!port) return null
+    const workspace = loadFamilyWorkspace(family)
+    const reusable = port.draft.patches.find((patch) => patch.action === 'Load' && patch.target === '' && patch.workspace === workspace)
+    if (reusable) {
+      // The creation dialog's family choice is parked in editorState so the
+      // binding editor can offer the family's pickers while the target is
+      // still empty; a reused binding adopts the new choice.
+      const restore: Partial<DraftPatch> = {
+        editorState: { ...(reusable.editorState as Record<string, unknown> | null), [LOAD_FAMILY_INTENT_KEY]: family },
+      }
+      if (fromFile !== undefined) restore.fromFile = fromFile
+      // A binding disabled by the legacy auto-disable rule must not stay inert
+      // once configuration restarts on it; a fresh binding would be enabled.
+      if (reusable.enabled === false) restore.enabled = true
+      port.updatePatch(reusable.id, restore)
+      return reusable.id
+    }
+    // An empty target is legal: `Load` without `FromFile` exports nothing, so
+    // safety comes from the export guard rather than a placeholder target.
+    const patchId = port.addPatch('Load', '', fromFile)
+    if (!patchId) return null
     // The port is bound to the map workspace; the wanted workspace only
     // differs for non-map families, so this is a no-op for maps. Functional
-    // state updates queue in order, so the workspace lands on the new patch.
-    port.updatePatch(patchId, { workspace: loadFamilyWorkspace(family) })
+    // state updates queue in order, so the workspace and the family intent
+    // land on the new patch.
+    port.updatePatch(patchId, { workspace, editorState: { [LOAD_FAMILY_INTENT_KEY]: family } })
+    return patchId
+  }
+
+  function createLoadBindingForFamily(family: LoadAssetFamily) {
+    const patchId = reuseOrCreateLoadBinding(family)
+    if (!patchId) return
     setShowLoadFamilyPicker(false)
     setSelectedLoadBindingId(patchId)
   }
 
   function createLoadBindingForAsset(assetPath: string) {
-    if (!port || !selected) return
-    const family = loadAssetFamily(selected.relativePath)
-    const patchId = port.addPatch('Load', placeholderLoadTarget(family))
+    // The family comes from the acted-on asset (the context-menu target), not
+    // from the inspector selection, which may be a different card.
+    const patchId = reuseOrCreateLoadBinding(loadAssetFamily(assetPath), assetPath)
     if (!patchId) return
-    port.updatePatch(patchId, {
-      workspace: loadFamilyWorkspace(family),
-      fromFile: assetPath,
-      enabled: true,
-    })
     setSelectedLoadBindingId(patchId)
   }
 
@@ -468,6 +528,50 @@ export function AssetLibraryWorkspace() {
     if (!port) return
     port.removePatch(patchId)
     if (selectedLoadBindingId === patchId) setSelectedLoadBindingId(null)
+  }
+
+  /** One flat replacement row; an unconfigured binding reads as its own group entry. */
+  function renderLoadBindingRow(patch: DraftPatch) {
+    const active = patch.id === selectedLoadBindingId
+    const isEnabled = typeof patch.enabled === 'string' || patch.enabled !== false
+    const targetLabel = patch.target.trim() === '' ? copy.loadBindingsUnconfigured : patch.target
+    // Disabled/expression states are explained through the row tooltip; enabled
+    // rows carry no extra marker.
+    const stateTitle =
+      typeof patch.enabled === 'string'
+        ? copy.loadBindingEnabledExpression(patch.enabled)
+        : patch.enabled !== false
+          ? undefined
+          : copy.loadBindingDisabled
+    return (
+      <div key={patch.id} className={cx('asset-library-load-binding-row', active && 'is-selected', !isEnabled && 'is-disabled')}>
+        <button
+          type="button"
+          className="asset-library-load-binding-main"
+          aria-pressed={active}
+          aria-label={copy.openLoadBinding(targetLabel)}
+          title={stateTitle}
+          onClick={() => setSelectedLoadBindingId(active ? null : patch.id)}
+        >
+          <span className="asset-library-load-binding-target-row">
+            <LoadFamilyIcon family={loadAssetFamily(patch.target)} className="h-3 w-3 shrink-0" />
+            <span className="asset-library-load-binding-target">{targetLabel}</span>
+          </span>
+          <span className={cx('asset-library-load-binding-file', !patch.fromFile && 'is-empty')}>
+            {patch.fromFile ?? copy.mapLoadBinding.emptyResolved}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          title={copy.deleteLoadBinding}
+          aria-label={copy.deleteLoadBinding}
+          onClick={() => deleteLoadBinding(patch.id)}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    )
   }
 
   /** Copies a scanned game map and its tilesheets into the project as assets. */
@@ -497,7 +601,7 @@ export function AssetLibraryWorkspace() {
 
   /** Opens the copy-from-game picker for one asset family (map/image/audio/data). */
   function openGameImportPicker(kind: GameAssetImportKind) {
-    setShowGameImportPicker(false)
+    setShowImportMenu(false)
     setGameImportPicker((current) => ({
       kind,
       request: (current?.request ?? 0) + 1,
@@ -731,6 +835,10 @@ export function AssetLibraryWorkspace() {
         : saveState === 'saved' || !project.isDirty
           ? copy.savedStatus
           : copy.dirtyStatus
+  // The toolbar renders this state as a color-coded dot; it mirrors the label
+  // branching above so the silent indicator never contradicts the sr-only text.
+  const saveDotState =
+    saveState === 'saving' ? 'saving' : saveState === 'error' ? 'error' : saveState === 'saved' || !project.isDirty ? 'saved' : 'dirty'
 
   const renderAssetCard = (asset: ProjectAssetRef) => {
     const kind = classifyProjectAsset(asset.mediaType, asset.relativePath)
@@ -819,8 +927,8 @@ export function AssetLibraryWorkspace() {
               {copy.selectAsset(asset.relativePath)}
             </ContextMenu.Item>
             {isProjectMapAssetPath(asset.relativePath) ? (
-              <ContextMenu.Item className="context-menu-item" onSelect={() => void openMapAsset(asset.relativePath)}>
-                {copy.editInMapEditorAction}
+              <ContextMenu.Item className="context-menu-item" onSelect={() => openMapAsset(asset.relativePath)}>
+                {copy.editMapAction}
               </ContextMenu.Item>
             ) : null}
             <ContextMenu.Item className="context-menu-item" onSelect={() => createLoadBindingForAsset(asset.relativePath)}>
@@ -845,132 +953,372 @@ export function AssetLibraryWorkspace() {
     )
   }
 
+  // The dialogs stay mounted in both layouts so replacement staging and the
+  // binding editor keep their state while a map editor session covers the
+  // library region.
+  const dialogLayer = (
+    <>
+      <input ref={replaceRef} className="sr-only" type="file" onChange={replaceSelected} />
+
+      <Dialog open={renamePath !== null} onClose={() => setRenamePath(null)} labelledBy={renameTitleId} size="sm">
+        <DialogHeader
+          id={renameTitleId}
+          title={copy.renameTitle}
+          subtitle={copy.renameHint}
+          onClose={() => setRenamePath(null)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody>
+          <label className="asset-library-dialog-field">
+            <span>{copy.renamePathLabel}</span>
+            <input className="control-input" data-autofocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} />
+          </label>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setRenamePath(null)}>{copy.cancelAction}</DialogAction>
+          <DialogAction tone="primary" disabled={sanitizeProjectAssetPath(renameDraft) === ''} onClick={() => void confirmRename()}>
+            {copy.confirmRenameAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={deletePath !== null} onClose={() => setDeletePath(null)} labelledBy={deleteTitleId} size="sm">
+        <DialogHeader
+          id={deleteTitleId}
+          title={copy.deleteTitle}
+          tone="danger"
+          onClose={() => setDeletePath(null)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody>
+          <p className="asset-library-delete-message">
+            {deletePath
+              ? copy.deleteMessage(deletePath, project.activeDraft.patches.filter((patch) => patch.fromFile === deletePath).length)
+              : ''}
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setDeletePath(null)}>{copy.cancelAction}</DialogAction>
+          <DialogAction tone="danger" onClick={() => void confirmDelete()}>
+            {copy.confirmDeleteAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={deleteSelectedOpen} onClose={() => setDeleteSelectedOpen(false)} labelledBy={deleteSelectedTitleId} size="sm">
+        <DialogHeader
+          id={deleteSelectedTitleId}
+          title={copy.deleteSelectedTitle}
+          tone="danger"
+          onClose={() => setDeleteSelectedOpen(false)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody>
+          <p className="asset-library-delete-message">{copy.deleteSelectedMessage(selectedAssetPaths.size)}</p>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setDeleteSelectedOpen(false)}>{copy.cancelAction}</DialogAction>
+          <DialogAction tone="danger" onClick={() => void confirmDeleteSelected()}>
+            {copy.confirmDeleteAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
+
+      <PixelEditorDialog asset={pixelAsset} onClose={() => setPixelAsset(null)} onSave={(bytes) => void savePixelEdit(bytes)} />
+
+      <NewMapDialog
+        open={createMapOpen}
+        assets={mapCatalog.assets}
+        resources={resources}
+        onClose={() => setCreateMapOpen(false)}
+        onCreated={(relativePath) => {
+          setCreateMapOpen(false)
+          setSelectedPath(relativePath)
+          setSelectedLoadBindingId(null)
+        }}
+      />
+
+      <Dialog open={showLoadFamilyPicker} onClose={() => setShowLoadFamilyPicker(false)} labelledBy={familyPickerTitleId} size="lg">
+        <DialogHeader
+          id={familyPickerTitleId}
+          title={copy.newLoadBindingFamilyTitle}
+          subtitle={copy.newLoadBindingFamilyHint}
+          icon={<Link2 className="h-4 w-4" aria-hidden="true" />}
+          onClose={() => setShowLoadFamilyPicker(false)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody>
+          <div className="load-family-picker-grid">
+            {LOAD_FAMILY_ORDER.map((family) => (
+              <button
+                key={family}
+                type="button"
+                className="load-family-picker-card"
+                aria-label={copy.loadFamilyNames[family]}
+                onClick={() => createLoadBindingForFamily(family)}
+              >
+                <LoadFamilyIcon family={family} className="h-5 w-5" />
+                <span>{copy.loadFamilyNames[family]}</span>
+                <span className="load-family-picker-card-desc">{copy.loadFamilyDescriptions[family]}</span>
+              </button>
+            ))}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogAction onClick={() => setShowLoadFamilyPicker(false)}>{copy.newLoadBindingFamilyCancel}</DialogAction>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={selectedBinding !== null && port !== null}
+        onClose={() => setSelectedLoadBindingId(null)}
+        labelledBy={bindingEditorTitleId}
+        size="xl"
+        className="asset-library-load-binding-dialog"
+      >
+        <DialogHeader
+          id={bindingEditorTitleId}
+          title={selectedBindingTitle}
+          subtitle={
+            selectedBinding && selectedBinding.target !== '' ? (
+              <code className="asset-library-binding-subtitle">{selectedBinding.target}</code>
+            ) : undefined
+          }
+          icon={selectedBinding ? <LoadFamilyIcon family={selectedBindingFamily} className="h-4 w-4" /> : undefined}
+          onClose={() => setSelectedLoadBindingId(null)}
+          closeLabel={copy.closeAction}
+        />
+        <DialogBody className="asset-library-load-binding-dialog-body">
+          {selectedBinding && port ? (
+            <LoadBindingEditor patch={selectedBinding} schema={null} draftPort={port} resources={resources} />
+          ) : null}
+        </DialogBody>
+        <DialogFooter align="between">
+          {/* Left: the binding's live effect state (save failure first, then the
+              explicit disabled state, then unconfigured parts, then active);
+              the auto-save pipeline state stays a silent dot for everyone else. */}
+          <div className="asset-library-binding-footer-status">
+            <span className="asset-library-save-state" aria-live="polite">
+              <span className="asset-library-save-dot" data-state={saveDotState} />
+              <span className="sr-only">{saveStateLabel}</span>
+            </span>
+            {saveState === 'error' && saveError ? (
+              <span className="asset-library-binding-status" data-tone="error" role="alert">
+                {saveError}
+              </span>
+            ) : selectedBinding && selectedBinding.enabled === false ? (
+              <>
+                <span className="asset-library-binding-status" data-tone="warning">
+                  {copy.loadBindingDisabled}
+                </span>
+                <button type="button" className="control-button" onClick={() => port?.updatePatch(selectedBinding.id, { enabled: true })}>
+                  {copy.loadBindingEnableAction}
+                </button>
+              </>
+            ) : selectedBinding && (selectedBindingTargets.length === 0 || (selectedBinding.fromFile ?? '') === '') ? (
+              <span className="asset-library-binding-status" data-tone="pending">
+                {copy.loadBindingMissingLabel([
+                  ...(selectedBindingTargets.length === 0 ? [copy.mapLoadBinding.targetsSection] : []),
+                  ...((selectedBinding.fromFile ?? '') === '' ? [copy.mapLoadBinding.fromFileSection] : []),
+                ])}
+              </span>
+            ) : (
+              <span className="asset-library-binding-status" data-tone="active">
+                {copy.loadBindingActiveLabel}
+              </span>
+            )}
+          </div>
+          <DialogAction tone="primary" onClick={() => setSelectedLoadBindingId(null)}>
+            {copy.completeAction}
+          </DialogAction>
+        </DialogFooter>
+      </Dialog>
+    </>
+  )
+
+  // While a map editor session is open the editor host takes over the whole
+  // region; the library view and its selection come back when the session
+  // closes, so the module never has to switch for map editing.
+  if (mapAssetSession && port) {
+    return (
+      <>
+        <Suspense
+          fallback={
+            <div className="asset-library-scan-status" role="status">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            </div>
+          }
+        >
+          <MapAssetEditorHost
+            draftPort={port}
+            loadProjectMapAsset={project.loadProjectMapAsset}
+            resources={resources}
+            onReturnToLibrary={() => useMapEditorSessionStore.getState().closeMapAsset()}
+          />
+        </Suspense>
+        {dialogLayer}
+      </>
+    )
+  }
+
   return (
     <>
       <WorkspaceSplitView
         mainToolbar={
           <div className="asset-library-toolbar">
+            {/* Auto-save indicator: a state-colored dot; the readable label
+                stays available to screen readers only. */}
             <span className="asset-library-save-state" aria-live="polite">
-              {saveStateLabel}
+              <span className="asset-library-save-dot" data-state={saveDotState} />
+              <span className="sr-only">{saveStateLabel}</span>
             </span>
-            <label className="asset-library-search">
-              <Search className="h-4 w-4" />
-              <span className="sr-only">{copy.searchPlaceholder}</span>
-              <input
-                className="control-input"
-                type="search"
-                value={query}
-                placeholder={copy.searchPlaceholder}
-                onChange={(event) => {
-                  setQuery(event.target.value)
-                  setSelectedAssetPaths(new Set())
-                }}
-              />
-            </label>
-            <label className="asset-library-filter">
-              <span className="sr-only">{copy.filterLabel}</span>
-              <select
-                className="control-input"
-                value={filter}
-                onChange={(event) => {
-                  setFilter(event.target.value as AssetFilter)
-                  setSelectedAssetPaths(new Set())
-                }}
-              >
-                {Object.entries(copy.filters).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="asset-library-count">{copy.assetCount(visibleAssets.length, assets.length)}</span>
-            <div className="asset-library-view-switch" role="group">
-              <button
-                type="button"
-                className={cx('icon-button', view === 'grid' && 'is-active')}
-                aria-label={copy.gridView}
-                title={copy.gridView}
-                aria-pressed={view === 'grid'}
-                onClick={() => setView('grid')}
-              >
-                <Grid2X2 className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className={cx('icon-button', view === 'list' && 'is-active')}
-                aria-label={copy.listView}
-                title={copy.listView}
-                aria-pressed={view === 'list'}
-                onClick={() => {
-                  setView('list')
-                  setSelectedAssetPaths(new Set())
-                }}
-              >
-                <List className="h-4 w-4" />
-              </button>
+            {/* Left cluster: search + type filter; right cluster: view switch
+                + import entry. */}
+            <div className="asset-library-toolbar-group asset-library-toolbar-main">
+              <label className="asset-library-search">
+                <Search className="h-4 w-4" />
+                <span className="sr-only">{copy.searchPlaceholder}</span>
+                <input
+                  className="control-input"
+                  type="search"
+                  value={query}
+                  placeholder={copy.searchPlaceholder}
+                  onChange={(event) => {
+                    setQuery(event.target.value)
+                    setSelectedAssetPaths(new Set())
+                  }}
+                />
+              </label>
+              <div className="asset-library-filter">
+                <CompactSelect<AssetFilter>
+                  value={filter}
+                  options={Object.entries(copy.filters).map(([value, label]) => ({ value: value as AssetFilter, label }))}
+                  onChange={(next) => {
+                    setFilter(next)
+                    setSelectedAssetPaths(new Set())
+                  }}
+                  ariaLabel={copy.filterLabel}
+                  placement="bottom-start"
+                />
+              </div>
             </div>
             <div className="asset-library-toolbar-actions">
-              <div className="asset-library-import-game">
+              <div className="asset-library-view-switch" role="group">
                 <button
                   type="button"
-                  className="control-button"
-                  aria-expanded={showGameImportPicker}
-                  aria-haspopup="menu"
-                  onClick={() => setShowGameImportPicker((value) => !value)}
+                  className={cx('icon-button', view === 'grid' && 'is-active')}
+                  aria-label={copy.gridView}
+                  title={copy.gridView}
+                  aria-pressed={view === 'grid'}
+                  onClick={() => setView('grid')}
                 >
-                  <FolderInput className="h-4 w-4" aria-hidden="true" />
-                  {copy.importFromGame}
+                  <Grid2X2 className="h-4 w-4" />
                 </button>
-                {showGameImportPicker ? (
-                  <div className="asset-library-import-kind-picker" role="menu" aria-label={copy.importFromGame}>
-                    {GAME_IMPORT_KINDS.map(({ kind, icon: KindIcon }) => (
-                      <button key={kind} type="button" role="menuitem" onClick={() => openGameImportPicker(kind)}>
-                        <KindIcon className="h-4 w-4" aria-hidden="true" />
-                        {copy.importGameKinds[kind]}
+                <button
+                  type="button"
+                  className={cx('icon-button', view === 'list' && 'is-active')}
+                  aria-label={copy.listView}
+                  title={copy.listView}
+                  aria-pressed={view === 'list'}
+                  onClick={() => {
+                    setView('list')
+                    setSelectedAssetPaths(new Set())
+                  }}
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Single import entry: the primary button imports files, the
+                  chevron opens every other way to add content through a Radix
+                  popover that also closes on outside clicks. */}
+              <div className="asset-library-import-game">
+                <div className="asset-library-import-split">
+                  <button
+                    type="button"
+                    className="control-button control-button-primary"
+                    disabled={importing}
+                    onClick={() => void chooseImportFiles()}
+                  >
+                    <Upload className="h-4 w-4" aria-hidden="true" />
+                    <span>{importing ? copy.importing : copy.importAction}</span>
+                  </button>
+                  <Popover.Root open={showImportMenu} onOpenChange={setShowImportMenu}>
+                    <Popover.Trigger asChild>
+                      <button
+                        type="button"
+                        className="control-button control-button-primary asset-library-import-split-toggle"
+                        aria-label={copy.importMoreLabel}
+                        aria-haspopup="menu"
+                      >
+                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
                       </button>
-                    ))}
-                  </div>
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                      <Popover.Content
+                        className="asset-library-import-kind-picker"
+                        role="menu"
+                        aria-label={copy.importFromGame}
+                        align="end"
+                        sideOffset={6}
+                        collisionPadding={12}
+                      >
+                        <span className="asset-library-import-menu-label">{copy.importFromGame}</span>
+                        {GAME_IMPORT_KINDS.map(({ kind, icon: KindIcon }) => (
+                          <button key={kind} type="button" role="menuitem" onClick={() => openGameImportPicker(kind)}>
+                            <KindIcon className="h-4 w-4" aria-hidden="true" />
+                            {copy.importGameKinds[kind]}
+                          </button>
+                        ))}
+                        <span className="asset-library-import-menu-sep" role="separator" />
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowImportMenu(false)
+                            setCreateMapOpen(true)
+                          }}
+                        >
+                          <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                          {copy.newMapAction}
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={importing}
+                          onClick={() => {
+                            setShowImportMenu(false)
+                            void chooseImportFolder()
+                          }}
+                        >
+                          <FolderInput className="h-4 w-4" aria-hidden="true" />
+                          {copy.importFolderAction}
+                        </button>
+                      </Popover.Content>
+                    </Popover.Portal>
+                  </Popover.Root>
+                </div>
+                {gameImportPicker ? (
+                  <ResourcePicker
+                    key={gameImportPicker.kind}
+                    value=""
+                    label={copy.importGamePickerLabel[gameImportPicker.kind]}
+                    placeholder={copy.importGamePickerLabel[gameImportPicker.kind]}
+                    options={
+                      gameImportPicker.kind === 'map'
+                        ? toMapResourceBrowserOptions(
+                            mapCatalog.assets,
+                            (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
+                            'map-import',
+                          )
+                        : gameImportOptions[gameImportPicker.kind]
+                    }
+                    selectionMode="confirm"
+                    triggerClassName="sr-only"
+                    openRequest={gameImportPicker.request}
+                    onSelect={(value) => void importGameSelection(gameImportPicker.kind, value)}
+                  />
                 ) : null}
               </div>
-              {gameImportPicker ? (
-                <ResourcePicker
-                  key={gameImportPicker.kind}
-                  value=""
-                  label={copy.importGamePickerLabel[gameImportPicker.kind]}
-                  placeholder={copy.importGamePickerLabel[gameImportPicker.kind]}
-                  options={
-                    gameImportPicker.kind === 'map'
-                      ? toMapResourceBrowserOptions(
-                          mapCatalog.assets,
-                          (asset) => copy.mapCategories[mapCatalogCategory(mapTargetFromAsset(asset))],
-                          'map-import',
-                        )
-                      : gameImportOptions[gameImportPicker.kind]
-                  }
-                  selectionMode="confirm"
-                  triggerClassName="sr-only"
-                  openRequest={gameImportPicker.request}
-                  onSelect={(value) => void importGameSelection(gameImportPicker.kind, value)}
-                />
-              ) : null}
-              <button type="button" className="control-button" onClick={() => setCreateMapOpen(true)}>
-                <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-                {copy.newMapAction}
-              </button>
-              <button type="button" className="control-button" disabled={importing} onClick={() => void chooseImportFolder()}>
-                <FolderInput className="h-4 w-4" aria-hidden="true" />
-                <span>{copy.importFolderAction}</span>
-              </button>
-              <button
-                type="button"
-                className="control-button control-button-primary"
-                disabled={importing}
-                onClick={() => void chooseImportFiles()}
-              >
-                <Upload className="h-4 w-4" aria-hidden="true" />
-                <span>{importing ? copy.importing : copy.importAction}</span>
-              </button>
             </div>
           </div>
         }
@@ -1141,10 +1489,10 @@ export function AssetLibraryWorkspace() {
                         <button
                           type="button"
                           className="control-button control-button-primary"
-                          onClick={() => void openMapAsset(selected.relativePath)}
+                          onClick={() => openMapAsset(selected.relativePath)}
                         >
                           <MapIcon className="h-4 w-4" aria-hidden="true" />
-                          {copy.editInMapEditorAction}
+                          {copy.editMapAction}
                         </button>
                       ) : null}
                       {selected.mediaType.startsWith('image/') ? (
@@ -1199,12 +1547,16 @@ export function AssetLibraryWorkspace() {
               <div className="asset-library-bindings-title-row">
                 <strong>{copy.viewLoadBindings}</strong>
                 <span className="asset-library-count">{copy.loadBindingCount(loadBindings.length)}</span>
-                <button type="button" className="control-button control-button-primary" onClick={() => setShowLoadFamilyPicker(true)}>
-                  <FileInput className="h-4 w-4" aria-hidden="true" />
-                  {copy.newLoadBindingAction}
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={copy.newLoadBindingAction}
+                  aria-label={copy.newLoadBindingAction}
+                  onClick={() => setShowLoadFamilyPicker(true)}
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-              <p className="asset-library-bindings-hint">{copy.loadBindingsHint}</p>
             </header>
             <div className="asset-library-load-binding-list">
               {loadBindings.length === 0 ? (
@@ -1218,60 +1570,30 @@ export function AssetLibraryWorkspace() {
                   </button>
                 </div>
               ) : (
-                LOAD_FAMILY_ORDER.map((family) => {
-                  const familyPatches = loadBindingsByFamily[family]
-                  if (familyPatches.length === 0) return null
-                  return (
-                    <div key={family} className="asset-library-load-family-group">
+                <>
+                  {unconfiguredBindings.length > 0 ? (
+                    <div className="asset-library-load-family-group">
                       <header className="asset-library-load-family-header">
-                        <LoadFamilyIcon family={family} className="h-3.5 w-3.5" />
-                        {copy.loadFamilyGroupCount(copy.loadFamilyNames[family], familyPatches.length)}
+                        <LoadFamilyIcon family="other" className="h-3.5 w-3.5" />
+                        {copy.loadFamilyGroupCount(copy.loadBindingsUnconfigured, unconfiguredBindings.length)}
                       </header>
-                      {familyPatches.map((patch) => {
-                        const active = patch.id === selectedLoadBindingId
-                        const isEnabled = typeof patch.enabled === 'string' || patch.enabled !== false
-                        return (
-                          <div
-                            key={patch.id}
-                            className={cx('asset-library-load-binding-row', active && 'is-selected', !isEnabled && 'is-disabled')}
-                          >
-                            <button
-                              type="button"
-                              className="asset-library-load-binding-main"
-                              aria-pressed={active}
-                              aria-label={copy.openLoadBinding(patch.target)}
-                              onClick={() => setSelectedLoadBindingId(active ? null : patch.id)}
-                            >
-                              <span className="asset-library-load-binding-target-row">
-                                <LoadFamilyIcon family={loadAssetFamily(patch.target)} className="h-3 w-3 shrink-0" />
-                                <span className="asset-library-load-binding-target">{patch.target}</span>
-                              </span>
-                              <span className={cx('asset-library-load-binding-file', !patch.fromFile && 'is-empty')}>
-                                {patch.fromFile ?? copy.mapLoadBinding.emptyResolved}
-                              </span>
-                              <span className={cx('asset-editor-badge', isEnabled ? 'is-ok' : 'is-missing')}>
-                                {typeof patch.enabled === 'string'
-                                  ? copy.loadBindingEnabledExpression(patch.enabled)
-                                  : patch.enabled !== false
-                                    ? copy.loadBindingEnabled
-                                    : copy.loadBindingDisabled}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              className="icon-button"
-                              title={copy.deleteLoadBinding}
-                              aria-label={copy.deleteLoadBinding}
-                              onClick={() => deleteLoadBinding(patch.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                            </button>
-                          </div>
-                        )
-                      })}
+                      {unconfiguredBindings.map(renderLoadBindingRow)}
                     </div>
-                  )
-                })
+                  ) : null}
+                  {LOAD_FAMILY_ORDER.map((family) => {
+                    const familyPatches = loadBindingsByFamily[family]
+                    if (familyPatches.length === 0) return null
+                    return (
+                      <div key={family} className="asset-library-load-family-group">
+                        <header className="asset-library-load-family-header">
+                          <LoadFamilyIcon family={family} className="h-3.5 w-3.5" />
+                          {copy.loadFamilyGroupCount(copy.loadFamilyNames[family], familyPatches.length)}
+                        </header>
+                        {familyPatches.map(renderLoadBindingRow)}
+                      </div>
+                    )
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -1279,21 +1601,17 @@ export function AssetLibraryWorkspace() {
       >
         <div className="asset-library-content">
           <div className="asset-library-status-rows">
-            {mapCatalog.loading ? (
-              <div className="asset-library-missing-banner" role="status">
-                <header className="asset-library-missing-header">
-                  <MapIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <strong>{copy.mapScanLoading}</strong>
-                </header>
-              </div>
-            ) : null}
-
-            {imageScan.loading || audioScan.loading || dataScan.loading ? (
-              <div className="asset-library-missing-banner" role="status">
-                <header className="asset-library-missing-header">
-                  <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <strong>{copy.gameAssetScanLoading}</strong>
-                </header>
+            {mapCatalog.loading || imageScan.loading || audioScan.loading || dataScan.loading ? (
+              <div className="asset-library-scan-status" role="status">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                <span>
+                  {[
+                    mapCatalog.loading ? copy.mapScanLoading : null,
+                    imageScan.loading || audioScan.loading || dataScan.loading ? copy.gameAssetScanLoading : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
               </div>
             ) : null}
 
@@ -1338,223 +1656,81 @@ export function AssetLibraryWorkspace() {
             ) : null}
           </div>
           <div className="asset-library-main">
-            {showLoadFamilyPicker ? (
-              <div className="load-family-picker">
-                <header className="load-family-picker-header">
-                  <strong>{copy.newLoadBindingFamilyTitle}</strong>
-                  <span className="map-load-section-hint">{copy.newLoadBindingFamilyHint}</span>
-                </header>
-                <div className="load-family-picker-grid">
-                  {LOAD_FAMILY_ORDER.map((family) => (
-                    <button
-                      key={family}
-                      type="button"
-                      className="load-family-picker-card"
-                      aria-label={copy.loadFamilyNames[family]}
-                      onClick={() => createLoadBindingForFamily(family)}
-                    >
-                      <LoadFamilyIcon family={family} className="h-5 w-5" />
-                      <span>{copy.loadFamilyNames[family]}</span>
-                      <span className="load-family-picker-card-desc">{copy.loadFamilyDescriptions[family]}</span>
-                    </button>
-                  ))}
+            <div className="asset-library-assets-pane">
+              <main
+                ref={setBrowserNode}
+                className={cx(
+                  'asset-library-browser custom-scrollbar',
+                  isBoxSelecting && 'is-box-selecting',
+                  selectedAssetPaths.size > 0 && 'has-batch-selection',
+                )}
+              >
+                <div className="asset-library-box-select-layer" data-asset-library-box-select-layer="browser">
+                  <DragSelection />
                 </div>
-                <button type="button" className="control-button" onClick={() => setShowLoadFamilyPicker(false)}>
-                  {copy.newLoadBindingFamilyCancel}
-                </button>
-              </div>
-            ) : null}
-            {selectedBinding && port ? (
-              <div className="asset-library-load-binding-editor custom-scrollbar">
-                <header className="asset-library-binding-editor-header">
-                  <LoadFamilyIcon family={loadAssetFamily(selectedBinding.target)} className="h-4 w-4" />
-                  <strong>{selectedBinding.target}</strong>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={copy.closeAction}
-                    title={copy.closeAction}
-                    onClick={() => setSelectedLoadBindingId(null)}
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </header>
-                <LoadBindingEditor patch={selectedBinding} schema={null} draftPort={port} resources={resources} />
-              </div>
-            ) : (
-              <div className="asset-library-assets-pane">
-                <main
-                  ref={setBrowserNode}
-                  className={cx(
-                    'asset-library-browser custom-scrollbar',
-                    isBoxSelecting && 'is-box-selecting',
-                    selectedAssetPaths.size > 0 && 'has-batch-selection',
-                  )}
-                >
-                  <div className="asset-library-box-select-layer" data-asset-library-box-select-layer="browser">
-                    <DragSelection />
+                {assets.length === 0 ? (
+                  <div className="asset-library-empty">
+                    <ImageIcon className="h-10 w-10" />
+                    <h2>{copy.emptyTitle}</h2>
+                    <p>{copy.emptyHint}</p>
+                    <button type="button" className="control-button control-button-primary" onClick={() => void chooseImportFiles()}>
+                      <Upload className="h-4 w-4" />
+                      {copy.importAction}
+                    </button>
+                    <button type="button" className="control-button" onClick={() => void chooseImportFolder()}>
+                      <FolderInput className="h-4 w-4" />
+                      {copy.importFolderAction}
+                    </button>
                   </div>
-                  {assets.length === 0 ? (
-                    <div className="asset-library-empty">
-                      <ImageIcon className="h-10 w-10" />
-                      <h2>{copy.emptyTitle}</h2>
-                      <p>{copy.emptyHint}</p>
-                      <button type="button" className="control-button control-button-primary" onClick={() => void chooseImportFiles()}>
-                        <Upload className="h-4 w-4" />
-                        {copy.importAction}
-                      </button>
-                      <button type="button" className="control-button" onClick={() => void chooseImportFolder()}>
-                        <FolderInput className="h-4 w-4" />
-                        {copy.importFolderAction}
-                      </button>
-                    </div>
-                  ) : visibleAssets.length === 0 ? (
-                    <div className="asset-library-empty">
-                      <Search className="h-8 w-8" />
-                      <p>{copy.noResults}</p>
-                    </div>
-                  ) : (
-                    <div className={cx('asset-library-assets', view === 'list' && 'is-list')}>
-                      {kindGroups
-                        ? kindGroups.map((group) => (
-                            <Fragment key={group.kind}>
-                              <header className="asset-library-kind-header" data-kind={group.kind}>
-                                <strong>{copy.filters[group.kind]}</strong>
-                                <span>{copy.assetKindCount(group.assets.length)}</span>
-                              </header>
-                              {group.assets.map((asset) => renderAssetCard(asset))}
-                            </Fragment>
-                          ))
-                        : visibleAssets.map((asset) => renderAssetCard(asset))}
-                    </div>
-                  )}
-                  {selectedAssetPaths.size > 0 ? (
-                    <div className="asset-library-selection-pill" role="toolbar" aria-label={copy.selectionCount(selectedAssetPaths.size)}>
-                      <span className="asset-library-selection-count">{copy.selectionCount(selectedAssetPaths.size)}</span>
-                      <span className="asset-library-selection-divider" aria-hidden="true" />
-                      <button
-                        type="button"
-                        className="control-button"
-                        disabled={selectedAssetPaths.size >= visibleAssets.length}
-                        onClick={() => setSelectedAssetPaths(new Set(visibleAssets.map((asset) => asset.relativePath)))}
-                      >
-                        {copy.selectAll}
-                      </button>
-                      <button type="button" className="control-button" onClick={() => setSelectedAssetPaths(new Set())}>
-                        {copy.clearSelection}
-                      </button>
-                      <span className="asset-library-selection-divider" aria-hidden="true" />
-                      <button type="button" className="control-button is-danger" onClick={() => setDeleteSelectedOpen(true)}>
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        {copy.deleteSelectedAction}
-                      </button>
-                    </div>
-                  ) : null}
-                </main>
-              </div>
-            )}
+                ) : visibleAssets.length === 0 ? (
+                  <div className="asset-library-empty">
+                    <Search className="h-8 w-8" />
+                    <p>{copy.noResults}</p>
+                  </div>
+                ) : (
+                  <div className={cx('asset-library-assets', view === 'list' && 'is-list')}>
+                    {kindGroups
+                      ? kindGroups.map((group) => (
+                          <Fragment key={group.kind}>
+                            <header className="asset-library-kind-header" data-kind={group.kind}>
+                              <strong>{copy.filters[group.kind]}</strong>
+                              <span>{copy.assetKindCount(group.assets.length)}</span>
+                            </header>
+                            {group.assets.map((asset) => renderAssetCard(asset))}
+                          </Fragment>
+                        ))
+                      : visibleAssets.map((asset) => renderAssetCard(asset))}
+                  </div>
+                )}
+                {selectedAssetPaths.size > 0 ? (
+                  <div className="asset-library-selection-pill" role="toolbar" aria-label={copy.selectionCount(selectedAssetPaths.size)}>
+                    <span className="asset-library-selection-count">{copy.selectionCount(selectedAssetPaths.size)}</span>
+                    <span className="asset-library-selection-divider" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="control-button"
+                      disabled={selectedAssetPaths.size >= visibleAssets.length}
+                      onClick={() => setSelectedAssetPaths(new Set(visibleAssets.map((asset) => asset.relativePath)))}
+                    >
+                      {copy.selectAll}
+                    </button>
+                    <button type="button" className="control-button" onClick={() => setSelectedAssetPaths(new Set())}>
+                      {copy.clearSelection}
+                    </button>
+                    <span className="asset-library-selection-divider" aria-hidden="true" />
+                    <button type="button" className="control-button is-danger" onClick={() => setDeleteSelectedOpen(true)}>
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      {copy.deleteSelectedAction}
+                    </button>
+                  </div>
+                ) : null}
+              </main>
+            </div>
           </div>
         </div>
       </WorkspaceSplitView>
 
-      <input ref={replaceRef} className="sr-only" type="file" onChange={replaceSelected} />
-
-      <Dialog open={renamePath !== null} onClose={() => setRenamePath(null)} labelledBy={renameTitleId} size="sm">
-        <DialogHeader
-          id={renameTitleId}
-          title={copy.renameTitle}
-          subtitle={copy.renameHint}
-          onClose={() => setRenamePath(null)}
-          closeLabel={copy.closeAction}
-        />
-        <DialogBody>
-          <label className="asset-library-dialog-field">
-            <span>{copy.renamePathLabel}</span>
-            <input className="control-input" data-autofocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} />
-          </label>
-        </DialogBody>
-        <DialogFooter>
-          <DialogAction onClick={() => setRenamePath(null)}>{copy.cancelAction}</DialogAction>
-          <DialogAction tone="primary" disabled={sanitizeProjectAssetPath(renameDraft) === ''} onClick={() => void confirmRename()}>
-            {copy.confirmRenameAction}
-          </DialogAction>
-        </DialogFooter>
-      </Dialog>
-
-      <Dialog open={deletePath !== null} onClose={() => setDeletePath(null)} labelledBy={deleteTitleId} size="sm">
-        <DialogHeader
-          id={deleteTitleId}
-          title={copy.deleteTitle}
-          tone="danger"
-          onClose={() => setDeletePath(null)}
-          closeLabel={copy.closeAction}
-        />
-        <DialogBody>
-          <p className="asset-library-delete-message">
-            {deletePath
-              ? copy.deleteMessage(deletePath, project.activeDraft.patches.filter((patch) => patch.fromFile === deletePath).length)
-              : ''}
-          </p>
-        </DialogBody>
-        <DialogFooter>
-          <DialogAction onClick={() => setDeletePath(null)}>{copy.cancelAction}</DialogAction>
-          <DialogAction tone="danger" onClick={() => void confirmDelete()}>
-            {copy.confirmDeleteAction}
-          </DialogAction>
-        </DialogFooter>
-      </Dialog>
-
-      <Dialog open={deleteSelectedOpen} onClose={() => setDeleteSelectedOpen(false)} labelledBy={deleteSelectedTitleId} size="sm">
-        <DialogHeader
-          id={deleteSelectedTitleId}
-          title={copy.deleteSelectedTitle}
-          tone="danger"
-          onClose={() => setDeleteSelectedOpen(false)}
-          closeLabel={copy.closeAction}
-        />
-        <DialogBody>
-          <p className="asset-library-delete-message">{copy.deleteSelectedMessage(selectedAssetPaths.size)}</p>
-        </DialogBody>
-        <DialogFooter>
-          <DialogAction onClick={() => setDeleteSelectedOpen(false)}>{copy.cancelAction}</DialogAction>
-          <DialogAction tone="danger" onClick={() => void confirmDeleteSelected()}>
-            {copy.confirmDeleteAction}
-          </DialogAction>
-        </DialogFooter>
-      </Dialog>
-
-      <PixelEditorDialog asset={pixelAsset} onClose={() => setPixelAsset(null)} onSave={(bytes) => void savePixelEdit(bytes)} />
-
-      <NewMapDialog
-        open={createMapOpen}
-        assets={mapCatalog.assets}
-        resources={resources}
-        onClose={() => setCreateMapOpen(false)}
-        onCreated={(relativePath) => {
-          setCreateMapOpen(false)
-          setSelectedPath(relativePath)
-          setSelectedLoadBindingId(null)
-        }}
-      />
-
-      {mapAssetSession && port ? (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg-panel)' }}>
-          <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: 'var(--border-color)' }}>
-            <span className="text-caption-px font-medium">{mapAssetSession.relativePath}</span>
-            <button type="button" className="icon-button" aria-label={copy.closeAction} title={copy.closeAction} onClick={closeMapAsset}>
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">
-            <MapAssetEditorSession
-              relativePath={mapAssetSession.relativePath}
-              document={mapAssetSession.document}
-              draftPort={port}
-              resources={resources}
-            />
-          </div>
-        </div>
-      ) : null}
+      {dialogLayer}
     </>
   )
 }

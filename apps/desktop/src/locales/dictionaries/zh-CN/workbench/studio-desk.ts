@@ -342,6 +342,7 @@ const studiodesk: StudioDeskCopy = {
     sheetPickerProjectGroup: '项目素材',
     sheetPickerEmpty: '没有匹配的图块表。',
     sheetGalleryBack: '返回调色板',
+    sheetGalleryImport: '导入图块表',
     sheetPickerAttachedBadge: '已附着',
     sheetPickerGameBadge: '游戏',
     sheetPickerTileCount: (tileCount) => `${tileCount} 格`,

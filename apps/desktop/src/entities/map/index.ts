@@ -60,7 +60,6 @@ export {
   paintCellOverlayCells,
   type CellOverlayRule,
 } from './lib/cellProperties'
-export { hasMixedFrameDurations, planCellAnimationHoist, setCellAnimation, type CellAnimationHoistPlan } from './lib/cellAnimations'
 export {
   extractAnimationGroups,
   expandAnimationGroup,
@@ -88,6 +87,7 @@ export {
   stripTileGidFlags,
 } from './lib/tileFlags'
 export { findTilesetForGid } from './lib/tilesets'
+export { gidAtCell } from './lib/cells'
 export {
   cellFromSheetPointer,
   isFavoriteSelection,
@@ -164,6 +164,7 @@ export { MapTilesetPalette } from './ui/MapTilesetPalette'
 export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
 export { SheetGridCanvas } from './ui/SheetGridCanvas'
 export type { SheetGridZoomState, SheetGridCanvasHandle } from './ui/SheetGridCanvas'
+export { ViewportZoomToolbar } from './ui/ViewportZoomToolbar'
 export { MapTilesheetPicker } from './ui/MapTilesheetPicker'
 export type { MapTilesheetPickerProjectOption, MapTilesheetPickerProps } from './ui/MapTilesheetPicker'
 export { MapTilesheetGallery } from './ui/MapTilesheetGallery'

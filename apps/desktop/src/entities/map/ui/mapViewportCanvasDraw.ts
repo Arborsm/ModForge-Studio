@@ -241,7 +241,10 @@ export function drawMapCanvas(params: MapCanvasDrawParams) {
     const color = getGroupColor(group.name)
 
     for (const object of group.objects) {
-      if (hideRuleTileDataObjects && isRuleTileDataObject(object)) {
+      // Hidden rule carriers stay invisible unless the inspector highlights
+      // them (row hover or selection), which reveals the object on the map.
+      const revealedRuleObject = hideRuleTileDataObjects && isRuleTileDataObject(object)
+      if (revealedRuleObject && !inspectorObjectIds?.has(object.id)) {
         continue
       }
       const interactionTag = getObjectInteractionTag(object)
@@ -253,6 +256,16 @@ export function drawMapCanvas(params: MapCanvasDrawParams) {
       const destinationHeight = bounds.height * zoom
       const centerX = (bounds.x + bounds.width / 2) * zoom
       const centerY = (bounds.y + bounds.height / 2) * zoom
+      if (revealedRuleObject) {
+        // Quiet reveal: a clean accent outline only — no tint, no label.
+        context.save()
+        context.globalAlpha = 0.95
+        context.strokeStyle = accentColor
+        context.lineWidth = Math.max(2, 2.2 * zoom)
+        context.strokeRect(destinationX, destinationY, destinationWidth, destinationHeight)
+        context.restore()
+        continue
+      }
       const fillAlpha = interactionTag
         ? Math.max(0.22, Math.min(0.42, group.opacity * 0.42))
         : Math.max(0.12, Math.min(0.28, group.opacity * 0.24))

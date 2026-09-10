@@ -253,7 +253,7 @@ State falls into four categories:
 | Domain runtime    | Long-lived runtime state of a domain (plugins, guide engine, etc.) | domain-owned                   | `compatPluginStore.ts`, `guideEngine.ts`, `pluginConditionSyntaxStore.ts` |
 
 Supplementary registered mechanisms: cross-module handoff stores (`authoringHandoff.ts`,
-`assetLibraryFocusStore.ts`, `pendingMapAssetEditStore.ts`), one-shot signals
+`assetLibraryFocusStore.ts`), one-shot signals
 (`launcherOverlayDismissStore.ts` epoch), and the app runtime registry
 (`workbenchRegistryStore.ts`).
 

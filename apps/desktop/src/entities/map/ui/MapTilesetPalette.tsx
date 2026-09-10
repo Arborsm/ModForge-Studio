@@ -45,10 +45,10 @@ type MapTilesetPaletteProps = {
   gameRootPath?: string | null
   /** Attaches a vanilla catalog sheet as a dynamic reference; enables the catalog groups in the sheet picker. */
   onAttachGameSheet?: ((sheet: VanillaTilesheetEntry) => void) | null
-  /** Project image choices for the sheet picker; omit to hide the project group. */
+  /** Project image choices for the sheet picker context menu. */
   projectImageOptions?: readonly MapTilesheetPickerProjectOption[]
-  /** Attaches a project image as a new tileset. */
-  onAddProjectImage?: ((relativePath: string) => void) | null
+  /** Opens the project tilesheet import dialog. */
+  onImportTilesheet?: (() => void) | null
   /** Removes a tileset by name; omitted in session modes without tileset management. */
   onRemoveTileset?: ((name: string) => void) | null
   /** Replaces a tileset's image; reuses the add-tileset flow with a replaceName. */
@@ -202,7 +202,7 @@ export function MapTilesetPalette({
   gameRootPath = null,
   onAttachGameSheet = null,
   projectImageOptions = [],
-  onAddProjectImage = null,
+  onImportTilesheet = null,
   onRemoveTileset = null,
   onReplaceTilesetImage = null,
   onEditTilesetInInspector = null,
@@ -534,11 +534,10 @@ export function MapTilesetPalette({
           gameRootPath={gameRootPath}
           attachedTilesets={availableTilesets}
           activeTilesetName={activeTileset.name}
-          projectImageOptions={projectImageOptions}
           gameSheetsEnabled={gameRootPath !== null}
           onPickAttached={activateTileset}
           onPickGameSheet={onAttachGameSheet}
-          onPickProjectImage={onAddProjectImage}
+          onImport={onImportTilesheet}
           onClose={() => setShowGallery(false)}
           onHoverTileset={onHoverTileset}
         />

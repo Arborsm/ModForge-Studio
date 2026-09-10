@@ -250,7 +250,6 @@ export function LauncherPage({
         onAppModeChange={onAppModeChange}
         theme={theme}
         onToggleTheme={onToggleTheme}
-        statusTone="idle"
         desktopHost={desktopHost}
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}

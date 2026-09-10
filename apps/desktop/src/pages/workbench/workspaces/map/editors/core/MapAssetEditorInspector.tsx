@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Crosshair, FileOutput, Film, Paintbrush, Plus, Trash2 } from 'lucide-react'
+import { Crosshair, FileOutput, Info, Paintbrush, Pencil, Trash2 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   asMapPropertyString,
-  findTilesetForGid,
   getMapObjects,
   isLightMarkerObject,
   listPlacedLightItemOptions,
@@ -13,7 +12,6 @@ import {
   resolveMapObjectLightIsOn,
   resolvePlacedItemQualifiedId,
   resolvePlacedObjectDisplayName,
-  stripTileGidFlags,
   subscribeMapObjects,
   extractAnimationGroups,
   type MapDocument,
@@ -35,8 +33,7 @@ import { CompactSelect } from '@shared/ui/CompactSelect'
 import { MapPropertiesEditor } from '../MapPatchInspectorPanels'
 import { propertyEditMergeKey } from '../../model/mapHistoryStack'
 import { matchTileToCatalogObject, scanPlacedFurniture, placedFurnitureLabel } from '../../model/mapObjectPick'
-import { MapAssetMapCards } from './MapAssetMapCards'
-import { AnimationFrameEditor } from './AnimationFrameEditor'
+import { CardSection, MapAssetMapCards } from './MapAssetMapCards'
 import { MapAnimationDialog } from './MapAnimationDialog'
 import { MapTilePropertiesDialog } from './MapTilePropertiesDialog'
 import { AnimatedTilePreview } from './AnimatedTilePreview'
@@ -100,7 +97,8 @@ export type MapAssetEditorInspectorProps = {
     updateActiveLayer: (updates: Partial<MapLayer>) => void
     updateSelectedTileset: (updater: (tileset: MapTileset) => MapTileset) => void
     updateSelectedObject: (updates: Partial<MapObject>) => void
-    deleteSelectedObject: () => void
+    /** Deletes one object by id; a no-op when the id does not exist. */
+    deleteObject: (objectId: number) => void
     addTileDataObject: (point?: { x: number; y: number }) => void
     /** Selects an object and centers the canvas viewport on it. Omitted in session modes without object locate. */
     locateObject?: (object: MapObject) => void
@@ -115,8 +113,8 @@ export type MapAssetEditorInspectorProps = {
     convertToTmx?: () => Promise<void>
     /** Palette tab: callback when the user picks a tile selection on the sheet. */
     paletteSelectionChange?: (selection: MapTilesetPaletteSelection | null) => void
-    /** Palette tab: attaches a project image as a new tileset. */
-    paletteAddProjectImage?: ((relativePath: string) => void) | null
+    /** Palette tab: opens the project tilesheet import dialog. */
+    paletteImportTilesheet?: (() => void) | null
     /** Palette tab: removes a tileset by name; omitted in session modes without tileset management. */
     paletteRemoveTileset?: ((name: string) => void) | null
     /** Palette tab: replaces a tileset's image. */
@@ -134,7 +132,7 @@ export type MapAssetEditorInspectorProps = {
  * Inspector aside for the map editor: a single always-on scrolling panel. The
  * semantic map cards (warps/doors/day-night/music), the selected light-source
  * details, the light-source list and tileset management stack in one column,
- * with the raw-properties collapsible as the last item and the diagnostics
+ * with the raw-properties collapsible on the advanced tab and the diagnostics
  * section pinned to the bottom of the aside. Every mutation is routed through
  * the `on*` callbacks; capability-gated sections are hidden when their
  * capability is disabled. Cell passability, water and planting rules moved to
@@ -170,7 +168,7 @@ export function MapAssetEditorInspector({
     updateActiveLayer: onUpdateActiveLayer,
     updateSelectedTileset: onUpdateSelectedTileset,
     updateSelectedObject: onUpdateSelectedObject,
-    deleteSelectedObject: onDeleteSelectedObject,
+    deleteObject: onDeleteObject,
     addTileDataObject: onAddTileDataObject,
     locateObject: onLocateObject,
     locateTile: onLocateTile,
@@ -179,7 +177,7 @@ export function MapAssetEditorInspector({
     highlightInspector: onHighlightInspector,
     convertToTmx: onConvertToTmx,
     paletteSelectionChange: onPaletteSelectionChange,
-    paletteAddProjectImage: onPaletteAddProjectImage,
+    paletteImportTilesheet: onPaletteImportTilesheet,
     paletteRemoveTileset: onPaletteRemoveTileset,
     paletteReplaceTilesetImage: onPaletteReplaceTilesetImage,
     paletteEditTilesetInInspector: onPaletteEditTilesetInInspector,
@@ -190,28 +188,48 @@ export function MapAssetEditorInspector({
   const { gameRootPath = null, objectLightIndex = null, mapOptions, loadTargetDocument, locale, theme, accentColor } = environment ?? {}
   const copy = useMapAuthoringCopy().assetEditor
 
-  /** Inspector tab: auto-switches to 'objects' when an object is selected and
-   *  to 'tilesets' when a tileset is selected, but never overrides a manual
-   *  switch away from those tabs. */
-  const [inspectorTab, setInspectorTab] = useState<'palette' | 'map' | 'objects' | 'animations' | 'advanced'>('palette')
+  /** Inspector tab: auto-switches to 'content' when an object is selected,
+   *  but never overrides a manual switch away from it. */
+  const [inspectorTab, setInspectorTab] = useState<'palette' | 'content' | 'advanced'>('palette')
   const [animationDialogOpen, setAnimationDialogOpen] = useState(false)
   const [tilePropsDialogOpen, setTilePropsDialogOpen] = useState(false)
   const lastSelectedObjectIdRef = useRef<number | null>(null)
   useEffect(() => {
     if (selectedObjectId != null && selectedObjectId !== lastSelectedObjectIdRef.current) {
       lastSelectedObjectIdRef.current = selectedObjectId
-      setInspectorTab('objects')
+      setInspectorTab('content')
     }
   }, [selectedObjectId])
 
   const markerItemOptions = listPlacedLightItemOptions(objectLightIndex)
   const allObjectEntries = document.objectGroups.flatMap((group) => group.objects.map((object) => ({ group, object })))
   const markerEntries = allObjectEntries.filter(({ object }) => isLightMarkerObject(object))
-  const nonMarkerEntries = allObjectEntries.filter(({ object }) => !isLightMarkerObject(object))
+  // Plain `TileData` objects are per-cell property carriers (warp/door actions
+  // and Tiled's own per-tile conventions). The game pipeline dissolves them
+  // into tile properties on load — they are implementation, not content — so
+  // they never surface as object rows; the semantic cards own their editing.
+  const plainObjectEntries = allObjectEntries.filter(({ object }) => !isLightMarkerObject(object) && object.name !== 'TileData')
 
   // Subscribe to the catalog registry so scanning re-runs when game furniture loads.
   const catalogObjects = useSyncExternalStore(subscribeMapObjects, getMapObjects)
   const placedFurniture = scanPlacedFurniture(document, catalogObjects)
+
+  /** Content-tab counts: animations across tilesets, and the merged object section's total + visibility. */
+  const animationGroupCount = document.tilesets.reduce((count, tileset) => count + extractAnimationGroups(tileset).length, 0)
+  const objectTotalCount = markerEntries.length + plainObjectEntries.length + placedFurniture.length
+  const objectSectionVisible =
+    (capabilities.objectGroups && (markerEntries.length > 0 || plainObjectEntries.length > 0 || selectedTile != null)) ||
+    placedFurniture.length > 0
+  // Subgroup titles (lights/objects/furniture) only matter when several kinds
+  // mix in one section; a lone kind would just echo the section title. Light
+  // markers expand into the section's detail block when selected, so the
+  // marker's own row leaves the flat list until the selection clears.
+  const selectedIsMarker = selectedObject != null && isLightMarkerObject(selectedObject)
+  const listMarkerEntries = markerEntries.filter(({ object }) => object.id !== selectedObjectId)
+  const markerSubgroupVisible = Boolean(capabilities.objectGroups && (listMarkerEntries.length > 0 || selectedIsMarker))
+  const objectSubgroupVisible = Boolean(capabilities.objectGroups && plainObjectEntries.length > 0)
+  const furnitureSubgroupVisible = placedFurniture.length > 0
+  const showObjectSubgroups = [markerSubgroupVisible, objectSubgroupVisible, furnitureSubgroupVisible].filter(Boolean).length > 1
 
   /** Beginner-facing marker label: localized item name, custom name, or a numbered fallback. */
   function markerLabel(object: MapObject) {
@@ -227,6 +245,19 @@ export function MapAssetEditorInspector({
     if (object.name && object.name !== 'TileData') return object.name
     if (object.type) return object.type
     return copy.genericObject(object.id)
+  }
+
+  /** Plain-object row label: the matched catalog furniture's name when the object carries a gid, else the generic label. */
+  function plainObjectLabel(object: MapObject) {
+    const matched = object.gid ? matchTileToCatalogObject(object.gid, document.tilesets) : null
+    return matched ? mapObjectDisplayName(matched, locale ?? 'en-US') : objectLabel(object)
+  }
+
+  /** Plain-object row subline: tile position and size, e.g. "6, 6 · 1×1". */
+  function plainObjectMeta(object: MapObject) {
+    return `${Math.round(object.x / document.tileWidth)}, ${Math.round(object.y / document.tileHeight)} · ${Math.round(
+      object.width / document.tileWidth,
+    )}\u00d7${Math.round(object.height / document.tileHeight)}`
   }
   const selectedObjectReference = selectedObject ? resolveMapObjectItemReference(selectedObject) : null
   const selectedObjectQualifiedId =
@@ -270,17 +301,107 @@ export function MapAssetEditorInspector({
     }
     onUpdateSelectedObject({ properties })
   }
-  const inspectorTabs: Array<{ id: typeof inspectorTab; label: string; visible: boolean; hasBadge: boolean }> = [
-    { id: 'palette', label: copy.paletteTab, visible: Boolean(onPaletteSelectionChange), hasBadge: paletteSelectionForPicker != null },
-    { id: 'map', label: copy.inspectorTabMap, visible: capabilities.mapProperties, hasBadge: false },
+
+  /** Expanded editor for the selected light marker, rendered inside its object section (never duplicated as a row). */
+  const selectedObjectDetails = selectedObject ? (
+    <section className="map-asset-object-details">
+      <div className="map-asset-object-details-head">
+        <strong className="map-concept-info-anchor">
+          {objectLabel(selectedObject)}
+          <Info className="map-concept-info-icon" aria-hidden="true" />
+          <span className="map-concept-info-tooltip" role="tooltip">
+            {copy.markerGameExportHint}
+            <br />
+            {copy.markerDragHint}
+          </span>
+        </strong>
+        <div className="map-asset-detail-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={copy.mapCards.locateObject}
+            title={copy.mapCards.locateObject}
+            onClick={() => onLocateObject?.(selectedObject)}
+          >
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button is-danger"
+            aria-label={copy.deleteObject}
+            title={copy.deleteObject}
+            onClick={() => onDeleteObject(selectedObject.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      <label>
+        <span>{copy.markerItem}</span>
+        <CompactSelect
+          value={selectedObjectQualifiedId ?? ''}
+          options={[
+            { value: '', label: copy.markerItemNone },
+            ...markerItemOptions.map((option) => ({
+              value: option.qualifiedItemId,
+              label: option.label,
+              description: option.description,
+            })),
+          ]}
+          onChange={applyMarkerItem}
+          ariaLabel={copy.markerItem}
+          placement="bottom-start"
+        />
+      </label>
+      {selectedObjectQualifiedId ? (
+        <label className="map-asset-checkbox">
+          <input type="checkbox" checked={selectedObjectLit} onChange={(event) => applyMarkerLit(event.target.checked)} />
+          <span>{copy.markerLit}</span>
+        </label>
+      ) : null}
+      <label>
+        <span>{copy.markerGameShape}</span>
+        <CompactSelect
+          value={asMapPropertyString(selectedObject.properties.MFLightTexture)}
+          options={[
+            { value: '', label: copy.markerGameShapeDefault },
+            ...[1, 2, 4, 5, 6, 7, 8, 9, 10].map((textureIndex) => ({
+              value: String(textureIndex),
+              label: copy.markerGameShapeOption(textureIndex),
+              description: `#${textureIndex}`,
+            })),
+          ]}
+          onChange={applyMarkerGameShape}
+          ariaLabel={copy.markerGameShape}
+          placement="bottom-start"
+        />
+      </label>
+    </section>
+  ) : null
+  const inspectorTabs: Array<{
+    id: typeof inspectorTab
+    label: string
+    visible: boolean
+    hasBadge: boolean
+  }> = [
     {
-      id: 'objects',
-      label: copy.inspectorTabObjects,
-      visible: capabilities.objectGroups || capabilities.cellProperties,
+      id: 'palette',
+      label: copy.paletteTab,
+      visible: Boolean(onPaletteSelectionChange),
+      hasBadge: paletteSelectionForPicker != null,
+    },
+    {
+      id: 'content',
+      label: copy.inspectorTabContent,
+      visible: capabilities.mapProperties || capabilities.objectGroups || capabilities.cellProperties || capabilities.tilesetManagement,
       hasBadge: selectedObjectId != null,
     },
-    { id: 'animations', label: copy.inspectorTabAnimations, visible: capabilities.tilesetManagement, hasBadge: false },
-    { id: 'advanced', label: copy.inspectorTabAdvanced, visible: true, hasBadge: false },
+    {
+      id: 'advanced',
+      label: copy.inspectorTabAdvanced,
+      visible: true,
+      hasBadge: false,
+    },
   ]
   const visibleTabs = inspectorTabs.filter((tab) => tab.visible)
   const activeTabVisible = visibleTabs.some((tab) => tab.id === inspectorTab)
@@ -295,7 +416,7 @@ export function MapAssetEditorInspector({
             role="tab"
             aria-selected={effectiveTab === tab.id}
             className={cx('map-asset-inspector-tab', effectiveTab === tab.id && 'is-active')}
-            data-guide={tab.id === 'map' ? 'map-inspector-map' : undefined}
+            data-guide={tab.id === 'content' ? 'map-inspector-map' : undefined}
             onClick={() => setInspectorTab(tab.id)}
           >
             {tab.label}
@@ -314,7 +435,7 @@ export function MapAssetEditorInspector({
               gameRootPath={gameRootPath}
               onAttachGameSheet={onAttachGameSheet}
               projectImageOptions={paletteProjectImageOptions}
-              onAddProjectImage={onPaletteAddProjectImage}
+              onImportTilesheet={onPaletteImportTilesheet}
               onRemoveTileset={onPaletteRemoveTileset}
               onReplaceTilesetImage={onPaletteReplaceTilesetImage}
               onEditTilesetInInspector={onPaletteEditTilesetInInspector}
@@ -329,16 +450,15 @@ export function MapAssetEditorInspector({
               </div>
             ) : null}
           </div>
-        ) : effectiveTab === 'map' ? (
-          <>
+        ) : null}
+        {effectiveTab === 'content' ? (
+          <div className="map-asset-content-tab">
             {capabilities.mapProperties && mapOptions && loadTargetDocument && locale && theme && accentColor ? (
               <MapAssetMapCards
                 document={document}
                 renderDocument={renderDocument}
                 onUpdateDocument={onUpdateDocument}
                 activeLayer={capabilities.layerManagement ? activeLayer : null}
-                selectedTile={selectedTile}
-                paletteSelection={paletteSelection}
                 mapOptions={mapOptions}
                 loadTargetDocument={loadTargetDocument}
                 onHighlightInspector={onHighlightInspector}
@@ -348,366 +468,236 @@ export function MapAssetEditorInspector({
                 accentColor={accentColor}
               />
             ) : null}
-            <details className="map-asset-raw-toggle">
-              <summary>{copy.mapCards.rawPropertiesToggle}</summary>
-              <MapPropertiesEditor
-                categorized
-                properties={document.properties}
-                onChange={(properties) =>
-                  onUpdateDocument(
-                    { ...document, properties: properties as Record<string, MapPropertyValue> },
-                    propertyEditMergeKey('map-property', document.properties, properties as Record<string, unknown>),
-                    copy.editMapProperties,
-                  )
+            {capabilities.tilesetManagement ? (
+              <CardSection
+                title={copy.inspectorTabAnimations}
+                countLabel={animationGroupCount > 0 ? String(animationGroupCount) : null}
+                addAction={{
+                  label: copy.animationManageAction,
+                  onClick: () => setAnimationDialogOpen(true),
+                  icon: <Pencil className="h-3.5 w-3.5" aria-hidden="true" />,
+                }}
+              >
+                <AnimationGroupList
+                  document={document}
+                  renderDocument={renderDocument}
+                  copy={copy}
+                  locale={locale ?? 'en-US'}
+                  gameRootPath={gameRootPath}
+                  onUseTile={
+                    onPaletteSelectionChange
+                      ? (tilesetName, tileId, width, height) => {
+                          onPaletteSelectionChange({
+                            tilesetName,
+                            startIndex: tileId,
+                            width,
+                            height,
+                          })
+                          setInspectorTab('palette')
+                        }
+                      : undefined
+                  }
+                />
+              </CardSection>
+            ) : null}
+            {objectSectionVisible ? (
+              <CardSection
+                title={copy.objectsTitle}
+                countLabel={objectTotalCount > 0 ? String(objectTotalCount) : null}
+                addAction={
+                  capabilities.objectGroups
+                    ? {
+                        label: selectedTile ? copy.addTileData : copy.addTileDataDisabledNoCell,
+                        onClick: () => onAddTileDataObject(),
+                        disabled: !selectedTile,
+                      }
+                    : undefined
                 }
-              />
-            </details>
-          </>
-        ) : null}
-        {effectiveTab === 'objects' ? (
-          <>
-            {selectedObject ? (
-              <section className="map-asset-object-details">
-                <div className="map-asset-object-details-head">
-                  <strong>{objectLabel(selectedObject)}</strong>
-                  <div className="map-asset-detail-actions">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={copy.mapCards.locateObject}
-                      title={copy.mapCards.locateObject}
-                      onClick={() => onLocateObject?.(selectedObject)}
-                    >
-                      <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button is-danger"
-                      aria-label={copy.deleteObject}
-                      title={copy.deleteObject}
-                      onClick={onDeleteSelectedObject}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-                {isLightMarkerObject(selectedObject) ? (
+              >
+                {markerSubgroupVisible ? (
                   <>
-                    <label>
-                      <span>{copy.markerItem}</span>
-                      <CompactSelect
-                        value={selectedObjectQualifiedId ?? ''}
-                        options={[
-                          { value: '', label: copy.markerItemNone },
-                          ...markerItemOptions.map((option) => ({
-                            value: option.qualifiedItemId,
-                            label: option.label,
-                            description: option.description,
-                          })),
-                        ]}
-                        onChange={applyMarkerItem}
-                        ariaLabel={copy.markerItem}
-                        placement="bottom-start"
-                      />
-                    </label>
-                    {selectedObjectQualifiedId ? (
-                      <label className="map-asset-checkbox">
-                        <input type="checkbox" checked={selectedObjectLit} onChange={(event) => applyMarkerLit(event.target.checked)} />
-                        <span>{copy.markerLit}</span>
-                      </label>
-                    ) : null}
-                    <label>
-                      <span>{copy.markerGameShape}</span>
-                      <CompactSelect
-                        value={asMapPropertyString(selectedObject.properties.MFLightTexture)}
-                        options={[
-                          { value: '', label: copy.markerGameShapeDefault },
-                          ...[1, 2, 4, 5, 6, 7, 8, 9, 10].map((textureIndex) => ({
-                            value: String(textureIndex),
-                            label: copy.markerGameShapeOption(textureIndex),
-                            description: `#${textureIndex}`,
-                          })),
-                        ]}
-                        onChange={applyMarkerGameShape}
-                        ariaLabel={copy.markerGameShape}
-                        placement="bottom-start"
-                      />
-                    </label>
-                    <p>{copy.markerGameExportHint}</p>
-                    <p>{copy.markerDragHint}</p>
-                  </>
-                ) : (
-                  <ObjectCatalogMatch object={selectedObject} tilesets={document.tilesets} locale={locale ?? 'en-US'} copy={copy} />
-                )}
-              </section>
-            ) : (
-              <p>{copy.selectCell}</p>
-            )}
-            {capabilities.cellProperties && activeLayer && selectedTile && !selectedObject
-              ? (() => {
-                  const cellIndex = selectedTile.y * activeLayer.width + selectedTile.x
-                  const baseGid = stripTileGidFlags(activeLayer.gids[cellIndex] ?? 0)
-                  const candidateTileset = baseGid > 0 ? findTilesetForGid(document.tilesets, baseGid) : null
-                  const owningTileset =
-                    candidateTileset && baseGid < candidateTileset.firstGid + candidateTileset.tileCount ? candidateTileset : null
-                  const frames = activeLayer.cellAnimations?.[cellIndex] ?? []
-                  if (frames.length === 0 && !owningTileset) return null
-                  // When the cell has no tile but does have animation frames, we need
-                  // a tileset for the frame thumbnails. Fall back to the first tileset;
-                  // when there are no tilesets at all, the editor cannot render.
-                  const fallbackTileset = owningTileset ?? document.tilesets[0]
-                  if (!fallbackTileset) return null
-                  return (
-                    <AnimationFrameEditor
-                      renderDocument={renderDocument}
-                      tileset={fallbackTileset}
-                      tileId={owningTileset ? baseGid - owningTileset.firstGid : 0}
-                      frames={frames}
-                      locale={locale ?? 'en-US'}
-                      gameRootPath={gameRootPath}
-                      onChange={(nextFrames) => {
-                        const cellAnimations = { ...activeLayer.cellAnimations }
-                        if (nextFrames.length) cellAnimations[cellIndex] = nextFrames
-                        else delete cellAnimations[cellIndex]
-                        onUpdateActiveLayer({ cellAnimations })
-                      }}
-                    />
-                  )
-                })()
-              : null}
-            {capabilities.objectGroups ? (
-              <>
-                <header>
-                  <strong>{copy.markersTitle}</strong>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={copy.addTileData}
-                    title={selectedTile ? copy.addTileData : copy.addTileDataDisabledNoCell}
-                    disabled={!selectedTile}
-                    onClick={() => onAddTileDataObject()}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </header>
-                {!selectedTile ? <p>{copy.addTileDataHint}</p> : null}
-                <div className="map-asset-object-list">
-                  {markerEntries.map(({ group, object }) => (
-                    <div
-                      key={object.id}
-                      className="map-asset-object-row"
-                      onPointerEnter={() => onHighlightInspector?.({ tileRects: [], objectIds: [object.id] })}
-                      onPointerLeave={() => onHighlightInspector?.(null)}
-                    >
-                      <button
-                        type="button"
-                        className={cx(selectedObjectId === object.id && 'is-active')}
-                        onClick={() => {
-                          onSetActiveObjectGroupId(group.id)
-                          onSetSelectedObjectId(object.id)
-                        }}
-                      >
-                        {markerLabel(object)}
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label={copy.mapCards.locateObject}
-                        title={copy.mapCards.locateObject}
-                        onClick={() => {
-                          onSetActiveObjectGroupId(group.id)
-                          onSetSelectedObjectId(object.id)
-                          onLocateObject?.(object)
-                        }}
-                      >
-                        <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
+                    {showObjectSubgroups ? <div className="map-asset-subgroup">{copy.markersTitle}</div> : null}
+                    {selectedIsMarker ? selectedObjectDetails : null}
+                    <div className="map-asset-object-list">
+                      {listMarkerEntries.map(({ group, object }) => (
+                        <ContextMenu.Root key={object.id}>
+                          <ContextMenu.Trigger asChild>
+                            <div
+                              className="map-asset-object-row"
+                              onPointerEnter={() =>
+                                onHighlightInspector?.({
+                                  tileRects: [],
+                                  objectIds: [object.id],
+                                })
+                              }
+                              onPointerLeave={() => onHighlightInspector?.(null)}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onSetActiveObjectGroupId(group.id)
+                                  onSetSelectedObjectId(object.id)
+                                }}
+                              >
+                                {markerLabel(object)}
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-button is-danger"
+                                aria-label={copy.deleteObject}
+                                title={copy.deleteObject}
+                                onClick={() => onDeleteObject(object.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </ContextMenu.Trigger>
+                          <ContextMenu.Portal>
+                            <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                              <ContextMenu.Item
+                                className="context-menu-item"
+                                onSelect={() => {
+                                  onSetActiveObjectGroupId(group.id)
+                                  onSetSelectedObjectId(object.id)
+                                  onLocateObject?.(object)
+                                }}
+                              >
+                                {copy.mapCards.locateObject}
+                              </ContextMenu.Item>
+                              <ContextMenu.Separator className="context-menu-separator" />
+                              <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => onDeleteObject(object.id)}>
+                                {copy.deleteObject}
+                              </ContextMenu.Item>
+                            </ContextMenu.Content>
+                          </ContextMenu.Portal>
+                        </ContextMenu.Root>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {!selectedObject && markerEntries.length > 0 ? <p>{copy.selectObject}</p> : null}
-              </>
+                  </>
+                ) : null}
+                {objectSubgroupVisible ? (
+                  <>
+                    {showObjectSubgroups ? <div className="map-asset-subgroup">{copy.objectsTitle}</div> : null}
+                    <div className="map-asset-object-list">
+                      {plainObjectEntries.map(({ group, object }) => (
+                        <ContextMenu.Root key={object.id}>
+                          <ContextMenu.Trigger asChild>
+                            <div
+                              className="map-asset-object-row"
+                              onPointerEnter={() =>
+                                onHighlightInspector?.({
+                                  tileRects: [],
+                                  objectIds: [object.id],
+                                })
+                              }
+                              onPointerLeave={() => onHighlightInspector?.(null)}
+                            >
+                              <button
+                                type="button"
+                                className="map-asset-object-row-label"
+                                onClick={() => {
+                                  onSetActiveObjectGroupId(group.id)
+                                  onSetSelectedObjectId(object.id)
+                                  onLocateObject?.(object)
+                                }}
+                              >
+                                <span>{plainObjectLabel(object)}</span>
+                                <span className="map-asset-object-row-pos">{plainObjectMeta(object)}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-button is-danger"
+                                aria-label={copy.deleteObject}
+                                title={copy.deleteObject}
+                                onClick={() => onDeleteObject(object.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </ContextMenu.Trigger>
+                          <ContextMenu.Portal>
+                            <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                              <ContextMenu.Item
+                                className="context-menu-item"
+                                onSelect={() => {
+                                  onSetActiveObjectGroupId(group.id)
+                                  onSetSelectedObjectId(object.id)
+                                  onLocateObject?.(object)
+                                }}
+                              >
+                                {copy.mapCards.locateObject}
+                              </ContextMenu.Item>
+                              <ContextMenu.Separator className="context-menu-separator" />
+                              <ContextMenu.Item className="context-menu-item is-danger" onSelect={() => onDeleteObject(object.id)}>
+                                {copy.deleteObject}
+                              </ContextMenu.Item>
+                            </ContextMenu.Content>
+                          </ContextMenu.Portal>
+                        </ContextMenu.Root>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+                {furnitureSubgroupVisible ? (
+                  <>
+                    {showObjectSubgroups ? <div className="map-asset-subgroup">{copy.furnitureTitle}</div> : null}
+                    <div className="map-asset-object-list">
+                      {placedFurniture.map((entry) => (
+                        <ContextMenu.Root key={`${entry.catalogObject.id}\0${entry.tileX}\0${entry.tileY}\0${entry.layerName}`}>
+                          <ContextMenu.Trigger asChild>
+                            <div
+                              className="map-asset-object-row"
+                              onPointerEnter={() =>
+                                onHighlightInspector?.({
+                                  tileRects: [
+                                    {
+                                      x: entry.tileX,
+                                      y: entry.tileY,
+                                      width: entry.catalogObject.rect.width,
+                                      height: entry.catalogObject.rect.height,
+                                    },
+                                  ],
+                                  objectIds: [],
+                                })
+                              }
+                              onPointerLeave={() => onHighlightInspector?.(null)}
+                            >
+                              <button
+                                type="button"
+                                className="map-asset-furniture-row-label"
+                                onClick={() => onLocateTile?.(entry.tileX, entry.tileY)}
+                              >
+                                <span>{placedFurnitureLabel(entry, locale ?? 'en-US')}</span>
+                                <span className="map-asset-furniture-row-pos">
+                                  {copy.furniturePosition(entry.tileX, entry.tileY, entry.layerName)}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label={copy.mapCards.locateObject}
+                                title={copy.mapCards.locateObject}
+                                onClick={() => onLocateTile?.(entry.tileX, entry.tileY)}
+                              >
+                                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </ContextMenu.Trigger>
+                          <ContextMenu.Portal>
+                            <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+                              <ContextMenu.Item className="context-menu-item" onSelect={() => onLocateTile?.(entry.tileX, entry.tileY)}>
+                                {copy.mapCards.locateObject}
+                              </ContextMenu.Item>
+                            </ContextMenu.Content>
+                          </ContextMenu.Portal>
+                        </ContextMenu.Root>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </CardSection>
             ) : null}
-            {capabilities.objectGroups && nonMarkerEntries.length > 0 ? (
-              <>
-                <header>
-                  <strong>{copy.objectsTitle}</strong>
-                </header>
-                <div className="map-asset-object-list">
-                  {nonMarkerEntries.map(({ group, object }) => (
-                    <ContextMenu.Root key={object.id}>
-                      <ContextMenu.Trigger asChild>
-                        <div
-                          className="map-asset-object-row"
-                          onPointerEnter={() => onHighlightInspector?.({ tileRects: [], objectIds: [object.id] })}
-                          onPointerLeave={() => onHighlightInspector?.(null)}
-                        >
-                          <button
-                            type="button"
-                            className={cx(selectedObjectId === object.id && 'is-active')}
-                            onClick={() => {
-                              onSetActiveObjectGroupId(group.id)
-                              onSetSelectedObjectId(object.id)
-                            }}
-                          >
-                            {objectLabel(object)}
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={copy.mapCards.locateObject}
-                            title={copy.mapCards.locateObject}
-                            onClick={() => {
-                              onSetActiveObjectGroupId(group.id)
-                              onSetSelectedObjectId(object.id)
-                              onLocateObject?.(object)
-                            }}
-                          >
-                            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </ContextMenu.Trigger>
-                      <ContextMenu.Portal>
-                        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
-                          <ContextMenu.Item
-                            className="context-menu-item"
-                            onSelect={() => {
-                              onSetActiveObjectGroupId(group.id)
-                              onSetSelectedObjectId(object.id)
-                              onLocateObject?.(object)
-                            }}
-                          >
-                            {copy.mapCards.locateObject}
-                          </ContextMenu.Item>
-                          <ContextMenu.Separator className="context-menu-separator" />
-                          <ContextMenu.Item
-                            className="context-menu-item is-danger"
-                            onSelect={() => {
-                              onSetActiveObjectGroupId(group.id)
-                              onSetSelectedObjectId(object.id)
-                              onDeleteSelectedObject()
-                            }}
-                          >
-                            {copy.deleteObject}
-                          </ContextMenu.Item>
-                        </ContextMenu.Content>
-                      </ContextMenu.Portal>
-                    </ContextMenu.Root>
-                  ))}
-                </div>
-              </>
-            ) : null}
-            {placedFurniture.length > 0 ? (
-              <>
-                <header>
-                  <strong>{copy.furnitureTitle}</strong>
-                </header>
-                <div className="map-asset-object-list">
-                  {placedFurniture.map((entry) => (
-                    <ContextMenu.Root key={`${entry.catalogObject.id}\0${entry.tileX}\0${entry.tileY}\0${entry.layerName}`}>
-                      <ContextMenu.Trigger asChild>
-                        <div
-                          className="map-asset-object-row"
-                          onPointerEnter={() =>
-                            onHighlightInspector?.({
-                              tileRects: [
-                                {
-                                  x: entry.tileX,
-                                  y: entry.tileY,
-                                  width: entry.catalogObject.rect.width,
-                                  height: entry.catalogObject.rect.height,
-                                },
-                              ],
-                              objectIds: [],
-                            })
-                          }
-                          onPointerLeave={() => onHighlightInspector?.(null)}
-                        >
-                          <button
-                            type="button"
-                            className="map-asset-furniture-row-label"
-                            onClick={() => onLocateTile?.(entry.tileX, entry.tileY)}
-                          >
-                            <span>{placedFurnitureLabel(entry, locale ?? 'en-US')}</span>
-                            <span className="map-asset-furniture-row-pos">
-                              {copy.furniturePosition(entry.tileX, entry.tileY, entry.layerName)}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={copy.mapCards.locateObject}
-                            title={copy.mapCards.locateObject}
-                            onClick={() => onLocateTile?.(entry.tileX, entry.tileY)}
-                          >
-                            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </ContextMenu.Trigger>
-                      <ContextMenu.Portal>
-                        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
-                          <ContextMenu.Item className="context-menu-item" onSelect={() => onLocateTile?.(entry.tileX, entry.tileY)}>
-                            {copy.mapCards.locateObject}
-                          </ContextMenu.Item>
-                        </ContextMenu.Content>
-                      </ContextMenu.Portal>
-                    </ContextMenu.Root>
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </>
-        ) : null}
-        {effectiveTab === 'animations' && capabilities.tilesetManagement ? (
-          <>
-            <div className="map-asset-animation-tab-entry">
-              <button type="button" className="control-button control-button-primary" onClick={() => setAnimationDialogOpen(true)}>
-                <Film className="h-3.5 w-3.5" />
-                {copy.animationDialogTitle}
-              </button>
-            </div>
-            <AnimationGroupList
-              document={document}
-              renderDocument={renderDocument}
-              copy={copy}
-              locale={locale ?? 'en-US'}
-              gameRootPath={gameRootPath}
-              onUseTile={
-                onPaletteSelectionChange
-                  ? (tilesetName, tileId, width, height) => {
-                      onPaletteSelectionChange({
-                        tilesetName,
-                        startIndex: tileId,
-                        width,
-                        height,
-                      })
-                      setInspectorTab('palette')
-                    }
-                  : undefined
-              }
-            />
-            <MapAnimationDialog
-              open={animationDialogOpen}
-              onClose={() => setAnimationDialogOpen(false)}
-              document={document}
-              renderDocument={renderDocument}
-              locale={locale ?? 'en-US'}
-              gameRootPath={gameRootPath}
-              onUpdateTileset={(name, updater) => {
-                const target = document.tilesets.find((tileset) => tileset.name === name)
-                if (!target) return
-                const next = updater(target)
-                onUpdateDocument(
-                  {
-                    ...document,
-                    tilesets: document.tilesets.map((tileset) => (tileset.name === name ? next : tileset)),
-                  },
-                  `map-tileset:${name}:animation`,
-                  copy.editAnimation,
-                )
-              }}
-            />
-          </>
+          </div>
         ) : null}
         {effectiveTab === 'advanced' ? (
           <>
@@ -721,7 +711,11 @@ export function MapAssetEditorInspector({
                 <MapPropertiesEditor
                   properties={activeLayer.properties}
                   description={copy.layerPropertiesHint}
-                  onChange={(properties) => onUpdateActiveLayer({ properties: properties as Record<string, MapPropertyValue> })}
+                  onChange={(properties) =>
+                    onUpdateActiveLayer({
+                      properties: properties as Record<string, MapPropertyValue>,
+                    })
+                  }
                 />
               </section>
             ) : null}
@@ -750,7 +744,12 @@ export function MapAssetEditorInspector({
                       <input
                         value={selectedTileset.source}
                         spellCheck={false}
-                        onChange={(event) => onUpdateSelectedTileset((tileset) => ({ ...tileset, source: event.target.value }))}
+                        onChange={(event) =>
+                          onUpdateSelectedTileset((tileset) => ({
+                            ...tileset,
+                            source: event.target.value,
+                          }))
+                        }
                       />
                       {isValidTsxSource(selectedTileset.source) ? (
                         <p className="map-asset-tileset-source-hint">{copy.tilesetExternalTsxHint(selectedTileset.source)}</p>
@@ -772,6 +771,23 @@ export function MapAssetEditorInspector({
                 </details>
               </section>
             ) : null}
+            <details className="map-asset-raw-toggle">
+              <summary>{copy.mapCards.rawPropertiesToggle}</summary>
+              <MapPropertiesEditor
+                categorized
+                properties={document.properties}
+                onChange={(properties) =>
+                  onUpdateDocument(
+                    {
+                      ...document,
+                      properties: properties as Record<string, MapPropertyValue>,
+                    },
+                    propertyEditMergeKey('map-property', document.properties, properties as Record<string, unknown>),
+                    copy.editMapProperties,
+                  )
+                }
+              />
+            </details>
             <section id="map-asset-diagnostics" className="map-asset-diagnostics">
               <header>
                 <span className="lbl">{copy.diagnosticsTitle}</span>
@@ -850,45 +866,28 @@ export function MapAssetEditorInspector({
           }
         />
       ) : null}
+      <MapAnimationDialog
+        open={animationDialogOpen}
+        onClose={() => setAnimationDialogOpen(false)}
+        document={document}
+        renderDocument={renderDocument}
+        locale={locale ?? 'en-US'}
+        gameRootPath={gameRootPath}
+        onUpdateTileset={(name, updater) => {
+          const target = document.tilesets.find((tileset) => tileset.name === name)
+          if (!target) return
+          const next = updater(target)
+          onUpdateDocument(
+            {
+              ...document,
+              tilesets: document.tilesets.map((tileset) => (tileset.name === name ? next : tileset)),
+            },
+            `map-tileset:${name}:animation`,
+            copy.editAnimation,
+          )
+        }}
+      />
     </aside>
-  )
-}
-
-/**
- * Shows matched catalog object info for a non-light-marker object. If the
- * object has a gid, resolves it to a catalog entry and displays the furniture
- * name plus frame info (rotations, alternate state). For objects without a
- * gid match, shows basic position/size.
- */
-function ObjectCatalogMatch({
-  object,
-  tilesets,
-  locale,
-  copy,
-}: {
-  object: MapObject
-  tilesets: readonly MapTileset[]
-  locale: string
-  copy: ReturnType<typeof useMapAuthoringCopy>['assetEditor']
-}) {
-  const matched = object.gid ? matchTileToCatalogObject(object.gid, tilesets) : null
-  if (!matched) {
-    return (
-      <p className="map-asset-object-details-meta">
-        {`${Math.round(object.x / 16)}, ${Math.round(object.y / 16)} · ${Math.round(object.width / 16)}\u00d7${Math.round(object.height / 16)}`}
-      </p>
-    )
-  }
-  const name = mapObjectDisplayName(matched, locale)
-  return (
-    <>
-      <p className="map-asset-object-details-meta">{copy.matchedFurniture(name)}</p>
-      {matched.frameInfo ? (
-        <p className="map-asset-object-details-meta">
-          {copy.objectFrameInfo(matched.frameInfo.rotations, matched.frameInfo.hasAlternateState)}
-        </p>
-      ) : null}
-    </>
   )
 }
 
@@ -923,9 +922,8 @@ function AnimationGroupList({
     <div className="map-asset-animation-list">
       {tilesetGroups.map(({ tileset, groups }) => (
         <div key={tileset.name} className="map-asset-animation-list-group">
-          <div className="map-asset-animation-list-group-header">
-            <strong className="map-asset-animation-list-group-title">{tileset.name}</strong>
-            <span className="map-asset-animation-list-group-count">{copy.animationFrameCount(groups.length)}</span>
+          <div className="map-asset-subgroup">
+            {tileset.name} · {copy.animationFrameCount(groups.length)}
           </div>
           <div className="map-asset-animation-list-items">
             {groups.map((group, index) => (
@@ -947,12 +945,12 @@ function AnimationGroupList({
                 {onUseTile ? (
                   <button
                     type="button"
-                    className="control-button map-asset-animation-list-item-use"
+                    className="icon-button map-asset-animation-list-item-use"
                     onClick={() => onUseTile(tileset.name, group.ownerTileId, group.width, group.height)}
+                    aria-label={copy.animationDialogUseTile}
                     title={copy.animationDialogUseTile}
                   >
-                    <Paintbrush className="h-3 w-3" />
-                    {copy.animationDialogUseTile}
+                    <Paintbrush className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
                 ) : null}
               </div>

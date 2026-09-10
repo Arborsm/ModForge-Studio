@@ -301,7 +301,6 @@ export default function WorkbenchExperience({
           onAppModeChange: handleAppModeChange,
           theme,
           onToggleTheme,
-          statusTone: directoryStatus.tone,
           desktopHost,
           onMinimizeWindow,
           onToggleMaximizeWindow,

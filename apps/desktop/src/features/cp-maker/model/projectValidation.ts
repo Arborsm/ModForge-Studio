@@ -25,7 +25,11 @@ import type { DraftPatch } from './types'
 const FILE_BACKED_ACTIONS = new Set<DraftPatch['action']>(['EditImage', 'Load', 'Include'])
 
 function isPatchEnabled(patch: DraftPatch): boolean {
-  return patch.enabled !== false
+  // Mirrors the export filter: a "false" string token (any case) reads as
+  // disabled in Content Patcher, so validation must agree with the export.
+  if (patch.enabled === false) return false
+  if (typeof patch.enabled === 'string') return patch.enabled.toLowerCase() !== 'false'
+  return true
 }
 
 function collectFileIssues(patch: DraftPatch): AssetIssue[] {
@@ -39,6 +43,26 @@ function collectFileIssues(patch: DraftPatch): AssetIssue[] {
       messageKey: 'patch.sourceFileMissing',
       path: [patch.target || patch.id],
       params: { action: patch.action, target: patch.target },
+    },
+  ]
+}
+
+/**
+ * An unconfigured `Load` (empty Target) exports nothing — the build skips it —
+ * so validation says so explicitly. Other actions keep their semantics: a
+ * missing target is either valid (Include) or surfaced by their own editors.
+ */
+function collectLoadTargetIssues(patch: DraftPatch): AssetIssue[] {
+  if (patch.action !== 'Load' || patch.target.trim() !== '') {
+    return []
+  }
+  return [
+    {
+      severity: 'error',
+      code: 'patchTargetMissing',
+      messageKey: 'patch.targetMissing',
+      path: [patch.target || patch.id],
+      params: { action: patch.action },
     },
   ]
 }
@@ -94,6 +118,7 @@ export function collectProjectIssues(patches: readonly DraftPatch[]): AssetIssue
 
   for (const patch of enabled) {
     issues.push(...collectFileIssues(patch))
+    issues.push(...collectLoadTargetIssues(patch))
     issues.push(...collectEditDataOverlapIssues(patch))
     if (patch.action !== 'EditData' || isEventAssetTarget(patch.target)) continue
     const schema = getAssetSchema(patch.target)

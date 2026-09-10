@@ -7,8 +7,8 @@ import {
   loadAssetFamily,
   loadFamilyWorkspace,
   normalizeLoadTargetInput,
-  placeholderLoadTarget,
   projectAssetsForLoadFamily,
+  readLoadFamilyIntent,
   resolveLoadFromFile,
 } from '@pages/workbench/workspaces/asset-library/model/mapLoadBinding'
 import { splitMapTargets } from '@pages/workbench/workspaces/map/model/mapPatchReducer'
@@ -44,18 +44,20 @@ describe('map load binding', () => {
   })
 
   it('reports asset existence with case and slash normalization', () => {
-    const rows = analyzeLoadBindings('Maps/Town, Maps/Forest', 'assets/TileSheets/{{TargetWithoutPath}}.png', [
-      'assets\\TileSheets\\Town.PNG',
-      'assets/TileSheets/Forest.png',
+    const rows = analyzeLoadBindings('Portraits/Abigail, Portraits/Alex', 'assets/portraits/{{TargetWithoutPath}}.png', [
+      { relativePath: 'assets\\Portraits\\Abigail.PNG', mediaType: 'image/png' },
+      { relativePath: 'assets/portraits/Alex.png', mediaType: 'image/png' },
     ])
     expect(rows).toEqual([
-      { target: 'Maps/Town', resolvedFromFile: 'assets/TileSheets/Town.png', exists: true },
-      { target: 'Maps/Forest', resolvedFromFile: 'assets/TileSheets/Forest.png', exists: true },
+      { target: 'Portraits/Abigail', resolvedFromFile: 'assets/portraits/Abigail.png', exists: true, matchesFamily: true },
+      { target: 'Portraits/Alex', resolvedFromFile: 'assets/portraits/Alex.png', exists: true, matchesFamily: true },
     ])
   })
 
   it('marks rows missing when the template keeps a non-target token', () => {
-    const rows = analyzeLoadBindings('Maps/Town, Maps/Forest', 'assets/{{ModId}}/{{TargetWithoutPath}}.png', ['assets/TileSheets/Town.png'])
+    const rows = analyzeLoadBindings('Maps/Town, Maps/Forest', 'assets/{{ModId}}/{{TargetWithoutPath}}.png', [
+      { relativePath: 'assets/maps/Town.tmx', mediaType: 'application/octet-stream' },
+    ])
     expect(rows).toMatchObject([
       { target: 'Maps/Town', resolvedFromFile: 'assets/{{ModId}}/Town.png', exists: false },
       { target: 'Maps/Forest', resolvedFromFile: 'assets/{{ModId}}/Forest.png', exists: false },
@@ -63,15 +65,82 @@ describe('map load binding', () => {
   })
 
   it('shows identical resolved files when the template has no target tokens', () => {
-    const rows = analyzeLoadBindings('Maps/Town, Maps/Forest', 'assets/maps/Custom.tmx', ['assets/maps/Custom.tmx'])
+    const rows = analyzeLoadBindings('Maps/Town, Maps/Forest', 'assets/maps/Custom.tmx', [
+      { relativePath: 'assets/maps/Custom.tmx', mediaType: 'application/octet-stream' },
+    ])
     expect(rows).toEqual([
-      { target: 'Maps/Town', resolvedFromFile: 'assets/maps/Custom.tmx', exists: true },
-      { target: 'Maps/Forest', resolvedFromFile: 'assets/maps/Custom.tmx', exists: true },
+      { target: 'Maps/Town', resolvedFromFile: 'assets/maps/Custom.tmx', exists: true, matchesFamily: true },
+      { target: 'Maps/Forest', resolvedFromFile: 'assets/maps/Custom.tmx', exists: true, matchesFamily: true },
     ])
   })
 
   it('ignores an empty target expression', () => {
     expect(analyzeLoadBindings('', 'assets/x.png', [])).toEqual([])
+  })
+
+  it('accepts map documents for maps targets', () => {
+    const rows = analyzeLoadBindings('Maps/Town', 'assets/maps/Town.tmx', [
+      { relativePath: 'assets/maps/Town.tmx', mediaType: 'application/octet-stream' },
+    ])
+    expect(rows[0]).toMatchObject({ exists: true, matchesFamily: true })
+  })
+
+  it('marks a type mismatch when the found asset contradicts the target family', () => {
+    const assets = [
+      { relativePath: 'assets/maps/Town.tmx', mediaType: 'application/octet-stream' },
+      { relativePath: 'assets/portraits/Aspen.png', mediaType: 'image/png' },
+      { relativePath: 'assets/audio/cue.wav', mediaType: 'audio/wav' },
+      { relativePath: 'assets/data/objects.json', mediaType: 'application/json' },
+    ]
+    expect(analyzeLoadBindings('Maps/Town', 'assets/portraits/Aspen.png', assets)[0]).toMatchObject({ exists: true, matchesFamily: false })
+    expect(analyzeLoadBindings('Portraits/Aspen', 'assets/data/objects.json', assets)[0]).toMatchObject({
+      exists: true,
+      matchesFamily: false,
+    })
+    expect(analyzeLoadBindings('Audio/NewCue', 'assets/portraits/Aspen.png', assets)[0]).toMatchObject({
+      exists: true,
+      matchesFamily: false,
+    })
+    expect(analyzeLoadBindings('Data/Objects', 'assets/audio/cue.wav', assets)[0]).toMatchObject({ exists: true, matchesFamily: false })
+  })
+
+  it('never fails fonts and other targets because they carry no expected kind', () => {
+    const assets = [
+      { relativePath: 'assets/portraits/Aspen.png', mediaType: 'image/png' },
+      { relativePath: 'assets/data/objects.json', mediaType: 'application/json' },
+    ]
+    expect(analyzeLoadBindings('Fonts/NewFont', 'assets/portraits/Aspen.png', assets)[0]).toMatchObject({
+      exists: true,
+      matchesFamily: true,
+    })
+    expect(analyzeLoadBindings('Somewhere/Unknown', 'assets/data/objects.json', assets)[0]).toMatchObject({
+      exists: true,
+      matchesFamily: true,
+    })
+    expect(analyzeLoadBindings('{{Target}}', 'assets/portraits/Aspen.png', assets)[0]).toMatchObject({
+      exists: true,
+      matchesFamily: true,
+    })
+  })
+
+  it('skips the kind check while the resolved file is missing', () => {
+    const rows = analyzeLoadBindings('Maps/Town', 'assets/portraits/Missing.png', [
+      { relativePath: 'assets/portraits/Aspen.png', mediaType: 'image/png' },
+    ])
+    expect(rows[0]).toMatchObject({ exists: false, matchesFamily: true })
+  })
+
+  it('reads the creation family intent from editor state', () => {
+    expect(readLoadFamilyIntent({ loadFamily: 'images' })).toBe('images')
+    expect(readLoadFamilyIntent({ loadFamily: 'maps', other: 'kept' })).toBe('maps')
+  })
+
+  it('rejects unknown intents and non-record editor state', () => {
+    expect(readLoadFamilyIntent({ loadFamily: 'portraits' })).toBeNull()
+    expect(readLoadFamilyIntent({})).toBeNull()
+    expect(readLoadFamilyIntent(null)).toBeNull()
+    expect(readLoadFamilyIntent(undefined)).toBeNull()
+    expect(readLoadFamilyIntent('images')).toBeNull()
   })
 
   it('normalizes plain targets with a Maps/ prefix and forward slashes', () => {
@@ -186,15 +255,6 @@ describe('groupLoadPatchesByFamily', () => {
 })
 
 describe('load binding creation helpers', () => {
-  it('stamps family-appropriate placeholder targets', () => {
-    expect(placeholderLoadTarget('maps')).toBe('Maps/NewMap')
-    expect(placeholderLoadTarget('images')).toMatch(/^Portraits\//u)
-    expect(placeholderLoadTarget('audio')).toMatch(/^Audio\//u)
-    expect(placeholderLoadTarget('fonts')).toMatch(/^Fonts\//u)
-    expect(placeholderLoadTarget('data')).toMatch(/^Data\//u)
-    expect(placeholderLoadTarget('other')).toBe('NewAsset')
-  })
-
   it('keeps map bindings in the map workspace and everything else in mods', () => {
     expect(loadFamilyWorkspace('maps')).toBe('map')
     expect(loadFamilyWorkspace('images')).toBe('mods')

@@ -17,6 +17,8 @@
 @import './features/map-asset-shell.css';
 @import './features/map-asset-left-tabs.css';
 @import './features/map-asset-cards.css';
+@import './features/map-animation-dialog.css';
+@import './features/map-asset-studio.css';
 @import './features/map-asset-extras.css';
 @import './features/map-asset-topbar.css';
 @import './features/map-authoring-compare.css';

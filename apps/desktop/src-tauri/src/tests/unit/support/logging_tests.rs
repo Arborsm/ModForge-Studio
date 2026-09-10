@@ -60,15 +60,40 @@ fn command_error_logging_helper_formats_failed_results() {
 #[test]
 fn log_file_config_writes_to_rotating_app_log_file() {
     let production = log_file_config().expect("log file config");
-    assert_eq!(production.directory, app_logs_dir().expect("app logs dir"));
-    assert_eq!(production.file_name, LOG_FILE_NAME);
+    let logs_root = app_logs_dir().expect("app logs dir");
+    // 日志按月份文件夹 + 日期文件名组织：<logs>/YYYY-MM/modforge-studio-YYYY-MM-DD
+    let month_dir = production
+        .directory
+        .strip_prefix(&logs_root)
+        .expect("log directory nests under the logs root");
+    let month_dir_name = month_dir.to_str().expect("utf-8 month dir");
+    assert!(
+        month_dir_name.len() == 7
+            && month_dir_name.as_bytes()[4] == b'-'
+            && month_dir_name
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '-'),
+        "log directory must be a YYYY-MM monthly folder, got {month_dir_name}"
+    );
+    assert!(
+        production
+            .file_name
+            .starts_with(&format!("{LOG_FILE_NAME}-{month_dir_name}-")),
+        "log file name must be <name>-YYYY-MM-DD, got {}",
+        production.file_name
+    );
+    assert!(
+        production.file_name.len() == LOG_FILE_NAME.len() + 1 + 10,
+        "log file name must carry a full date suffix, got {}",
+        production.file_name
+    );
     assert_eq!(production.max_file_size_bytes, LOG_FILE_SIZE_BYTES);
     assert_eq!(production.retained_file_count, LOG_FILE_COUNT);
 
     let directory = crate::test_support::create_temp_dir("rotating-host-log");
     let mut log_file = HostLogFile::new(LogFileConfig {
         directory: directory.clone(),
-        file_name: "rotation-test",
+        file_name: "rotation-test".to_string(),
         max_file_size_bytes: 8,
         retained_file_count: 2,
     })

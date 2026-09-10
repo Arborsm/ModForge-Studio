@@ -435,7 +435,6 @@
   }
 
   .map-asset-tileset-details,
-  .map-asset-animation,
   .map-asset-object-details,
   .map-asset-layer-details {
     @apply grid gap-2.5;
@@ -456,16 +455,6 @@
 
   .map-asset-checkbox input {
     @apply min-h-0 w-auto;
-  }
-
-  .map-asset-animation > div {
-    @apply grid gap-1.5;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-    align-items: end;
-  }
-
-  .map-asset-animation label {
-    @apply text-text-secondary text-caption grid gap-1;
   }
 
   @container map-inspector (max-width: 32rem) {

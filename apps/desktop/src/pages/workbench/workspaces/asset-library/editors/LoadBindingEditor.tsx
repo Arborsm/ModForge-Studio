@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, ChevronDown, FileInput, Plus, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, FileInput, Plus, RefreshCw, X } from 'lucide-react'
 import { WhenConditionEditor, type EditorComponent } from '@features/cp-maker'
 import { parseWhenConditions, serializeWhenConditions } from '@entities/content-patcher'
 import {
@@ -9,6 +9,7 @@ import {
   type ResourceBrowserOption,
 } from '@features/resource-browser'
 import { useAssetLibraryCopy, useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
+import { useMapTargetDisplayName } from '@entities/game/api'
 import { cx } from '@shared/lib/helper'
 import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
@@ -23,7 +24,9 @@ import {
   loadAssetFamily,
   normalizeLoadTargetInput,
   projectAssetsForLoadFamily,
+  readLoadFamilyIntent,
   type LoadAssetFamily,
+  type LoadBindingPreviewRow,
 } from '../model/mapLoadBinding'
 import { LoadFamilyIcon } from '../ui/LoadFamilyIcon'
 
@@ -135,10 +138,10 @@ function groupImageTargets(targets: readonly string[]): Array<{ prefix: string; 
 }
 
 /**
- * Single-page card-flow editor for replacements. Each card is a full-width
- * step: pick game resources → pick your file → see what will happen → optional
- * advanced settings. Point-and-click throughout; custom paths and smart
- * placeholders are advanced-mode only.
+ * Two-stage replacement editor: pick the game resources to replace, then pick
+ * the project file that replaces them. Point-and-click throughout; custom
+ * paths and smart placeholders are advanced-mode only, and the optional
+ * advanced fold holds conditions, priority, and the enabled state.
  */
 export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources }) => {
   const copy = useMapAuthoringCopy()
@@ -152,29 +155,38 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
   const [customTarget, setCustomTarget] = useState('')
   const [customTargetError, setCustomTargetError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // The project-file picker dialog opens from external entry points (the
+  // whole select block before a file is chosen, the change action after);
+  // bumping this request is the shared open trigger.
+  const [filePickerRequest, setFilePickerRequest] = useState(0)
 
   const mapCatalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
-  const family = loadAssetFamily(patch.target)
-
+  // Vanilla location names localize the target chips and the maps picker;
+  // non-location maps and non-map families fall back to raw names.
+  const displayNameFor = useMapTargetDisplayName(resources.gameRootPath, resources.locale)
+  // A configured binding's family comes from its target; an unconfigured one
+  // falls back to the family chosen in the creation dialog (editorState).
   const targets = splitMapTargets(patch.target).filter((target) => target.trim() !== '')
+  const family = targets.length > 0 ? loadAssetFamily(patch.target) : (readLoadFamilyIntent(patch.editorState) ?? 'other')
   const fromFile = patch.fromFile ?? ''
 
-  useEffect(() => {
-    if (fromFile === '' && patch.enabled !== false) {
-      updatePatch(patch.id, { enabled: false })
-    }
-  }, [fromFile, patch.enabled, patch.id, updatePatch])
-
-  const previewRows = analyzeLoadBindings(
-    patch.target,
-    fromFile,
-    draft.projectAssets.map((asset) => asset.relativePath),
-  )
+  const previewRows = analyzeLoadBindings(patch.target, fromFile, draft.projectAssets)
+  // Per-target resolution details only add information beyond the file badge
+  // when targets resolve differently: several targets, or a token template.
+  const hasFromFileToken = fromFile.includes('{{')
+  const showPreviewTable = fromFile !== '' && targets.length > 0 && (targets.length > 1 || hasFromFileToken)
+  const singlePreviewRow = !showPreviewTable && fromFile !== '' && targets.length === 1 ? (previewRows[0] ?? null) : null
+  const previewOk = previewRows.length > 0 && previewRows.every((row) => row.exists && row.matchesFamily)
+  // When every target resolves to the same file (no token template), the
+  // per-row file column repeats 段2's file — collapse the table to
+  // target + status and keep the file column only for differing resolutions.
+  const showResolvedColumn = hasFromFileToken || new Set(previewRows.map((row) => row.resolvedFromFile.toLowerCase())).size > 1
 
   const mapTargetOptions = toMapResourceBrowserOptions(
     mapCatalog.assets,
     (asset) => copy.categories[mapCatalogCategory(mapTargetFromAsset(asset))],
     'map-load-target',
+    displayNameFor,
   )
   const pickerKind = PICKER_KIND_BY_FAMILY[family]
   const projectAssetOptions: ResourceBrowserOption[] = projectAssetsForLoadFamily(family, draft.projectAssets).map((asset) => ({
@@ -187,12 +199,26 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
     sourceKind: 'project',
   }))
   const imageTargetGroups = family === 'images' ? groupImageTargets(COMMON_LOAD_TARGETS.images) : []
-  const iconTargets = family === 'maps' || family === 'images' ? [] : COMMON_LOAD_TARGETS[family]
+  const iconTargets = family === 'audio' || family === 'fonts' || family === 'data' ? COMMON_LOAD_TARGETS[family] : []
 
   const selectedFromFileAsset = fromFile !== '' ? (draft.projectAssets.find((asset) => asset.relativePath === fromFile) ?? null) : null
 
+  function statusBadge(row: LoadBindingPreviewRow) {
+    const className = row.exists ? (row.matchesFamily ? 'is-present' : 'is-mismatch') : 'is-missing'
+    const label = !row.exists ? loadCopy.statusMissing : row.matchesFamily ? loadCopy.statusExists : loadCopy.statusMismatch
+    return { className, label }
+  }
+
   function commitTargets(next: readonly string[]) {
-    updatePatch(patch.id, { target: buildLoadTargetExpression(next) })
+    const nextTarget = buildLoadTargetExpression(next)
+    // addPatch stamps `Load → <target>` as the creation default; while the log
+    // name still carries that default it follows the edited target so the
+    // exported LogName never keeps a stale expression. A renamed log stays.
+    const changes: { target: string; logName?: string } = { target: nextTarget }
+    if (patch.logName === `Load → ${patch.target}`) {
+      changes.logName = `Load → ${nextTarget}`
+    }
+    updatePatch(patch.id, changes)
   }
 
   function addTarget(raw: string, normalize: (value: string) => string | null) {
@@ -219,45 +245,50 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
     addTarget(customTarget, family === 'maps' ? normalizeLoadTargetInput : normalizeExpertTarget)
   }
 
+  function openFilePicker() {
+    setFilePickerRequest((request) => request + 1)
+  }
+
   function appendFromFileToken(token: string) {
     updatePatch(patch.id, { fromFile: fromFile + token })
   }
 
   return (
-    <div className="map-load-editor map-load-editor-cardflow">
-      <p className="map-load-intro">{loadCopy.introHint}</p>
-
-      {/* Card 1: What to replace */}
-      <section className="map-load-card">
-        <header className="map-load-card-header">
-          <span className="map-load-card-number">1</span>
-          <div className="map-load-card-titles">
-            <h3 className="map-load-card-title">{loadCopy.targetsSection}</h3>
-            <span className="map-load-card-hint">{loadCopy.targetsHint}</span>
-          </div>
-          {targets.length > 0 ? <span className="map-load-card-count">{targets.length}</span> : null}
+    <div className="map-load-editor">
+      {/* Stage 1: what to replace */}
+      <section className="load-binding-section">
+        <header className="load-binding-section-header">
+          <h3 className="map-load-section-title">{loadCopy.targetsSection}</h3>
         </header>
-
-        <div className="map-load-card-body">
+        <div className="load-binding-section-body">
           {targets.length > 0 ? (
             <ul className="map-load-target-chips">
-              {targets.map((target, index) => (
-                <li key={`${target}:${index}`} className="map-load-target-chip">
-                  <LoadFamilyIcon family={family} className="h-3 w-3" />
-                  <span>{target}</span>
-                  <button
-                    type="button"
-                    aria-label={loadCopy.removeTarget(target)}
-                    title={loadCopy.removeTarget(target)}
-                    onClick={() => removeTarget(target)}
-                  >
-                    <X className="h-3 w-3" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
+              {targets.map((target, index) => {
+                const displayName = displayNameFor(target)
+                const rawName = target.split('/').at(-1) ?? target
+                return (
+                  <li key={`${target}:${index}`} className="map-load-target-chip">
+                    <LoadFamilyIcon family={family} className="h-3 w-3" />
+                    <span className="map-load-target-chip-copy">
+                      <span>{target}</span>
+                      {displayName !== null && displayName !== rawName ? (
+                        <span className="map-load-target-chip-display">{displayName}</span>
+                      ) : null}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={loadCopy.removeTarget(target)}
+                      title={loadCopy.removeTarget(target)}
+                      onClick={() => removeTarget(target)}
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
-            <p className="map-load-empty map-load-step-guide">{loadCopy.noTargets}</p>
+            <p className="map-load-empty">{loadCopy.noTargets}</p>
           )}
 
           {family === 'maps' ? (
@@ -275,7 +306,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
                 <span className="map-load-inline-loading">{copy.loading}</span>
               ) : mapCatalog.error ? (
                 <span className="map-load-inline-error">
-                  <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                  <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                   {copy.loadFailed}
                 </span>
               ) : null}
@@ -312,7 +343,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               ))}
               <p className="map-load-inline-loading">{loadCopy.imageTargetsHint}</p>
             </div>
-          ) : (
+          ) : iconTargets.length > 0 ? (
             <div className="load-binding-icon-list">
               {iconTargets.map((target) => (
                 <button
@@ -333,7 +364,7 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               ))}
               <p className="map-load-inline-loading">{loadCopy.iconTargetsHint}</p>
             </div>
-          )}
+          ) : null}
 
           {advancedMode ? (
             <div className="map-load-custom-add">
@@ -358,40 +389,71 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
                 {loadCopy.addTargetAction}
               </button>
             </div>
-          ) : (
-            <p className="map-load-inline-loading">{loadCopy.expertOnlyHint}</p>
-          )}
+          ) : null}
           {customTargetError ? <p className="map-load-inline-error">{customTargetError}</p> : null}
         </div>
       </section>
 
-      {/* Card 2: Your file */}
-      <section className="map-load-card">
-        <header className="map-load-card-header">
-          <span className="map-load-card-number">2</span>
-          <div className="map-load-card-titles">
-            <h3 className="map-load-card-title">{loadCopy.fromFileSection}</h3>
-            <span className="map-load-card-hint">{loadCopy.fromFileHint}</span>
-          </div>
-          {fromFile !== '' ? (
-            <span className="map-load-card-check" aria-hidden="true">
-              ✓
+      {/* Stage 2: the file that replaces them */}
+      <section className="load-binding-section" data-state={showPreviewTable ? (previewOk ? 'ok' : 'warn') : undefined}>
+        <header className="load-binding-section-header">
+          <h3 className="map-load-section-title">{loadCopy.fromFileSection}</h3>
+          {showPreviewTable ? (
+            <span className={cx('load-binding-section-state', previewOk ? 'is-ok' : 'is-warn')} aria-hidden="true">
+              {previewOk ? <Check className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
             </span>
           ) : null}
         </header>
-
-        <div className="map-load-card-body">
-          <div className="map-load-asset-pick">
-            <ResourcePicker
-              value={fromFile}
-              label={loadCopy.projectAssetLabel}
-              placeholder={loadCopy.projectAssetLabel}
-              options={projectAssetOptions}
-              selectionMode="confirm"
-              triggerClassName="control-button"
-              onSelect={(value) => updatePatch(patch.id, { fromFile: value })}
-            />
-          </div>
+        <div className="load-binding-section-body">
+          {fromFile === '' ? (
+            <button type="button" className="load-binding-file-select" onClick={openFilePicker}>
+              <FileInput className="h-4 w-4" aria-hidden="true" />
+              <span>{loadCopy.projectAssetLabel}</span>
+            </button>
+          ) : (
+            <div className="load-binding-file-row">
+              <span className="load-binding-file-name" title={fromFile}>
+                {fromFile}
+              </span>
+              {singlePreviewRow ? (
+                <span className={cx('map-load-status-badge', statusBadge(singlePreviewRow).className)}>
+                  {statusBadge(singlePreviewRow).label}
+                </span>
+              ) : null}
+              <div className="load-binding-file-actions">
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={loadCopy.changeFileAction}
+                  aria-label={loadCopy.changeFileAction}
+                  onClick={openFilePicker}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={loadCopy.clearFileAction}
+                  aria-label={loadCopy.clearFileAction}
+                  onClick={() => updatePatch(patch.id, { fromFile: '' })}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )}
+          <ResourcePicker
+            value={fromFile}
+            label={loadCopy.projectAssetLabel}
+            placeholder={loadCopy.projectAssetLabel}
+            options={projectAssetOptions}
+            selectionMode="confirm"
+            triggerClassName="sr-only"
+            // Undefined until the first request so the open-on-change effect
+            // does not fire on mount.
+            openRequest={filePickerRequest > 0 ? filePickerRequest : undefined}
+            onSelect={(value) => updatePatch(patch.id, { fromFile: value })}
+          />
 
           {family === 'images' && selectedFromFileAsset ? (
             <div className="load-binding-compare">
@@ -420,6 +482,35 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
             </div>
           ) : null}
 
+          {showPreviewTable ? (
+            <div className="map-load-preview-scroll">
+              <table className="map-load-preview-table">
+                <thead>
+                  <tr>
+                    <th>{loadCopy.previewTarget}</th>
+                    {showResolvedColumn ? <th>{loadCopy.previewResolved}</th> : null}
+                    <th>{loadCopy.previewStatus}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((row, index) => (
+                    <tr key={`${row.target}:${index}`}>
+                      <td className="map-load-preview-target">{row.target}</td>
+                      {showResolvedColumn ? (
+                        <td className={cx('map-load-preview-file', row.resolvedFromFile === '' && 'is-empty')}>
+                          {row.resolvedFromFile || loadCopy.emptyResolved}
+                        </td>
+                      ) : null}
+                      <td>
+                        <span className={cx('map-load-status-badge', statusBadge(row).className)}>{statusBadge(row).label}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
           {advancedMode ? (
             <div className="map-load-token-row">
               <input
@@ -442,64 +533,45 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
               <span className="map-load-token-hint">{loadCopy.templateTokens.TargetWithoutPath}</span>
               <span className="map-load-token-hint">{loadCopy.templateTokens.TargetWithoutExtension}</span>
             </div>
-          ) : (
-            <p className="map-load-inline-loading">{loadCopy.expertOnlyHint}</p>
-          )}
+          ) : null}
         </div>
       </section>
 
-      {/* Card 3: What will happen */}
-      <section className="map-load-card">
-        <header className="map-load-card-header">
-          <span className="map-load-card-number">3</span>
-          <div className="map-load-card-titles">
-            <h3 className="map-load-card-title">{loadCopy.previewSection}</h3>
-            <span className="map-load-card-hint">{loadCopy.previewHint}</span>
-          </div>
-        </header>
-
-        <div className="map-load-card-body">
-          {targets.length > 0 ? (
-            <div className="map-load-preview-scroll">
-              <table className="map-load-preview-table">
-                <thead>
-                  <tr>
-                    <th>{loadCopy.previewTarget}</th>
-                    <th>{loadCopy.previewResolved}</th>
-                    <th>{loadCopy.previewStatus}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((row, index) => (
-                    <tr key={`${row.target}:${index}`}>
-                      <td className="map-load-preview-target">{row.target}</td>
-                      <td className={cx('map-load-preview-file', row.resolvedFromFile === '' && 'is-empty')}>
-                        {row.resolvedFromFile || loadCopy.emptyResolved}
-                      </td>
-                      <td>
-                        <span className={cx('map-load-status-badge', row.exists ? 'is-present' : 'is-missing')}>
-                          {row.exists ? loadCopy.statusExists : loadCopy.statusMissing}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="map-load-empty">{loadCopy.noTargets}</p>
-          )}
-        </div>
-      </section>
-
-      {/* Card 4: Advanced settings (collapsible) */}
-      <section className="map-load-card map-load-card-advanced">
+      {/* Advanced settings (collapsible) */}
+      <section className="load-binding-section load-binding-section-advanced">
         <button type="button" className="map-load-advanced-toggle" onClick={() => setShowAdvanced((value) => !value)}>
-          <ChevronDown className="h-3 w-3" style={{ transform: showAdvanced ? '' : 'rotate(-90deg)' }} aria-hidden="true" />
+          <ChevronDown className="h-3 w-3" style={{ transform: showAdvanced ? undefined : 'rotate(-90deg)' }} aria-hidden="true" />
           {advancedCopy.title}
         </button>
         {showAdvanced && (
           <div className="map-load-advanced">
+            {typeof patch.enabled === 'string' ? (
+              <div className="map-load-enabled map-load-enabled-expression">
+                <code className="map-enabled-token-chip">{patch.enabled}</code>
+                <span>{advancedCopy.enabledByExpressionHint(patch.enabled)}</span>
+                <div className="map-load-enabled-actions">
+                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: true })}>
+                    {advancedCopy.setAlwaysEnabled}
+                  </button>
+                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: false })}>
+                    {advancedCopy.setAlwaysDisabled}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={patch.enabled !== false}
+                className={cx('load-binding-switch', patch.enabled !== false && 'is-on')}
+                onClick={() => updatePatch(patch.id, { enabled: !(patch.enabled !== false) })}
+              >
+                <span className="load-binding-switch-track" aria-hidden="true">
+                  <span className="load-binding-switch-thumb" />
+                </span>
+                <span>{patch.enabled !== false ? advancedCopy.enabled : advancedCopy.disabled}</span>
+              </button>
+            )}
             <div className="map-load-field">
               <span className="map-load-field-label">{advancedCopy.whenCondition}</span>
               <span className="map-load-field-hint">{advancedCopy.whenConditionHint}</span>
@@ -530,30 +602,6 @@ export const LoadBindingEditor: EditorComponent = ({ patch, draftPort, resources
                 </datalist>
               </div>
             ) : null}
-            {typeof patch.enabled === 'string' ? (
-              <div className="map-load-enabled map-load-enabled-expression">
-                <code className="map-enabled-token-chip">{patch.enabled}</code>
-                <span>{advancedCopy.enabledByExpressionHint(patch.enabled)}</span>
-                <div className="map-load-enabled-actions">
-                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: true })}>
-                    {advancedCopy.setAlwaysEnabled}
-                  </button>
-                  <button type="button" className="control-button" onClick={() => updatePatch(patch.id, { enabled: false })}>
-                    {advancedCopy.setAlwaysDisabled}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <label className={cx('map-load-enabled', fromFile === '' && 'is-disabled')}>
-                <input
-                  type="checkbox"
-                  disabled={fromFile === ''}
-                  checked={patch.enabled !== false}
-                  onChange={(event) => updatePatch(patch.id, { enabled: event.target.checked })}
-                />
-                <span>{patch.enabled !== false ? advancedCopy.enabled : advancedCopy.disabled}</span>
-              </label>
-            )}
           </div>
         )}
       </section>

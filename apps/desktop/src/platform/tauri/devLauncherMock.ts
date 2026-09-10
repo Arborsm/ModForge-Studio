@@ -1448,6 +1448,12 @@ export function installDevLauncherMock() {
             fields: [],
           }
         }
+        case 'plugin:dialog|open': {
+          const options = (payload as { options?: { directory?: boolean; multiple?: boolean } } | null)?.options
+          if (options?.directory) return 'E:\\ModForge Dev\\Imports'
+          if (options?.multiple) return ['E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png', 'E:\\ModForge Dev\\Imports\\Dev Tilesheet B.png']
+          return 'E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png'
+        }
         case 'open_launcher_path':
         case 'record_launcher_image_failure':
         case 'write_frontend_log':

@@ -38,6 +38,9 @@
     "test:asset-library-ui": "node ./scripts/verify/verify-asset-library-ui.mjs",
     "test:map-patch-ui": "node ./scripts/verify/verify-map-patch-ui.mjs",
     "test:map-asset-editor-ui": "node ./scripts/verify/verify-map-asset-editor-ui.mjs",
+    "test:map-content-tab-ui": "node ./scripts/verify/verify-map-content-tab-ui.mjs",
+    "test:daynight-studio-ui": "node ./scripts/verify/verify-daynight-studio-ui.mjs",
+    "test:tilesheet-import-ui": "node ./scripts/verify/verify-tilesheet-import-ui.mjs",
     "test:ai-settings-ui": "node ./scripts/verify/verify-ai-settings.mjs",
     "test:launcher-custom-sort": "node ./scripts/verify/verify-launcher-custom-sort.mjs",
     "test:launcher-drag": "node ./scripts/verify/verify-launcher-drag.mjs",
@@ -152,6 +155,7 @@
     "@bbob/preset": "^4.4.1",
     "@bbob/react": "^4.4.1",
     "@modforge/plugin-sdk": "workspace:^",
+    "@radix-ui/react-popover": "^1.1.23",
     "json5": "^2.2.3",
     "jszip": "^3.10.1"
   }
