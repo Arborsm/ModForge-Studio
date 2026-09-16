@@ -15,8 +15,11 @@ async function bootstrap() {
     }
 
     if (new URLSearchParams(window.location.search).has('mfPagePerfScenario')) {
-      const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
-      installDevLauncherMock()
+      const { installAndroidDevMock } = await import('@platform/android/devAndroidMock')
+      if (!installAndroidDevMock()) {
+        const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
+        installDevLauncherMock()
+      }
       const { DevPagePerformanceScenario } = await import('./dev/DevPagePerformanceScenario')
       createRoot(document.getElementById('root')!).render(
         <StrictMode>
@@ -46,8 +49,11 @@ async function bootstrap() {
       return
     }
 
-    const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
-    installDevLauncherMock()
+    const { installAndroidDevMock } = await import('@platform/android/devAndroidMock')
+    if (!installAndroidDevMock()) {
+      const { installDevLauncherMock } = await import('@platform/tauri/devLauncherMock')
+      installDevLauncherMock()
+    }
   }
 
   const { default: App } = await import('@app/App')

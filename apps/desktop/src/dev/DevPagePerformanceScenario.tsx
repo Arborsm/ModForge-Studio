@@ -1434,6 +1434,7 @@ function LauncherShellScenario() {
         page={page}
         debugEnabled
         desktopHost
+        androidHost={false}
         theme="dark"
         locale="en-US"
         onToggleTheme={noop}
