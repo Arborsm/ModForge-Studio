@@ -1,8 +1,10 @@
+import { orValue } from '@platform/observability'
+
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import type { ViewportWorldPoint } from '@entities/map'
 import type { ModAssetIndexGroup } from '@pages/workbench/workspaces/mod/state/browser'
 import { deferToTimeout } from '@shared/lib/react'
-import { type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
+import { type GameDirectoryInfo, loadMapAsset, loadOptionalTextAsset, scanMaps } from '@entities/game/api'
 import type { BuildingsPanelCopy, LocaleCode } from '@locales'
 import type { MapDocument } from '@entities/map'
 import { SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
@@ -101,15 +103,11 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       }),
     [buildingFilter, buildingLookup, modIndex.mods],
   )
-  const activeBuildingModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group: ModAssetIndexGroup) => group.buildings,
-        key: activeBuildingId,
-      }),
-    [activeBuildingId, modIndex.mods],
-  )
+  const activeBuildingModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group: ModAssetIndexGroup) => group.buildings,
+    key: activeBuildingId,
+  })
   const activeModBuildingEntry = useMemo(
     () => findModBrowserEntry(modBuildingGroups, activeModBuildingSelectionId),
     [activeModBuildingSelectionId, modBuildingGroups],
@@ -135,10 +133,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   )
   const activeTextureState = activeBuilding?.sourceKind === 'constructible' ? (activeChainTextureStates[activeBuilding.key] ?? null) : null
   const effectiveActiveTextureState = browserSourceMode === 'mod' ? (activeModTextureState ?? activeTextureState) : activeTextureState
-  const mapDocumentsByAssetName = useMemo(
-    () => new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const)),
-    [mapDocuments],
-  )
+  const mapDocumentsByAssetName = new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const))
   const activeIndoorMapDocument = activeBuilding?.indoorMapAssetName
     ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null)
     : null
@@ -193,8 +188,8 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       try {
         const [hydratedConstructibleEntries, locationsAsset, mapAssets] = await Promise.all([
           loadBuildingWorkspaceEntries(directoryInfo.rootPath, locale),
-          loadTextAsset(directoryInfo.rootPath, LOCATIONS_DATA_ASSET_PATH, locale).catch(() => null),
-          scanMaps(directoryInfo.rootPath, locale).catch(() => []),
+          loadOptionalTextAsset(directoryInfo.rootPath, LOCATIONS_DATA_ASSET_PATH, locale, 'buildingWorkspace.optionalLocations'),
+          orValue(scanMaps(directoryInfo.rootPath, locale), [], 'buildingWorkspace.scanMaps'),
         ])
         if (cancelled) {
           return

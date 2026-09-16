@@ -384,6 +384,7 @@ const shell: WorkbenchShellCopy = {
     workbenchModuleRetry: '重试',
     onlyTmxSupported: '当前只支持 XNB 地图加载。',
     directorySelectionFailed: '目录选择失败。',
+    knownDirectoriesLoadFailed: '已知游戏目录加载失败，可能没有已知目录，也可能是加载过程出错。',
     detectedKnownPath: (path) => `检测到目录: ${path}`,
     validatedDirectory: (path) => `目录验证通过: ${path}`,
     loadedMapAssets: (count, format) => `已加载 ${count} 个 ${format.toUpperCase()} 地图资产。`,

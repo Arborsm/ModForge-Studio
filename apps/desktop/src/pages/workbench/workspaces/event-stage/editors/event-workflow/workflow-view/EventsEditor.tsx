@@ -26,7 +26,7 @@ import {
 } from '@entities/event'
 import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api'
 import { loadItemTextureAssetState, loadItemWorkspaceEntries } from '@entities/item'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import { useEditorCopy, useEventStageCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { scheduleDeferred } from '@shared/lib/react'
@@ -63,12 +63,10 @@ export default function EventsEditor({
   locale,
   theme,
   accentColor,
-  viewportLabels,
   assetLoader,
   directoryInfo,
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
-  conditionBuilderLabel,
   onOpenConditionBuilder,
   onOpenConfig,
   onSaveDraft,
@@ -94,12 +92,10 @@ export default function EventsEditor({
   locale?: LocaleCode
   theme?: ThemeMode
   accentColor?: string
-  viewportLabels?: ViewportLabels
   assetLoader?: EventStagePreviewAssetLoader
   directoryInfo?: GameDirectoryInfo | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
-  conditionBuilderLabel: string
   onOpenConditionBuilder: () => void
   onOpenConfig?: (() => void) | null
   onSaveDraft?: () => void
@@ -154,7 +150,7 @@ export default function EventsEditor({
 
   const mapName = activeLocation || null
 
-  const eventSummaries = useMemo(() => {
+  const eventSummaries = (() => {
     const needle = eventSearch.trim().toLowerCase()
     return Object.entries(entries)
       .flatMap(([key, value]) => {
@@ -184,8 +180,8 @@ export default function EventsEditor({
           event.actors.join(' ').toLowerCase().includes(needle)
         )
       })
-  }, [entries, eventAliases, eventLocations, eventSearch, mapName])
-  const selectedEventSummary = useMemo(() => {
+  })()
+  const selectedEventSummary = (() => {
     if (!selectedKey) {
       return null
     }
@@ -202,7 +198,7 @@ export default function EventsEditor({
       actors: scene.actors.map((actor) => actor.actorName),
       commandCount: Math.max(0, segments.length - 3),
     }
-  }, [entries, eventAliases, eventLocations, mapName, selectedKey])
+  })()
 
   const resourceRegistry = useMemo<EventResourceRegistry>(
     () =>
@@ -567,26 +563,17 @@ export default function EventsEditor({
             <div className={cx('canvas', eventScript && 'canvas-with-map')}>
               {eventScript ? (
                 <EventStagePreview
-                  eventScript={eventScript}
-                  mapName={mapName}
-                  gameRootPath={gameRootPath}
-                  locale={locale}
-                  theme={theme}
-                  accentColor={accentColor}
-                  viewportLabels={viewportLabels}
-                  assetLoader={assetLoader}
-                  directoryInfo={directoryInfo}
-                  playerAppearanceProfile={playerAppearanceProfile}
-                  onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-                  className="script-console-preview h-full"
-                  hideHeader
-                  hideViewportStatus
-                  chromeMode="console"
-                  onTileClick={handleTileClick}
-                  onContextMenuAction={handleContextMenuAction}
-                  conditionBuilderLabel={conditionBuilderLabel}
-                  onActorAssetsChange={setActorAssetPreviews}
-                  onPlaybackCommandChange={(commandId) => useEditorStore.getState().setPlaybackCommandId(commandId)}
+                  eventData={{ eventScript, mapName, playerAppearanceProfile }}
+                  environment={{ gameRootPath, locale, theme, accentColor, directoryInfo }}
+                  chrome={{ className: 'script-console-preview h-full', hideHeader: true, hideViewportStatus: true, chromeMode: 'console' }}
+                  loaders={{ assetLoader }}
+                  actions={{
+                    openPlayerAppearanceWindow: onOpenPlayerAppearanceWindow,
+                    tileClick: handleTileClick,
+                    contextMenuAction: handleContextMenuAction,
+                    actorAssetsChange: setActorAssetPreviews,
+                    playbackCommandChange: (commandId) => useEditorStore.getState().setPlaybackCommandId(commandId),
+                  }}
                 />
               ) : (
                 <div className="stage-empty">
@@ -613,9 +600,6 @@ export default function EventsEditor({
                           ? copy.actorPickHint
                           : undefined
                 }
-                completeLabel={copy.donePath}
-                clearLabel={copy.clearPath}
-                cancelLabel={copy.cancelPick}
                 onComplete={pathPickingActive ? finishPickMode : undefined}
                 onClear={pathPickingActive ? clearActivePath : undefined}
                 onCancel={finishPickMode}
@@ -733,7 +717,6 @@ export default function EventsEditor({
           </div>
           <ScriptEditor
             script={eventScript}
-            locale={locale}
             resourceRegistry={resourceRegistry}
             eventId={selectedKey ? getEventIdFromKey(selectedKey) : null}
             onScriptChange={handleScriptChange}

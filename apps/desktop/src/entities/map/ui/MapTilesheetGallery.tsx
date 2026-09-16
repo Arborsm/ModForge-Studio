@@ -4,10 +4,11 @@
  */
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { ArrowLeft, ImageOff, Loader2, Search } from 'lucide-react'
+import { ArrowLeft, ImageOff, Loader2, Plus, Search } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import type { MapDocument, MapTileset } from '../lib/types'
 import { resolveTilesetImagePath } from '../lib/assets'
 import { gameSheetImagePath, gameSheetKeyOfTileset } from '../lib/gameSheets'
@@ -19,19 +20,16 @@ import {
   vanillaTilesheetSplit,
   type VanillaTilesheetEntry,
 } from '../model/vanillaTilesheets'
-import type { MapTilesheetPickerProjectOption } from './MapTilesheetPicker'
-
 type MapTilesheetGalleryProps = {
   document: MapDocument
   locale: LocaleCode
   gameRootPath: string | null
   attachedTilesets: readonly MapTileset[]
   activeTilesetName: string | null
-  projectImageOptions: readonly MapTilesheetPickerProjectOption[]
   gameSheetsEnabled: boolean
   onPickAttached: (name: string) => void
   onPickGameSheet: ((sheet: VanillaTilesheetEntry) => void) | null
-  onPickProjectImage: ((relativePath: string) => void) | null
+  onImport: (() => void) | null
   onClose: () => void
   onHoverTileset?: ((imageSrc: string | null) => void) | null
 }
@@ -78,8 +76,14 @@ function SheetCard({
       .then((image) => {
         if (current) setState({ status: 'ready', image })
       })
-      .catch(() => {
-        if (current) setState({ status: 'error', image: null })
+      .catch((error) => {
+        if (current) {
+          appEvent('warning', 'Failed to load tilesheet gallery image')
+            .error(error)
+            .context({ source: 'map-tilesheet-gallery', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setState({ status: 'error', image: null })
+        }
       })
     return () => {
       current = false
@@ -125,11 +129,10 @@ export function MapTilesheetGallery({
   gameRootPath,
   attachedTilesets,
   activeTilesetName,
-  projectImageOptions,
   gameSheetsEnabled,
   onPickAttached,
   onPickGameSheet,
-  onPickProjectImage,
+  onImport,
   onClose,
   onHoverTileset = null,
 }: MapTilesheetGalleryProps) {
@@ -153,28 +156,11 @@ export function MapTilesheetGallery({
 
   const hasCatalogGroups = Boolean(onPickGameSheet)
 
-  const gameMaps = useMemo(
-    () => (hasCatalogGroups ? catalog.filter((sheet) => sheet.group === 'maps' && matches(sheet.name)) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [catalog, hasCatalogGroups, normalizedQuery],
-  )
-  const gameTilesheets = useMemo(
-    () => (hasCatalogGroups ? catalog.filter((sheet) => sheet.group === 'tilesheets' && matches(sheet.name)) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [catalog, hasCatalogGroups, normalizedQuery],
-  )
-  const projectRows = useMemo(
-    () => projectImageOptions.filter((option) => matches(option.label) || matches(option.value)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectImageOptions, normalizedQuery],
-  )
-  const attachedRows = useMemo(
-    () => attachedTilesets.filter((tileset) => matches(tileset.name)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [attachedTilesets, normalizedQuery],
-  )
+  const gameMaps = hasCatalogGroups ? catalog.filter((sheet) => sheet.group === 'maps' && matches(sheet.name)) : []
+  const gameTilesheets = hasCatalogGroups ? catalog.filter((sheet) => sheet.group === 'tilesheets' && matches(sheet.name)) : []
+  const attachedRows = attachedTilesets.filter((tileset) => matches(tileset.name))
 
-  const totalRows = attachedRows.length + gameMaps.length + gameTilesheets.length + projectRows.length
+  const totalRows = attachedRows.length + gameMaps.length + gameTilesheets.length
 
   return (
     <div className="map-tilesheet-gallery">
@@ -202,6 +188,12 @@ export function MapTilesheetGallery({
         </label>
       </div>
       <div className="map-tilesheet-gallery-scroll">
+        {onImport ? (
+          <button type="button" className="map-tilesheet-gallery-import" onClick={onImport}>
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            <span>{labels.sheetGalleryImport}</span>
+          </button>
+        ) : null}
         {totalRows === 0 ? (
           <p className="map-tilesheet-gallery-empty">{labels.sheetPickerEmpty}</p>
         ) : (
@@ -298,31 +290,6 @@ export function MapTilesheetGallery({
                       />
                     )
                   })}
-                </div>
-              </section>
-            ) : null}
-            {projectRows.length > 0 && onPickProjectImage ? (
-              <section className="map-tilesheet-gallery-group">
-                <strong>{labels.sheetPickerProjectGroup}</strong>
-                <div className="map-tilesheet-gallery-grid">
-                  {projectRows.map((option) => (
-                    <SheetCard
-                      key={`project:${option.value}`}
-                      imagePath={null}
-                      locale={locale}
-                      errorFactory={labels.tilesetImageError}
-                      name={option.label}
-                      meta={null}
-                      badge={null}
-                      isActive={false}
-                      disabledTitle={null}
-                      onClick={() => {
-                        onPickProjectImage(option.value)
-                        onClose()
-                      }}
-                      onHover={(hovering, imageSrc) => onHoverTileset?.(hovering ? imageSrc : null)}
-                    />
-                  ))}
                 </div>
               </section>
             ) : null}

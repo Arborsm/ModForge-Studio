@@ -1,5 +1,6 @@
 //! Localization job cancellation tracking shared across translation, review, and indexing operations.
 
+use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
 use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};
@@ -29,7 +30,15 @@ pub fn check(job_id: &str) -> anyhow::Result<()> {
 }
 
 pub fn clear(job_id: &str) {
-    if let Ok(mut jobs) = cancelled().lock() {
-        jobs.remove(job_id);
+    match cancelled().lock() {
+        Ok(mut jobs) => {
+            jobs.remove(job_id);
+        }
+        Err(error) => {
+            LogEvent::new("localization.jobs.clearPoisoned")
+                .field("jobId", job_id)
+                .error(error)
+                .emit_warn(targets::LOCALIZATION_TRANSLATION);
+        }
     }
 }

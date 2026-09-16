@@ -33,7 +33,6 @@ export type BuildWorkspacePanelsOptions = {
   workspaceTabs: Array<{
     id: string
     title: string
-    pathLabel: string
     closable: boolean
     pinned: boolean
   }>

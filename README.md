@@ -20,8 +20,8 @@ product workspaces are `apps/desktop` and `apps/installer`.
   and top-level `tests/`.
 - `apps/desktop/electron` - Electron host code used for Linux development and
   packaging.
-- `apps/desktop/scripts` - desktop host dispatch, Vite/Tauri/Electron helpers,
-  verification scripts, and release helpers.
+- `apps/desktop/scripts` - desktop host scripts grouped by role under `build/`,
+  `dev/`, `gen/`, `verify/`, and `test/` subdirectories.
 - `docs/frontend-architecture.md` - frontend layer boundaries, platform DI,
   registry, event/command, CSS, and architecture-test rules.
 - `docs/maintenance.md` - operational commands, release paths, CI/signing notes,
@@ -150,7 +150,7 @@ or the local release environment.
 - [Chinese README](docs/README.zh-CN.md) - project overview in Chinese.
 - [Frontend architecture](docs/frontend-architecture.md) - layer boundaries and
   dependency rules.
-- [Product design](DESIGN.md) - product shape, visual language, design goals.
+- [Product design](docs/design/DESIGN.md) - product shape, visual language, design goals.
 - [Design system](docs/design-system.md) - visual design tokens and rules for
   AI-assisted implementation.
 - [Page design spec](docs/design/page-design-spec.md) - workspace visual rules and

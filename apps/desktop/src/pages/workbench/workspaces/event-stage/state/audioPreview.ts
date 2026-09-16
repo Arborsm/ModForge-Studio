@@ -1,3 +1,5 @@
+import { ignoreError } from '@platform/observability'
+
 import { loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAssetSummary } from '@entities/game/api'
 import { canUseDesktopHost } from '@platform/host'
 
@@ -197,7 +199,7 @@ export async function playMusicCue(rootPath: string, cue: string) {
   activeMusicElement = audio
   activeMusicCue = normalized
 
-  void audio.play().catch(() => {})
+  void ignoreError(audio.play(), 'audioPreview.playAudio')
   return true
 }
 

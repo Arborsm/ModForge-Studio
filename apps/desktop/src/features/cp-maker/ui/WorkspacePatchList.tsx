@@ -10,7 +10,7 @@ import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } f
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { cx } from '@shared/lib/helper'
 import type { AssetDraftPort } from '../model/draftPort'
 import type { DraftPatch } from '../model/types'
@@ -96,7 +96,7 @@ type SortablePatchRowProps = {
 function SortablePatchRow({ patch, rowIndex, draftPort, onOpenPatch, onDelete }: SortablePatchRowProps) {
   const copy = useEditorCopy().studioDesk.patchList
   const actionLabels = useEditorCopy().studioDesk.addPatchDialog.actionLabels
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const title = patch.logName || patch.fromFile || patch.target
   const customTitle = title !== `${patch.action} → ${patch.target}` && title !== patch.target ? title : null
   const whenSummary = patch.when
@@ -250,8 +250,6 @@ export function WorkspacePatchList({ patches, draftPort, reorderWithin, onOpenPa
         open={deleteTarget !== null}
         title={copy.deleteTitle}
         message={deleteTarget ? copy.deleteMessage(deleteTarget.logName || deleteTarget.fromFile || deleteTarget.target) : ''}
-        cancelLabel={copy.cancel}
-        confirmLabel={copy.confirmDelete}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (deleteTarget) draftPort.removePatch(deleteTarget.id)

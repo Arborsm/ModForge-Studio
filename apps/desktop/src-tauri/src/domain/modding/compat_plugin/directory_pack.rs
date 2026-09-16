@@ -5,9 +5,12 @@
 
 use std::path::{Path, PathBuf};
 
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+
+const MAX_ENTRY_IMAGE_BYTES: usize = 16 * 1024 * 1024;
 use crate::support::logging::event::LogEvent;
 use crate::support::logging::event::targets;
 
@@ -67,6 +70,26 @@ pub struct WriteCompatPluginEntryRequest {
     pub content: serde_json::Value,
 }
 
+/// Request to delete one complete directory-pack entry.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteCompatPluginEntryRequest {
+    pub mod_root: String,
+    pub root_subdir: String,
+    pub entry_id: String,
+}
+
+/// Request to write a base64-encoded companion image into an entry directory.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteCompatPluginEntryImageRequest {
+    pub mod_root: String,
+    pub root_subdir: String,
+    pub entry_id: String,
+    pub image_file: String,
+    pub content_base64: String,
+}
+
 /// Validates that a resolved path stays within the expected base directory.
 /// Returns the canonicalized path if safe, or an error string if the path
 /// escapes the base (via `..`, absolute path, or symlink escape).
@@ -112,6 +135,30 @@ fn validate_file_name(file_name: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_root_subdir(root_subdir: &str) -> Result<(), String> {
+    let path = Path::new(root_subdir);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(format!("Invalid root subdirectory: {root_subdir}"));
+    }
+    Ok(())
+}
+
+fn validate_image_file_name(image_file: &str) -> Result<(), String> {
+    validate_file_name(image_file)?;
+    let extension = Path::new(image_file)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase);
+    if !matches!(extension.as_deref(), Some("png" | "jpg" | "jpeg" | "webp")) {
+        return Err(format!("Unsupported image file extension: {image_file}"));
+    }
+    Ok(())
+}
+
 /// Lists pack entries under a directory-pack source. Scans
 /// `<mod_root>/<root_subdir>` for subdirectories containing the declared entry
 /// file, returning one summary per entry. Non-directory entries and
@@ -124,13 +171,9 @@ pub(crate) fn list_directory_pack_entries(
     let entry_file = request.entry_file.trim();
 
     if let Err(reason) = validate_file_name(entry_file) {
-        log::warn!(
-            target: targets::APP_UI,
-            "{}",
-            LogEvent::new("compatPlugin.listEntriesInvalidParams")
-                .field("reason", &reason)
-                .render()
-        );
+        LogEvent::new("compatPlugin.listEntriesInvalidParams")
+            .field("reason", &reason)
+            .emit_warn(targets::APP_UI);
         return Vec::new();
     }
 
@@ -141,13 +184,9 @@ pub(crate) fn list_directory_pack_entries(
     // would list an external directory's structure (the canonicalize below
     // resolves the real path but nothing checked it stayed within mod_root).
     if lexically_normalize_within(&entries_dir, &mod_root).is_none() {
-        log::warn!(
-            target: targets::APP_UI,
-            "{}",
-            LogEvent::new("compatPlugin.listEntriesTraversalRejected")
-                .field("rootSubdir", &root_subdir)
-                .render()
-        );
+        LogEvent::new("compatPlugin.listEntriesTraversalRejected")
+            .field("rootSubdir", &root_subdir)
+            .emit_warn(targets::APP_UI);
         return Vec::new();
     }
 
@@ -163,13 +202,9 @@ pub(crate) fn list_directory_pack_entries(
     // stays within the mod root (rejects symlink escapes the lexical check
     // cannot see).
     if let Err(reason) = ensure_path_within(&mod_root, &entries_canonical) {
-        log::warn!(
-            target: targets::APP_UI,
-            "{}",
-            LogEvent::new("compatPlugin.listEntriesTraversalRejected")
-                .field("reason", &reason)
-                .render()
-        );
+        LogEvent::new("compatPlugin.listEntriesTraversalRejected")
+            .field("reason", &reason)
+            .emit_warn(targets::APP_UI);
         return Vec::new();
     }
 
@@ -229,8 +264,13 @@ pub(crate) fn read_directory_pack_entry(
             canonical_path.display()
         )
     })?;
-    let content: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|e| format!("Failed to parse entry file as JSON: {e}"))?;
+    // Mod-authored JSON routinely carries comments / trailing commas; parse
+    // with the shared relaxed parser instead of strict serde_json.
+    let content = crate::infrastructure::game_formats::json_relaxed::parse_json_str(
+        &raw,
+        &canonical_path.display().to_string(),
+    )
+    .map_err(|e| format!("Failed to parse entry file as JSON: {e}"))?;
 
     Ok(ReadCompatPluginEntryResult {
         entry_file_path: normalize_path(&canonical_path),
@@ -247,6 +287,7 @@ pub(crate) fn write_directory_pack_entry(
     let mod_root = clean_input_path(&request.mod_root);
     validate_entry_id(&request.entry_id)?;
     validate_file_name(&request.entry_file)?;
+    validate_root_subdir(request.root_subdir.trim())?;
 
     let entries_dir = mod_root.join(request.root_subdir.trim());
     let entry_dir = entries_dir.join(&request.entry_id);
@@ -295,4 +336,69 @@ pub(crate) fn write_directory_pack_entry(
     })?;
 
     Ok(())
+}
+
+/// Deletes an entire directory-pack entry directory.
+pub(crate) fn delete_directory_pack_entry(
+    request: DeleteCompatPluginEntryRequest,
+) -> Result<(), String> {
+    let mod_root = clean_input_path(&request.mod_root);
+    validate_root_subdir(request.root_subdir.trim())?;
+    validate_entry_id(&request.entry_id)?;
+    let entry_dir = mod_root
+        .join(request.root_subdir.trim())
+        .join(&request.entry_id);
+    if lexically_normalize_within(&entry_dir, &mod_root).is_none() {
+        return Err(format!("Path traversal detected: {}", entry_dir.display()));
+    }
+    let canonical = ensure_path_within(&mod_root, &entry_dir)?;
+    if !canonical.is_dir() {
+        return Err(format!(
+            "Entry directory does not exist: {}",
+            canonical.display()
+        ));
+    }
+    std::fs::remove_dir_all(&canonical).map_err(|e| {
+        format!(
+            "Failed to delete entry directory {}: {e}",
+            canonical.display()
+        )
+    })
+}
+
+/// Decodes and writes one validated companion image file.
+pub(crate) fn write_directory_pack_entry_image(
+    request: WriteCompatPluginEntryImageRequest,
+) -> Result<(), String> {
+    let mod_root = clean_input_path(&request.mod_root);
+    validate_root_subdir(request.root_subdir.trim())?;
+    validate_entry_id(&request.entry_id)?;
+    validate_image_file_name(&request.image_file)?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(request.content_base64.trim())
+        .map_err(|e| format!("Invalid image base64: {e}"))?;
+    if bytes.is_empty() {
+        return Err("Image content must not be empty".to_string());
+    }
+    if bytes.len() > MAX_ENTRY_IMAGE_BYTES {
+        return Err(format!(
+            "Image content exceeds {MAX_ENTRY_IMAGE_BYTES} bytes"
+        ));
+    }
+    let entry_dir = mod_root
+        .join(request.root_subdir.trim())
+        .join(&request.entry_id);
+    if lexically_normalize_within(&entry_dir, &mod_root).is_none() {
+        return Err(format!("Path traversal detected: {}", entry_dir.display()));
+    }
+    std::fs::create_dir_all(&entry_dir).map_err(|e| {
+        format!(
+            "Failed to create entry directory {}: {e}",
+            entry_dir.display()
+        )
+    })?;
+    let canonical_entry_dir = ensure_path_within(&mod_root, &entry_dir)?;
+    let path = canonical_entry_dir.join(&request.image_file);
+    std::fs::write(&path, bytes)
+        .map_err(|e| format!("Failed to write image {}: {e}", path.display()))
 }

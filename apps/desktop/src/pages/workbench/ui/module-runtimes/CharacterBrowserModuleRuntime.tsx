@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import type { WorkspacePanelConfig } from '@shared/contracts'
 import { useCharacterAuthoringHandoff } from '@entities/character'
 import { useWorkbenchEnvironment } from '../../model/workbenchModuleContexts'
@@ -17,36 +16,32 @@ export default function CharacterBrowserModuleRuntime() {
     copy: props.copy.charactersPanel,
     enableVisualAssets: props.heavyWorkspaceReady,
   })
-  const workspacePanels = useMemo(
-    () =>
-      buildCharactersWorkspacePanels({
-        copy: props.copy,
-        heavyWorkspaceReady: props.heavyWorkspaceReady,
-        characters: workspace.characters,
-        filteredCharacters: workspace.filteredCharacters,
-        characterBrowserSourceMode: workspace.browserSourceMode,
-        onCharacterBrowserSourceModeChange: workspace.setBrowserSourceMode,
-        modCharacterGroups: workspace.modCharacterGroups,
-        activeModCharacterSelectionId: workspace.activeModCharacterSelectionId,
-        activeCharacterModSources: workspace.activeCharacterModSources,
-        activeCharacterId: workspace.activeCharacterId,
-        activeCharacter: workspace.activeCharacter,
-        activeCharacterVariant: workspace.activeVariant,
-        characterFilter: workspace.characterFilter,
-        characterStatusMessage: workspace.characterStatusMessage,
-        activeCharacterAssetState: workspace.assetState,
-        activeCharacterAssetLoading: workspace.assetLoading,
-        onCharacterFilterChange: workspace.setCharacterFilter,
-        onSelectCharacter: workspace.handleSelectCharacter,
-        onSelectModCharacter: workspace.handleSelectModCharacter,
-        onSelectCharacterVariant: workspace.handleSelectVariant,
-        onOpenCharacterInAuthoring: (characterKey) => {
-          requestAuthoringOpen(characterKey)
-          onOpenModule('character-authoring')
-        },
-      }),
-    [props, workspace, requestAuthoringOpen, onOpenModule],
-  ) satisfies WorkspacePanelConfig[]
+  const workspacePanels = buildCharactersWorkspacePanels({
+    copy: props.copy,
+    heavyWorkspaceReady: props.heavyWorkspaceReady,
+    characters: workspace.characters,
+    filteredCharacters: workspace.filteredCharacters,
+    characterBrowserSourceMode: workspace.browserSourceMode,
+    onCharacterBrowserSourceModeChange: workspace.setBrowserSourceMode,
+    modCharacterGroups: workspace.modCharacterGroups,
+    activeModCharacterSelectionId: workspace.activeModCharacterSelectionId,
+    activeCharacterModSources: workspace.activeCharacterModSources,
+    activeCharacterId: workspace.activeCharacterId,
+    activeCharacter: workspace.activeCharacter,
+    activeCharacterVariant: workspace.activeVariant,
+    characterFilter: workspace.characterFilter,
+    characterStatusMessage: workspace.characterStatusMessage,
+    activeCharacterAssetState: workspace.assetState,
+    activeCharacterAssetLoading: workspace.assetLoading,
+    onCharacterFilterChange: workspace.setCharacterFilter,
+    onSelectCharacter: workspace.handleSelectCharacter,
+    onSelectModCharacter: workspace.handleSelectModCharacter,
+    onSelectCharacterVariant: workspace.handleSelectVariant,
+    onOpenCharacterInAuthoring: (characterKey) => {
+      requestAuthoringOpen(characterKey)
+      onOpenModule('character-authoring')
+    },
+  }) satisfies WorkspacePanelConfig[]
   return (
     <WorkbenchLayoutHost
       workspaceLayoutRef={props.workspaceLayoutRef}

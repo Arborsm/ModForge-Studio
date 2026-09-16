@@ -462,3 +462,44 @@ fn rejects_batch_write_duplicate_paths_across_separator_styles() {
     assert!(message.contains("assets/maps/foo.png"), "{message}");
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn infers_image_media_types_for_imported_assets() {
+    let root = create_temp_dir("cp-maker-import-media-types");
+    let sources = root.join("sources");
+    let projects = root.join("projects");
+    write_file(&sources.join("sheet.png"), "png");
+    write_file(&sources.join("photo.jpg"), "jpg");
+    write_file(&sources.join("photo.jpeg"), "jpeg");
+    write_file(&sources.join("photo.webp"), "webp");
+
+    let batch = import_project_asset_paths_at_dir(
+        &projects,
+        "draft",
+        &[
+            sources.join("sheet.png").to_string_lossy().into_owned(),
+            sources.join("photo.jpg").to_string_lossy().into_owned(),
+            sources.join("photo.jpeg").to_string_lossy().into_owned(),
+            sources.join("photo.webp").to_string_lossy().into_owned(),
+        ],
+        "assets",
+        &[],
+    )
+    .expect("import image assets");
+
+    let media_type_of = |name: &str| {
+        batch
+            .assets
+            .iter()
+            .find(|asset| asset.relative_path.ends_with(name))
+            .unwrap_or_else(|| panic!("missing imported asset {name}"))
+            .media_type
+            .as_str()
+    };
+    assert_eq!(media_type_of("sheet.png"), "image/png");
+    assert_eq!(media_type_of("photo.jpg"), "image/jpeg");
+    assert_eq!(media_type_of("photo.jpeg"), "image/jpeg");
+    assert_eq!(media_type_of("photo.webp"), "image/webp");
+
+    fs::remove_dir_all(root).unwrap();
+}

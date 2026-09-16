@@ -418,6 +418,98 @@ fn v7_accepts_all_valid_asset_kinds() {
     assert_eq!(report.manifests.len(), 1);
 }
 
+// ── V8: capabilities references ─────────────────────────────────────────────
+
+#[test]
+fn v8_accepts_valid_capability_ids_and_surfaces_them() {
+    let root = create_temp_dir("compat-plugin-v8-ok");
+    let body = valid_manifest_body().replace(
+        "\"contributions\": {\n    \"attachedApi\": {",
+        "\"contributions\": {\n    \"capabilities\": [\"spritesheet-preview\"],\n    \"attachedApi\": {",
+    );
+    write_plugin(&root, "arborsm.scaleup-unofficial", &body);
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert_eq!(report.manifests.len(), 1);
+    assert!(report.errors.is_empty());
+    assert_eq!(
+        report.manifests[0].contributions.capabilities,
+        vec!["spritesheet-preview"]
+    );
+    let summaries = build_summaries_from_report(&report);
+    assert_eq!(
+        summaries[0].capabilities,
+        vec!["spritesheet-preview".to_string()]
+    );
+}
+
+#[test]
+fn v8_rejects_uppercase_capability_id() {
+    let root = create_temp_dir("compat-plugin-v8-uppercase");
+    let body = valid_manifest_body().replace(
+        "\"contributions\": {\n    \"attachedApi\": {",
+        "\"contributions\": {\n    \"capabilities\": [\"SpriteSheet-Preview\"],\n    \"attachedApi\": {",
+    );
+    write_plugin(&root, "arborsm.scaleup-unofficial", &body);
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert!(report.manifests.is_empty());
+    assert_eq!(report.errors.len(), 1);
+    assert!(report.errors[0].reason.contains("capabilities"));
+}
+
+#[test]
+fn v8_rejects_capability_id_with_dots() {
+    // Builtin ids like `host.locale` are host-internal and must not be declared
+    // in a manifest; dots are not part of the declared-id shape.
+    let root = create_temp_dir("compat-plugin-v8-dots");
+    let body = valid_manifest_body().replace(
+        "\"contributions\": {\n    \"attachedApi\": {",
+        "\"contributions\": {\n    \"capabilities\": [\"host.locale\"],\n    \"attachedApi\": {",
+    );
+    write_plugin(&root, "arborsm.scaleup-unofficial", &body);
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert!(report.manifests.is_empty());
+    assert_eq!(report.errors.len(), 1);
+    assert!(report.errors[0].reason.contains("capabilities"));
+}
+
+#[test]
+fn v8_rejects_blank_capability_id() {
+    let root = create_temp_dir("compat-plugin-v8-blank");
+    let body = valid_manifest_body().replace(
+        "\"contributions\": {\n    \"attachedApi\": {",
+        "\"contributions\": {\n    \"capabilities\": [\"\"],\n    \"attachedApi\": {",
+    );
+    write_plugin(&root, "arborsm.scaleup-unofficial", &body);
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert!(report.manifests.is_empty());
+    assert_eq!(report.errors.len(), 1);
+    assert!(report.errors[0].reason.contains("capabilities"));
+}
+
+#[test]
+fn v8_defaults_to_empty_when_absent() {
+    // Manifests without a `capabilities` key load with an empty list (serde
+    // default), keeping every pre-capability plugin valid.
+    let root = create_temp_dir("compat-plugin-v8-absent");
+    write_plugin(&root, "arborsm.scaleup-unofficial", &valid_manifest_body());
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert_eq!(report.manifests.len(), 1);
+    assert!(report.errors.is_empty());
+    assert!(report.manifests[0].contributions.capabilities.is_empty());
+    let summaries = build_summaries_from_report(&report);
+    assert!(summaries[0].capabilities.is_empty());
+}
+
 // ── V9: unknown top-level fields warn only ───────────────────────────────────
 
 #[test]
@@ -507,6 +599,7 @@ fn to_attached_api_descriptors_converts_loaded_manifests() {
             pages: Vec::new(),
             asset_schemas: Vec::new(),
             condition_syntax: Vec::new(),
+            capabilities: Vec::new(),
         },
         plugin_dir: std::path::PathBuf::new(),
     };
@@ -774,6 +867,166 @@ fn build_summaries_extracts_page_descriptors() {
 }
 
 #[test]
+fn build_summaries_forwards_include_content_packs_param() {
+    let root = create_temp_dir("compat-plugin-source-include-packs");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["x"],
+  "contributions": {
+    "pages": [
+      {
+        "id": "with-packs",
+        "navigation": {"section": "tools", "order": 50, "icon": "images"},
+        "titleKey": "page.title",
+        "presentation": "standalone",
+        "projectAccess": "none",
+        "source": {
+          "kind": "directory-pack",
+          "params": {
+            "entryFile": "texture.json",
+            "rootSubdir": "Textures",
+            "includeContentPacks": true
+          }
+        }
+      },
+      {
+        "id": "without-packs",
+        "navigation": {"section": "tools", "order": 51, "icon": "images"},
+        "titleKey": "page.title",
+        "presentation": "standalone",
+        "projectAccess": "none",
+        "source": {
+          "kind": "directory-pack",
+          "params": {"entryFile": "texture.json"}
+        }
+      }
+    ]
+  }
+}"#,
+        &[("en-US", "page.title", "Main Page")],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    let summaries = build_summaries_from_report(&report);
+
+    assert_eq!(summaries.len(), 1);
+    let with_packs = summaries[0].pages[0]
+        .source
+        .as_ref()
+        .expect("source is forwarded");
+    assert_eq!(
+        with_packs.params.entry_file.as_deref(),
+        Some("texture.json")
+    );
+    assert_eq!(with_packs.params.include_content_packs, Some(true));
+    let without_packs = summaries[0].pages[1]
+        .source
+        .as_ref()
+        .expect("source is forwarded");
+    assert_eq!(without_packs.params.include_content_packs, None);
+}
+
+#[test]
+fn build_summaries_forwards_game_item_field_and_collapsed_section() {
+    let root = create_temp_dir("compat-plugin-game-item-field");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["x"],
+  "contributions": {
+    "pages": [
+      {
+        "id": "editor",
+        "navigation": {"section": "tools", "order": 50, "icon": "images"},
+        "titleKey": "page.title",
+        "presentation": "standalone",
+        "projectAccess": "none",
+        "source": {
+          "kind": "directory-pack",
+          "params": {"entryFile": "texture.json", "includeContentPacks": true}
+        },
+        "sections": [
+          {
+            "titleKey": "section.advanced",
+            "collapsed": true,
+            "fields": [
+              {"id": "itemName", "path": "ItemName", "type": "game-item", "idPath": "ItemId"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}"#,
+        &[("en-US", "page.title", "Main Page")],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+    assert!(
+        report.errors.is_empty(),
+        "manifest must load: {:?}",
+        report.errors
+    );
+    let summaries = build_summaries_from_report(&report);
+
+    let page = &summaries[0].pages[0];
+    assert_eq!(page.sections[0].collapsed, Some(true));
+    let field = &page.sections[0].fields[0];
+    assert_eq!(field.field_type, "game-item");
+    assert_eq!(field.id_path.as_deref(), Some("ItemId"));
+}
+
+#[test]
+fn rejects_id_path_on_non_game_item_field() {
+    let root = create_temp_dir("compat-plugin-id-path-misuse");
+    write_plugin_with_i18n(
+        &root,
+        "arborsm.test",
+        r#"{
+  "format": 1,
+  "id": "arborsm.test",
+  "name": "Test",
+  "targets": ["x"],
+  "contributions": {
+    "pages": [
+      {
+        "id": "editor",
+        "navigation": {"section": "tools", "order": 50, "icon": "images"},
+        "titleKey": "page.title",
+        "presentation": "standalone",
+        "projectAccess": "none",
+        "source": {"kind": "directory-pack", "params": {"entryFile": "texture.json"}},
+        "sections": [
+          {
+            "titleKey": "section.main",
+            "fields": [
+              {"id": "itemName", "path": "ItemName", "type": "text", "idPath": "ItemId"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}"#,
+        &[("en-US", "page.title", "Main Page")],
+    );
+
+    let report = load_plugin_manifests(&[root.clone()]);
+
+    assert!(report.manifests.is_empty());
+    assert!(report.errors[0].reason.contains("idPath"));
+}
+
+#[test]
 fn build_summaries_handles_multiple_plugins() {
     let root = create_temp_dir("compat-plugin-summary-multi");
     write_plugin_with_i18n(
@@ -914,8 +1167,10 @@ fn extract_builtin_plugins_preserves_user_plugins() {
 
 use crate::domain::modding::commands::ListCompatPluginEntriesRequest;
 use crate::domain::modding::compat_plugin::{
-    ReadCompatPluginEntryRequest, WriteCompatPluginEntryRequest, list_directory_pack_entries,
-    read_directory_pack_entry, write_directory_pack_entry,
+    DeleteCompatPluginEntryRequest, ReadCompatPluginEntryRequest,
+    WriteCompatPluginEntryImageRequest, WriteCompatPluginEntryRequest, delete_directory_pack_entry,
+    list_directory_pack_entries, read_directory_pack_entry, write_directory_pack_entry,
+    write_directory_pack_entry_image,
 };
 
 /// Creates a temp mod root with a `Textures/<entry_id>/texture.json` structure
@@ -1000,6 +1255,29 @@ fn read_directory_pack_entry_returns_parsed_json() {
     let result = read_directory_pack_entry(request).unwrap();
     assert_eq!(result.content["ItemName"], "Parsnip");
     assert_eq!(result.content["Type"], "Crop");
+}
+
+#[test]
+fn read_directory_pack_entry_parses_relaxed_json() {
+    // Mod-authored texture.json files routinely carry comments and trailing
+    // commas; reading must tolerate them like the rest of the game-format
+    // parsers do.
+    let relaxed = r#"{
+    // item identity
+    "ItemName": "Parsnip", // shown in the picker
+    "Type": "Crop",
+    "Keywords": ["spring", "juice",],
+}"#;
+    let root = create_at_mod_root("crop_a", relaxed);
+    let request = ReadCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".to_string(),
+        entry_id: "crop_a".to_string(),
+        entry_file: "texture.json".to_string(),
+    };
+    let result = read_directory_pack_entry(request).unwrap();
+    assert_eq!(result.content["ItemName"], "Parsnip");
+    assert_eq!(result.content["Keywords"][1], "juice");
 }
 
 #[test]
@@ -1128,6 +1406,69 @@ fn list_directory_pack_entries_rejects_root_subdir_traversal() {
     assert!(
         entries.is_empty(),
         "traversal via root_subdir must be rejected"
+    );
+}
+
+#[test]
+fn delete_directory_pack_entry_removes_entry_and_rejects_missing() {
+    let root = create_at_mod_root("crop_a", "{}");
+    let request = DeleteCompatPluginEntryRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".into(),
+        entry_id: "crop_a".into(),
+    };
+    delete_directory_pack_entry(request.clone()).unwrap();
+    assert!(!root.join("Textures/crop_a").exists());
+    assert!(delete_directory_pack_entry(request).is_err());
+}
+
+#[test]
+fn write_directory_pack_entry_image_validates_and_writes() {
+    let root = create_temp_dir("compat-write-image");
+    let request = WriteCompatPluginEntryImageRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".into(),
+        entry_id: "crop_a".into(),
+        image_file: "preview.PNG".into(),
+        content_base64: "iVBORw0KGgo=".into(),
+    };
+    write_directory_pack_entry_image(request).unwrap();
+    assert_eq!(
+        fs::read(root.join("Textures/crop_a/preview.PNG")).unwrap(),
+        b"\x89PNG\r\n\x1a\n"
+    );
+    let mut invalid = WriteCompatPluginEntryImageRequest {
+        mod_root: root.to_string_lossy().to_string(),
+        root_subdir: "Textures".into(),
+        entry_id: "crop_a".into(),
+        image_file: "preview.gif".into(),
+        content_base64: "bad".into(),
+    };
+    assert!(write_directory_pack_entry_image(invalid.clone()).is_err());
+    invalid.image_file = "preview.png".into();
+    assert!(write_directory_pack_entry_image(invalid).is_err());
+}
+
+#[test]
+fn delete_and_image_commands_reject_traversal() {
+    let root = create_temp_dir("compat-entry-safety");
+    assert!(
+        delete_directory_pack_entry(DeleteCompatPluginEntryRequest {
+            mod_root: root.to_string_lossy().to_string(),
+            root_subdir: "../outside".into(),
+            entry_id: "x".into()
+        })
+        .is_err()
+    );
+    assert!(
+        write_directory_pack_entry_image(WriteCompatPluginEntryImageRequest {
+            mod_root: root.to_string_lossy().to_string(),
+            root_subdir: "Textures".into(),
+            entry_id: "..".into(),
+            image_file: "x.png".into(),
+            content_base64: "eA==".into()
+        })
+        .is_err()
     );
 }
 

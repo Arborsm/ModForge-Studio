@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ignoreError } from '@platform/observability'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 
 /**
@@ -73,16 +74,16 @@ export function AssetImageThumbnail({
   useEffect(() => {
     if (!visible || dataUrl) return
     let cancelled = false
-    void readProjectAsset(assetPath)
-      .then((payload) => {
+    // Keep the fallback glyph on failure: a broken thumbnail must not break the grid.
+    void ignoreError(
+      readProjectAsset(assetPath).then((payload) => {
         if (cancelled) return
         const url = `data:${payload.asset.mediaType};base64,${payload.bytesBase64}`
         writeCachedThumbnail(cacheKey, url)
         setDataUrl(url)
-      })
-      .catch(() => {
-        // Keep the fallback glyph: a broken thumbnail must not break the grid.
-      })
+      }),
+      'assetLibrary.thumbnail',
+    )
     return () => {
       cancelled = true
     }

@@ -346,6 +346,7 @@ const studiodesk: StudioDeskCopy = {
     sheetPickerProjectGroup: 'Project assets',
     sheetPickerEmpty: 'No tilesheets match the search.',
     sheetGalleryBack: 'Back to palette',
+    sheetGalleryImport: 'Import tilesheet',
     sheetPickerAttachedBadge: 'Attached',
     sheetPickerGameBadge: 'Game',
     sheetPickerTileCount: (tileCount) => `${tileCount} tiles`,

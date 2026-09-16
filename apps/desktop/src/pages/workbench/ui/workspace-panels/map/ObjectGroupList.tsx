@@ -1,5 +1,5 @@
 import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { FocusedMapObjectTarget } from '@entities/map'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
@@ -115,7 +115,7 @@ export function GroupedObjectGroupList({
   const [filterValue, setFilterValue] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const normalizedFilter = filterValue.trim().toLowerCase()
-  const entries = useMemo(() => {
+  const entries = (() => {
     const grouped = new Map<string, ObjectGroupListItem[]>()
 
     for (const item of items) {
@@ -152,7 +152,7 @@ export function GroupedObjectGroupList({
         grouped: groupItems.length > 1,
       }))
       .sort((left, right) => Number(right.grouped) - Number(left.grouped) || left.groupLabel.localeCompare(right.groupLabel))
-  }, [items, normalizedFilter])
+  })()
 
   return (
     <div className="space-y-3 p-3">

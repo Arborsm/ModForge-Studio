@@ -4,8 +4,9 @@
 use crate::AppHandle;
 use crate::domain;
 use crate::domain::modding::compat_plugin::{
-    CompatPluginEntrySummary, CompatPluginSummary, ReadCompatPluginEntryRequest,
-    ReadCompatPluginEntryResult, WriteCompatPluginEntryRequest,
+    CompatPluginEntrySummary, CompatPluginSummary, DeleteCompatPluginEntryRequest,
+    ReadCompatPluginEntryRequest, ReadCompatPluginEntryResult, WriteCompatPluginEntryImageRequest,
+    WriteCompatPluginEntryRequest,
 };
 use base64::Engine as _;
 use host_command_macros::host_command;
@@ -89,6 +90,24 @@ pub async fn write_compat_plugin_entry(
     Ok::<(), String>(domain::modding::compat_plugin::write_directory_pack_entry(
         request,
     )?)
+}
+
+/// Deletes one complete directory-pack entry directory.
+#[host_command(mutation, resources(CompatPluginEntry))]
+pub async fn delete_compat_plugin_entry(
+    app: AppHandle,
+    request: DeleteCompatPluginEntryRequest,
+) -> Result<(), String> {
+    domain::modding::compat_plugin::delete_directory_pack_entry(request)
+}
+
+/// Writes a validated base64-encoded companion image into an entry directory.
+#[host_command(mutation, resources(CompatPluginEntry))]
+pub async fn write_compat_plugin_entry_image(
+    app: AppHandle,
+    request: WriteCompatPluginEntryImageRequest,
+) -> Result<(), String> {
+    domain::modding::compat_plugin::write_directory_pack_entry_image(request)
 }
 
 /// Request payload for `list_compat_plugin_entries`.

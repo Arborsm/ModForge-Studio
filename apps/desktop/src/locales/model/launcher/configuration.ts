@@ -249,7 +249,9 @@ export type LauncherConfigurationCopy = {
     simulationParametersLabel: string
     simulationButtonIdle: string
     simulationButtonRunning: string
-    notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
+    notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string> & {
+      fullAttributes: string
+    }
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
     smapiUpdate: {
       title: string

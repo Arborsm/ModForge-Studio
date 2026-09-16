@@ -7,7 +7,8 @@ import { Search, X, Command } from 'lucide-react'
 import { cx } from '@shared/lib/helper'
 import { getAllSchemas } from '../workflow-model/commandSchemaRegistry'
 import type { CommandCategory } from '../workflow-model/commandSchema'
-import type { EventWorkflowCopy, EventWorkflowCommandKey } from '@locales/api'
+import type { EventWorkflowCommandKey } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 
 const CATEGORY_ORDER: CommandCategory[] = ['dialogue', 'movement', 'visual', 'audio', 'logic', 'scene', 'item', 'animation', 'other']
 
@@ -27,11 +28,10 @@ export type CommandPaletteProps = {
   open: boolean
   onClose: () => void
   onSelect: (commandKey: string) => void
-  locale?: 'zh-CN' | 'en-US'
-  copy: EventWorkflowCopy
 }
 
-export function CommandPalette({ open, onClose, onSelect, copy }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, onSelect }: CommandPaletteProps) {
+  const copy = useEventStageCopy().workflow
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<CommandCategory | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(0)

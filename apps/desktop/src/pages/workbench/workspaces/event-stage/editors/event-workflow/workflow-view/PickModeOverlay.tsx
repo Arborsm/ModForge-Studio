@@ -9,27 +9,15 @@ import { cx } from '@shared/lib/helper'
 export type PickModeOverlayProps = {
   active: boolean
   label?: string
-  completeLabel?: string
-  clearLabel?: string
-  cancelLabel?: string
   onComplete?: () => void
   onClear?: () => void
   onCancel?: () => void
   className?: string
 }
 
-export function PickModeOverlay({
-  active,
-  label,
-  completeLabel,
-  clearLabel,
-  cancelLabel,
-  onComplete,
-  onClear,
-  onCancel,
-  className,
-}: PickModeOverlayProps) {
+export function PickModeOverlay({ active, label, onComplete, onClear, onCancel, className }: PickModeOverlayProps) {
   const copy = useEventStageCopy()
+  const composerCopy = copy.workflow.composer
   if (!active) return null
 
   return (
@@ -48,19 +36,19 @@ export function PickModeOverlay({
             {onComplete ? (
               <button type="button" className="control-button h-7 text-xs" onClick={onComplete}>
                 <Check className="h-3.5 w-3.5" />
-                <span>{completeLabel ?? copy.pickModeComplete}</span>
+                <span>{composerCopy.donePath}</span>
               </button>
             ) : null}
             {onClear ? (
               <button type="button" className="control-button h-7 text-xs" onClick={onClear}>
                 <RotateCcw className="h-3.5 w-3.5" />
-                <span>{clearLabel ?? copy.pickModeClear}</span>
+                <span>{composerCopy.clearPath}</span>
               </button>
             ) : null}
             {onCancel ? (
               <button type="button" className="control-button h-7 text-xs" onClick={onCancel}>
                 <X className="h-3.5 w-3.5" />
-                <span>{cancelLabel ?? copy.pickModeCancel}</span>
+                <span>{composerCopy.cancelPick}</span>
               </button>
             ) : null}
           </div>

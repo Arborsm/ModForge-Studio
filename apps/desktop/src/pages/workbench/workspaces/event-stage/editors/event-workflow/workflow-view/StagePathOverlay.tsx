@@ -2,7 +2,6 @@
  * @file Map path/trajectory rendering component: overlays an SVG path layer on EventStagePreview.
  */
 
-import { useMemo } from 'react'
 import type { EventScript } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
 import type { MapDocument } from '@entities/map'
@@ -362,7 +361,7 @@ export function StagePathOverlay({
   selectedCommandIndex,
   hoveredCommandIndex,
 }: StagePathOverlayProps) {
-  const actorPaths = useMemo(() => buildActorPaths(eventScript, mapDocument), [eventScript, mapDocument])
+  const actorPaths = buildActorPaths(eventScript, mapDocument)
 
   if (!mapDocument || actorPaths.length === 0) return null
 

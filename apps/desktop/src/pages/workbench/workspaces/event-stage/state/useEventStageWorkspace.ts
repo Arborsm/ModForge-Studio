@@ -5,7 +5,8 @@ import type { MapDocument } from '@entities/map'
 import { scheduleDeferred } from '@shared/lib/react'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
-import type { EventStageCopy, LocaleCode, ViewportLabels } from '@locales/api'
+import type { EventStageCopy, LocaleCode } from '@locales/api'
+import { useEditorCopy } from '@locales/provider'
 import {
   CHARACTER_DATA_PATH,
   EVENT_STAGE_INITIAL_ZOOM,
@@ -50,7 +51,6 @@ type UseEventStageWorkspaceOptions = {
   copy: EventStageCopy
   locale: LocaleCode
   directoryInfo: GameDirectoryInfo | null
-  viewportLabels: ViewportLabels
   parsedEventAsset: ParsedEventAsset | null
   selectedEvent: EventScript | null
   playerAppearanceProfile: PlayerAppearanceProfile | null
@@ -231,7 +231,6 @@ export function useEventStageWorkspace({
   copy,
   locale,
   directoryInfo,
-  viewportLabels,
   parsedEventAsset,
   selectedEvent,
   playerAppearanceProfile,
@@ -240,6 +239,7 @@ export function useEventStageWorkspace({
   mapAssetLoader = loadMapAsset,
   imageResourceLoader,
 }: UseEventStageWorkspaceOptions) {
+  const viewportLabels = useEditorCopy().viewportLabels
   const initialMapName = normalizeStageMapName(parsedEventAsset?.asset.name)
   const [autoPlay, setAutoPlay] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
@@ -954,18 +954,15 @@ export function useEventStageWorkspace({
       ? getActorByName(renderedPlaybackState.actors, renderedPlaybackState.currentEntry.actorName)
       : null
   const currentDialogueActorAsset = currentDialogueActor ? (currentActorAssets[toActorKey(currentDialogueActor.actorName)] ?? null) : null
-  const currentDialoguePortrait = useMemo(
-    () => getPortraitFrameBounds(currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex ?? 0),
-    [currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex],
-  )
-  const fadeOverlayOpacity = useMemo(() => {
+  const currentDialoguePortrait = getPortraitFrameBounds(currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex ?? 0)
+  const fadeOverlayOpacity = (() => {
     const fadeOverlay = renderedPlaybackState.fadeOverlay
     if (!fadeOverlay) {
       return 0
     }
     return resolveFadeOverlayAlpha(fadeOverlay, fadeOverlay.startedAtMs + Math.max(0, fadeOverlay.durationMs))
-  }, [renderedPlaybackState.fadeOverlay])
-  const playbackStatusChips = useMemo(() => {
+  })()
+  const playbackStatusChips = (() => {
     const chips: Array<{ id: string; label: string; value: string }> = []
 
     if (renderedPlaybackState.activeMusicCue) {
@@ -987,17 +984,7 @@ export function useEventStageWorkspace({
     }
 
     return chips
-  }, [
-    copy.statusAmbient,
-    copy.statusFade,
-    copy.statusMusic,
-    copy.statusSound,
-    renderedPlaybackState.activeMusicCue,
-    renderedPlaybackState.activeSoundCue,
-    renderedPlaybackState.ambientOverlayColor,
-    renderedPlaybackState.fadeOverlay,
-    fadeOverlayOpacity,
-  ])
+  })()
 
   function handleSelectChoice(index: number) {
     setPlaybackState((current) =>

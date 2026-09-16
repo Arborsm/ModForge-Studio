@@ -37,9 +37,6 @@ const eventstage: EventStageCopy = {
   flashAlphaLabel: (alpha) => `Alpha ${alpha}`,
   playbackHaltedTitle: 'Playback halted',
   playbackHaltedDetail: 'The event keeps switching without advancing. Check for a switchEvent/fork cycle and reset playback.',
-  pickModeComplete: 'Done',
-  pickModeClear: 'Clear',
-  pickModeCancel: 'Cancel',
   clickMapToPick: 'Click the map to pick a location',
   directionLabels: {
     up: 'Up',

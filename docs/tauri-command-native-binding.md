@@ -141,7 +141,7 @@ lives exclusively in the attribute bindings.
   file is a `commands.rs` next to its domain module.
 - `sidecar.rs` — `resolve_typed` plus the generator-owned routing match
   (regenerated like lib.rs; drift checks are whitespace-insensitive).
-- `scripts/generate-host-commands.mjs` — recursively scans the src tree for
+- `scripts/gen/generate-host-commands.mjs` — recursively scans the src tree for
   `commands.rs` files, derives each command's module path and the sidecar
   pointer params type, and regenerates `HOST_COMMANDS` + `generate_handler!` +
   the sidecar routing block.

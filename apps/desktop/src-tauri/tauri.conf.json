@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeDevCommand": "node ./scripts/run-vite-dev.mjs",
-    "beforeBuildCommand": "node ./scripts/build-web.cjs && node ./scripts/build-gmcm-probe.mjs"
+    "beforeDevCommand": "node ./scripts/dev/run-vite-dev.mjs",
+    "beforeBuildCommand": "node ./scripts/build/build-web.cjs && node ./scripts/build/build-gmcm-probe.mjs"
   },
   "app": {
     "windows": [

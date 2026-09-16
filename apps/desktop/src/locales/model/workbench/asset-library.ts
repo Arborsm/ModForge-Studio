@@ -22,24 +22,27 @@ export type MapLoadBindingCopy = {
   projectAssetLabel: string
   insertToken: string
   templateTokens: Record<'Target' | 'TargetWithoutPath' | 'TargetWithoutExtension', string>
-  previewSection: string
   previewHint: string
   previewTarget: string
   previewResolved: string
   previewStatus: string
   statusExists: string
   statusMissing: string
+  /** Badge label when the found project asset's kind contradicts the target family. */
+  statusMismatch: string
   emptyResolved: string
-  /** Shown when advanced mode is off to explain why custom input is hidden. */
-  expertOnlyHint: string
   /** Grid hint for image-family resource pickers. */
   imageTargetsHint: string
-  /** Icon-list hint for audio/fonts/data/other resource pickers. */
+  /** Icon-list hint for audio/fonts/data resource pickers. */
   iconTargetsHint: string
   /** Placeholder for the advanced-mode custom resource input outside the maps family. */
   customTargetPlaceholder: string
   /** Thumbnail alt text for a game image resource. */
   thumbnailAlt: (target: string) => string
+  /** Hover action that reopens the project-file picker for the chosen file. */
+  changeFileAction: string
+  /** Hover action that clears the chosen replacement file. */
+  clearFileAction: string
 }
 
 /** Copy for creating a blank or templated project map from the asset library. */
@@ -67,6 +70,10 @@ export type AssetLibraryCreateMapCopy = {
 export type AssetLibraryCopy = {
   importAction: string
   importFolderAction: string
+  /** Accessible name for the split-button chevron that opens the import menu. */
+  importMoreLabel: string
+  /** Primary footer action of the replacement editor dialog. */
+  completeAction: string
   importing: string
   selectFilesTitle: string
   selectFolderTitle: string
@@ -75,7 +82,6 @@ export type AssetLibraryCopy = {
   filters: Record<'all' | 'map' | 'image' | 'audio' | 'data' | 'other', string>
   gridView: string
   listView: string
-  assetCount: (visible: number, total: number) => string
   assetKindCount: (count: number) => string
   emptyTitle: string
   emptyHint: string
@@ -89,8 +95,8 @@ export type AssetLibraryCopy = {
   referencesLabel: string
   referenceCount: (count: number) => string
   editPixelsAction: string
-  /** Primary action for a map asset: open it in the map workspace editor. */
-  editInMapEditorAction: string
+  /** Primary action for a map asset: edit it in the map editor on the page. */
+  editMapAction: string
   replaceAction: string
   /** Replacing a file: staging state heading. */
   replaceStagingTitle: string
@@ -170,7 +176,6 @@ export type AssetLibraryCopy = {
   // Map asset creation and replacement management, owned by the asset library.
   viewLoadBindings: string
   loadBindingsTitle: string
-  loadBindingsHint: string
   loadBindingsEmpty: string
   loadBindingCount: (count: number) => string
   newLoadBindingAction: string
@@ -178,9 +183,18 @@ export type AssetLibraryCopy = {
   deleteLoadBinding: string
   loadBindingTarget: string
   loadBindingFromFile: string
-  loadBindingEnabled: string
   loadBindingDisabled: string
   loadBindingEnabledExpression: (expression: string) => string
+  /** Footer action that re-enables an explicitly disabled binding. */
+  loadBindingEnableAction: string
+  /** Footer status for a fully configured binding. */
+  loadBindingActiveLabel: string
+  /** Footer status naming the parts still missing before the binding takes effect. */
+  loadBindingMissingLabel: (missing: readonly string[]) => string
+  /** Dialog title: what the binding replaces, named by family and first target file. */
+  loadBindingEditorTitle: (family: string, targetName: string) => string
+  /** Group header and row placeholder for bindings whose target is not picked yet. */
+  loadBindingsUnconfigured: string
   loadFamilyNames: Record<LoadAssetFamilyNameKey, string>
   loadFamilyGroupCount: (family: string, count: number) => string
   newLoadBindingFamilyTitle: string
@@ -214,7 +228,6 @@ export type AssetLibraryCopy = {
   gameAssetScanLoading: string
   gameAssetScanFailed: string
   importMapFailed: string
-  openingMap: string
   mapScanLoading: string
   mapScanFailed: string
   projectBadge: string

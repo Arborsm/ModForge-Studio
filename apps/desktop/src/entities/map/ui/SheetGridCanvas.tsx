@@ -14,13 +14,15 @@ import {
   type WheelEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { ImageOff, Loader2, Maximize, Minus, Plus } from 'lucide-react'
+import { ImageOff, Loader2 } from 'lucide-react'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { MapDocument, MapTileset } from '../lib/types'
 import { resolveTilesetImagePath } from '../lib/assets'
 import { loadImage } from './mapViewportHelpers'
+import { ViewportZoomToolbar } from './ViewportZoomToolbar'
 
 type ImageState = {
   key: string
@@ -119,8 +121,6 @@ export function SheetGridCanvas({
 }: SheetGridCanvasProps) {
   const editorCopy = useEditorCopy()
   const labels = editorCopy.studioDesk.mapPatchEditor
-  const viewportLabels = editorCopy.viewportLabels
-  const assetEditorLabels = editorCopy.mapAuthoring.assetEditor
   const [internalZoom, setInternalZoom] = useState(1)
   const zoom = zoomState?.zoom ?? internalZoom
   const setZoom = zoomState?.setZoom ?? setInternalZoom
@@ -167,8 +167,14 @@ export function SheetGridCanvas({
       .then((image) => {
         if (current) setImageState({ key: imageKey, status: 'ready', image })
       })
-      .catch(() => {
-        if (current) setImageState({ key: imageKey, status: 'error', image: null })
+      .catch((error) => {
+        if (current) {
+          appEvent('warning', 'Failed to load tilesheet grid image')
+            .error(error)
+            .context({ source: 'map-tilesheet-grid', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setImageState({ key: imageKey, status: 'error', image: null })
+        }
       })
     return () => {
       current = false
@@ -575,56 +581,18 @@ export function SheetGridCanvas({
           </div>
         ) : null}
         {showZoomFooter ? (
-          <div
-            className="map-sheet-canvas-toolbar"
-            role="group"
-            aria-label={viewportLabels.zoomLabel(zoom)}
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerUp={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="map-sheet-canvas-toolbar-btn"
-              aria-label={viewportLabels.zoomOut}
-              title={viewportLabels.zoomOut}
-              disabled={zoom <= MIN_ZOOM}
-              onClick={() => setZoom(Math.max(MIN_ZOOM, zoom / 1.5))}
-            >
-              <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="map-sheet-canvas-toolbar-value"
-              aria-label={viewportLabels.setOneToOne}
-              title={viewportLabels.setOneToOne}
-              onClick={() => {
-                setZoom(1)
-                requestAnimationFrame(fitView)
-              }}
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              className="map-sheet-canvas-toolbar-btn"
-              aria-label={viewportLabels.zoomIn}
-              title={viewportLabels.zoomIn}
-              disabled={zoom >= MAX_ZOOM}
-              onClick={() => setZoom(Math.min(MAX_ZOOM, zoom * 1.5))}
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-            <span className="map-sheet-canvas-toolbar-sep" aria-hidden="true" />
-            <button
-              type="button"
-              className="map-sheet-canvas-toolbar-btn"
-              aria-label={assetEditorLabels.fitToScreen}
-              title={assetEditorLabels.fitToScreen}
-              onClick={fitView}
-            >
-              <Maximize className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
+          <ViewportZoomToolbar
+            zoom={zoom}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
+            onZoomOut={() => setZoom(Math.max(MIN_ZOOM, zoom / 1.5))}
+            onZoomIn={() => setZoom(Math.min(MAX_ZOOM, zoom * 1.5))}
+            onOneToOne={() => {
+              setZoom(1)
+              requestAnimationFrame(fitView)
+            }}
+            onFit={fitView}
+          />
         ) : null}
       </div>
     </>

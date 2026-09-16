@@ -1,10 +1,4 @@
-export {
-  NotificationProvider,
-  clearNotifications,
-  dismissNotification,
-  publishNotification,
-  useNotificationPublisher,
-} from './notifications'
+export { NotificationProvider, clearNotifications, dismissNotification, publishNotification } from './notifications'
 export { setNotificationSoundEnabled } from './notificationSounds'
 export type {
   NotificationAction,

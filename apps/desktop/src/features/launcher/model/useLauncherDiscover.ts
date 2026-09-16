@@ -1,3 +1,5 @@
+import { orNull } from '@platform/observability'
+
 /**
  * @file useLauncherDiscover hook: remote catalog search state with debounced
  * queries, facet merging, and Nexus diagnostics gating.
@@ -237,7 +239,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
       } satisfies SearchLauncherCatalogRequest
 
       try {
-        const diagnostics = bypassDiagnostics ? null : await launcherPort.loadNexusDiagnostics().catch(() => null)
+        const diagnostics = bypassDiagnostics ? null : await orNull(launcherPort.loadNexusDiagnostics(), 'launcherDiscover.loadDiagnostics')
         if (!scope.isCurrent()) {
           return
         }

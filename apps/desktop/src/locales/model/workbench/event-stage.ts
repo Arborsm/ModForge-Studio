@@ -346,9 +346,6 @@ export type EventStageCopy = {
   flashAlphaLabel: (alpha: string) => string
   playbackHaltedTitle: string
   playbackHaltedDetail: string
-  pickModeComplete: string
-  pickModeClear: string
-  pickModeCancel: string
   clickMapToPick: string
   directionLabels: {
     up: string

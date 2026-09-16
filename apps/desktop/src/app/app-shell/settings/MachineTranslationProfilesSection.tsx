@@ -15,7 +15,8 @@ import type {
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 
 const MT_TEST_NOTIFICATION = 'machine-translation-connection-test'
 const MT_LANG_NOTIFICATION = 'machine-translation-load-languages'
@@ -66,7 +67,6 @@ export function MachineTranslationProfilesSection({
   const rootCopy = useSettingsMenuCopy().ai
   const copy = rootCopy.machineTranslation
   const notifications = useNotificationCopy().ai
-  const publish = useNotificationPublisher()
   const [snapshot, setSnapshot] = useState<MachineTranslationSettingsSnapshot | null>(null)
   const [profiles, setProfiles] = useState<Draft[]>([])
   const [defaultId, setDefaultId] = useState<string | null>(null)
@@ -194,13 +194,13 @@ export function MachineTranslationProfilesSection({
       if (!mounted.current) return
       const failure = parseAiFailure(cause)
       setError(failure.detail || copy.saveError)
-      publish({
-        id: SAVE_NOTIFICATION,
-        level: 'error',
-        title: notifications.settingsSaveFailedTitle,
-        description: notifications.failureDescriptions[failure.code],
-        action: { label: notifications.retryAction, callback: () => void save(), tone: 'primary' },
-      })
+      appEvent('error', notifications.settingsSaveFailedTitle)
+        .description(notifications.failureDescriptions[failure.code])
+        .noticeId(SAVE_NOTIFICATION)
+        .action({ label: notifications.retryAction, callback: () => void save(), tone: 'primary' })
+        .error(cause)
+        .context({ source: 'settings-machine-translation', operation: 'save-profile' })
+        .emit()
     } finally {
       if (mounted.current) setSaving(false)
     }
@@ -227,33 +227,31 @@ export function MachineTranslationProfilesSection({
     dismissNotification(notificationId)
     dismissNotification(MT_LANG_NOTIFICATION)
     setLoadingLanguagesId(id)
-    publish({
-      id: MT_LANG_NOTIFICATION,
-      level: 'info',
-      title: copy.loadLanguagesRunning,
-      autoDismissMs: null,
-    })
+    appEvent('info', copy.loadLanguagesRunning)
+      .noticeId(MT_LANG_NOTIFICATION)
+      .autoDismiss(null)
+      .context({ source: 'settings-machine-translation', operation: 'load-languages' })
+      .emit()
     try {
       const value = await localization.listMachineTranslationLanguages(id)
       if (!mounted.current) return
       setLanguages((current) => ({ ...current, [id]: value }))
       dismissNotification(MT_LANG_NOTIFICATION)
-      publish({
-        id: MT_LANG_NOTIFICATION,
-        level: 'success',
-        title: copy.loadLanguagesSuccess(value.length),
-      })
+      appEvent('success', copy.loadLanguagesSuccess(value.length))
+        .noticeId(MT_LANG_NOTIFICATION)
+        .context({ source: 'settings-machine-translation', operation: 'load-languages' })
+        .emit()
     } catch (cause) {
       if (!mounted.current) return
       const failure = parseAiFailure(cause)
       dismissNotification(MT_LANG_NOTIFICATION)
-      publish({
-        id: notificationId,
-        level: 'error',
-        title: copy.loadLanguagesError,
-        description: notifications.failureDescriptions[failure.code],
-        action: { label: notifications.retryAction, callback: () => void loadLanguages(id), tone: 'primary' },
-      })
+      appEvent('error', copy.loadLanguagesError)
+        .description(notifications.failureDescriptions[failure.code])
+        .noticeId(notificationId)
+        .action({ label: notifications.retryAction, callback: () => void loadLanguages(id), tone: 'primary' })
+        .error(cause)
+        .context({ source: 'settings-machine-translation', operation: 'load-languages' })
+        .emit()
     } finally {
       if (mounted.current) setLoadingLanguagesId(null)
     }
@@ -263,33 +261,31 @@ export function MachineTranslationProfilesSection({
     dismissNotification(notificationId)
     dismissNotification(MT_TEST_NOTIFICATION)
     setTestingId(id)
-    publish({
-      id: MT_TEST_NOTIFICATION,
-      level: 'info',
-      title: rootCopy.testingConnection,
-      autoDismissMs: null,
-    })
+    appEvent('info', rootCopy.testingConnection)
+      .noticeId(MT_TEST_NOTIFICATION)
+      .autoDismiss(null)
+      .context({ source: 'settings-machine-translation', operation: 'test-profile' })
+      .emit()
     try {
       const value = await localization.testMachineTranslationProfile(id)
       if (!mounted.current) return
       setTestResult(value)
       dismissNotification(MT_TEST_NOTIFICATION)
-      publish({
-        id: MT_TEST_NOTIFICATION,
-        level: 'success',
-        title: rootCopy.testSuccess(value.latencyMs),
-      })
+      appEvent('success', rootCopy.testSuccess(value.latencyMs))
+        .noticeId(MT_TEST_NOTIFICATION)
+        .context({ source: 'settings-machine-translation', operation: 'test-profile' })
+        .emit()
     } catch (cause) {
       if (!mounted.current) return
       const failure = parseAiFailure(cause)
       dismissNotification(MT_TEST_NOTIFICATION)
-      publish({
-        id: notificationId,
-        level: 'error',
-        title: notifications.connectionTestFailedTitle,
-        description: notifications.failureDescriptions[failure.code],
-        action: { label: notifications.retryAction, callback: () => void test(id), tone: 'primary' },
-      })
+      appEvent('error', notifications.connectionTestFailedTitle)
+        .description(notifications.failureDescriptions[failure.code])
+        .noticeId(notificationId)
+        .action({ label: notifications.retryAction, callback: () => void test(id), tone: 'primary' })
+        .error(cause)
+        .context({ source: 'settings-machine-translation', operation: 'test-profile' })
+        .emit()
     } finally {
       if (mounted.current) setTestingId(null)
     }

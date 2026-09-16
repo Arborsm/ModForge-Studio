@@ -12,6 +12,7 @@ import {
   unwrapMapPropertyValue,
 } from '@entities/map'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
+import { appEvent, reportRecovered } from '@platform/observability'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '@shared/lib/maps'
 import { clampPanZoomZoom } from '@shared/lib/viewports'
 import type { LocaleCode, ThemeMode } from '@locales/api'
@@ -119,7 +120,8 @@ export function getRasterAlphaBounds(canvas: HTMLCanvasElement) {
           height: bounds.bottom - bounds.top,
         }
       : null
-  } catch {
+  } catch (error) {
+    reportRecovered(error, 'map-viewport.compute-raster-bounds')
     return null
   }
 }
@@ -173,8 +175,9 @@ function getTransparentTileIds(loadedTileset: LoadedTilesetImage): ReadonlySet<n
 
     nextCacheForImage.set(cacheKey, transparentTileIds)
     return transparentTileIds
-  } catch {
+  } catch (error) {
     nextCacheForImage.set(cacheKey, null)
+    reportRecovered(error, 'map-viewport.compute-transparent-tiles')
     return null
   }
 }
@@ -316,8 +319,13 @@ export function loadImage(path: string, locale: LocaleCode, errorFactory: (path:
         imagePromiseCache.delete(cacheKey)
         resolve(resource.image)
       })
-      .catch(() => {
+      .catch((error) => {
         imagePromiseCache.delete(cacheKey)
+        appEvent('warning', 'Failed to load map image resource')
+          .error(error)
+          .context({ source: 'map-viewport-helpers', operation: 'load-image-resource', path })
+          .dedupe(`map-image-resource:${path}`)
+          .emit({ notify: false })
         reject(new Error(errorFactory(path)))
       })
   })

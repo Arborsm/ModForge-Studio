@@ -24,6 +24,7 @@ import {
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { resolveLocalizedText, tryParseStringAssetReference } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 /** One row of the source list. */
 export type BuildingSourceRow = {
@@ -109,8 +110,12 @@ export function useVanillaBuildingIndex(
           available: true,
         })
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Building source data failed to load')
+            .error(error)
+            .context({ source: 'building-authoring', operation: 'load-source-index' })
+            .emit({ notify: false })
           setState({ entries: new Map(), groups: [], records: {}, loading: false, available: false })
         }
       })

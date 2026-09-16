@@ -1,5 +1,5 @@
 import { ChevronRight, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { MapAssetSummary } from '@entities/game/api'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
 import { useMapPanelCopy } from '@locales/provider'
@@ -156,7 +156,7 @@ export function MapBrowserPanel({
   const labels = useMapPanelCopy()
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
 
-  const groupedAssets = useMemo(() => {
+  const groupedAssets = (() => {
     const groups = new Map<string, MapAssetSummary[]>()
     for (const asset of filteredAssets) {
       const groupLabel = getAssetGroupLabel(asset)
@@ -174,7 +174,7 @@ export function MapBrowserPanel({
         items: items.sort((left, right) => left.name.localeCompare(right.name)),
       }))
       .sort((left, right) => right.items.length - left.items.length || left.label.localeCompare(right.label))
-  }, [filteredAssets])
+  })()
 
   return (
     <aside className="item-workspace-pane h-full">

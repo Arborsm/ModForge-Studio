@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { TaskCancelledError, useKeyedResourceTask } from '@shared/lib/task-runtime'
 import type { LocaleCode } from '@locales/api'
 import { resolveLocalizedTextDetailed, type LocalizedTextResolution } from './localizedText'
 
@@ -17,22 +18,26 @@ export function useLocalizedTextResolution(
   value: string | null | undefined,
 ): LocalizedTextResolution | null {
   const [resolution, setResolution] = useState<LocalizedTextResolution | null>(null)
+  const scopeKey = `${rootPath ?? 'none'}:${value ?? 'none'}`
+  const runResolutionTask = useKeyedResourceTask(scopeKey)
 
   useEffect(() => {
-    if (rootPath === null || value === null || value === undefined || value.trim() === '') {
-      setResolution(null)
-      return
-    }
-    let cancelled = false
-    void resolveLocalizedTextDetailed(rootPath, locale, value).then((result) => {
-      if (!cancelled) {
+    void runResolutionTask(async (scope) => {
+      if (rootPath === null || value === null || value === undefined || value.trim() === '') {
+        setResolution(null)
+        return
+      }
+      const result = await resolveLocalizedTextDetailed(rootPath, locale, value)
+      if (scope.isCurrent()) {
         setResolution(result)
       }
+    }).catch((error) => {
+      if (error instanceof TaskCancelledError) {
+        return
+      }
+      throw error
     })
-    return () => {
-      cancelled = true
-    }
-  }, [rootPath, locale, value])
+  }, [locale, rootPath, runResolutionTask, value])
 
   return resolution
 }

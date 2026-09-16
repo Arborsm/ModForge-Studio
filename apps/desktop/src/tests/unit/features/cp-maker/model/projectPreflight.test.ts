@@ -90,4 +90,46 @@ describe('collectDraftIssues preflight roll-up', () => {
     )
     expect(issues).toEqual([])
   })
+
+  test('a "false" string token reads as disabled, matching the export filter', () => {
+    // The export skips `enabled: "false"` (any case); validation must agree so
+    // a patch the pack ignores does not surface a blocking error.
+    const issues = collectDraftIssues(
+      draft({
+        patches: [
+          {
+            id: 'p1',
+            workspace: 'map',
+            target: 'Maps/Farm',
+            action: 'Load',
+            logName: '',
+            enabled: 'False',
+            editorState: {},
+          },
+        ],
+      }),
+    )
+    expect(issues).toEqual([])
+  })
+
+  test('an unconfigured Load reports its missing target instead of a missing file', () => {
+    const issues = collectDraftIssues(
+      draft({
+        patches: [
+          {
+            id: 'p1',
+            workspace: 'map',
+            target: '',
+            action: 'Load',
+            logName: '',
+            enabled: true,
+            editorState: {},
+            fromFile: 'assets/maps/Custom.tmx',
+          },
+        ],
+      }),
+    )
+    expect(issues.map((issue) => issue.code)).toEqual(['patchTargetMissing'])
+    expect(issues[0]!.severity).toBe('error')
+  })
 })

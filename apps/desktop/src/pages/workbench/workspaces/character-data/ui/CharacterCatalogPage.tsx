@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useState } from 'react'
 import { Plus, Search, UserRound } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
@@ -120,13 +120,13 @@ export function CharacterCatalogPage({
   const [groupsLoading, setGroupsLoading] = useState(true)
   const deferredSearch = useDeferredValue(search)
   const vanilla = useVanillaCharacterIndex(gameRootPath, directoryInfo, locale)
-  const vanillaTextureNames = useMemo(() => {
+  const vanillaTextureNames = (() => {
     const names: string[] = []
     for (const entry of vanilla.entries.values()) {
       names.push(entry.spriteAssetName, entry.portraitAssetName, entry.textureName)
     }
     return names.filter((name) => name !== '')
-  }, [vanilla.entries])
+  })()
   const referenceData = useCharacterAuthoringResources({
     gameRootPath,
     directoryInfo,

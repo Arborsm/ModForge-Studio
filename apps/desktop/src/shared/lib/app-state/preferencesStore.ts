@@ -22,6 +22,9 @@ type PreferencesStateValues = {
   loadingMotionPreference: LoadingMotionPreference
   windowCloseBehavior: WindowCloseBehavior
   rememberCloseChoice: boolean
+  expertMode: boolean
+  forceOffline: boolean
+  forceNonPremium: boolean
 }
 
 /** Public preferences state shape: reactive values plus setter actions consumed by UI components. */
@@ -39,6 +42,9 @@ export type PreferencesState = PreferencesStateValues & {
   setLoadingMotionPreference: (preference: LoadingMotionPreference) => void
   setWindowCloseBehavior: (behavior: WindowCloseBehavior) => void
   setRememberCloseChoice: (remember: boolean) => void
+  setExpertMode: (enabled: boolean) => void
+  setForceOffline: (enabled: boolean) => void
+  setForceNonPremium: (enabled: boolean) => void
 }
 
 type PreferencesStoreSeed = Partial<PreferencesStateValues>
@@ -113,6 +119,9 @@ function readPreferencesFromAppUiState(state: AppUiState): PreferencesStateValue
     loadingMotionPreference: normalizeLoadingMotionPreference(state.appearance.loadingMotion),
     windowCloseBehavior: normalizeWindowCloseBehavior(state.shell.windowCloseBehavior),
     rememberCloseChoice: typeof state.shell.rememberCloseChoice === 'boolean' ? state.shell.rememberCloseChoice : false,
+    expertMode: state.workspace.expertMode,
+    forceOffline: state.launcher.forceOffline,
+    forceNonPremium: state.launcher.forceNonPremium,
   }
 }
 
@@ -217,6 +226,18 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   setRememberCloseChoice: (rememberCloseChoice) => {
     set({ rememberCloseChoice })
     patchShellPreference({ rememberCloseChoice })
+  },
+  setExpertMode: (expertMode) => {
+    set({ expertMode })
+    persistAppUiStatePatch({ workspace: { expertMode } })
+  },
+  setForceOffline: (forceOffline) => {
+    set({ forceOffline })
+    persistAppUiStatePatch({ launcher: { forceOffline } })
+  },
+  setForceNonPremium: (forceNonPremium) => {
+    set({ forceNonPremium })
+    persistAppUiStatePatch({ launcher: { forceNonPremium } })
   },
 }))
 

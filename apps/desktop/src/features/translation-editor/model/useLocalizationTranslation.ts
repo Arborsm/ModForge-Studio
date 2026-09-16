@@ -1,3 +1,5 @@
+import { appEvent, ignoreError } from '@platform/observability'
+
 /**
  * @file Hook owning one workbench AI translation batch — batching, streaming previews, conflict detection, and result application.
  * @module features/translation-editor
@@ -27,7 +29,7 @@ import type {
   KnowledgePolicy,
   LocalizationEngineRef,
 } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import type { TranslationEntry } from './translationEditor'
 import { planStardewTranslationItems } from './stardewTranslationBatch'
 
@@ -158,7 +160,6 @@ export function useLocalizationTranslation({
   const ai = useAi()
   const copy = useTranslationEditorCopy()
   const notificationCopy = useNotificationCopy().ai
-  const publishNotification = useNotificationPublisher()
   const activeJobs = useRef(new Set<string>())
   const operationRef = useRef(0)
   const ownerRef = useRef<number | null>(null)
@@ -197,7 +198,7 @@ export function useLocalizationTranslation({
     dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
     dismissNotification(WORKBENCH_AI_USAGE_NOTIFICATION_ID)
     for (const jobId of activeJobs.current) {
-      void localization.cancelJob(jobId).catch(() => undefined)
+      void ignoreError(localization.cancelJob(jobId), 'localizationTranslation.cancelJobs')
     }
     activeJobs.current.clear()
     setProgress((current) => ({ ...current, running: false }))
@@ -257,296 +258,274 @@ export function useLocalizationTranslation({
     }
   }, [ai])
 
-  const run = useCallback(
-    async (mode: TranslationAiMode) => {
-      if (ownerRef.current !== null) return
-      if (mode === 'all' && !window.confirm(copy.aiTranslateAllConfirm)) return
-      const selected =
-        mode === 'current'
-          ? activeEntry
-            ? [activeEntry]
-            : []
-          : mode === 'missing'
-            ? allEntries.filter((entry) => entry.status === 'missing')
-            : allEntries
-      if (!selected.length) return
+  const run = async (mode: TranslationAiMode) => {
+    if (ownerRef.current !== null) return
+    if (mode === 'all' && !window.confirm(copy.aiTranslateAllConfirm)) return
+    const selected =
+      mode === 'current'
+        ? activeEntry
+          ? [activeEntry]
+          : []
+        : mode === 'missing'
+          ? allEntries.filter((entry) => entry.status === 'missing')
+          : allEntries
+    if (!selected.length) return
 
-      const operation = ++operationRef.current
-      ownerRef.current = operation
-      streamingRef.current = null
-      streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
-      streamCompletedCountRef.current = 0
-      overallCompletedRef.current = 0
-      setStreamingValues(new Map())
-      dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
-      setProgress({ running: true, completed: 0, total: selected.length, error: null, failedKeys: [], warning: null, warningKeys: [] })
-      const publishRunning = (completed: number) => {
-        publishNotification({
-          id: WORKBENCH_AI_NOTIFICATION_ID,
-          level: 'info',
-          title: copy.aiTranslating(completed, selected.length),
-          description: copy.aiTranslating(completed, selected.length),
-          autoDismissMs: null,
-          loading: true,
-          progress: selected.length > 0 ? (completed / selected.length) * 100 : 0,
-          action: { label: copy.aiCancel, callback: cancel, tone: 'primary' },
-        })
+    const operation = ++operationRef.current
+    ownerRef.current = operation
+    streamingRef.current = null
+    streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
+    streamCompletedCountRef.current = 0
+    overallCompletedRef.current = 0
+    setStreamingValues(new Map())
+    dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
+    setProgress({ running: true, completed: 0, total: selected.length, error: null, failedKeys: [], warning: null, warningKeys: [] })
+    const publishRunning = (completed: number) => {
+      appEvent('info', copy.aiTranslating(completed, selected.length))
+        .description(copy.aiTranslating(completed, selected.length))
+        .noticeId(WORKBENCH_AI_NOTIFICATION_ID)
+        .autoDismiss(null)
+        .loading()
+        .progress(selected.length > 0 ? (completed / selected.length) * 100 : 0)
+        .action({ label: copy.aiCancel, callback: cancel, tone: 'primary' })
+        .context({ source: 'localization-translation', operation: 'translate-localization' })
+        .emit()
+    }
+    publishRunning(0)
+    const ensureCurrent = () => {
+      if (operation !== operationRef.current || ownerRef.current !== operation) {
+        throw new Error('AI_ERROR::cancelled::AI translation context changed.')
       }
-      publishRunning(0)
-      const ensureCurrent = () => {
-        if (operation !== operationRef.current || ownerRef.current !== operation) {
-          throw new Error('AI_ERROR::cancelled::AI translation context changed.')
-        }
-      }
-      const guarded = async <T>(promise: Promise<T>) => {
-        try {
-          const result = await promise
-          ensureCurrent()
-          return result
-        } catch (cause) {
-          ensureCurrent()
-          throw cause
-        }
-      }
-
+    }
+    const guarded = async <T>(promise: Promise<T>) => {
       try {
-        let selectedEngine = engineRef
-        if (!selectedEngine) selectedEngine = await guarded(localization.loadDefaultEngine())
-        if (!selectedEngine) throw new Error('AI_ERROR::not-configured::No translation engine is configured.')
-        const originalSourceItems: AiTranslationItem[] = selected.map((entry) => ({
-          id: entry.key,
-          text: entry.sourceText,
-          format: 'stardewI18n',
-          context: entry.key,
-        }))
-        const stardewPlan = planStardewTranslationItems(originalSourceItems)
-        const sourceItems = stardewPlan.items
-        const rootJobId = `workbench-localization:${crypto.randomUUID()}`
-        let batches: (typeof sourceItems)[] = []
-        let mergeBatchResults = (items: AiTranslationResultItem[]) => items
-        let aiProfileMaxBatchBytes: number | null = null
-        if (selectedEngine.kind === 'generative-ai') {
-          // Resolve the profile's explicit context window so batches budget
-          // against it; the builder falls back to model metadata / safe default.
-          const aiSettings = await guarded(ai.loadSettings())
-          const profile = aiSettings.profiles.find((value) => value.id === selectedEngine.profileId)
-          aiProfileMaxBatchBytes = profile?.maxBatchBytes ?? null
-          const plan = buildAiTranslationBatches(
-            {
-              profileId: selectedEngine.profileId,
+        const result = await promise
+        ensureCurrent()
+        return result
+      } catch (cause) {
+        ensureCurrent()
+        throw cause
+      }
+    }
+
+    try {
+      let selectedEngine = engineRef
+      if (!selectedEngine) selectedEngine = await guarded(localization.loadDefaultEngine())
+      if (!selectedEngine) throw new Error('AI_ERROR::not-configured::No translation engine is configured.')
+      const originalSourceItems: AiTranslationItem[] = selected.map((entry) => ({
+        id: entry.key,
+        text: entry.sourceText,
+        format: 'stardewI18n',
+        context: entry.key,
+      }))
+      const stardewPlan = planStardewTranslationItems(originalSourceItems)
+      const sourceItems = stardewPlan.items
+      const rootJobId = `workbench-localization:${crypto.randomUUID()}`
+      let batches: (typeof sourceItems)[] = []
+      let mergeBatchResults = (items: AiTranslationResultItem[]) => items
+      let aiProfileMaxBatchBytes: number | null = null
+      if (selectedEngine.kind === 'generative-ai') {
+        // Resolve the profile's explicit context window so batches budget
+        // against it; the builder falls back to model metadata / safe default.
+        const aiSettings = await guarded(ai.loadSettings())
+        const profile = aiSettings.profiles.find((value) => value.id === selectedEngine.profileId)
+        aiProfileMaxBatchBytes = profile?.maxBatchBytes ?? null
+        const plan = buildAiTranslationBatches(
+          {
+            profileId: selectedEngine.profileId,
+            sourceLocale,
+            targetLocale,
+            usageContext: { pageSource: 'workbench-translation', operation: 'translate', ...(scopeId ? { scopeId } : {}) },
+            knowledgePolicy,
+            maxBatchBytes: aiProfileMaxBatchBytes,
+          },
+          sourceItems,
+          rootJobId,
+          { contextWindowTokens: profile?.contextWindowTokens ?? null, maxBatchBytes: aiProfileMaxBatchBytes },
+        )
+        batches = plan.batches.map((batch) => batch.items)
+        mergeBatchResults = plan.mergeResults
+      } else {
+        const settings = await guarded(localization.loadMachineTranslationSettings())
+        const profile = settings.profiles.find((value) => value.id === selectedEngine.profileId)
+        const preset = settings.presets.find((value) => value.id === profile?.presetId)
+        if (!profile || !preset) throw new Error('AI_ERROR::not-configured::The selected machine translation profile does not exist.')
+        let current: typeof sourceItems = []
+        let characters = 0
+        for (const item of sourceItems) {
+          const count = Array.from(item.text).length
+          if (current.length && characters + count > preset.capability.maxBatchCharacters) {
+            batches.push(current)
+            current = []
+            characters = 0
+          }
+          current.push(item)
+          characters += count
+        }
+        if (current.length) batches.push(current)
+      }
+      const baselines = new Map(selected.map((entry) => [entry.key, { sourceText: entry.sourceText, targetText: entry.targetText }]))
+      const results: AiTranslationResultItem[] = []
+      const failedKeys = new Set<string>()
+      const warningKeys = new Set<string>()
+      let lastFailure: AiFailure | null = null
+      let usageRecordFailed = false
+      const originalId = (id: string) => stardewPlan.originalId(id.split('\u0000', 1)[0] ?? id)
+      const execute = async (items: typeof sourceItems, jobId: string) => {
+        activeJobs.current.add(jobId)
+        // Record the streaming context for the current job: the backend
+        // uses the same jobId to push deltas over ai://translation-stream
+        // when the profile enables streamTranslation. A retry job also
+        // re-enters here; late deltas from the previous run are discarded
+        // by the subscription side due to jobId mismatch.
+        streamingRef.current = {
+          jobId,
+          operation,
+          totalEntries: selected.length,
+          originalId: stardewPlan.originalId,
+          mergeResults: (streamed) => stardewPlan.mergeResults(mergeBatchResults(streamed)),
+          // Same as the backend: derive the wire sentinel mapping from the
+          // sent item text; before the streaming preview commit, restore
+          // ⟦N⟧ back to source placeholders so users never see the wire format.
+          sentinelByItemId: buildPlaceholderSentinelMap(items),
+        }
+        streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
+        streamCompletedCountRef.current = 0
+        try {
+          const result = await guarded(
+            localization.translateBatch({
+              jobId,
+              engine: selectedEngine,
               sourceLocale,
               targetLocale,
+              items,
               usageContext: { pageSource: 'workbench-translation', operation: 'translate', ...(scopeId ? { scopeId } : {}) },
               knowledgePolicy,
               maxBatchBytes: aiProfileMaxBatchBytes,
-            },
-            sourceItems,
-            rootJobId,
-            { contextWindowTokens: profile?.contextWindowTokens ?? null, maxBatchBytes: aiProfileMaxBatchBytes },
+            }),
           )
-          batches = plan.batches.map((batch) => batch.items)
-          mergeBatchResults = plan.mergeResults
-        } else {
-          const settings = await guarded(localization.loadMachineTranslationSettings())
-          const profile = settings.profiles.find((value) => value.id === selectedEngine.profileId)
-          const preset = settings.presets.find((value) => value.id === profile?.presetId)
-          if (!profile || !preset) throw new Error('AI_ERROR::not-configured::The selected machine translation profile does not exist.')
-          let current: typeof sourceItems = []
-          let characters = 0
-          for (const item of sourceItems) {
-            const count = Array.from(item.text).length
-            if (current.length && characters + count > preset.capability.maxBatchCharacters) {
-              batches.push(current)
-              current = []
-              characters = 0
-            }
-            current.push(item)
-            characters += count
-          }
-          if (current.length) batches.push(current)
-        }
-        const baselines = new Map(selected.map((entry) => [entry.key, { sourceText: entry.sourceText, targetText: entry.targetText }]))
-        const results: AiTranslationResultItem[] = []
-        const failedKeys = new Set<string>()
-        const warningKeys = new Set<string>()
-        let lastFailure: AiFailure | null = null
-        let usageRecordFailed = false
-        const originalId = (id: string) => stardewPlan.originalId(id.split('\u0000', 1)[0] ?? id)
-        const execute = async (items: typeof sourceItems, jobId: string) => {
-          activeJobs.current.add(jobId)
-          // Record the streaming context for the current job: the backend
-          // uses the same jobId to push deltas over ai://translation-stream
-          // when the profile enables streamTranslation. A retry job also
-          // re-enters here; late deltas from the previous run are discarded
-          // by the subscription side due to jobId mismatch.
-          streamingRef.current = {
-            jobId,
-            operation,
-            totalEntries: selected.length,
-            originalId: stardewPlan.originalId,
-            mergeResults: (streamed) => stardewPlan.mergeResults(mergeBatchResults(streamed)),
-            // Same as the backend: derive the wire sentinel mapping from the
-            // sent item text; before the streaming preview commit, restore
-            // ⟦N⟧ back to source placeholders so users never see the wire format.
-            sentinelByItemId: buildPlaceholderSentinelMap(items),
-          }
-          streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
-          streamCompletedCountRef.current = 0
-          try {
-            const result = await guarded(
-              localization.translateBatch({
-                jobId,
-                engine: selectedEngine,
-                sourceLocale,
-                targetLocale,
-                items,
-                usageContext: { pageSource: 'workbench-translation', operation: 'translate', ...(scopeId ? { scopeId } : {}) },
-                knowledgePolicy,
-                maxBatchBytes: aiProfileMaxBatchBytes,
-              }),
-            )
-            usageRecordFailed ||= result.usageRecordState === 'failed'
-            results.push(...result.items)
-            for (const issue of result.validationIssues) warningKeys.add(originalId(issue.itemId))
-          } finally {
-            activeJobs.current.delete(jobId)
-            if (streamingRef.current?.jobId === jobId) {
-              // This job has settled: all late deltas are discarded and the
-              // authoritative result takes over. The streaming preview is
-              // retained until the whole operation ends (the final apply
-              // writes back to the file); completed items are merged into the
-              // accumulated progress so progress never regresses between batches.
-              overallCompletedRef.current += streamCompletedCountRef.current
-              streamingRef.current = null
-              streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
-              streamCompletedCountRef.current = 0
-            }
+          usageRecordFailed ||= result.usageRecordState === 'failed'
+          results.push(...result.items)
+          for (const issue of result.validationIssues) warningKeys.add(originalId(issue.itemId))
+        } finally {
+          activeJobs.current.delete(jobId)
+          if (streamingRef.current?.jobId === jobId) {
+            // This job has settled: all late deltas are discarded and the
+            // authoritative result takes over. The streaming preview is
+            // retained until the whole operation ends (the final apply
+            // writes back to the file); completed items are merged into the
+            // accumulated progress so progress never regresses between batches.
+            overallCompletedRef.current += streamCompletedCountRef.current
+            streamingRef.current = null
+            streamAccumulatorRef.current = EMPTY_TRANSLATION_STREAM
+            streamCompletedCountRef.current = 0
           }
         }
+      }
 
-        for (const [batchIndex, batch] of batches.entries()) {
-          const batchJobId = `${rootJobId}:${batchIndex}`
-          ensureCurrent()
-          try {
-            await execute(batch, batchJobId)
-          } catch (cause) {
-            const batchFailure = parseAiFailure(cause)
-            if (batchFailure.code === 'cancelled') throw cause
-            for (const [index, item] of batch.entries()) {
-              ensureCurrent()
-              try {
-                await execute([item], `${batchJobId}:retry:${index}`)
-              } catch (itemCause) {
-                lastFailure = parseAiFailure(itemCause)
-                if (lastFailure.code === 'cancelled') throw itemCause
-                failedKeys.add(originalId(item.id))
-              }
-            }
-          }
-          const completed = stardewPlan.mergeResults(mergeBatchResults(results)).length + failedKeys.size
-          publishRunning(Math.min(selected.length, completed))
-          setProgress((current) => ({
-            ...current,
-            completed: Math.min(current.total, completed),
-            error: failedKeys.size ? copy.aiPartialFailed(failedKeys.size) : null,
-            failedKeys: [...failedKeys],
-            warning: warningKeys.size ? copy.aiValidationWarnings(warningKeys.size) : null,
-            warningKeys: [...warningKeys],
-          }))
-        }
-
+      for (const [batchIndex, batch] of batches.entries()) {
+        const batchJobId = `${rootJobId}:${batchIndex}`
         ensureCurrent()
-        const values = new Map(stardewPlan.mergeResults(mergeBatchResults(results)).map((item) => [item.id, item.translatedText]))
-        for (const key of applyResultsRef.current(values, baselines)) failedKeys.add(key)
-        const completed = Math.min(selected.length, values.size + failedKeys.size)
+        try {
+          await execute(batch, batchJobId)
+        } catch (cause) {
+          const batchFailure = parseAiFailure(cause)
+          if (batchFailure.code === 'cancelled') throw cause
+          for (const [index, item] of batch.entries()) {
+            ensureCurrent()
+            try {
+              await execute([item], `${batchJobId}:retry:${index}`)
+            } catch (itemCause) {
+              lastFailure = parseAiFailure(itemCause)
+              if (lastFailure.code === 'cancelled') throw itemCause
+              failedKeys.add(originalId(item.id))
+            }
+          }
+        }
+        const completed = stardewPlan.mergeResults(mergeBatchResults(results)).length + failedKeys.size
+        publishRunning(Math.min(selected.length, completed))
         setProgress((current) => ({
           ...current,
-          completed,
+          completed: Math.min(current.total, completed),
           error: failedKeys.size ? copy.aiPartialFailed(failedKeys.size) : null,
           failedKeys: [...failedKeys],
           warning: warningKeys.size ? copy.aiValidationWarnings(warningKeys.size) : null,
           warningKeys: [...warningKeys],
         }))
-        if (failedKeys.size) {
-          const providerFailure = lastFailure !== null
-          const allFailed = failedKeys.size === selected.length && providerFailure
-          publishNotification({
-            id: WORKBENCH_AI_NOTIFICATION_ID,
-            level: allFailed ? 'error' : 'warning',
-            title: allFailed ? notificationCopy.translationFailedTitle : notificationCopy.partialTranslationFailedTitle,
-            description: allFailed
+      }
+
+      ensureCurrent()
+      const values = new Map(stardewPlan.mergeResults(mergeBatchResults(results)).map((item) => [item.id, item.translatedText]))
+      for (const key of applyResultsRef.current(values, baselines)) failedKeys.add(key)
+      const completed = Math.min(selected.length, values.size + failedKeys.size)
+      setProgress((current) => ({
+        ...current,
+        completed,
+        error: failedKeys.size ? copy.aiPartialFailed(failedKeys.size) : null,
+        failedKeys: [...failedKeys],
+        warning: warningKeys.size ? copy.aiValidationWarnings(warningKeys.size) : null,
+        warningKeys: [...warningKeys],
+      }))
+      if (failedKeys.size) {
+        const providerFailure = lastFailure !== null
+        const allFailed = failedKeys.size === selected.length && providerFailure
+        appEvent(
+          allFailed ? 'error' : 'warning',
+          allFailed ? notificationCopy.translationFailedTitle : notificationCopy.partialTranslationFailedTitle,
+        )
+          .description(
+            allFailed
               ? notificationCopy.failureDescriptions[lastFailure?.code ?? 'unknown']
               : notificationCopy.partialTranslationFailedDescription(failedKeys.size),
-            action: { label: notificationCopy.retryAction, callback: () => runRef.current(mode), tone: 'primary' },
-          })
-        } else if (warningKeys.size) {
-          publishNotification({
-            id: WORKBENCH_AI_NOTIFICATION_ID,
-            level: 'warning',
-            title: copy.aiValidationWarningTitle,
-            description: copy.aiValidationWarnings(warningKeys.size),
-          })
-        } else {
-          dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
-        }
-        if (usageRecordFailed) {
-          publishNotification({
-            id: WORKBENCH_AI_USAGE_NOTIFICATION_ID,
-            level: 'warning',
-            title: notificationCopy.usageRecordFailedTitle,
-            description: notificationCopy.usageRecordFailedDescription,
-          })
-        }
-      } catch (cause) {
-        const failure = parseAiFailure(cause)
-        if (failure.code !== 'cancelled') {
-          setProgress((current) => ({
-            ...current,
-            error: failure.code === 'not-configured' ? copy.aiNotConfigured : copy.aiFailed,
-            failedKeys: [],
-            warning: null,
-            warningKeys: [],
-          }))
-          publishNotification({
-            id: WORKBENCH_AI_NOTIFICATION_ID,
-            level: 'error',
-            title: notificationCopy.translationFailedTitle,
-            description: notificationCopy.failureDescriptions[failure.code],
-            action: { label: notificationCopy.retryAction, callback: () => runRef.current(mode), tone: 'primary' },
-          })
-        }
-      } finally {
-        if (ownerRef.current === operation) {
-          ownerRef.current = null
-          // The authoritative structured result has been written back to the
-          // file via applyResults; all streaming previews step aside.
-          setStreamingValues(null)
-          setProgress((current) => ({ ...current, running: false }))
-        }
+          )
+          .noticeId(WORKBENCH_AI_NOTIFICATION_ID)
+          .action({ label: notificationCopy.retryAction, callback: () => runRef.current(mode), tone: 'primary' })
+          .context({ source: 'localization-translation', operation: 'translate-localization' })
+          .emit()
+      } else if (warningKeys.size) {
+        appEvent('warning', copy.aiValidationWarningTitle)
+          .description(copy.aiValidationWarnings(warningKeys.size))
+          .noticeId(WORKBENCH_AI_NOTIFICATION_ID)
+          .context({ source: 'localization-translation', operation: 'validate-localization' })
+          .emit()
+      } else {
+        dismissNotification(WORKBENCH_AI_NOTIFICATION_ID)
       }
-    },
-    [
-      activeEntry,
-      allEntries,
-      engineRef,
-      knowledgePolicy,
-      localization,
-      copy.aiFailed,
-      copy.aiCancel,
-      copy.aiNotConfigured,
-      copy.aiPartialFailed,
-      copy.aiTranslating,
-      copy.aiTranslateAllConfirm,
-      copy.aiValidationWarningTitle,
-      copy.aiValidationWarnings,
-      notificationCopy,
-      publishNotification,
-      scopeId,
-      sourceLocale,
-      targetLocale,
-      cancel,
-    ],
-  )
+      if (usageRecordFailed) {
+        appEvent('warning', notificationCopy.usageRecordFailedTitle)
+          .description(notificationCopy.usageRecordFailedDescription)
+          .noticeId(WORKBENCH_AI_USAGE_NOTIFICATION_ID)
+          .context({ source: 'localization-translation', operation: 'record-translation-usage' })
+          .emit()
+      }
+    } catch (cause) {
+      const failure = parseAiFailure(cause)
+      if (failure.code !== 'cancelled') {
+        setProgress((current) => ({
+          ...current,
+          error: failure.code === 'not-configured' ? copy.aiNotConfigured : copy.aiFailed,
+          failedKeys: [],
+          warning: null,
+          warningKeys: [],
+        }))
+        appEvent('error', notificationCopy.translationFailedTitle)
+          .error(cause)
+          .description(notificationCopy.failureDescriptions[failure.code])
+          .noticeId(WORKBENCH_AI_NOTIFICATION_ID)
+          .action({ label: notificationCopy.retryAction, callback: () => runRef.current(mode), tone: 'primary' })
+          .context({ source: 'localization-translation', operation: 'translate localization entries' })
+          .emit()
+      }
+    } finally {
+      if (ownerRef.current === operation) {
+        ownerRef.current = null
+        // The authoritative structured result has been written back to the
+        // file via applyResults; all streaming previews step aside.
+        setStreamingValues(null)
+        setProgress((current) => ({ ...current, running: false }))
+      }
+    }
+  }
 
   runRef.current = run
   return { progress, run, cancel, streamingValues }

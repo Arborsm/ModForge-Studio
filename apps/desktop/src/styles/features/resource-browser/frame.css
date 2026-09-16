@@ -2,7 +2,9 @@
   .resource-picker__overlay {
     position: fixed;
     inset: 0;
-    z-index: 120;
+    /* Stacks above the shared Dialog (--z-dialog): the picker can be opened
+       from inside another dialog (e.g. the replacement editor). */
+    z-index: var(--z-dialog-stack);
     display: flex;
     align-items: center;
     justify-content: center;

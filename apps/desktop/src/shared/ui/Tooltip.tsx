@@ -1,7 +1,7 @@
 /** @file App-styled tooltip replacing native browser title popups with floating-ui positioning. */
 
 import type { ReactNode } from 'react'
-import { useCallback, useId, useState } from 'react'
+import { useId, useState } from 'react'
 import {
   autoUpdate,
   flip,
@@ -64,18 +64,12 @@ export function Tooltip({ label, children, disabled = false, className, placemen
   const focus = useFocus(context, { enabled })
   const role = useRole(context, { role: 'tooltip' })
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, role])
-  const setReference = useCallback(
-    (node: HTMLSpanElement | null) => {
-      floatingRefs.setReference(node)
-    },
-    [floatingRefs],
-  )
-  const setFloating = useCallback(
-    (node: HTMLDivElement | null) => {
-      floatingRefs.setFloating(node)
-    },
-    [floatingRefs],
-  )
+  const setReference = (node: HTMLSpanElement | null) => {
+    floatingRefs.setReference(node)
+  }
+  const setFloating = (node: HTMLDivElement | null) => {
+    floatingRefs.setFloating(node)
+  }
 
   return (
     <>

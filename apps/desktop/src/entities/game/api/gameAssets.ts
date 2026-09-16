@@ -7,6 +7,7 @@ import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/cache'
 import { invokeDesktop } from '@platform/host/runtime'
+import { orNull } from '@platform/observability'
 import type { HostCommandPolicy } from '@platform/host-command-client'
 import {
   loadEventAssetFromDevBridge,
@@ -139,12 +140,24 @@ export function exportMapPng(outputPath: string, pngBase64: string) {
 }
 
 /** Loads a Stardew text/data asset from the game root. */
-export function loadTextAsset(rootPath: string, assetPath: string, locale?: string) {
+export function loadTextAsset(rootPath: string, assetPath: string, locale?: string, options?: { errorReporting?: boolean }) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, assetPath, locale)
   return readPending(loadTextAssetCache, cacheKey, async () => {
     const bridged = await loadTextAssetFromDevBridge(rootPath, assetPath, locale)
-    return bridged ?? invokeDesktop<TextAssetContent>(HOST_COMMANDS.loadTextAsset, { rootPath, assetPath, locale }, gameAssetPoolPolicy)
+    return (
+      bridged ?? invokeDesktop<TextAssetContent>(HOST_COMMANDS.loadTextAsset, { rootPath, assetPath, locale }, gameAssetPoolPolicy, options)
+    )
   })
+}
+
+/**
+ * Loads a text/data asset that may legitimately not exist (per-NPC dialogue,
+ * optional data files). Resolves to null on any failure, suppresses host-level
+ * error reporting (miss is expected), and records a debug-level recovery log
+ * under the given operation label.
+ */
+export function loadOptionalTextAsset(rootPath: string, assetPath: string, locale: string | undefined, operation: string) {
+  return orNull(loadTextAsset(rootPath, assetPath, locale, { errorReporting: false }), operation)
 }
 
 /** Loads a Stardew event asset already parsed by the canonical Rust parser. */
@@ -171,7 +184,11 @@ export function loadImageDataUrl(path: string, locale?: string) {
   const cacheKey = `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
   return readPending(loadImageDataUrlCache, cacheKey, async () => {
     const bridged = await loadImageDataUrlFromDevBridge(path, locale)
-    return bridged ?? invokeDesktop<string>(HOST_COMMANDS.loadImageDataUrl, { path, locale }, imageResolvePoolPolicy)
+    // 候选探测链（本地化后缀、怪物名空格/下划线变体）会按序尝试多个路径，
+    // 单点 miss 是预期；不可用统一由调用方按空状态处理，不做 error 级自动上报。
+    return (
+      bridged ?? invokeDesktop<string>(HOST_COMMANDS.loadImageDataUrl, { path, locale }, imageResolvePoolPolicy, { errorReporting: false })
+    )
   })
 }
 

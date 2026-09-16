@@ -159,7 +159,8 @@ const guides: GuidesCopy = {
         },
         'map-inspector-map': {
           title: '添加传送门和门',
-          description: 'Inspector > 地图 标签页提供传送门、门、昼夜图块替换、音乐和环境光的语义化卡片。',
+          description:
+            'Inspector > 内容 标签页管理传送入口、门和昼夜替换条目；点「添加」后在对话框里直接点选格子完成创建。音乐和环境光在编辑器顶栏。',
         },
         'map-save-button': {
           title: '保存改动',

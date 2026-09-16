@@ -16,37 +16,43 @@ import { ScheduleNodeInspector } from './ScheduleNodeInspector'
 import { ScheduleRouteGraph } from './ScheduleRouteGraph'
 
 type ScheduleEntryEditorProps = {
-  active: ScheduleActiveEntry
-  mode: ScheduleEditorMode
-  canDelete: boolean
-  deleteArmed: boolean
-  entryKeys: string[]
-  locationOptions: ScheduleLocationOption[]
-  locationCatalogReady: boolean
-  /** Vanilla animation keys, already ranked for the selected NPC. */
-  animationOptions: string[]
-  /** Selected NPC, used to mark the current point with their sprite. */
-  npcId: string | null
-  vanillaReferenceScript: string | null
-  isDirty: boolean
-  saveState: 'idle' | 'saving' | 'saved' | 'error'
-  onBack: () => void
-  onSave: () => void
-  onRevert: () => void
-  onUndo: () => void
-  onRedo: () => void
-  onSetMode: (mode: ScheduleEditorMode) => void
-  onRenameEntry: (key: string) => 'empty' | 'conflict' | null
-  onSetLabel: (label: string) => void
-  onSetEnabled: (enabled: boolean) => void
-  onSetRawScript: (script: string) => void
-  onUpdateSegment: (index: number, segment: ScheduleSegment) => void
-  onRemoveSegment: (index: number) => void
-  onMoveSegment: (index: number, offset: -1 | 1) => void
-  onAppendSegment: (segment: ScheduleSegment) => void
-  onAddTimePoint: () => void
-  onOverrideVanilla: () => void
-  onDelete: () => void
+  entryState: {
+    active: ScheduleActiveEntry
+    mode: ScheduleEditorMode
+    canDelete: boolean
+    deleteArmed: boolean
+    isDirty: boolean
+    saveState: 'idle' | 'saving' | 'saved' | 'error'
+  }
+  catalogData: {
+    entryKeys: string[]
+    locationOptions: ScheduleLocationOption[]
+    locationCatalogReady: boolean
+    /** Vanilla animation keys, already ranked for the selected NPC. */
+    animationOptions: string[]
+    /** Selected NPC, used to mark the current point with their sprite. */
+    npcId: string | null
+    vanillaReferenceScript: string | null
+  }
+  actions: {
+    back: () => void
+    save: () => void
+    revert: () => void
+    undo: () => void
+    redo: () => void
+    setMode: (mode: ScheduleEditorMode) => void
+    renameEntry: (key: string) => 'empty' | 'conflict' | null
+    setLabel: (label: string) => void
+    setEnabled: (enabled: boolean) => void
+    setRawScript: (script: string) => void
+    updateSegment: (index: number, segment: ScheduleSegment) => void
+    removeSegment: (index: number) => void
+    moveSegment: (index: number, offset: -1 | 1) => void
+    appendSegment: (segment: ScheduleSegment) => void
+    addTimePoint: () => void
+    overrideVanilla: () => void
+    deleteEntry: () => void
+  }
 }
 
 function ModeSwitch({ mode, onSetMode }: { mode: ScheduleEditorMode; onSetMode: (mode: ScheduleEditorMode) => void }) {
@@ -198,37 +204,28 @@ function ScheduleIssueList({ issues }: { issues: ScheduleModelIssue[] }) {
  * synced raw-script preview. Every control writes straight into the staged
  * draft — the page header owns saving and discarding.
  */
-export function ScheduleEntryEditor({
-  active,
-  mode,
-  canDelete,
-  deleteArmed,
-  entryKeys,
-  locationOptions,
-  locationCatalogReady,
-  animationOptions,
-  npcId,
-  vanillaReferenceScript,
-  isDirty,
-  saveState,
-  onBack,
-  onSave,
-  onRevert,
-  onUndo,
-  onRedo,
-  onSetMode,
-  onRenameEntry,
-  onSetLabel,
-  onSetEnabled,
-  onSetRawScript,
-  onUpdateSegment,
-  onRemoveSegment,
-  onMoveSegment,
-  onAppendSegment,
-  onAddTimePoint,
-  onOverrideVanilla,
-  onDelete,
-}: ScheduleEntryEditorProps) {
+export function ScheduleEntryEditor({ entryState, catalogData, actions }: ScheduleEntryEditorProps) {
+  const { active, mode, canDelete, deleteArmed, isDirty, saveState } = entryState
+  const { entryKeys, locationOptions, locationCatalogReady, animationOptions, npcId, vanillaReferenceScript } = catalogData
+  const {
+    back: onBack,
+    save: onSave,
+    revert: onRevert,
+    undo: onUndo,
+    redo: onRedo,
+    setMode: onSetMode,
+    renameEntry: onRenameEntry,
+    setLabel: onSetLabel,
+    setEnabled: onSetEnabled,
+    setRawScript: onSetRawScript,
+    updateSegment: onUpdateSegment,
+    removeSegment: onRemoveSegment,
+    moveSegment: onMoveSegment,
+    appendSegment: onAppendSegment,
+    addTimePoint: onAddTimePoint,
+    overrideVanilla: onOverrideVanilla,
+    deleteEntry: onDelete,
+  } = actions
   const copy = useScheduleEditorCopy()
   const locationListId = useId()
   const gotoListId = useId()

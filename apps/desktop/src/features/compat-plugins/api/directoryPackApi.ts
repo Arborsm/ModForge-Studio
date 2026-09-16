@@ -46,6 +46,13 @@ export type WriteCompatPluginEntryRequest = {
   content: Record<string, unknown>
 }
 
+export type DeleteCompatPluginEntryRequest = Omit<ReadCompatPluginEntryRequest, 'entryFile'>
+
+export type WriteCompatPluginEntryImageRequest = Omit<ReadCompatPluginEntryRequest, 'entryFile'> & {
+  imageFile: string
+  contentBase64: string
+}
+
 const directoryPackIoPolicy = { kind: 'keyedLatest', key: 'compat-plugin-entry' } satisfies HostCommandPolicy
 const directoryPackMutationPolicy = { kind: 'exclusiveMutation', resource: 'CompatPluginEntry' } satisfies HostCommandPolicy
 
@@ -70,4 +77,14 @@ export function readCompatPluginEntry(request: ReadCompatPluginEntryRequest) {
 /** Writes one pack entry's JSON content atomically. */
 export function writeCompatPluginEntry(request: WriteCompatPluginEntryRequest) {
   return invokeDesktop<void>(HOST_COMMANDS.writeCompatPluginEntry, { request }, directoryPackMutationPolicy)
+}
+
+/** Deletes one complete pack entry directory. */
+export function deleteCompatPluginEntry(request: DeleteCompatPluginEntryRequest) {
+  return invokeDesktop<void>(HOST_COMMANDS.deleteCompatPluginEntry, { request }, directoryPackMutationPolicy)
+}
+
+/** Writes one validated base64-encoded pack entry image. */
+export function writeCompatPluginEntryImage(request: WriteCompatPluginEntryImageRequest) {
+  return invokeDesktop<void>(HOST_COMMANDS.writeCompatPluginEntryImage, { request }, directoryPackMutationPolicy)
 }

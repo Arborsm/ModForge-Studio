@@ -161,24 +161,21 @@ export function useGameDebuggerWorkspace() {
   }, [appendLog, copy.bridgeMod, copy.connectionLog, gameRootPath, installing])
 
   /** Sends one bridge command; transport failures resolve as {ok:false} so callers render inline errors. */
-  const runCommand = useCallback(
-    async (request: DebugBridgeCommandRequest): Promise<DebugBridgeCommandResponse> => {
-      let response: DebugBridgeCommandResponse
-      try {
-        response = await sendDebugBridgeCommand(request)
-      } catch (error) {
-        response = { ok: false, error: error instanceof Error ? error.message : String(error) }
-      }
-      if (response.ok) {
-        appendLog(copy.connectionLog.commandSentTemplate(request.command), 'info')
-      } else {
-        appendLog(copy.connectionLog.commandFailedTemplate(request.command, response.error ?? ''), 'error')
-      }
-      void refreshGameState()
-      return response
-    },
-    [appendLog, copy.connectionLog, refreshGameState],
-  )
+  const runCommand = async (request: DebugBridgeCommandRequest): Promise<DebugBridgeCommandResponse> => {
+    let response: DebugBridgeCommandResponse
+    try {
+      response = await sendDebugBridgeCommand(request)
+    } catch (error) {
+      response = { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+    if (response.ok) {
+      appendLog(copy.connectionLog.commandSentTemplate(request.command), 'info')
+    } else {
+      appendLog(copy.connectionLog.commandFailedTemplate(request.command, response.error ?? ''), 'error')
+    }
+    void refreshGameState()
+    return response
+  }
 
   return {
     environment,

@@ -30,9 +30,7 @@ export function ModWorkspaceDecisionDialogs({
       message={copy.unsavedChangesMessage}
       error={pendingUnsavedChangeDecision?.error ?? null}
       saving={pendingUnsavedChangeDecision?.saving ?? false}
-      cancelLabel={copy.unsavedCancel}
-      secondaryLabel={copy.unsavedDiscardAndContinue}
-      primaryLabel={copy.unsavedSaveAndContinue}
+      decisionType="unsavedChanges"
       onCancel={onCancelUnsavedChangeDecision}
       onSecondary={onConfirmUnsavedDiscardAndContinue}
       onPrimary={onConfirmUnsavedSaveAndContinue}
@@ -46,9 +44,7 @@ type WorkspaceDecisionDialogProps = {
   message: string
   error: string | null
   saving: boolean
-  cancelLabel: string
-  primaryLabel: string
-  secondaryLabel?: string
+  decisionType: 'unsavedChanges'
   cancelDisabled?: boolean
   onCancel: () => void
   onPrimary: () => void
@@ -61,15 +57,18 @@ export function WorkspaceDecisionDialog({
   message,
   error,
   saving,
-  cancelLabel,
-  primaryLabel,
-  secondaryLabel,
+  decisionType,
   cancelDisabled = false,
   onCancel,
   onPrimary,
   onSecondary,
 }: WorkspaceDecisionDialogProps) {
   const titleId = useId()
+  const copy = useModCopy()
+  const decisionCopy =
+    decisionType === 'unsavedChanges'
+      ? { cancelLabel: copy.unsavedCancel, primaryLabel: copy.unsavedSaveAndContinue, secondaryLabel: copy.unsavedDiscardAndContinue }
+      : null
   const cancelBlocked = cancelDisabled || saving
 
   return (
@@ -79,7 +78,7 @@ export function WorkspaceDecisionDialog({
         tone="warning"
         icon={<AlertTriangle className="h-4 w-4" />}
         onClose={onCancel}
-        closeLabel={cancelLabel}
+        closeLabel={decisionCopy?.cancelLabel ?? ''}
         closeDisabled={cancelBlocked}
         id={titleId}
       />
@@ -89,15 +88,15 @@ export function WorkspaceDecisionDialog({
       </DialogBody>
       <DialogFooter>
         <DialogAction onClick={onCancel} disabled={cancelBlocked}>
-          {cancelLabel}
+          {decisionCopy?.cancelLabel}
         </DialogAction>
-        {secondaryLabel ? (
+        {decisionCopy?.secondaryLabel ? (
           <DialogAction tone="warning" disabled={saving} onClick={onSecondary}>
-            {secondaryLabel}
+            {decisionCopy.secondaryLabel}
           </DialogAction>
         ) : null}
         <DialogAction tone="primary" disabled={saving} onClick={onPrimary}>
-          {primaryLabel}
+          {decisionCopy?.primaryLabel}
         </DialogAction>
       </DialogFooter>
     </Dialog>

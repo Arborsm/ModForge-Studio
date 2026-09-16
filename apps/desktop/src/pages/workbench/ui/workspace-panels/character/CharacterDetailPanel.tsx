@@ -4,7 +4,7 @@ import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import { getScaleUpFrameCount } from '@pages/workbench/workspaces/mod'
+import { getSpriteSheetFrameCount } from '@shared/infra/asset-formats/spriteSheetFrameMath'
 import { AssetEntryCanvas, EMPTY_ASSET_RESOURCES, parseAssetEntry } from '@entities/asset-schema'
 import {
   buildSpriteStyle,
@@ -128,7 +128,7 @@ export function CharacterDetailPanel({
         ? { width: assetState.portraitOriginalWidth, height: assetState.portraitOriginalHeight }
         : null,
   }
-  const portraitCount = getScaleUpFrameCount(portraitFrameImages, { frameWidth: 64, frameHeight: 64 })
+  const portraitCount = getSpriteSheetFrameCount(portraitFrameImages, { frameWidth: 64, frameHeight: 64 })
   const tabs: Array<{ id: DetailTab; label: string }> = [
     { id: 'info', label: copy.detailInfoTab },
     { id: 'variants', label: copy.detailVariantsTab },

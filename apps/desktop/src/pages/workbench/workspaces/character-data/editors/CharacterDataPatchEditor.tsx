@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
 import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
@@ -23,8 +23,9 @@ import {
   validateGiftTasteEntries,
   type CharacterAssetPatchState,
 } from '@entities/character'
-import { useCharacterDataEditorCopy, useEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { appEvent } from '@platform/observability'
+import { useCharacterDataEditorCopy } from '@locales/provider'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useEditModeStore } from '../../../model/editModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { buildPreviewEntry, useVanillaCharacterIndex } from '../state/useCharacterAuthoringSources'
@@ -122,10 +123,9 @@ function RemoveEntryDialog({ npcId, onClose, onConfirm }: { npcId: string | null
 export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const copy = useCharacterDataEditorCopy()
-  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const requestedNpcKey = useCharacterAuthoringHandoff((state) => state.pendingNpcKey)
   const consumePendingNpcKey = useCharacterAuthoringHandoff((state) => state.consumePending)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -135,13 +135,13 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
   const [activeGroupId, setActiveGroupId] = useState('core')
   const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null)
   const vanilla = useVanillaCharacterIndex(gameRootPath, directoryInfo, locale)
-  const vanillaTextureNames = useMemo(() => {
+  const vanillaTextureNames = (() => {
     const names: string[] = []
     for (const entry of vanilla.entries.values()) {
       names.push(entry.spriteAssetName, entry.portraitAssetName, entry.textureName)
     }
     return names.filter((name) => name !== '')
-  }, [vanilla.entries])
+  })()
   const referenceData = useCharacterAuthoringResources({
     gameRootPath,
     directoryInfo,
@@ -149,10 +149,7 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
     patches: draft.patches,
     vanillaTextureNames,
   })
-  const itemOptions = useMemo(
-    () => toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'character-gift'),
-    [referenceData.itemTextureStates, referenceData.items],
-  )
+  const itemOptions = toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'character-gift')
 
   useEffect(() => {
     setSelectedId(null)
@@ -195,8 +192,14 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
       .then((entries) => {
         if (!cancelled) setVanillaGiftTastes(entries)
       })
-      .catch(() => {
-        if (!cancelled) setVanillaGiftTastes({})
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          appEvent('warning', 'Character gift tastes unavailable')
+            .error(error)
+            .context({ source: 'character-authoring', operation: 'load-gift-tastes' })
+            .emit({ notify: false })
+          setVanillaGiftTastes({})
+        }
       })
     return () => {
       cancelled = true
@@ -363,8 +366,6 @@ export const CharacterDataPatchEditor: EditorComponent = ({ patch, draftPort, re
       <RemoveEntryDialog npcId={removeCandidate} onClose={() => setRemoveCandidate(null)} onConfirm={handleRemoveConfirmed} />
       {gsqRequest !== null ? (
         <EventGameStateQueryBuilderModal
-          copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-          hubCopy={hubCopy}
           initialQuery={gsqRequest.initialQuery || undefined}
           onApply={(result) => {
             gsqRequest.apply(result.query)

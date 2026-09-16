@@ -2,8 +2,8 @@ import { FileText, Search, Server } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import type { AiLocalizationScope } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { useNotificationPublisher } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { cx } from '@shared/lib/helper'
 import { useAiLocalizationPage } from '../model/useAiLocalizationPage'
@@ -25,7 +25,6 @@ export function OfficialCorpusView({
   const page = useAiLocalizationPage(sourceLocale, targetLocale)
   const { copy, status } = page
   const localization = useLocalization()
-  const publish = useNotificationPublisher()
   const [termScope, setTermScope] = useState(activeScopeId)
   const [overrides, setOverrides] = useState<string[]>([])
   const runOverrideLoad = useLatestTask('ai-localization-official-overrides')
@@ -59,10 +58,19 @@ export function OfficialCorpusView({
     }).catch((error) => {
       if (!(error instanceof TaskCancelledError)) {
         setOverrides([])
-        publish({ id: 'official-overrides-error', level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
+        appEvent('error', copy.knowledgeError)
+          .error(error)
+          .context({ source: 'ai-localization-official', operation: 'load-overrides' })
+          .emit({ notify: false })
+        appEvent('error', copy.knowledgeError)
+          .description(errorDetail(error))
+          .noticeId('official-overrides-error')
+          .error(error)
+          .context({ source: 'ai-localization-official', operation: 'load-overrides' })
+          .emit()
       }
     })
-  }, [copy.globalScope, copy.knowledgeError, localization, page.selected, publish, runOverrideLoad, scopes])
+  }, [copy.globalScope, copy.knowledgeError, localization, page.selected, runOverrideLoad, scopes])
   const copyTerm = async () => {
     if (!page.selected || !termScope) return
     try {
@@ -80,9 +88,22 @@ export function OfficialCorpusView({
           updatedAtMs: 0,
         },
       ])
-      publish({ id: 'official-term-copied', level: 'success', title: copy.termCopied, description: copy.termCopied })
+      appEvent('success', copy.termCopied)
+        .description(copy.termCopied)
+        .noticeId('official-term-copied')
+        .context({ source: 'ai-localization-official', operation: 'copy-term' })
+        .emit()
     } catch (error) {
-      publish({ id: 'official-term-copy-error', level: 'error', title: copy.knowledgeError, description: errorDetail(error) })
+      appEvent('error', copy.knowledgeError)
+        .error(error)
+        .context({ source: 'ai-localization-official', operation: 'copy-term' })
+        .emit({ notify: false })
+      appEvent('error', copy.knowledgeError)
+        .description(errorDetail(error))
+        .noticeId('official-term-copy-error')
+        .error(error)
+        .context({ source: 'ai-localization-official', operation: 'copy-term' })
+        .emit()
     }
   }
   const corpusReady = status?.indexed ?? false

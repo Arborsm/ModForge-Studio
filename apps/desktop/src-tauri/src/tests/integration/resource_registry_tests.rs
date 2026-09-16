@@ -24,6 +24,14 @@ fn parses_object_entries_as_event_item_values() {
     assert_eq!(values_for(&entries, "item"), vec!["(O)24", "(O)900"]);
     assert_eq!(entries[0].label, "Parsnip (O)24");
     assert_eq!(entries[1].label, "Festival Token (O)900");
+    assert_eq!(
+        entries[0].metadata.get("name").map(String::as_str),
+        Some("Parsnip")
+    );
+    assert_eq!(
+        entries[1].metadata.get("name").map(String::as_str),
+        Some("Festival Token")
+    );
 }
 
 #[test]

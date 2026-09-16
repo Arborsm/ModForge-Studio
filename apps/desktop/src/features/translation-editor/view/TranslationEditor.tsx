@@ -14,7 +14,8 @@ import type { TranslationEditorCopy } from '@locales'
 import { useLocale, useTranslationEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { AiLocalizationScope, AiLocalizationScopeSnapshot, LocalizationEngineRef } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { appEvent, reportRecovered } from '@platform/observability'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useModulePersistentState } from '@shared/lib/app-state'
 import {
@@ -185,16 +186,12 @@ function useTranslationEditorState({
 >) {
   const sourceFile = findFile(i18nFiles, sourceLocale)
   const targetFile = findFile(i18nFiles, targetLocale)
-  const allEntries = useMemo(
-    () =>
-      buildTranslationEntries({
-        sourceFile,
-        targetFile,
-        query: '',
-        status: 'all',
-      }),
-    [sourceFile, targetFile],
-  )
+  const allEntries = buildTranslationEntries({
+    sourceFile,
+    targetFile,
+    query: '',
+    status: 'all',
+  })
   const filteredEntries = useMemo(
     () =>
       buildTranslationEntries({
@@ -206,7 +203,7 @@ function useTranslationEditorState({
     [sourceFile, targetFile, query, statusFilter],
   )
   const progress = getProgress(allEntries)
-  const statusCounts = useMemo(() => getStatusCounts(allEntries), [allEntries])
+  const statusCounts = getStatusCounts(allEntries)
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
@@ -217,51 +214,39 @@ function useTranslationEditorState({
     setSelectedKey(filteredEntries[0]?.key ?? null)
   }, [filteredEntries, selectedKey])
 
-  const activeEntry = useMemo(
-    () => filteredEntries.find((entry) => entry.key === selectedKey) ?? filteredEntries[0] ?? null,
-    [filteredEntries, selectedKey],
-  )
+  const activeEntry = filteredEntries.find((entry) => entry.key === selectedKey) ?? filteredEntries[0] ?? null
 
-  const updateEntry = useCallback(
-    (key: string, value: string) => {
-      const projectPath = project?.rootPath ?? ''
-      const currentTarget = targetFile ?? createI18nFile(projectPath, targetLocale)
-      const nextTarget = updateI18nFileEntry(currentTarget, key, value)
-      const exists = i18nFiles.some((file) => file.locale === nextTarget.locale)
-      onI18nFilesChange(
-        exists ? i18nFiles.map((file) => (file.locale === nextTarget.locale ? nextTarget : file)) : [...i18nFiles, nextTarget],
-      )
-    },
-    [i18nFiles, onI18nFilesChange, project?.rootPath, targetFile, targetLocale],
-  )
+  const updateEntry = (key: string, value: string) => {
+    const projectPath = project?.rootPath ?? ''
+    const currentTarget = targetFile ?? createI18nFile(projectPath, targetLocale)
+    const nextTarget = updateI18nFileEntry(currentTarget, key, value)
+    const exists = i18nFiles.some((file) => file.locale === nextTarget.locale)
+    onI18nFilesChange(
+      exists ? i18nFiles.map((file) => (file.locale === nextTarget.locale ? nextTarget : file)) : [...i18nFiles, nextTarget],
+    )
+  }
 
-  const updateEntries = useCallback(
-    (values: ReadonlyMap<string, string>) => {
-      const projectPath = project?.rootPath ?? ''
-      const currentTarget = targetFile ?? createI18nFile(projectPath, targetLocale)
-      const nextTarget = updateI18nFileEntries(currentTarget, values)
-      const exists = i18nFiles.some((file) => file.locale === nextTarget.locale)
-      onI18nFilesChange(
-        exists ? i18nFiles.map((file) => (file.locale === nextTarget.locale ? nextTarget : file)) : [...i18nFiles, nextTarget],
-      )
-    },
-    [i18nFiles, onI18nFilesChange, project?.rootPath, targetFile, targetLocale],
-  )
+  const updateEntries = (values: ReadonlyMap<string, string>) => {
+    const projectPath = project?.rootPath ?? ''
+    const currentTarget = targetFile ?? createI18nFile(projectPath, targetLocale)
+    const nextTarget = updateI18nFileEntries(currentTarget, values)
+    const exists = i18nFiles.some((file) => file.locale === nextTarget.locale)
+    onI18nFilesChange(
+      exists ? i18nFiles.map((file) => (file.locale === nextTarget.locale ? nextTarget : file)) : [...i18nFiles, nextTarget],
+    )
+  }
 
-  const selectRelative = useCallback(
-    (delta: number) => {
-      if (!activeEntry) {
-        return
-      }
-      const index = filteredEntries.findIndex((entry) => entry.key === activeEntry.key)
-      const nextIndex = Math.max(0, Math.min(filteredEntries.length - 1, index + delta))
-      const nextEntry = filteredEntries[nextIndex]
-      if (nextEntry && nextEntry.key !== activeEntry.key) {
-        setSelectedKey(nextEntry.key)
-      }
-    },
-    [activeEntry, filteredEntries],
-  )
+  const selectRelative = (delta: number) => {
+    if (!activeEntry) {
+      return
+    }
+    const index = filteredEntries.findIndex((entry) => entry.key === activeEntry.key)
+    const nextIndex = Math.max(0, Math.min(filteredEntries.length - 1, index + delta))
+    const nextEntry = filteredEntries[nextIndex]
+    if (nextEntry && nextEntry.key !== activeEntry.key) {
+      setSelectedKey(nextEntry.key)
+    }
+  }
 
   return {
     sourceFile,
@@ -553,7 +538,6 @@ export function TranslationEditor({
   const copy = useTranslationEditorCopy()
   const localization = useLocalization()
   const ai = useAi()
-  const publishNotification = useNotificationPublisher()
   const learnRef = useRef<() => Promise<void>>(async () => undefined)
   const {
     sourceFile,
@@ -580,14 +564,11 @@ export function TranslationEditor({
   const appLocale = useLocale()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const applyAiResults = useCallback(
-    (values: ReadonlyMap<string, string>, baselines: ReadonlyMap<string, TranslationAiBaseline>) => {
-      const { applicable, conflicts } = partitionTranslationAiResults(values, baselines, allEntries)
-      if (applicable.size) updateEntries(applicable)
-      return conflicts
-    },
-    [allEntries, updateEntries],
-  )
+  const applyAiResults = (values: ReadonlyMap<string, string>, baselines: ReadonlyMap<string, TranslationAiBaseline>) => {
+    const { applicable, conflicts } = partitionTranslationAiResults(values, baselines, allEntries)
+    if (applicable.size) updateEntries(applicable)
+    return conflicts
+  }
   const [knowledgePolicy, setKnowledgePolicy] = useState({
     enabled: false,
     useOfficialCorpus: true,
@@ -633,12 +614,11 @@ export function TranslationEditor({
       const current = await localization.loadScope(localizationScopeId)
       applyScopeSnapshot(await localization.saveScopeSettings({ ...current.settings, ...patch, scopeId: localizationScopeId }))
     } catch {
-      publishNotification({
-        id: 'translation-plan-settings-error',
-        level: 'error',
-        title: copy.workflowInitializeFailed,
-        description: copy.workflowInitializeFailed,
-      })
+      appEvent('error', copy.workflowInitializeFailed)
+        .description(copy.workflowInitializeFailed)
+        .noticeId('translation-plan-settings-error')
+        .context({ source: 'translation-editor', operation: 'save translation plan settings' })
+        .emit()
     }
   }
   useEffect(() => {
@@ -703,7 +683,8 @@ export function TranslationEditor({
     if (!binding || scopeId === localizationScopeId) return
     try {
       applyScopeSnapshot(await localization.setProfileBinding(scopeId, binding.bindingKind, binding.bindingValue))
-    } catch {
+    } catch (error) {
+      reportRecovered(error, 'translation-editor.switch-profile')
       // Keep the previous profile selected when the host rejects the rebinding.
     }
   }
@@ -717,7 +698,8 @@ export function TranslationEditor({
       setProfileName('')
       setProfileCreateOpen(false)
       await refreshProfiles()
-    } catch {
+    } catch (error) {
+      reportRecovered(error, 'translation-editor.create-profile')
       // Keep the inline form open so the entered name is not lost.
     } finally {
       setProfileCreating(false)
@@ -755,13 +737,12 @@ export function TranslationEditor({
     try {
       await learnConfirmedTranslations()
     } catch {
-      publishNotification({
-        id: 'translation-memory-learning-error',
-        level: 'warning',
-        title: copy.memoryLearningFailed,
-        description: copy.memoryLearningFailed,
-        action: { label: copy.retry, callback: () => void learnRef.current(), tone: 'primary' },
-      })
+      appEvent('warning', copy.memoryLearningFailed)
+        .description(copy.memoryLearningFailed)
+        .noticeId('translation-memory-learning-error')
+        .action({ label: copy.retry, callback: () => void learnRef.current(), tone: 'primary' })
+        .context({ source: 'translation-editor', operation: 'learn confirmed translations' })
+        .emit()
     }
   }
   const {
@@ -832,7 +813,7 @@ export function TranslationEditor({
     }
   }, [aiProgress.error, aiProgress.running, review, reviewAfterTranslation, reviewProfileId])
 
-  const localeLabels = useMemo(() => {
+  const localeLabels = (() => {
     const map = new Map<string, string>()
     const allLocales = new Set(i18nFiles.map((file) => file.locale))
     for (const locale of TRANSLATION_TARGET_LOCALES) {
@@ -844,23 +825,19 @@ export function TranslationEditor({
       map.set(locale, getLocaleDisplayName(locale, appLocale, copy.defaultLocaleLabel))
     }
     return map
-  }, [appLocale, copy.defaultLocaleLabel, i18nFiles, sourceLocale, targetLocale])
+  })()
 
-  const sourceOptions: LocaleOption[] = useMemo(
-    () =>
-      i18nFiles
-        .filter((file) => file.locale !== targetLocale)
-        .map((file) => ({
-          value: file.locale,
-          label: localeLabels.get(file.locale) ?? file.locale,
-          codeLabel: file.locale,
-          progress: 100,
-          status: 'source' as const,
-        })),
-    [i18nFiles, localeLabels, targetLocale],
-  )
+  const sourceOptions: LocaleOption[] = i18nFiles
+    .filter((file) => file.locale !== targetLocale)
+    .map((file) => ({
+      value: file.locale,
+      label: localeLabels.get(file.locale) ?? file.locale,
+      codeLabel: file.locale,
+      progress: 100,
+      status: 'source' as const,
+    }))
 
-  const targetOptions: LocaleOption[] = useMemo(() => {
+  const targetOptions: LocaleOption[] = (() => {
     const candidateLocales = new Set<string>()
     for (const file of i18nFiles) {
       if (file.locale !== 'default' && file.locale !== sourceLocale) {
@@ -908,40 +885,34 @@ export function TranslationEditor({
     })
 
     return options
-  }, [appLocale, copy.defaultLocaleLabel, i18nFiles, localeLabels, sourceFile, targetLocale])
+  })()
 
-  const handleTargetLocaleChange = useCallback(
-    (nextLocale: string) => {
-      if (nextLocale === targetLocale) {
-        return
-      }
-      if (!project) {
-        return
-      }
-      if (!i18nFiles.some((file) => file.locale === nextLocale)) {
-        const nextFile = createI18nFile(project.rootPath, nextLocale)
-        onI18nFilesChange([...i18nFiles, nextFile])
-      }
-      onTargetLocaleChange(nextLocale)
-    },
-    [i18nFiles, onI18nFilesChange, onTargetLocaleChange, project, targetLocale],
-  )
+  const handleTargetLocaleChange = (nextLocale: string) => {
+    if (nextLocale === targetLocale) {
+      return
+    }
+    if (!project) {
+      return
+    }
+    if (!i18nFiles.some((file) => file.locale === nextLocale)) {
+      const nextFile = createI18nFile(project.rootPath, nextLocale)
+      onI18nFilesChange([...i18nFiles, nextFile])
+    }
+    onTargetLocaleChange(nextLocale)
+  }
 
-  const handleKeyboard = useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key !== 'Enter') {
-        return
-      }
-      if (!event.ctrlKey && !event.metaKey) {
-        return
-      }
+  const handleKeyboard = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter') {
+      return
+    }
+    if (!event.ctrlKey && !event.metaKey) {
+      return
+    }
 
-      event.preventDefault()
-      const delta = event.shiftKey ? -1 : 1
-      selectRelative(delta)
-    },
-    [selectRelative],
-  )
+    event.preventDefault()
+    const delta = event.shiftKey ? -1 : 1
+    selectRelative(delta)
+  }
 
   if (!project) {
     return (
@@ -1007,7 +978,6 @@ export function TranslationEditor({
               mainDisabled={aiProgress.running}
               title={aiBehaviorLabel(copy, aiTranslateBehavior)}
               onMainClick={() => void runAiTranslation(aiTranslateBehavior)}
-              menuAriaLabel={copy.aiTranslateMoreActions}
               onMenuToggle={(open) => {
                 if (open) void refreshProfiles()
               }}
@@ -1186,7 +1156,6 @@ export function TranslationEditor({
                 </>
               }
               mainClassName="translation-review-trigger"
-              mainAriaLabel={review.running ? copy.reviewCancel : copy.review}
               mainRef={reviewTriggerRef}
               mainDisabled={!review.running && !localizationScopeId}
               title={reviewBehaviorLabel(copy, reviewBehavior)}
@@ -1199,7 +1168,6 @@ export function TranslationEditor({
                 setMobilePanel('review')
                 void review.run(reviewBehavior, reviewWithAi)
               }}
-              menuAriaLabel={copy.reviewMoreActions}
               menuDisabled={review.running}
               menuVisible={!review.running}
               menu={

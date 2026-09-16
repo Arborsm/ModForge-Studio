@@ -34,35 +34,41 @@ export function ScheduleWorkspace() {
     <div className="schedule-editor">
       {workspace.active ? (
         <ScheduleEntryEditor
-          active={workspace.active}
-          mode={workspace.mode}
-          canDelete={!workspace.active.readOnly}
-          deleteArmed={workspace.deleteArmed}
-          entryKeys={workspace.entries.map((entry) => entry.key)}
-          locationOptions={workspace.locationOptions}
-          locationCatalogReady={workspace.locationCatalogReady}
-          animationOptions={workspace.animationOptions}
-          npcId={workspace.selectedNpcId}
-          vanillaReferenceScript={workspace.vanillaReferenceScript}
-          isDirty={workspace.isDirty}
-          saveState={workspace.saveState}
-          onBack={workspace.closeEntry}
-          onSave={workspace.save}
-          onRevert={workspace.revert}
-          onUndo={workspace.undo}
-          onRedo={workspace.redo}
-          onSetMode={workspace.setMode}
-          onRenameEntry={workspace.renameActiveEntry}
-          onSetLabel={workspace.setLabel}
-          onSetEnabled={workspace.setEnabled}
-          onSetRawScript={workspace.setRawScript}
-          onUpdateSegment={workspace.updateSegment}
-          onRemoveSegment={workspace.removeSegment}
-          onMoveSegment={workspace.moveSegment}
-          onAppendSegment={workspace.appendSegment}
-          onAddTimePoint={workspace.addTimePoint}
-          onOverrideVanilla={() => workspace.overrideVanillaEntry(workspace.active!.summary.key)}
-          onDelete={workspace.deleteEntry}
+          entryState={{
+            active: workspace.active,
+            mode: workspace.mode,
+            canDelete: !workspace.active.readOnly,
+            deleteArmed: workspace.deleteArmed,
+            isDirty: workspace.isDirty,
+            saveState: workspace.saveState,
+          }}
+          catalogData={{
+            entryKeys: workspace.entries.map((entry) => entry.key),
+            locationOptions: workspace.locationOptions,
+            locationCatalogReady: workspace.locationCatalogReady,
+            animationOptions: workspace.animationOptions,
+            npcId: workspace.selectedNpcId,
+            vanillaReferenceScript: workspace.vanillaReferenceScript,
+          }}
+          actions={{
+            back: workspace.closeEntry,
+            save: workspace.save,
+            revert: workspace.revert,
+            undo: workspace.undo,
+            redo: workspace.redo,
+            setMode: workspace.setMode,
+            renameEntry: workspace.renameActiveEntry,
+            setLabel: workspace.setLabel,
+            setEnabled: workspace.setEnabled,
+            setRawScript: workspace.setRawScript,
+            updateSegment: workspace.updateSegment,
+            removeSegment: workspace.removeSegment,
+            moveSegment: workspace.moveSegment,
+            appendSegment: workspace.appendSegment,
+            addTimePoint: workspace.addTimePoint,
+            overrideVanilla: () => workspace.overrideVanillaEntry(workspace.active!.summary.key),
+            deleteEntry: workspace.deleteEntry,
+          }}
         />
       ) : (
         <div className="schedule-editor-library">

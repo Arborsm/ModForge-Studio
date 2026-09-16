@@ -1,6 +1,6 @@
 /** @file Dialog open/close state hook standardizing the recurring useState + onClose pattern. */
 
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 
 /** Result of {@link useDialog}. */
 export type DialogResult = {
@@ -24,9 +24,9 @@ export type DialogResult = {
  */
 export function useDialog(initialOpen = false): DialogResult {
   const [open, setOpen] = useState(initialOpen)
-  const closeDialog = useCallback(() => setOpen(false), [])
-  const openDialog = useCallback(() => setOpen(true), [])
-  const toggleDialog = useCallback(() => setOpen((current) => !current), [])
+  const closeDialog = () => setOpen(false)
+  const openDialog = () => setOpen(true)
+  const toggleDialog = () => setOpen((current) => !current)
 
   return {
     open,

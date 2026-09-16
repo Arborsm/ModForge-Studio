@@ -71,6 +71,22 @@ pub fn load_cp_maker_draft_at_dir(
     read_draft_record_from_path(&draft_path, draft_storage_key)
 }
 
+/// Save path for the full-draft host command. Asset refs are owned by the
+/// dedicated asset commands (import/write/rename/delete), which persist them
+/// transactionally; a full-draft save can carry a snapshot captured before such
+/// a mutation landed (e.g. auto-save firing while an import is in flight), so
+/// the on-disk asset list is adopted to keep that stale save from dropping refs
+/// whose files were already written.
+pub fn save_cp_maker_draft_preserving_project_assets_at_dir(
+    drafts_dir: &Path,
+    mut draft: CpMakerDraftRecord,
+) -> anyhow::Result<CpMakerDraftRecord> {
+    if let Ok(existing) = load_cp_maker_draft_at_dir(drafts_dir, &draft.draft_storage_key) {
+        draft.project_assets = existing.project_assets;
+    }
+    save_cp_maker_draft_at_dir(drafts_dir, draft)
+}
+
 pub fn save_cp_maker_draft_at_dir(
     drafts_dir: &Path,
     draft: CpMakerDraftRecord,

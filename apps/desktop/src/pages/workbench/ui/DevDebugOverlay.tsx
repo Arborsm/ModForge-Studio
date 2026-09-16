@@ -5,6 +5,7 @@ import { getModApiCacheStats } from '@entities/mod/api'
 import { clearFileCache, canUseDesktopHost, getFileCacheStats, printHostRuntimeDiagnostics, type FileCacheStats } from '@platform/host'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import { formatBytes } from '@shared/lib/formatting'
+import { useEditorCopy } from '@locales/provider'
 
 type DevDebugOverlayProps = {
   contextId: string
@@ -12,7 +13,6 @@ type DevDebugOverlayProps = {
   eventName: string | null
   currentEventCommandId: string | null
   actorCount: number
-  contextSectionLabel?: string
   contextMetrics?: MetricItem[]
 }
 
@@ -119,9 +119,9 @@ export function DevDebugOverlay({
   eventName,
   currentEventCommandId,
   actorCount,
-  contextSectionLabel = 'Workspace',
   contextMetrics: externalContextMetrics,
 }: DevDebugOverlayProps) {
+  const contextSectionLabel = useEditorCopy().shell.modeLabel
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState(createInitialDevDebugOverlayPosition)
   const [clearing, setClearing] = useState(false)
@@ -168,16 +168,13 @@ export function DevDebugOverlay({
     }
   }, [desktopHost])
 
-  const runtimeMetrics = useMemo(
-    (): MetricItem[] => [
-      ['FPS', fps ? String(fps) : '...'],
-      ['Frame', `${frameTimeMs.toFixed(1)} ms`],
-      ['DPR', window.devicePixelRatio.toFixed(2)],
-      ['Viewport', `${window.innerWidth}x${window.innerHeight}`],
-      ['Mode', contextId],
-    ],
-    [fps, frameTimeMs, contextId],
-  )
+  const runtimeMetrics: MetricItem[] = [
+    ['FPS', fps ? String(fps) : '...'],
+    ['Frame', `${frameTimeMs.toFixed(1)} ms`],
+    ['DPR', window.devicePixelRatio.toFixed(2)],
+    ['Viewport', `${window.innerWidth}x${window.innerHeight}`],
+    ['Mode', contextId],
+  ]
 
   const contextMetrics = useMemo(() => {
     if (externalContextMetrics?.length) {

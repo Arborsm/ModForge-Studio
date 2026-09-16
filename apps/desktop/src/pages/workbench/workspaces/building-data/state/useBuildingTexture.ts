@@ -6,6 +6,7 @@ import {
   type BuildingWorkspaceEntry,
 } from '@entities/building'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 const EMPTY_TEXTURE: BuildingTextureAssetState = { loading: false, path: null, url: null, width: null, height: null }
 
@@ -30,8 +31,14 @@ export function useBuildingTexture(
       .then((image) => {
         if (!cancelled) setState(image)
       })
-      .catch(() => {
-        if (!cancelled) setState(EMPTY_TEXTURE)
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          appEvent('warning', 'Building texture unavailable')
+            .error(error)
+            .context({ source: 'building-authoring', operation: 'load-texture' })
+            .emit({ notify: false })
+          setState(EMPTY_TEXTURE)
+        }
       })
 
     return () => {

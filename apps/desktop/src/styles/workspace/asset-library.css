@@ -1,16 +1,10 @@
 @layer components {
-  .asset-library-workspace {
-    @apply bg-surface-app text-text-primary grid h-full min-h-0;
-    grid-template-rows: auto auto minmax(0, 1fr);
-  }
-
   .asset-library-view-switch,
   .asset-library-toolbar-actions {
     @apply flex items-center gap-1.5;
   }
 
   .asset-library-toolbar-actions {
-    @apply flex items-center gap-1.5;
     margin-left: auto;
   }
 
@@ -19,18 +13,54 @@
     gap: 0.25rem;
   }
 
-  /* Copy-from-game segmented entry and its kind picker popover. */
-  .asset-library-import-game {
-    @apply relative flex;
+  /* Toolbar clusters: search + type filter on the left, view switch + import
+     entry on the right; the auto-save dot leads the row. */
+  .asset-library-toolbar-group {
+    @apply flex min-w-0 items-center gap-2.5;
   }
 
+  .asset-library-toolbar-main {
+    @apply flex-auto;
+  }
+
+  /* Single import entry: a split primary button (files) plus one merged menu
+     holding the copy-from-game kinds, new map, and folder import. The halves
+     share one outer border with a hairline seam so the pair reads as one
+     control instead of two primary buttons. */
+  .asset-library-import-game {
+    @apply flex;
+  }
+
+  .asset-library-import-split {
+    @apply flex;
+  }
+
+  .asset-library-import-split > .control-button:first-child {
+    @apply rounded-r-none;
+  }
+
+  .asset-library-import-split-toggle {
+    @apply rounded-l-none border-l-0 px-1.5;
+    box-shadow: inset 1px 0 0 color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  /* Radix popover panel; the floating position itself comes from Radix. */
   .asset-library-import-kind-picker {
-    @apply border-border-subtle bg-surface-panel shadow-float absolute grid gap-1.5 border p-2;
-    top: calc(100% + 0.375rem);
-    right: 0;
+    @apply border-border-subtle bg-surface-panel shadow-float grid gap-0.5 border p-2;
     z-index: 40;
-    grid-template-columns: repeat(2, minmax(7rem, 1fr));
+    min-width: 12rem;
+    grid-template-columns: 1fr;
     border-radius: var(--radius-md);
+  }
+
+  .asset-library-import-menu-label {
+    @apply text-text-tertiary text-caption px-2.5 pt-1 font-semibold;
+  }
+
+  .asset-library-import-menu-sep {
+    @apply mx-2 my-1;
+    height: 1px;
+    background: color-mix(in srgb, var(--border-color) 75%, transparent);
   }
 
   .asset-library-import-kind-picker button {
@@ -46,6 +76,40 @@
   .asset-library-save-state,
   .asset-library-count {
     @apply text-text-tertiary text-meta whitespace-nowrap;
+  }
+
+  /* Toolbar auto-save indicator: an 8px state dot whose data-state mirrors the
+     save pipeline; the readable label is sr-only inside the aria-live wrapper. */
+  .asset-library-toolbar .asset-library-save-state {
+    @apply inline-flex items-center;
+  }
+
+  .asset-library-save-dot {
+    @apply inline-block h-2 w-2 flex-none rounded-full;
+    background: color-mix(in srgb, var(--text-tertiary) 70%, var(--border-color));
+  }
+
+  .asset-library-save-dot[data-state='saving'] {
+    background: var(--accent);
+    animation: asset-library-save-pulse 1.6s ease-in-out infinite;
+  }
+
+  .asset-library-save-dot[data-state='dirty'] {
+    animation: asset-library-save-pulse 1.6s ease-in-out infinite;
+  }
+
+  .asset-library-save-dot[data-state='error'] {
+    background: var(--danger);
+  }
+
+  @keyframes asset-library-save-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
   }
 
   .asset-library-toolbar {
@@ -73,6 +137,12 @@
     flex: 0 0 auto;
     width: 9rem;
   }
+  .asset-library-filter .compact-select {
+    @apply w-full;
+  }
+  .asset-library-filter .compact-select__trigger {
+    @apply w-full justify-between;
+  }
   .asset-library-view-switch .icon-button.is-active {
     @apply bg-accent-soft text-accent;
   }
@@ -83,6 +153,13 @@
 
   .asset-library-status-rows {
     @apply flex flex-none flex-col;
+  }
+
+  /* Quiet scan-in-progress row: spinner + tertiary meta text with a hairline
+     divider, instead of the danger-tinted banner used for real problems. */
+  .asset-library-scan-status {
+    @apply text-text-tertiary text-meta flex items-center gap-1.5 px-4 py-1.5;
+    border-bottom: 1px solid var(--border-color);
   }
 
   /* Floating multi-select pill: anchored to the bottom center of the browser
@@ -109,11 +186,12 @@
     @apply text-meta h-auto min-h-6.5 min-w-0 rounded-full px-2.5 py-0.5;
   }
   .asset-library-selection-pill .control-button.is-danger {
-    @apply text-danger bg-transparent;
-    border-color: transparent;
+    @apply text-danger;
+    border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
   }
   .asset-library-selection-pill .control-button.is-danger:hover {
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    background: color-mix(in srgb, var(--danger) 22%, transparent);
   }
 
   /* Right-hand main area: a single grid cell holds either the asset browser
@@ -349,13 +427,12 @@
   .asset-library-actions {
     @apply grid gap-1.5;
   }
+  /* Inspector actions always stack as a flat full-width column; the pane is
+     too narrow for horizontal button rows without truncating labels. */
   .asset-library-actions-primary,
   .asset-library-actions-secondary {
     @apply grid gap-1.5;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  }
-  .asset-library-actions-secondary {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
   .asset-library-actions .control-button {
     @apply min-w-0 items-center justify-center gap-1.5;
@@ -363,14 +440,15 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* Destructive action stays available but visually demoted: ghost chrome,
-     danger color only. */
+  /* Destructive actions keep real button chrome, tinted with the danger color
+     so they read as buttons first and destructive second. */
   .asset-library-actions .control-button.is-danger {
-    @apply text-danger bg-transparent;
-    border-color: transparent;
+    @apply text-danger;
+    border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
   }
   .asset-library-actions .control-button.is-danger:hover {
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    background: color-mix(in srgb, var(--danger) 22%, transparent);
   }
 
   /* --- Replace staging state --- */
@@ -609,6 +687,9 @@
     .asset-library-toolbar {
       @apply flex-wrap;
     }
+    .asset-library-toolbar-main {
+      @apply w-full min-w-0 flex-wrap;
+    }
     .asset-library-toolbar-actions {
       @apply ml-0 w-full flex-wrap border-l-0 pl-0;
     }
@@ -631,8 +712,6 @@
     .asset-library-assets {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .asset-library-actions-primary,
-    .asset-library-actions-secondary,
     .asset-library-replace-actions {
       grid-template-columns: 1fr;
     }

@@ -501,6 +501,7 @@ const assetAuthoring: AssetAuthoringCopy = {
       `Precondition "${params['precondition'] ?? ''}" is deprecated; use ${params['replacement'] ?? ''} instead.`,
     'patch.sourceFileMissing': (params) =>
       `${params['action'] ?? ''} on ${params['target'] ?? ''} has no source file, so it patches nothing.`,
+    'patch.targetMissing': (params) => `${params['action'] ?? ''} has no target asset yet, so it patches nothing.`,
     'manifest.nameMissing': () => 'The manifest has no Name; SMAPI will refuse to load this content pack.',
     'manifest.uniqueIdMissing': () => 'The manifest has no UniqueID; SMAPI will refuse to load this content pack.',
     'manifest.uniqueIdShape': (params) =>

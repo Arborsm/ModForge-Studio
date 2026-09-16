@@ -12,7 +12,7 @@
  * `*.xx-XX.xnb` path fallbacks.
  */
 
-import { loadTextAsset, resolveLocalizedText } from '@entities/game/api'
+import { loadOptionalTextAsset, loadTextAsset, resolveLocalizedText } from '@entities/game/api'
 import type { LocaleCode } from '@locales'
 import { getLocalizedImagePathCandidates, loadImageResourceFromPath } from '@shared/lib/assets'
 import { OBJECT_DATA_ASSET_PATH } from '@shared/infra/stardew-assets/contentPaths'
@@ -280,7 +280,7 @@ export async function loadBuildingWorkspaceEntries(rootPath: string, locale: Loc
   return readCachedPromise(buildingEntriesCache, cacheKey, async () => {
     const [buildingsAsset, objectsAsset] = await Promise.all([
       loadTextAsset(rootPath, BUILDINGS_DATA_ASSET_PATH, locale),
-      loadTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale).catch(() => null),
+      loadOptionalTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale, 'buildingAssets.optionalObjects'),
     ])
 
     const localized = await localizeBuildingEntries(createBuildingEntryIndex(buildingsAsset.content), rootPath, locale)

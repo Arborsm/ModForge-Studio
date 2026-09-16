@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { loadResourceRegistry, type GameDirectoryInfo, type ResourceRegistryEntry } from '@entities/game/api'
 import { resolveGameAudioCueKind } from '@entities/map/lib/musicCues'
 import type { LocaleCode } from '@locales/api'
@@ -148,9 +148,9 @@ export function useAudioWorkspace({ directoryInfo, locale, active }: UseAudioWor
     }
   }, [directoryInfo?.rootPath, locale, active])
 
-  const filteredCues = useMemo(() => filterAudioCues(cues, filter, kindFilter), [cues, filter, kindFilter])
+  const filteredCues = filterAudioCues(cues, filter, kindFilter)
 
-  const activeCue = useMemo(() => cues.find((cue) => cue.id === activeCueId) ?? null, [cues, activeCueId])
+  const activeCue = cues.find((cue) => cue.id === activeCueId) ?? null
 
   function handleSelectCue(cueId: string) {
     setActiveCueId(cueId)

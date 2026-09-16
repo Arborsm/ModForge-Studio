@@ -7,7 +7,7 @@ import { loadMapThumbnail, type MapDocument } from '@entities/map'
 import { WorkspacePatchList, type AssetDraftPort, type DraftPatch, type EditorResources } from '@features/cp-maker'
 import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { WorkspaceSplitView } from '@shared/ui/WorkspaceSplitView'
 import {
   buildMapCatalogEntries,
@@ -233,7 +233,6 @@ export function MapCatalog({
   const editorCopy = useEditorCopy()
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
-  const publishNotification = useNotificationPublisher()
   const catalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
   const [query, setQuery] = useState('')
   const [sourceMode, setSourceMode] = useState<'all' | 'project' | 'vanilla'>('all')
@@ -323,11 +322,10 @@ export function MapCatalog({
       await project.writeProjectAssets(prepared.assets, 'generated')
       resources.onOpenMapAsset?.(prepared.document.relativePath)
     } catch (error) {
-      publishNotification({
-        level: 'error',
-        title: copy.importFailed,
-        description: error instanceof Error ? error.message : null,
-      })
+      appEvent('error', copy.importFailed)
+        .error(error)
+        .context({ source: 'map-catalog', operation: 'import-and-edit', mapId: entry.id })
+        .emit()
     } finally {
       setImportingEntryId(null)
     }

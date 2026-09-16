@@ -3,11 +3,7 @@
  */
 import { FolderArchive } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
-
-type LauncherLibraryArchiveDropOverlayProps = {
-  /** Human-readable list of supported archive suffixes (for example ".zip, .7z"). */
-  formatsLabel: string
-}
+import { LAUNCHER_ARCHIVE_FILE_SUFFIXES } from '@platform/host'
 
 /**
  * Full-library overlay shown while the user drags supported archive files over the mod library.
@@ -16,8 +12,9 @@ type LauncherLibraryArchiveDropOverlayProps = {
  * this layer is purely visual feedback and is rendered with pointer-events disabled
  * so it does not intercept mouse or keyboard interactions.
  */
-export function LauncherLibraryArchiveDropOverlay({ formatsLabel }: LauncherLibraryArchiveDropOverlayProps) {
+export function LauncherLibraryArchiveDropOverlay() {
   const copy = useEditorCopy().launcher
+  const formatsLabel = LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', ')
   return (
     <div
       className="launcher-library-archive-drop-overlay"

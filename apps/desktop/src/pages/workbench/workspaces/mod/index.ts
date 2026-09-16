@@ -15,7 +15,3 @@ export { useModAssetIndex } from './state/useModAssetIndex'
 /* ── Mod result asset loaders ── */
 export { findPreferredModTarget, loadModResultImageState, loadModResultMapDocument, loadModResultJsonValue } from './state/modResultAssets'
 export type { ModResultImageState } from './state/modResultAssets'
-
-/* ── Scale-up editor ── */
-export type { ScaleUpImageDimensions } from './state/scaleup/types'
-export { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from './state/scaleup/scaleup'

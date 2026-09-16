@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, CircleDashed, Package, Trash2 } from 'lucide-react'
 import type { EditorComponent } from '@features/cp-maker'
 import { renderAssetResourcePicker, toItemResourceBrowserOptions } from '@features/resource-browser'
@@ -14,8 +14,8 @@ import {
 } from '@entities/asset-schema'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import { OBJECT_DATA_ASSET_ID, OBJECT_DATA_SCHEMA, useItemAuthoringHandoff, validateObjectEntries } from '@entities/item'
-import { useEditorCopy, useItemDataEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useItemDataEditorCopy } from '@locales/provider'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useEditModeStore } from '../../../model/editModeStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { useItemAuthoringResources } from '../state/useItemAuthoringResources'
@@ -76,10 +76,9 @@ function RemoveEntryDialog({ objectId, onClose, onConfirm }: { objectId: string 
 export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale } = environment
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const copy = useItemDataEditorCopy()
-  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const pendingEntry = useItemAuthoringHandoff((state) => state.pendingEntry)
   const consumePendingEntry = useItemAuthoringHandoff((state) => state.consumePendingEntry)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -93,10 +92,7 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
     locale,
     patches: draft.patches,
   })
-  const itemOptions = useMemo(
-    () => toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'item-authoring'),
-    [referenceData.itemTextureStates, referenceData.items],
-  )
+  const itemOptions = toItemResourceBrowserOptions(referenceData.items, referenceData.itemTextureStates, 'item-authoring')
 
   useEffect(() => {
     setSelectedId(null)
@@ -275,8 +271,6 @@ export const ItemObjectPatchEditor: EditorComponent = ({ patch, draftPort, resou
       <RemoveEntryDialog objectId={removeCandidate} onClose={() => setRemoveCandidate(null)} onConfirm={handleRemoveConfirmed} />
       {gsqRequest !== null ? (
         <EventGameStateQueryBuilderModal
-          copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-          hubCopy={hubCopy}
           initialQuery={gsqRequest.initialQuery || undefined}
           onApply={(result) => {
             gsqRequest.apply(result.query)

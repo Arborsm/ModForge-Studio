@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy, useTranslationEditorCopy } from '@locales/provider'
 import type { AiReviewResult, AiReviewRun, LocalizationScopeSettings } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
 import { errorDetail } from '../model/errorDetail'
@@ -16,7 +17,6 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
   const reviewCopy = useTranslationEditorCopy()
-  const publish = useNotificationPublisher()
   const [runs, setRuns] = useState<AiReviewRun[]>([])
   const [runOffset, setRunOffset] = useState(0)
   const [runTotal, setRunTotal] = useState(0)
@@ -36,13 +36,17 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const retryRef = useRef<() => void>(() => undefined)
   const runHistoryLoad = useLatestTask('ai-localization-quality-history')
   const fail = (error: unknown) => {
-    publish({
-      id: NOTICE,
-      level: 'error',
-      title: copy.knowledgeError,
-      description: errorDetail(error),
-      action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
-    })
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization-quality', operation: 'manage' })
+      .emit({ notify: false })
+    appEvent('error', copy.knowledgeError)
+      .description(errorDetail(error))
+      .noticeId(NOTICE)
+      .action({ label: copy.retry, callback: () => retryRef.current(), tone: 'primary' })
+      .error(error)
+      .context({ source: 'ai-localization-quality', operation: 'load-history' })
+      .emit()
   }
   useEffect(() => () => dismissNotification(NOTICE), [])
   useEffect(() => {

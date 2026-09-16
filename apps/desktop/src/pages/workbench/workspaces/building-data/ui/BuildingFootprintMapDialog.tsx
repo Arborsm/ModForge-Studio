@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, Loader2, RotateCw } from 'lucide-react'
 import { loadMapAsset, type MapAssetSummary } from '@entities/game/api'
 import { MapViewport, type MapDocument, type MapTileRect } from '@entities/map'
 import type { LocaleCode, ThemeMode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useBuildingDataEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
@@ -65,6 +66,10 @@ export function BuildingFootprintMapDialog({
       })
       .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Building footprint map failed to load')
+            .error(error)
+            .context({ source: 'building-authoring', operation: 'load-footprint-map' })
+            .emit({ notify: false })
           setLoadState({ status: 'error', document: null, error: error instanceof Error ? error.message : String(error) })
         }
       })
@@ -74,14 +79,8 @@ export function BuildingFootprintMapDialog({
     }
   }, [farmAsset, gameRootPath, locale, open, retryToken])
 
-  const visibleLayerIds = useMemo(
-    () => loadState.document?.layers.filter((layer) => layer.visible).map((layer) => layer.id) ?? [],
-    [loadState],
-  )
-  const visibleObjectGroupIds = useMemo(
-    () => loadState.document?.objectGroups.filter((group) => group.visible).map((group) => group.id) ?? [],
-    [loadState],
-  )
+  const visibleLayerIds = loadState.document?.layers.filter((layer) => layer.visible).map((layer) => layer.id) ?? []
+  const visibleObjectGroupIds = loadState.document?.objectGroups.filter((group) => group.visible).map((group) => group.id) ?? []
 
   return (
     <Dialog open={open} onClose={onClose} ariaLabel={copy.title} size="xl" stack>
@@ -109,17 +108,11 @@ export function BuildingFootprintMapDialog({
             </div>
           ) : loadState.status === 'ready' ? (
             <MapViewport
-              locale={locale}
-              mapDocument={loadState.document}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              theme={theme}
-              accentColor={accentColor}
-              showGrid
-              showStatsChips={false}
-              contextMenuEnabled={false}
-              selectedTileRect={selection}
-              onTileRectSelect={setSelection}
+              mapState={{ mapDocument: loadState.document, visibleLayerIds, visibleObjectGroupIds }}
+              display={{ locale, theme, accentColor, showGrid: true, showStatsChips: false }}
+              contextMenu={{ enabled: false }}
+              editing={{ selectedTileRect: selection }}
+              actions={{ onTileRectSelect: setSelection }}
             />
           ) : null}
         </div>

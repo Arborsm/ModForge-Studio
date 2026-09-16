@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
 import type { AiSemanticIndexStatus, AiSemanticModelStatus, AiSemanticProgress, AiSemanticSettingsSnapshot } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { isTimeoutError, withLoadTimeout } from '@shared/lib/async/withLoadTimeout'
 import { composeSemanticStripState, type SemanticStripItemState } from './semanticStatusStripModel'
 
@@ -38,6 +39,10 @@ export function SemanticStatusStrip({ active, onConfigure }: { active: boolean; 
         const value = await withLoadTimeout(command(), SEMANTIC_STRIP_LOAD_TIMEOUT_MS)
         return { status: 'ok', value }
       } catch (cause) {
+        appEvent('warning', 'Semantic settings status query failed')
+          .error(cause)
+          .context({ source: 'semantic-status-strip', operation: 'load' })
+          .emit({ notify: false })
         return { status: 'error', timedOut: isTimeoutError(cause) }
       }
     }

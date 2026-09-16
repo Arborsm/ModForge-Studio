@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Download, MousePointer2, Plus, Search, Serve
 import { useEffect, useId, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type {
   AiGlossaryEntry,
   AiLocalizationScope,
@@ -10,7 +11,7 @@ import type {
   LocalizationKnowledgeFormat,
 } from '@shared/contracts'
 import { SemanticSearchStatus } from './SemanticSearchStatus'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
@@ -65,7 +66,6 @@ export function KnowledgeCenterView({
 }) {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
-  const publish = useNotificationPublisher()
   const [query, setQuery] = useState('')
   const [glossary, setGlossary] = useState<AiGlossaryEntry[]>([])
   const [glossaryOffset, setGlossaryOffset] = useState(0)
@@ -99,7 +99,11 @@ export function KnowledgeCenterView({
     updated: 120,
   })
   const fail = (error: unknown, retry?: () => void) => {
-    publish({
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization-knowledge', operation: 'manage' })
+      .emit({ notify: false })
+    publishNotification({
       id: NOTICE,
       level: 'error',
       eyebrow: copy.projectMessage,
@@ -242,7 +246,11 @@ export function KnowledgeCenterView({
     try {
       await localization.copyMemory(scopeId, memoryTargetScopeId, [selectedMemory.id])
       dismissNotification(NOTICE)
-      publish({ id: 'translation-memory-copied', level: 'success', title: copy.copiedMemory, description: copy.copiedMemory })
+      appEvent('success', copy.copiedMemory)
+        .description(copy.copiedMemory)
+        .noticeId('translation-memory-copied')
+        .context({ source: 'ai-localization-knowledge', operation: 'copy-memory' })
+        .emit()
     } catch (error) {
       fail(error)
     }

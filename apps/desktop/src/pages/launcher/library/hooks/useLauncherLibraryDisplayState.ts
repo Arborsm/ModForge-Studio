@@ -467,9 +467,7 @@ export function useLauncherLibraryDisplayState({
     ],
     [copy.library.sortByCustom, copy.library.sortByEnabled, copy.library.sortByName],
   )
-  const currentSortLabel = sortOptions.find((option) => option.value === sortMode)?.label ?? copy.library.sortByName
   const editCount = editingSelectionIds.length
-  const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : library.currentPack ? library.currentPack.name : copy.library.allPacks
   const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
 
   return {
@@ -490,9 +488,7 @@ export function useLauncherLibraryDisplayState({
     openLibraryFolderItemsById,
     shortModsPath,
     sortOptions,
-    currentSortLabel,
     editCount,
-    currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
     isClosingLibraryFolder,

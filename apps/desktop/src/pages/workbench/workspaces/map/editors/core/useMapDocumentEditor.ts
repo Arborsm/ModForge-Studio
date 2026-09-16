@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   syncLightMapProperty,
   type MapDocument,
@@ -12,6 +12,7 @@ import {
 } from '@entities/map'
 import { useLocalUndoShortcutOwner, type AssetDraftPort, type ProjectAssetRef } from '@features/cp-maker'
 import { useMapAuthoringCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   addMapAssetLayer,
@@ -163,6 +164,8 @@ export type MapDocumentEditor = {
   commitStroke: (points: readonly { tileX: number; tileY: number }[]) => void
   clickTile: (x: number, y: number) => void
   addTileset: (relativePath: string, replaceName?: string) => Promise<void>
+  /** Attaches multiple project tilesheets in one document/history update. */
+  addTilesets: (relativePaths: string[]) => Promise<{ failures: { path: string; message: string }[] }>
   /**
    * Attaches a vanilla game sheet as a dynamic reference (no project copy)
    * using its predefined catalog split, then selects it in the palette.
@@ -175,7 +178,8 @@ export type MapDocumentEditor = {
    * is disabled or the tileset is not found.
    */
   removeTileset: (name: string) => void
-  deleteSelectedObject: () => void
+  /** Deletes one object by id; a no-op when the id does not exist. */
+  deleteObject: (objectId: number) => void
   updateSelectedObject: (updates: Partial<MapObject>) => void
   updateActiveLayer: (updates: Partial<MapLayer>) => void
   updateSelectedTileset: (updater: (tileset: MapTileset) => MapTileset) => void
@@ -243,14 +247,14 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
   // The callback identity must stay stable: MapViewport's reset effect depends
   // on it, and a fresh identity would clear the hover right after every update
   // (visible as flickering coordinates that only appear while moving).
-  const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = useCallback((next) => {
+  const setHoverInfo: Dispatch<SetStateAction<TileHoverInfo | null>> = (next) => {
     const value = typeof next === 'function' ? next(hoverInfoRef.current) : next
     const prev = hoverInfoRef.current
     if (prev === null && value === null) return
     if (prev !== null && value !== null && prev.tileX === value.tileX && prev.tileY === value.tileY) return
     hoverInfoRef.current = value
     hoverInfoListenersRef.current.forEach((l) => l())
-  }, [])
+  }
   const [paletteSelection, setPaletteSelection] = useState<MapTilesetPaletteSelection | null>(null)
   const [saveState, setSaveState] = useState<MapEditorSaveState>({ status: 'idle', message: '' })
   const [pendingDeleteLayerId, setPendingDeleteLayerId] = useState<number | null>(null)
@@ -306,7 +310,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
         if (active) setProjectImageUrls((current) => ({ ...current, ...Object.fromEntries(entries) }))
       })
       .catch((error) => {
-        if (active) setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+        if (active) {
+          appEvent('error', 'Failed to load project tileset image')
+            .error(error)
+            .context({ source: 'map-document-editor', operation: 'load-project-images' })
+            .emit({ notify: false })
+          setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+        }
       })
     return () => {
       active = false
@@ -317,19 +327,13 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
 
   const activeLayer = document.layers.find((layer) => layer.id === activeLayerId) ?? document.layers[0] ?? null
   const activeLayerLocked = activeLayer ? lockedLayerIds.has(activeLayer.id) : true
-  // Memoized for downstream effect dependency stability: layer thumbnails, the
-  // world-lighting bake and viewport redraws key on this identity, so it must
-  // only change when the document or resolved project images actually change.
-  const renderDocument: MapDocument = useMemo(
-    () => ({
-      ...mapDocument,
-      tilesets: mapDocument.tilesets.map((tileset) => ({
-        ...tileset,
-        imagePath: tileset.imagePath && projectImageUrls[tileset.imagePath] ? projectImageUrls[tileset.imagePath] : tileset.imagePath,
-      })),
-    }),
-    [mapDocument, projectImageUrls],
-  )
+  const renderDocument: MapDocument = {
+    ...mapDocument,
+    tilesets: mapDocument.tilesets.map((tileset) => ({
+      ...tileset,
+      imagePath: tileset.imagePath && projectImageUrls[tileset.imagePath] ? projectImageUrls[tileset.imagePath] : tileset.imagePath,
+    })),
+  }
   const selectedTileset = paletteSelection
     ? (mapDocument.tilesets.find((tileset) => tileset.name === paletteSelection.tilesetName) ?? null)
     : null
@@ -485,6 +489,10 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     )
     updateDocument(painted, null, copy.historyPaintRule(copy.overlayRules[overlayRule], activeLayer.name))
     if (skippedTilesetDerived > 0) {
+      appEvent('warning', 'Some map cell rules could not be cleared')
+        .context({ source: 'map-document-editor', operation: 'clear-cell-rules', count: String(skippedTilesetDerived) })
+        .dedupe('map-cell-rules-clear')
+        .emit({ notify: false })
       setSaveState({ status: 'idle', message: copy.overlayTilesetEraseBlocked(skippedTilesetDerived) })
     }
   }
@@ -602,8 +610,74 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
       setPaletteSelection({ tilesetName: name, startIndex: 0, width: 1, height: 1 })
       setSaveState({ status: 'idle', message: '' })
     } catch (error) {
+      appEvent('error', 'Failed to add map tileset')
+        .error(error)
+        .context({ source: 'map-document-editor', operation: replaceName ? 'replace-tileset' : 'add-tileset', path: relativePath })
+        .emit({ notify: false })
       setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     }
+  }
+
+  async function addTilesets(relativePaths: string[]) {
+    const failures: { path: string; message: string }[] = []
+    if (!capabilities.tilesetManagement) return { failures }
+    setSaveState({ status: 'saving', message: copy.loadingTileset })
+    let next = mapDocument
+    const urls: Record<string, string> = {}
+    let lastName: string | null = null
+    for (const relativePath of relativePaths) {
+      try {
+        const payload = await readProjectAsset(relativePath)
+        const dataUrl = `data:${payload.asset.mediaType};base64,${payload.bytesBase64}`
+        const dimensions = await measureImageDimensions(dataUrl)
+        if (dimensions.width % mapDocument.tileWidth !== 0 || dimensions.height % mapDocument.tileHeight !== 0) {
+          throw new Error(copy.invalidTilesetDimensions(dimensions.width, dimensions.height, mapDocument.tileWidth, mapDocument.tileHeight))
+        }
+        const columns = dimensions.width / mapDocument.tileWidth
+        const tileCount = columns * (dimensions.height / mapDocument.tileHeight)
+        const baseName =
+          relativePath
+            .split('/')
+            .pop()
+            ?.replace(/\.[^.]+$/u, '') || 'tileset'
+        const usedNames = new Set(next.tilesets.map((tileset) => tileset.name.toLowerCase()))
+        let name = baseName
+        for (let suffix = 2; usedNames.has(name.toLowerCase()); suffix += 1) name = `${baseName}_${suffix}`
+        const tileset = {
+          firstGid: nextTilesetFirstGid(next),
+          name,
+          tileWidth: mapDocument.tileWidth,
+          tileHeight: mapDocument.tileHeight,
+          tileCount,
+          columns,
+          source: null,
+          margin: 0,
+          spacing: 0,
+          tileOffsetX: 0,
+          tileOffsetY: 0,
+          imageSource: relativeMapAssetReference(assetPath, relativePath),
+          imagePath: relativePath,
+          imageWidth: dimensions.width,
+          imageHeight: dimensions.height,
+          imageTrans: null,
+          properties: {},
+          tileProperties: {},
+          animations: {},
+        }
+        next = { ...next, tilesets: [...next.tilesets, tileset] }
+        urls[relativePath] = dataUrl
+        lastName = name
+      } catch (error) {
+        failures.push({ path: relativePath, message: error instanceof Error ? error.message : String(error) })
+      }
+    }
+    if (next !== mapDocument) {
+      updateDocument(next, undefined, copy.addTileset)
+      setProjectImageUrls((current) => ({ ...current, ...urls }))
+      if (lastName) setPaletteSelection({ tilesetName: lastName, startIndex: 0, width: 1, height: 1 })
+    }
+    setSaveState({ status: 'idle', message: '' })
+    return { failures }
   }
 
   /**
@@ -615,9 +689,16 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     if (!capabilities.tilesetManagement) return
     const tileset = buildGameSheetTileset(mapDocument, sheet)
     if (!tileset) {
+      const error = new Error(
+        copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+      )
+      appEvent('error', 'Failed to attach game tilesheet')
+        .error(error)
+        .context({ source: 'map-document-editor', operation: 'attach-game-sheet', sheet: sheet.key })
+        .emit({ notify: false })
       setSaveState({
         status: 'error',
-        message: copy.invalidTilesetDimensions(sheet.imageWidth, sheet.imageHeight, mapDocument.tileWidth, mapDocument.tileHeight),
+        message: error.message,
       })
       return
     }
@@ -702,20 +783,21 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     )
   }
 
-  function deleteSelectedObject() {
-    if (!capabilities.objectGroups || !selectedObject) return
+  function deleteObject(objectId: number) {
+    if (!capabilities.objectGroups) return
+    if (!mapDocument.objectGroups.some((group) => group.objects.some((object) => object.id === objectId))) return
     updateDocument(
       syncLightMapProperty({
         ...mapDocument,
         objectGroups: mapDocument.objectGroups.map((group) => ({
           ...group,
-          objects: group.objects.filter((object) => object.id !== selectedObject.id),
+          objects: group.objects.filter((object) => object.id !== objectId),
         })),
       }),
       undefined,
       copy.deleteObject,
     )
-    setSelectedObjectId(null)
+    if (selectedObjectId === objectId) setSelectedObjectId(null)
   }
 
   function updateActiveLayer(updates: Partial<MapLayer>) {
@@ -917,9 +999,10 @@ export function useMapDocumentEditor(options: MapDocumentEditorOptions): MapDocu
     commitStroke,
     clickTile,
     addTileset,
+    addTilesets,
     attachGameSheet,
     removeTileset,
-    deleteSelectedObject,
+    deleteObject,
     updateSelectedObject,
     updateActiveLayer,
     updateSelectedTileset,

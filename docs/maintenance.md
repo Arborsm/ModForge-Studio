@@ -27,7 +27,7 @@ vp run --filter @modforge/desktop gen:host-commands
 
 `vp run dev` is the default full desktop path and uses the root desktop host
 dispatcher directly: it is provided by the `run.tasks.dev` task in the root
-`vite.config.ts` (`command: node ./scripts/desktop-host-dispatch.cjs dev`), not
+`vite.config.ts` (`command: node apps/desktop/scripts/dev/desktop-host-dispatch.cjs dev`), not
 by a package script — the root `package.json` has no `dev` script, so
 `pnpm run dev` at the repository root fails with "Missing script". `vp run
 web:dev` starts the Vite+ frontend-only path.
@@ -35,7 +35,7 @@ Linux starts Electron, while macOS and Windows start Tauri. `vp run
 desktop:build` uses the same platform split for build mode.
 
 Every cargo build of the desktop host runs the host command drift gate first:
-`build.rs` executes `node scripts/generate-host-commands.mjs --check` (requires
+`build.rs` executes `node apps/desktop/scripts/gen/generate-host-commands.mjs --check` (requires
 Node on PATH) and fails the build if the sidecar routing block, the lib.rs
 `generate_handler!` list, or the frontend `HOST_COMMANDS` table drift from the
 scanned `commands.rs` bindings. After adding, renaming, or moving a host
@@ -171,7 +171,7 @@ Frontend tests live under `apps/desktop/src/tests/`:
 
 `vp run --filter @modforge/desktop test` runs `test:frontend` and then
 `test:node`. `test:frontend` drives Vitest through
-`scripts/run-frontend-tests.mjs`, which gates on React `act(...)` warnings: any
+`scripts/test/run-frontend-tests.mjs`, which gates on React `act(...)` warnings: any
 warning in the test output fails the run even when Vitest itself passes.
 `test:node` runs five standalone scripts under `node --test`
 (`frontend-test-warning-gate.test.mjs`, `linux-cuda-runtime.test.mjs`,
@@ -333,7 +333,7 @@ or add tests under `apps/desktop/src/tests/architecture`.
 
 ### Verification Scripts
 
-`apps/desktop/scripts/` contains 15 `verify-*.mjs` scripts. Seven are wired
+`apps/desktop/scripts/verify/` contains 15 `verify-*.mjs` scripts. Seven are wired
 into `apps/desktop/package.json` and run via `vp run --filter @modforge/desktop <script>`:
 
 - `test:launcher-custom-sort` → `verify-launcher-custom-sort.mjs` — custom launcher mod ordering (Playwright against the launcher mock scenario).
@@ -345,7 +345,7 @@ into `apps/desktop/package.json` and run via `vp run --filter @modforge/desktop 
 - `test:performance:compiler-cleanup` → `verify-compiler-cleanup-performance.mjs` — interaction timings on React Compiler cleanup surfaces.
 
 The remaining eight are manual/on-demand Playwright verification scripts with
-no package script; run them directly with `node apps/desktop/scripts/<name>.mjs`.
+no package script; run them directly with `node apps/desktop/scripts/verify/<name>.mjs`.
 They expect a running dev server (probing `http://127.0.0.1:5175`,
 `http://127.0.0.1:5176`, then `http://localhost:5173` — start one with
 `vp run web:dev -- --host 127.0.0.1 --port 5175`) and open it with the

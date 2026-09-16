@@ -7,3 +7,7 @@ export type { MapTilesSessionEditorProps } from './editors/MapTilesSessionEditor
 export { MapCatalog } from './ui/MapCatalog'
 export { default as CentralWorkspace } from './view/CentralWorkspace'
 export { useMapWorkspace } from './state/useMapWorkspace'
+export { useMapEditorSessionStore } from './model/mapEditorSessions'
+export type { MapAssetSession, MapTilesSession } from './model/mapEditorSessions'
+export { MapAssetEditorHost } from './editors/MapAssetEditorHost'
+export type { MapAssetEditorHostProps } from './editors/MapAssetEditorHost'

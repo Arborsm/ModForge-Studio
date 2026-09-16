@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
-import { useEditorCopy, useMailEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { useMailEditorCopy } from '@locales/provider'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useMailWorkspaceContext } from '../state/MailWorkspaceContext'
 import {
   MAIL_DELIVERY_TYPES,
@@ -68,9 +68,8 @@ function DeliveryIdField({ row }: { row: MailTriggerRow }) {
 /** Game state query row: builder in both modes, raw query text in expert mode. */
 function DeliveryConditionField({ row }: { row: MailTriggerRow }) {
   const copy = useMailEditorCopy().delivery
-  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const workspace = useMailWorkspaceContext()
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const [builderOpen, setBuilderOpen] = useState(false)
   const condition = row.draft.condition
 
@@ -114,8 +113,6 @@ function DeliveryConditionField({ row }: { row: MailTriggerRow }) {
       </div>
       {builderOpen ? (
         <EventGameStateQueryBuilderModal
-          copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-          hubCopy={hubCopy}
           initialQuery={condition}
           onApply={(result) => {
             update(result.query)
@@ -132,7 +129,7 @@ function DeliveryConditionField({ row }: { row: MailTriggerRow }) {
 function DeliveryRuleCard({ row, index }: { row: MailTriggerRow; index: number }) {
   const copy = useMailEditorCopy().delivery
   const workspace = useMailWorkspaceContext()
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const draft = row.draft
   const isKnownEvent = MAIL_TRIGGER_EVENTS.some((event) => event === draft.trigger)
 

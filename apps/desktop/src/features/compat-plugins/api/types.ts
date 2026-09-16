@@ -14,6 +14,8 @@ export type CompatPluginPageSource = {
     entryFile?: string
     entryImage?: string
     rootSubdir?: string
+    /** When true, entries are aggregated from the target mod plus every installed content pack whose `ContentPackFor` targets it. */
+    includeContentPacks?: boolean
   }
 }
 
@@ -35,7 +37,7 @@ export type CompatPluginFieldValidate = {
 export type CompatPluginField = {
   id: string
   path: string
-  type: 'bool' | 'number' | 'text' | 'choice' | 'keybind' | 'keybind-list' | 'string-list' | 'record-list' | 'object'
+  type: 'bool' | 'number' | 'text' | 'choice' | 'keybind' | 'keybind-list' | 'string-list' | 'record-list' | 'object' | 'game-item'
   labelKey?: string
   required?: boolean
   min?: number
@@ -44,6 +46,8 @@ export type CompatPluginField = {
   allowValues?: string[]
   validate?: CompatPluginFieldValidate[]
   visibleWhen?: CompatPluginFieldVisibleWhen
+  /** For `game-item` fields: optional secondary path that also receives the picked item's unqualified id (e.g. AT's ItemId). */
+  idPath?: string
   /** For `record-list` fields: sub-schema for each record's fields. */
   fields?: CompatPluginField[]
   /** For `object` fields: sub-fields of the nested object. */
@@ -53,6 +57,8 @@ export type CompatPluginField = {
 /** A grouped set of field descriptors in a page. */
 export type CompatPluginSection = {
   titleKey: string
+  /** When true, the section renders collapsed by default (advanced fields). */
+  collapsed?: boolean
   fields: CompatPluginField[]
 }
 
@@ -136,6 +142,12 @@ export type CompatPluginSummary = {
   assetSchemas: AssetSchemaContribution[]
   /** Stage 4: condition syntax contributions for When/GSQ editor autocomplete. */
   conditionSyntax: ConditionSyntaxContribution[]
+  /**
+   * Referenced host capability ids declared in `contributions.capabilities`.
+   * The host resolves them against its capability registry; undeclared ids
+   * are invisible to a plugin's `capabilities.get`.
+   */
+  capabilities: string[]
   /** Optional human-readable description from the manifest. */
   description?: string
   /** Optional author name from the manifest. */

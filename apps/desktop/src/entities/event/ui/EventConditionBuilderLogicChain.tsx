@@ -6,17 +6,15 @@
 import { X } from 'lucide-react'
 import type { PointerEvent } from 'react'
 import { cx } from '@shared/lib/helper'
+import { useEditorCopy } from '@locales/provider'
 import { compactLabelForChip, type ChipDragState, type ConditionChip } from './eventConditionBuilderModel'
 import { iconForConditionChip } from './eventConditionBuilderChipIcon'
-import type { ConditionBuilderCopy, HubCopy } from './eventConditionBuilderTypes'
 
 type EventConditionBuilderLogicChainProps = {
   chips: ConditionChip[]
   chipDrag: ChipDragState | null
   compact: boolean
   hasWeatherConflict: boolean
-  copy: ConditionBuilderCopy
-  hubCopy: HubCopy
   onToggleNegation: (id: string) => void
   onRemoveChip: (id: string) => void
   onChipPointerDown: (event: PointerEvent<HTMLDivElement>, chipId: string) => void
@@ -31,14 +29,14 @@ export function EventConditionBuilderLogicChain({
   chipDrag,
   compact,
   hasWeatherConflict,
-  copy,
-  hubCopy,
   onToggleNegation,
   onRemoveChip,
   onChipPointerDown,
   onChipPointerMove,
   onChipPointerEnd,
 }: EventConditionBuilderLogicChainProps) {
+  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
+  const copy = hubCopy.conditionBuilder
   const draggedChipId = chipDrag?.chipId ?? null
 
   return (

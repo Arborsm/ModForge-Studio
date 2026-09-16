@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react'
 import { useAi } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type { LocalizationEngineRef } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
-import { useNotificationPublisher } from '@shared/ui/notifications'
 
 type EngineChoice = LocalizationEngineRef & {
   name: string
@@ -37,7 +37,6 @@ export function DefaultTranslationEngineSection({
   const copy = settingsCopy.ai.defaultEngine
   const aiCopy = settingsCopy.ai
   const noKeyLabel = copy.noKeyLabel
-  const publishNotification = useNotificationPublisher()
   const [choices, setChoices] = useState<EngineChoice[]>([])
   const [saved, setSaved] = useState<LocalizationEngineRef | null>(null)
   const [selected, setSelected] = useState<LocalizationEngineRef | null>(null)
@@ -96,7 +95,10 @@ export function DefaultTranslationEngineSection({
           setEngineKind('machine-translation')
         }
       })
-      .catch(() => active && setMessage(copy.loadError))
+      .catch(() => {
+        if (!active) return
+        setMessage(copy.loadError)
+      })
       .finally(() => active && setLoading(false))
     return () => {
       active = false
@@ -114,13 +116,12 @@ export function DefaultTranslationEngineSection({
       setMessage(copy.saved)
     } catch {
       setMessage(copy.saveError)
-      publishNotification({
-        id: 'localization-default-engine-save',
-        level: 'error',
-        title: copy.saveError,
-        description: copy.explicitFailure,
-        action: { label: copy.save, callback: () => void save(), tone: 'primary' },
-      })
+      appEvent('error', copy.saveError)
+        .description(copy.explicitFailure)
+        .noticeId('localization-default-engine-save')
+        .action({ label: copy.save, callback: () => void save(), tone: 'primary' })
+        .context({ source: 'default-translation-engine-section', operation: 'save-default-engine' })
+        .emit()
     } finally {
       setSaving(false)
     }

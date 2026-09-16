@@ -69,14 +69,10 @@ fn build_registry(plugin_root_override: Option<&str>) -> AttachedApiRegistry {
     let roots = resolve_plugin_roots(plugin_root_override);
     let report = load_plugin_manifests(&roots);
     for error in &report.errors {
-        log::warn!(
-            target: crate::support::logging::event::targets::APP_UI,
-            "{}",
-            crate::support::logging::event::LogEvent::new("compatPlugin.loadError")
-                .field("pluginDir", &error.plugin_dir)
-                .field("reason", &error.reason)
-                .render()
-        );
+        crate::support::logging::event::LogEvent::new("compatPlugin.loadError")
+            .field("pluginDir", &error.plugin_dir)
+            .field("reason", &error.reason)
+            .emit_warn(crate::support::logging::event::targets::APP_UI);
     }
     let descriptors = report.to_attached_api_descriptors();
     AttachedApiRegistry::from_descriptors(&descriptors)

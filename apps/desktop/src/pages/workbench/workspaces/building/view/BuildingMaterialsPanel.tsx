@@ -8,12 +8,10 @@ import {
   type BuildingWorkspaceEntry,
   type WorldBuildingEntrance,
 } from '@entities/building'
-import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingMaterialsPanelProps = {
   building: BuildingWorkspaceEntry
   springObjectsState: BuildingTextureAssetState
-  copy: BuildingsPanelCopy
 }
 
 function MaterialChip({
@@ -84,6 +82,7 @@ function WorldEntranceRow({ entrance }: { entrance: WorldBuildingEntrance }) {
  * Returns null when empty (no empty-state placeholder).
  */
 export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
+  const copy = useBuildingsCopy()
   const isConstructible = props.building.sourceKind === 'constructible'
 
   if (isConstructible) {
@@ -92,7 +91,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
     }
     return (
       <div>
-        <p className="building-workspace-section-title mb-1.5">{props.copy.materialsTitle}</p>
+        <p className="building-workspace-section-title mb-1.5">{copy.materialsTitle}</p>
         <div className="flex flex-wrap gap-2">
           {props.building.buildMaterials.map((material) => (
             <MaterialChip
@@ -114,7 +113,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
 
   return (
     <div>
-      <p className="building-workspace-section-title mb-1.5">{props.copy.worldEntrancesTitle}</p>
+      <p className="building-workspace-section-title mb-1.5">{copy.worldEntrancesTitle}</p>
       <div>
         {props.building.worldEntrances.map((entrance, index) => (
           <WorldEntranceRow key={`${props.building.key}:${index}`} entrance={entrance} />

@@ -2,7 +2,7 @@
 
 Rust/Tauri 后端（`apps/desktop/src-tauri`）的分层、依赖方向与模块约定。前端对应物见 `docs/frontend-architecture.md`；Host Runtime、命令绑定与 wire 协议机制见 `AGENTS.md` 的「后端硬规则」。
 
-本文件的规则由 `apps/desktop/scripts/check-backend-architecture.mjs` 强制执行（CI 每次 PR 运行），不是风格建议。规则有编号（R1–R6），检查报告会引用编号。
+本文件的规则由 `apps/desktop/scripts/verify/check-backend-architecture.mjs` 强制执行（CI 每次 PR 运行），不是风格建议。规则有编号（R1–R6），检查报告会引用编号。
 
 ## 分层总览
 
@@ -85,7 +85,7 @@ host ──────► domain ──────► infrastructure
 
 ```bash
 vp run --filter @modforge/desktop check:backend-architecture      # 常规检查
-node apps/desktop/scripts/check-backend-architecture.mjs --strict # 白名单迁移进度（会把遗留项当违规报出）
+node apps/desktop/scripts/verify/check-backend-architecture.mjs --strict # 白名单迁移进度（会把遗留项当违规报出）
 ```
 
 CI（`.github/workflows/checks.yml`）在每次 PR 运行常规检查；单元测试钉住"当前源码树必须通过 + 白名单集合与现状一致"。

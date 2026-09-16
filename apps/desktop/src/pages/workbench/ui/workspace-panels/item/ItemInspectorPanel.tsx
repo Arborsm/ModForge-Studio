@@ -5,7 +5,6 @@ import { ItemSprite } from '@entities/item'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 
 type ItemInspectorPanelProps = {
-  noneLabel: string
   item: ItemWorkspaceEntry | null
   textureState: ItemTextureAssetState | null
 }
@@ -19,8 +18,9 @@ function renderKv(label: string, value: string) {
   )
 }
 
-export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspectorPanelProps) {
+export function ItemInspectorPanel({ item, textureState }: ItemInspectorPanelProps) {
   const copy = useItemsCopy()
+  const noneLabel = copy.noneLabel
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

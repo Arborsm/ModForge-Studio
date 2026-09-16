@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowLeft, BadgeCheck, Eraser, FileOutput, MousePointer2, Paintbrush, Plus, Save, SunMoon } from 'lucide-react'
 import {
@@ -19,6 +19,7 @@ import {
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
   getLightingPreviewTimeOfDay,
+  isLightMarkerObject,
   OUTDOORS_PROPERTY_KEY,
   asMapPropertyString,
   type GameSeason,
@@ -27,7 +28,6 @@ import {
 } from '@entities/map'
 import { deriveCellOverlayView, type CellOverlayCell } from '@entities/map'
 import { DAY_TILES_PROPERTY_KEY, NIGHT_TILES_PROPERTY_KEY } from '@entities/map'
-import { planCellAnimationHoist } from '@entities/map'
 import { registerCustomTilesheets, unregisterCustomTilesheets } from '@entities/map'
 import { type AssetDraftPort, type DraftPatch, type EditorComponent, type EditorResources } from '@features/cp-maker'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'
@@ -37,7 +37,7 @@ import { cx } from '@shared/lib/helper'
 import { WorkspaceLayout } from '@shared/workspace'
 import type { WorkspacePanelConfig } from '@shared/contracts'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { useWorkbenchProject } from '../../../model/workbenchModuleContexts'
 import {
   applyMapAssetStroke,
@@ -65,13 +65,15 @@ import { MapAssetEditorInspector } from './core/MapAssetEditorInspector'
 import { MapAssetEditorLayersPanel } from './core/MapAssetEditorLayersPanel'
 import { MapAssetCellOverlayRules } from './core/MapAssetCellOverlayRules'
 import { MapAssetInspectPopover } from './core/MapAssetInspectPopover'
-import { mergeDayNight, parseDayNightGroups } from './core/dayNightEntries'
+import { applyDayNightPreviewSwap, mergeDayNight, parseDayNightGroups } from './core/dayNightEntries'
 import { MapAssetEditorToolbar } from './core/MapAssetEditorToolbar'
 import { MapAssetTopBarChips } from './core/MapAssetTopBarChips'
 import { MapCanvasZoomChip } from './core/MapCanvasZoomChip'
 import { useMapDocumentEditor } from './core/useMapDocumentEditor'
 import { useMapEditorShortcuts } from './core/useMapEditorShortcuts'
 import type { WarpDialogMapOption } from './core/WarpDialog'
+import { TilesheetImportDialog } from './core/TilesheetImportDialog'
+import { classifyProjectAsset } from '../../asset-library/model/projectAssets'
 import { loadGameFurnitureObjects } from '../model/furnitureObjects'
 import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
 import { useObjectLightItemIndex } from '../state/useObjectLightItemIndex'
@@ -148,9 +150,8 @@ function MapAssetEditorContent({
 }) {
   const authoringCopy = useMapAuthoringCopy()
   const copy = authoringCopy.assetEditor
-  const publishNotification = useNotificationPublisher()
   const assetPath = initialAssetPath(document, patch.fromFile)
-  const imageAssets = project.projectAssets.filter((asset) => asset.mediaType.startsWith('image/'))
+  const imageAssets = project.projectAssets.filter((asset) => classifyProjectAsset(asset.mediaType, asset.relativePath) === 'image')
   const imageAssetPaths = new Set(imageAssets.map((asset) => asset.relativePath.replaceAll('\\', '/').toLowerCase()))
   const editor = useMapDocumentEditor({
     document,
@@ -167,10 +168,21 @@ function MapAssetEditorContent({
   const diagnosticsFlashTimeoutRef = useRef<number | null>(null)
   /** Canvas highlight driven by inspector entry hover; null clears it. */
   const [inspectorHighlight, setInspectorHighlight] = useState<MapInspectorHighlight | null>(null)
+  // Hidden TileData rule carriers are invisible on the canvas by default; keep
+  // the selected one revealed through the inspector-highlight channel so
+  // locating it from the 内容 tab leaves a visible outline until deselected.
+  const selectedRuleCarrier =
+    editor.selectedObject && editor.selectedObject.name === 'TileData' && !isLightMarkerObject(editor.selectedObject)
+      ? editor.selectedObject
+      : null
+  const selectedRuleCarrierHighlight: MapInspectorHighlight | null = selectedRuleCarrier
+    ? { tileRects: [], objectIds: [selectedRuleCarrier.id] }
+    : null
   /** Tileset image src being hovered in the palette gallery; previewed as an overlay on the canvas. */
   const [hoverPreviewSrc, setHoverPreviewSrc] = useState<string | null>(null)
   /** Gallery selection mode active: shows a constant overlay backdrop on the canvas. */
   const [galleryMode, setGalleryMode] = useState(false)
+  const [tilesheetImportOpen, setTilesheetImportOpen] = useState(false)
   /** Layer id being hovered in the layers panel; when set, the canvas isolates that layer. */
   const [hoverLayerId, setHoverLayerId] = useState<number | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
@@ -225,37 +237,31 @@ function MapAssetEditorContent({
   const isOutdoor = asMapPropertyString(mapDocument.properties[OUTDOORS_PROPERTY_KEY]).trim() !== ''
   const mapCatalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
   /** Localized warp target choices: game maps first, then project map assets. */
-  const warpMapOptions = useMemo<readonly WarpDialogMapOption[]>(
-    () => [
-      ...mapCatalog.assets.map((asset) => ({
-        value: asset.name,
-        label: asset.name,
-        description: authoringCopy.categories[mapCatalogCategory(asset.name)],
-      })),
-      ...project.projectAssets
-        .filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))
-        .map((asset) => {
-          const name =
-            asset.relativePath
-              .split('/')
-              .pop()
-              ?.replace(/\.(?:tmx|tbin)$/iu, '') ?? asset.relativePath
-          return {
-            value: name,
-            label: name,
-            description: asset.relativePath,
-          }
-        }),
-    ],
-    [authoringCopy.categories, mapCatalog.assets, project.projectAssets],
-  )
-  const loadWarpTargetDocument = useMemo(
-    () => (target: string) => {
-      if (!resources.gameRootPath) return Promise.reject(new Error(authoringCopy.assetEditor.noGameRootForWarp))
-      return loadGameMapDocument(resources.gameRootPath, target, resources.locale)
-    },
-    [authoringCopy.assetEditor.noGameRootForWarp, resources.gameRootPath, resources.locale],
-  )
+  const warpMapOptions: readonly WarpDialogMapOption[] = [
+    ...mapCatalog.assets.map((asset) => ({
+      value: asset.name,
+      label: asset.name,
+      description: authoringCopy.categories[mapCatalogCategory(asset.name)],
+    })),
+    ...project.projectAssets
+      .filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))
+      .map((asset) => {
+        const name =
+          asset.relativePath
+            .split('/')
+            .pop()
+            ?.replace(/\.(?:tmx|tbin)$/iu, '') ?? asset.relativePath
+        return {
+          value: name,
+          label: name,
+          description: asset.relativePath,
+        }
+      }),
+  ]
+  const loadWarpTargetDocument = (target: string) => {
+    if (!resources.gameRootPath) return Promise.reject(new Error(authoringCopy.assetEditor.noGameRootForWarp))
+    return loadGameMapDocument(resources.gameRootPath, target, resources.locale)
+  }
   /** Writes map-level properties through the editor's history (mergeKey + label supplied by callers). */
   const updateMapProperties = (nextProperties: Record<string, MapPropertyValue>, mergeKey?: string | null, label?: string) =>
     editor.updateDocument({ ...document, properties: nextProperties }, mergeKey ?? null, label)
@@ -266,19 +272,30 @@ function MapAssetEditorContent({
     else next[OUTDOORS_PROPERTY_KEY] = 'T'
     updateMapProperties(next, `map-property:${OUTDOORS_PROPERTY_KEY}`, authoringCopy.assetEditor.editOutdoors)
   }
-  const worldLighting = useMemo(
-    () =>
-      deriveMapDocumentLighting(editor.renderDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
-        objectLightIndex,
-      }),
-    [editor.renderDocument, lightingMode, lightingSeason, objectLightIndex],
+  const worldLighting = deriveMapDocumentLighting(
+    editor.renderDocument,
+    getLightingPreviewTimeOfDay(lightingMode, lightingSeason),
+    lightingSeason,
+    {
+      objectLightIndex,
+    },
   )
+  // Night lighting preview also swaps the map's NightTiles cells on the
+  // canvas, so the editor shows what the game renders after dark; the base
+  // document keeps its day tiles and nothing is persisted.
+  const nightPreviewDocument =
+    lightingMode === 'night'
+      ? applyDayNightPreviewSwap(
+          editor.renderDocument,
+          parseDayNightGroups(asMapPropertyString(document.properties[NIGHT_TILES_PROPERTY_KEY])).groups,
+        )
+      : editor.renderDocument
   /** Render document with the dragged marker's live position swapped in; never persisted. */
   const objectDragPreview = editor.objectDragPreview
   const viewportDocument = objectDragPreview
     ? {
-        ...editor.renderDocument,
-        objectGroups: editor.renderDocument.objectGroups.map((group) => ({
+        ...nightPreviewDocument,
+        objectGroups: nightPreviewDocument.objectGroups.map((group) => ({
           ...group,
           objects: group.objects.map((object) =>
             object.id === objectDragPreview.objectId
@@ -287,14 +304,14 @@ function MapAssetEditorContent({
           ),
         })),
       }
-    : editor.renderDocument
+    : nightPreviewDocument
 
   /**
    * Overlay view model for the active layer's cell rules: the derived rules
    * plus the in-flight drag preview merged on top (walkable removes cells).
    * Null while the overlay mode is off, so MapViewport draws nothing extra.
    */
-  const overlayCells = useMemo(() => {
+  const overlayCells = (() => {
     if (!editor.overlayActive) return null
     const layer = editor.renderDocument.layers.find((candidate) => candidate.id === editor.activeLayerId)
     if (!layer) return null
@@ -309,7 +326,7 @@ function MapAssetEditorContent({
       }
     }
     return { layerId: layer.id, width: layer.width, height: layer.height, cells }
-  }, [editor.activeLayerId, editor.overlayActive, editor.overlayPaintPreview, editor.overlayRule, editor.renderDocument])
+  })()
 
   /**
    * Day/night swap highlight cells: parsed from the map's DayTiles/NightTiles
@@ -317,7 +334,7 @@ function MapAssetEditorContent({
    * or when no swaps are registered. Drawn as purple dashed borders on the
    * canvas, independent of the cellOverlay paint mode.
    */
-  const dayNightHighlight = useMemo(() => {
+  const dayNightHighlight = (() => {
     if (!dayNightHighlightActive) return null
     const day = parseDayNightGroups(asMapPropertyString(mapDocument.properties[DAY_TILES_PROPERTY_KEY]))
     const night = parseDayNightGroups(asMapPropertyString(mapDocument.properties[NIGHT_TILES_PROPERTY_KEY]))
@@ -328,14 +345,14 @@ function MapAssetEditorContent({
       height: mapDocument.height,
       cells: entries.map((entry) => ({ x: entry.x, y: entry.y })),
     }
-  }, [dayNightHighlightActive, mapDocument])
+  })()
 
   /**
    * Objects overlapping the inspect tool's selected tile, for the inspect
    * popover. Computed once so the popover and its "Edit in Inspector" callback
    * share the same result without re-filtering.
    */
-  const inspectPopoverObjects = useMemo(() => {
+  const inspectPopoverObjects = (() => {
     if (!editor.selectedTile) return []
     const tileX = editor.selectedTile.x
     const tileY = editor.selectedTile.y
@@ -348,7 +365,7 @@ function MapAssetEditorContent({
         const objTileH = Math.max(1, Math.round(object.height / document.tileHeight))
         return tileX >= objTileX && tileX < objTileX + objTileW && tileY >= objTileY && tileY < objTileY + objTileH
       })
-  }, [document, editor.selectedTile])
+  })()
 
   /**
    * Loads the project's custom tilesheet descriptor (`assets/tilesheets.json`)
@@ -401,7 +418,12 @@ function MapAssetEditorContent({
         if (active) registerMapObjects(GAME_FURNITURE_SOURCE, objects)
       })
       .catch((error) => {
-        if (active) console.warn('Failed to load game furniture objects:', error)
+        if (active) {
+          appEvent('warning', 'Failed to load game furniture objects')
+            .error(error)
+            .context({ source: 'map-asset-editor', operation: 'load-game-furniture' })
+            .emit({ notify: false })
+        }
       })
     return () => {
       active = false
@@ -435,8 +457,12 @@ function MapAssetEditorContent({
         unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
         editor.setSaveState({ status: 'error', message: copy.sheetCatalogInvalid(result.error) })
       })
-      .catch(() => {
+      .catch((error) => {
         // Optional file read failure is treated as missing: unregister only, no error.
+        appEvent('warning', 'Failed to load project map objects catalog')
+          .error(error)
+          .context({ source: 'map-asset-editor', operation: 'load-project-map-objects' })
+          .emit({ notify: false })
         if (!active) return
         unregisterMapObjects(PROJECT_MAP_OBJECTS_SOURCE)
       })
@@ -447,18 +473,6 @@ function MapAssetEditorContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.projectAssets, project.readProjectAsset])
 
-  /**
-   * Save message suffix counting per-cell animations the TMX write will hoist
-   * into tileset definitions or drop over a definition conflict. TBin saves
-   * keep the `cellAnimations` backing store, so only TMX output warns.
-   */
-  function cellAnimationHoistMessage(format: 'tmx' | 'tbin') {
-    if (format !== 'tmx') return null
-    const plan = planCellAnimationHoist(mapDocument)
-    if (plan.hoisted === 0 && plan.dropped === 0) return null
-    return copy.cellAnimationHoistWarning(plan.hoisted, plan.dropped)
-  }
-
   async function saveMap() {
     if (isXnbAsset || tbinIssues.length > 0 || layerNameIssues.length > 0 || invalidTsxSourceTilesets.length > 0) {
       const reasons: string[] = []
@@ -466,12 +480,9 @@ function MapAssetEditorContent({
       if (layerNameIssues.length > 0) reasons.push(copy.saveBlockedLayerNameIssues(layerNameIssues.length))
       if (invalidTsxSourceTilesets.length > 0) reasons.push(copy.saveBlockedTsxIssues(invalidTsxSourceTilesets.length))
       const description = isXnbAsset ? copy.xnbReadOnlyBanner : reasons.join('；')
+      const error = new Error(description)
+      appEvent('error', copy.saveBlockedTitle).error(error).context({ source: 'map-asset-editor', operation: 'save-validation' }).emit()
       editor.setSaveState({ status: 'error', message: description })
-      publishNotification({
-        level: 'error',
-        title: copy.saveBlockedTitle,
-        description,
-      })
       return
     }
     editor.setSaveState({ status: 'saving', message: copy.saving })
@@ -496,9 +507,12 @@ function MapAssetEditorContent({
         { record: false },
       )
       const savedMessage = copy.saved(asset.relativePath)
-      const hoistMessage = cellAnimationHoistMessage(normalizedDocument.format)
-      editor.setSaveState({ status: 'saved', message: hoistMessage ? `${savedMessage} ${hoistMessage}` : savedMessage })
+      editor.setSaveState({ status: 'saved', message: savedMessage })
     } catch (error) {
+      appEvent('error', 'Failed to save map asset')
+        .error(error)
+        .context({ source: 'map-asset-editor', operation: 'save-map', path: assetPath })
+        .emit({ notify: false })
       editor.setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -538,9 +552,12 @@ function MapAssetEditorContent({
         { record: false },
       )
       const savedMessage = copy.tbinConverted(newPath)
-      const hoistMessage = cellAnimationHoistMessage('tmx')
-      editor.setSaveState({ status: 'saved', message: hoistMessage ? `${savedMessage} ${hoistMessage}` : savedMessage })
+      editor.setSaveState({ status: 'saved', message: savedMessage })
     } catch (error) {
+      appEvent('error', 'Failed to convert map asset to TMX')
+        .error(error)
+        .context({ source: 'map-asset-editor', operation: 'convert-to-tmx', path: assetPath })
+        .emit({ notify: false })
       editor.setSaveState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -661,141 +678,144 @@ function MapAssetEditorContent({
             />
             <MapViewport
               ref={viewportRef}
-              locale={resources.locale}
-              onZoomChange={(zoom, mode) =>
-                setZoomState((current) => (current.zoom === zoom && current.mode === mode ? current : { zoom, mode }))
-              }
-              mapDocument={viewportDocument}
-              visibleLayerIds={
-                hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id)
-              }
-              visibleObjectGroupIds={document.objectGroups.filter((group) => group.visible).map((group) => group.id)}
-              hideRuleTileDataObjects
+              mapState={{
+                mapDocument: viewportDocument,
+                visibleLayerIds:
+                  hoverLayerId !== null ? [hoverLayerId] : document.layers.filter((layer) => layer.visible).map((layer) => layer.id),
+                visibleObjectGroupIds: document.objectGroups.filter((group) => group.visible).map((group) => group.id),
+                hideRuleTileDataObjects: true,
+              }}
+              display={{
+                locale: resources.locale,
+                theme: resources.theme,
+                accentColor: resources.accentColor,
+                showGrid: true,
+                showStatsChips: false,
+              }}
               objectDrag={
                 !editor.overlayActive && editor.tool === 'inspect' && editor.capabilities.objectGroups
                   ? { onStart: editor.beginObjectDrag, onPreview: editor.previewObjectDrag, onEnd: editor.endObjectDrag }
                   : undefined
               }
-              includeHiddenLayers={document.layers.every((layer) => !layer.visible)}
-              theme={resources.theme}
-              accentColor={resources.accentColor}
-              showGrid
-              showStatsChips={false}
-              contextMenuEnabled
-              contextMenuExtraItems={(contextTile) => (
-                <>
-                  <ContextMenu.Separator className="context-menu-separator" />
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    disabled={!contextTile}
-                    onSelect={() => {
-                      if (!contextTile) return
-                      editor.setSelectedTile({ x: contextTile.tileX, y: contextTile.tileY })
-                      const layer = document.layers.find((candidate) => candidate.name === contextTile.layerName)
-                      if (layer) editor.setActiveLayerId(layer.id)
-                      editor.setTool('inspect')
-                    }}
-                  >
-                    <MousePointer2 className="mr-2 h-3.5 w-3.5" />
-                    {copy.toolLabels.inspect}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    disabled={!contextTile?.tilesetName || contextTile.tileId == null}
-                    onSelect={() => {
-                      if (!contextTile?.tilesetName || contextTile.tileId == null) return
-                      editor.setPaletteSelection({
-                        tilesetName: contextTile.tilesetName,
-                        startIndex: contextTile.tileId,
-                        width: 1,
-                        height: 1,
-                      })
-                      editor.setTool('brush')
-                    }}
-                  >
-                    <Paintbrush className="mr-2 h-3.5 w-3.5" />
-                    {copy.toolLabels.brush}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    disabled={!contextTile || editor.activeLayerLocked}
-                    onSelect={() => {
-                      if (!contextTile || !editor.activeLayer) return
-                      editor.updateDocument(
-                        applyMapAssetStroke(document, editor.activeLayer.id, [{ x: contextTile.tileX, y: contextTile.tileY }], 0),
-                        undefined,
-                        copy.historyToolAction(copy.toolLabels.erase, editor.activeLayer.name),
-                      )
-                    }}
-                  >
-                    <Eraser className="mr-2 h-3.5 w-3.5" />
-                    {copy.toolLabels.erase}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    disabled={!contextTile}
-                    onSelect={() => {
-                      if (!contextTile) return
-                      const point = { x: contextTile.tileX, y: contextTile.tileY }
-                      editor.setSelectedTile(point)
-                      editor.addTileDataObject(point)
-                    }}
-                  >
-                    <Plus className="mr-2 h-3.5 w-3.5" />
-                    {copy.addTileData}
-                  </ContextMenu.Item>
-                </>
-              )}
-              onHoverChange={editor.setHoverInfo}
-              paintPreview={
-                !editor.overlayActive &&
-                !editor.activeLayerLocked &&
-                (editor.tool === 'brush' || editor.tool === 'stamp') &&
-                editor.paletteSelection &&
-                editor.selectedTileset
-                  ? editor.paletteSelection
-                  : null
-              }
-              tilesetPreview={galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null}
-              onTileStroke={
-                editor.overlayActive && !editor.activeLayerLocked
-                  ? editor.commitCellOverlayStroke
-                  : editor.tool === 'brush' || editor.tool === 'erase'
-                    ? editor.commitStroke
-                    : undefined
-              }
-              onTileStrokeLive={editor.overlayActive && !editor.activeLayerLocked ? editor.previewCellOverlayStroke : undefined}
-              onTileClick={
-                !editor.overlayActive && ['inspect', 'fill', 'stamp', 'eyedropper', 'hand'].includes(editor.tool)
-                  ? editor.clickTile
-                  : undefined
-              }
-              selectedTileRect={!editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null}
-              inspectorHighlight={inspectorHighlight}
-              onTileRectSelect={
-                !editor.overlayActive &&
-                editor.tool === 'rectangle' &&
-                activeLayer &&
-                !editor.activeLayerLocked &&
-                selectedTileset &&
-                paletteSelection
-                  ? (rect: MapTileRect) =>
-                      editor.updateDocument(
-                        applyMapAssetStroke(
-                          document,
-                          activeLayer.id,
-                          rectangleTilePoints(rect.x, rect.y, rect.width, rect.height),
-                          selectedTileset.firstGid + paletteSelection.startIndex,
-                        ),
-                        undefined,
-                        copy.historyToolAction(copy.toolLabels.rectangle, activeLayer.name),
-                      )
-                  : undefined
-              }
-              cellOverlay={overlayCells}
-              dayNightHighlight={dayNightHighlight}
-              worldLighting={worldLighting}
-              gameRootPath={resources.gameRootPath}
+              fit={{ includeHiddenLayers: document.layers.every((layer) => !layer.visible) }}
+              contextMenu={{
+                enabled: true,
+                extraItems: (contextTile) => (
+                  <>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      disabled={!contextTile}
+                      onSelect={() => {
+                        if (!contextTile) return
+                        editor.setSelectedTile({ x: contextTile.tileX, y: contextTile.tileY })
+                        const layer = document.layers.find((candidate) => candidate.name === contextTile.layerName)
+                        if (layer) editor.setActiveLayerId(layer.id)
+                        editor.setTool('inspect')
+                      }}
+                    >
+                      <MousePointer2 className="mr-2 h-3.5 w-3.5" />
+                      {copy.toolLabels.inspect}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      disabled={!contextTile?.tilesetName || contextTile.tileId == null}
+                      onSelect={() => {
+                        if (!contextTile?.tilesetName || contextTile.tileId == null) return
+                        editor.setPaletteSelection({
+                          tilesetName: contextTile.tilesetName,
+                          startIndex: contextTile.tileId,
+                          width: 1,
+                          height: 1,
+                        })
+                        editor.setTool('brush')
+                      }}
+                    >
+                      <Paintbrush className="mr-2 h-3.5 w-3.5" />
+                      {copy.toolLabels.brush}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      disabled={!contextTile || editor.activeLayerLocked}
+                      onSelect={() => {
+                        if (!contextTile || !editor.activeLayer) return
+                        editor.updateDocument(
+                          applyMapAssetStroke(document, editor.activeLayer.id, [{ x: contextTile.tileX, y: contextTile.tileY }], 0),
+                          undefined,
+                          copy.historyToolAction(copy.toolLabels.erase, editor.activeLayer.name),
+                        )
+                      }}
+                    >
+                      <Eraser className="mr-2 h-3.5 w-3.5" />
+                      {copy.toolLabels.erase}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      disabled={!contextTile}
+                      onSelect={() => {
+                        if (!contextTile) return
+                        const point = { x: contextTile.tileX, y: contextTile.tileY }
+                        editor.setSelectedTile(point)
+                        editor.addTileDataObject(point)
+                      }}
+                    >
+                      <Plus className="mr-2 h-3.5 w-3.5" />
+                      {copy.addTileData}
+                    </ContextMenu.Item>
+                  </>
+                ),
+              }}
+              actions={{
+                onHoverChange: editor.setHoverInfo,
+                onZoomChange: (zoom, mode) =>
+                  setZoomState((current) => (current.zoom === zoom && current.mode === mode ? current : { zoom, mode })),
+                onTileStroke:
+                  editor.overlayActive && !editor.activeLayerLocked
+                    ? editor.commitCellOverlayStroke
+                    : editor.tool === 'brush' || editor.tool === 'erase'
+                      ? editor.commitStroke
+                      : undefined,
+                onTileStrokeLive: editor.overlayActive && !editor.activeLayerLocked ? editor.previewCellOverlayStroke : undefined,
+                onTileClick:
+                  !editor.overlayActive && ['inspect', 'fill', 'stamp', 'eyedropper', 'hand'].includes(editor.tool)
+                    ? editor.clickTile
+                    : undefined,
+                onTileRectSelect:
+                  !editor.overlayActive &&
+                  editor.tool === 'rectangle' &&
+                  activeLayer &&
+                  !editor.activeLayerLocked &&
+                  selectedTileset &&
+                  paletteSelection
+                    ? (rect: MapTileRect) =>
+                        editor.updateDocument(
+                          applyMapAssetStroke(
+                            document,
+                            activeLayer.id,
+                            rectangleTilePoints(rect.x, rect.y, rect.width, rect.height),
+                            selectedTileset.firstGid + paletteSelection.startIndex,
+                          ),
+                          undefined,
+                          copy.historyToolAction(copy.toolLabels.rectangle, activeLayer.name),
+                        )
+                    : undefined,
+              }}
+              editing={{
+                paintPreview:
+                  !editor.overlayActive &&
+                  !editor.activeLayerLocked &&
+                  (editor.tool === 'brush' || editor.tool === 'stamp') &&
+                  editor.paletteSelection &&
+                  editor.selectedTileset
+                    ? editor.paletteSelection
+                    : null,
+                tilesetPreview: galleryMode ? { imageSrc: hoverPreviewSrc, mode: true } : null,
+                selectedTileRect: !editor.overlayActive && editor.selectedTile ? { ...editor.selectedTile, width: 1, height: 1 } : null,
+                inspectorHighlight: inspectorHighlight ?? selectedRuleCarrierHighlight,
+                cellOverlay: overlayCells,
+                dayNightHighlight,
+              }}
+              lighting={{ worldLighting, gameRootPath: resources.gameRootPath }}
             />
             {!editor.overlayActive &&
             (editor.tool === 'brush' || editor.tool === 'stamp' || editor.tool === 'fill') &&
@@ -888,75 +908,73 @@ function MapAssetEditorContent({
       minHeight: 200,
       content: (
         <MapAssetEditorInspector
-          document={document}
-          renderDocument={editor.renderDocument}
-          assetPath={assetPath}
-          activeLayer={editor.activeLayer}
-          selectedTile={editor.selectedTile}
-          selectedTileset={editor.selectedTileset}
-          selectedTileDefinitionProperties={editor.selectedTileDefinitionProperties}
-          selectedObject={editor.selectedObject}
-          selectedObjectId={editor.selectedObjectId}
-          paletteSelection={editor.paletteSelection}
-          isTmxAsset={isTmxAsset}
-          tbinIssues={tbinIssues}
-          layerNameIssues={layerNameIssues}
-          invalidTsxSourceTilesets={invalidTsxSourceTilesets}
-          documentIssueCount={documentIssueCount}
-          undoStackLength={editor.undoStack.length}
-          redoStackLength={editor.redoStack.length}
-          saveState={editor.saveState}
+          documentState={{ document, renderDocument: editor.renderDocument, assetPath, isTmxAsset }}
+          selectionState={{
+            activeLayer: editor.activeLayer,
+            selectedTile: editor.selectedTile,
+            selectedTileset: editor.selectedTileset,
+            selectedTileDefinitionProperties: editor.selectedTileDefinitionProperties,
+            selectedObject: editor.selectedObject,
+            selectedObjectId: editor.selectedObjectId,
+            paletteSelection: editor.paletteSelection,
+          }}
+          diagnostics={{ tbinIssues, layerNameIssues, invalidTsxSourceTilesets, documentIssueCount }}
+          historyState={{ undoStackLength: editor.undoStack.length, redoStackLength: editor.redoStack.length, saveState: editor.saveState }}
           capabilities={editor.capabilities}
-          onSetSelectedObjectId={editor.setSelectedObjectId}
-          onSetActiveObjectGroupId={editor.setActiveObjectGroupId}
-          onUpdateDocument={editor.updateDocument}
-          onUpdateActiveLayer={editor.updateActiveLayer}
-          onUpdateSelectedTileset={editor.updateSelectedTileset}
-          onUpdateSelectedObject={editor.updateSelectedObject}
-          onDeleteSelectedObject={editor.deleteSelectedObject}
-          onAddTileDataObject={editor.addTileDataObject}
-          onLocateObject={(object) => {
-            editor.setSelectedObjectId(object.id)
-            viewportRef.current?.centerOnWorldPoint(object.x + object.width / 2, object.y + object.height / 2)
+          paletteState={{
+            selectionForPicker: editor.paletteSelection,
+            projectImageOptions: tilesetOptions.map((option) => ({ value: option.value, label: option.label })),
           }}
-          onLocateTile={(tileX, tileY) => {
-            const px = (tileX + 0.5) * document.tileWidth
-            const py = (tileY + 0.5) * document.tileHeight
-            viewportRef.current?.centerOnWorldPoint(px, py)
+          environment={{
+            gameRootPath: resources.gameRootPath,
+            objectLightIndex,
+            mapOptions: warpMapOptions,
+            loadTargetDocument: loadWarpTargetDocument,
+            locale: resources.locale,
+            theme: resources.theme,
+            accentColor: resources.accentColor,
           }}
-          onAttachGameSheet={editor.attachGameSheet}
-          gameRootPath={resources.gameRootPath}
-          objectLightIndex={objectLightIndex}
-          mapOptions={warpMapOptions}
-          loadTargetDocument={loadWarpTargetDocument}
-          onLocateLayer={(layerId) => editor.setActiveLayerId(layerId)}
-          onHighlightInspector={setInspectorHighlight}
-          locale={resources.locale}
-          theme={resources.theme}
-          accentColor={resources.accentColor}
-          onConvertToTmx={convertToTmx}
-          paletteSelectionForPicker={editor.paletteSelection}
-          onPaletteSelectionChange={(selection) => {
-            if (selection) {
-              editor.setPaletteSelection(selection)
-              editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
-            }
-          }}
-          paletteProjectImageOptions={tilesetOptions.map((option) => ({ value: option.value, label: option.label }))}
-          onPaletteAddProjectImage={(relativePath) => void editor.addTileset(relativePath)}
-          onPaletteRemoveTileset={editor.capabilities.tilesetManagement ? editor.removeTileset : null}
-          onPaletteReplaceTilesetImage={
-            editor.capabilities.tilesetManagement ? (relativePath, replaceName) => void editor.addTileset(relativePath, replaceName) : null
-          }
-          onPaletteEditTilesetInInspector={
-            editor.capabilities.tilesetManagement
+          actions={{
+            setSelectedObjectId: editor.setSelectedObjectId,
+            setActiveObjectGroupId: editor.setActiveObjectGroupId,
+            updateDocument: editor.updateDocument,
+            updateActiveLayer: editor.updateActiveLayer,
+            updateSelectedTileset: editor.updateSelectedTileset,
+            updateSelectedObject: editor.updateSelectedObject,
+            deleteObject: editor.deleteObject,
+            addTileDataObject: editor.addTileDataObject,
+            locateObject: (object) => {
+              editor.setSelectedObjectId(object.id)
+              viewportRef.current?.centerOnWorldPoint(object.x + object.width / 2, object.y + object.height / 2)
+            },
+            locateTile: (tileX, tileY) => {
+              const px = (tileX + 0.5) * document.tileWidth
+              const py = (tileY + 0.5) * document.tileHeight
+              viewportRef.current?.centerOnWorldPoint(px, py)
+            },
+            attachGameSheet: editor.attachGameSheet,
+            locateLayer: (layerId) => editor.setActiveLayerId(layerId),
+            highlightInspector: setInspectorHighlight,
+            convertToTmx,
+            paletteSelectionChange: (selection) => {
+              if (selection) {
+                editor.setPaletteSelection(selection)
+                editor.setTool(selection.width === 1 && selection.height === 1 ? 'brush' : 'stamp')
+              }
+            },
+            paletteImportTilesheet: () => setTilesheetImportOpen(true),
+            paletteRemoveTileset: editor.capabilities.tilesetManagement ? editor.removeTileset : null,
+            paletteReplaceTilesetImage: editor.capabilities.tilesetManagement
+              ? (relativePath, replaceName) => void editor.addTileset(relativePath, replaceName)
+              : null,
+            paletteEditTilesetInInspector: editor.capabilities.tilesetManagement
               ? (name) => {
                   editor.setPaletteSelection({ tilesetName: name, startIndex: 0, width: 1, height: 1 })
                 }
-              : null
-          }
-          onHoverTileset={setHoverPreviewSrc}
-          onGalleryModeChange={setGalleryMode}
+              : null,
+            hoverTileset: setHoverPreviewSrc,
+            galleryModeChange: setGalleryMode,
+          }}
         />
       ),
     },
@@ -1089,6 +1107,23 @@ function MapAssetEditorContent({
         <HoverInfoSpan subscribe={editor.subscribeHoverInfo} getSnapshot={editor.getHoverInfo} />
       </footer>
 
+      <TilesheetImportDialog
+        open={tilesheetImportOpen}
+        onClose={() => setTilesheetImportOpen(false)}
+        imageAssets={imageAssets}
+        attachedImagePaths={new Set(document.tilesets.map((tileset) => tileset.imagePath).filter((path): path is string => Boolean(path)))}
+        onAttach={async (paths) => {
+          const result = await editor.addTilesets(paths)
+          if (result.failures.length > 0) {
+            const error = new Error(result.failures.map((failure) => `${failure.path}: ${failure.message}`).join('; '))
+            appEvent('error', copy.tilesheetAttachPartialFailed)
+              .error(error)
+              .context({ source: 'map-asset-editor', operation: 'attach-tilesheets' })
+              .emit()
+          }
+          setTilesheetImportOpen(false)
+        }}
+      />
       <Dialog
         open={editor.pendingDeleteLayerId != null}
         onClose={() => editor.setPendingDeleteLayerId(null)}

@@ -322,6 +322,8 @@ export type StudioDeskCopy = {
     sheetPickerEmpty: string
     /** Sheet gallery: back button to return to the palette view. */
     sheetGalleryBack: string
+    /** Sheet gallery: card that opens the project image importer. */
+    sheetGalleryImport: string
     /** Sheet picker: badge marking a catalog sheet the map already references. */
     sheetPickerAttachedBadge: string
     /** Sheet picker: badge marking an attached sheet that references a vanilla game sheet. */

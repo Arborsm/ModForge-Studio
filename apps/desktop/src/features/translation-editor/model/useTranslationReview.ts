@@ -7,8 +7,10 @@ import { useEffect, useRef, useState } from 'react'
 import { parseAiFailure } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
 import { useNotificationCopy, useTranslationEditorCopy } from '@locales/provider'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import type { AiReviewIssue, AiReviewResult } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import type { TranslationEntry } from './translationEditor'
 
 const NOTIFICATION_ID = 'workbench-localization-review'
@@ -28,7 +30,6 @@ export function useTranslationReview(options: {
   const localization = useLocalization()
   const copy = useTranslationEditorCopy()
   const notificationCopy = useNotificationCopy().ai
-  const publish = useNotificationPublisher()
   const operation = useRef(0)
   const activeJob = useRef<string | null>(null)
   const runRef = useRef<(mode: TranslationReviewMode, runAi: boolean) => Promise<void>>(async () => undefined)
@@ -43,7 +44,7 @@ export function useTranslationReview(options: {
     operation.current += 1
     const job = activeJob.current
     activeJob.current = null
-    if (job) void localization.cancelJob(job).catch(() => undefined)
+    if (job) void ignoreError(localization.cancelJob(job), 'translationReview.cancelJob')
     setRunning(false)
   }
   useEffect(
@@ -92,33 +93,39 @@ export function useTranslationReview(options: {
       setChecked(new Set())
       if (value.run.status === 'partial') {
         setError(copy.reviewPartial)
-        publish({
-          id: NOTIFICATION_ID,
-          level: 'warning',
-          title: copy.reviewPartial,
-          description: notificationCopy.failureDescriptions.unknown,
-          action: { label: notificationCopy.retryAction, callback: () => void runRef.current(mode, runAi), tone: 'primary' },
-        })
+        appEvent('warning', copy.reviewPartial).context({ source: 'translation-review', operation: 'review-batch' }).emit({ notify: false })
+        appEvent('warning', copy.reviewPartial)
+          .description(notificationCopy.failureDescriptions.unknown)
+          .noticeId(NOTIFICATION_ID)
+          .action({ label: notificationCopy.retryAction, callback: () => void runRef.current(mode, runAi), tone: 'primary' })
+          .context({ source: 'translation-review', operation: 'review-batch' })
+          .emit()
       } else if (value.usageRecordState === 'failed') {
-        publish({
-          id: NOTIFICATION_ID,
-          level: 'warning',
-          title: notificationCopy.usageRecordFailedTitle,
-          description: notificationCopy.usageRecordFailedDescription,
-        })
+        appEvent('warning', notificationCopy.usageRecordFailedTitle)
+          .context({ source: 'translation-review', operation: 'record-usage' })
+          .emit({ notify: false })
+        appEvent('warning', notificationCopy.usageRecordFailedTitle)
+          .description(notificationCopy.usageRecordFailedDescription)
+          .noticeId(NOTIFICATION_ID)
+          .context({ source: 'translation-review', operation: 'record-usage' })
+          .emit()
       }
     } catch (cause) {
       if (owner !== operation.current) return
       const failure = parseAiFailure(cause)
       if (failure.code !== 'cancelled') {
         setError(copy.reviewFailed)
-        publish({
-          id: NOTIFICATION_ID,
-          level: 'error',
-          title: copy.reviewFailed,
-          description: notificationCopy.failureDescriptions[failure.code],
-          action: { label: notificationCopy.retryAction, callback: () => void runRef.current(mode, runAi), tone: 'primary' },
-        })
+        appEvent('error', copy.reviewFailed)
+          .error(cause)
+          .context({ source: 'translation-review', operation: 'review-batch' })
+          .emit({ notify: false })
+        appEvent('error', copy.reviewFailed)
+          .description(notificationCopy.failureDescriptions[failure.code])
+          .noticeId(NOTIFICATION_ID)
+          .action({ label: notificationCopy.retryAction, callback: () => void runRef.current(mode, runAi), tone: 'primary' })
+          .error(cause)
+          .context({ source: 'translation-review', operation: 'review-batch' })
+          .emit()
       }
     } finally {
       if (owner === operation.current) {

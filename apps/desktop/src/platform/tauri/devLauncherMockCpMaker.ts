@@ -275,7 +275,14 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         if (!draft) {
           throw new Error('save_cp_maker_draft called without a draft payload')
         }
-        const stored: MockDraftRecord = { ...draft, lastDraftSavedAt: Date.now() }
+        // Mirror the host: full-draft saves adopt the on-disk asset list so a
+        // stale snapshot cannot drop refs written by dedicated asset commands.
+        const existing = drafts.get(draft.draftStorageKey)
+        const stored: MockDraftRecord = {
+          ...draft,
+          projectAssets: existing ? existing.projectAssets : draft.projectAssets,
+          lastDraftSavedAt: Date.now(),
+        }
         drafts.set(stored.draftStorageKey, stored)
         persist()
         return { handled: true, result: stored }
@@ -388,6 +395,25 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         syncDraftAssets(request.draftStorageKey)
         persist()
         return { handled: true, result: refs }
+      }
+
+      case 'import_cp_maker_project_assets': {
+        const request = readPayload<{ draftStorageKey: string; sourcePaths: string[]; destinationDirectory?: string }>(payload, 'request')
+        if (!request) throw new Error('import_cp_maker_project_assets called without a request payload')
+        const destination = (request.destinationDirectory ?? 'assets').replace(/[\\/]+$/u, '')
+        for (const sourcePath of request.sourcePaths) {
+          const filename = sourcePath.split(/[\\/]/u).at(-1) ?? sourcePath
+          const extension = filename.split('.').at(-1)?.toLowerCase() ?? ''
+          const mediaType = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : extension === 'webp' ? 'image/webp' : 'image/png'
+          writeMockAsset(request.draftStorageKey, {
+            relativePath: `${destination}/${filename}`,
+            mediaType,
+            bytesBase64: MOCK_TEXTURE_PNG_BASE64,
+          })
+        }
+        const record = syncDraftAssets(request.draftStorageKey)
+        persist()
+        return { handled: true, result: record }
       }
 
       case 'rename_cp_maker_project_asset': {
@@ -538,9 +564,37 @@ export function createCpMakerMockHandler(gameRootPath: string) {
         return { handled: true, result: mockWavDataUrl() }
 
       case 'load_text_asset': {
-        const request = readPayload<{ assetPath?: string }>(payload, 'assetPath')
-        const assetPath = request?.assetPath ?? 'Content/Data/ObjectInformation.xnb'
+        // readPayload already yields the `assetPath` value itself (the host
+        // command sends flat args); the previous double access made every
+        // load_text_asset fall back to the generic ObjectInformation body.
+        const assetPath = readPayload<string>(payload, 'assetPath') ?? 'Content/Data/ObjectInformation.xnb'
         const name = (assetPath.split(/[\\/]/).at(-1) ?? 'Asset').replace(/\.(?:xnb|json)$/iu, '')
+        // Named fixtures for the vanilla location display-name chain so the
+        // map replacement editor exercises the real record → [LocalizedText]
+        // → string-table resolution in the browser (scan_maps mocks Town/Farm).
+        if (/Content[\\/]Data[\\/]Locations\.xnb$/iu.test(assetPath)) {
+          return {
+            handled: true,
+            result: {
+              absolutePath: `${gameRootPath}\\${assetPath}`,
+              relativePath: assetPath,
+              content: JSON.stringify({
+                Farm: { DisplayName: '[LocalizedText Strings/Locations:Farm]' },
+                Town: { DisplayName: '[LocalizedText Strings/Locations:Town]' },
+              }),
+            },
+          }
+        }
+        if (/Content[\\/]Strings[\\/]Locations\.xnb$/iu.test(assetPath)) {
+          return {
+            handled: true,
+            result: {
+              absolutePath: `${gameRootPath}\\${assetPath}`,
+              relativePath: assetPath,
+              content: JSON.stringify({ Farm: '牧场', Town: '镇上' }),
+            },
+          }
+        }
         return {
           handled: true,
           result: {

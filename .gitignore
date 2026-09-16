@@ -55,3 +55,5 @@ CLAUDE.md
 
 # Local integration-test credentials
 /KimiForTest.txt
+.openbitfun/
+/.openbitfun/search/flashgrep-index/

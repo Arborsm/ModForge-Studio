@@ -14,6 +14,7 @@ import type {
   SmapiUpdateProgressPayload,
 } from './launcherContracts'
 import { useLauncherPort } from './launcherPortContext'
+import { appEvent, ignoreError, orNull, reportRecovered } from '@platform/observability'
 import {
   buildSmapiLocalInstallRequest,
   clampSmapiProgressPercent,
@@ -92,6 +93,10 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
           return
         }
         setCheckError(getErrorMessage(nextError, copy.checkFailedFallback))
+        appEvent('error', 'SMAPI update check failed')
+          .error(nextError)
+          .context({ source: 'smapi-update', operation: 'check-update' })
+          .emit({ notify: false })
       } finally {
         if (scope.isCurrent()) {
           setChecking(false)
@@ -119,6 +124,10 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
           return
         }
         setInstallerScanError(getErrorMessage(nextError, copy.installerScanFallback))
+        appEvent('error', 'SMAPI installer scan failed')
+          .error(nextError)
+          .context({ source: 'smapi-update', operation: 'scan-installers' })
+          .emit({ notify: false })
       } finally {
         if (scope.isCurrent()) {
           setInstallerScanning(false)
@@ -131,93 +140,88 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
     })
   }, [copy.installerScanFallback, launcherPort, runScanTask])
 
-  const refreshRuntimeInfoAfterInstall = useCallback(() => {
-    launcherPort
-      .loadRuntimeInfo()
-      .then((info) => onRuntimeInfoRefreshedRef.current?.(info))
-      .catch(() => {
-        // Best-effort env-tag refresh; the card itself shows the installed version.
-      })
-  }, [launcherPort])
+  const refreshRuntimeInfoAfterInstall = () => {
+    // Best-effort env-tag refresh; the card itself shows the installed version.
+    void ignoreError(
+      launcherPort.loadRuntimeInfo().then((info) => onRuntimeInfoRefreshedRef.current?.(info)),
+      'smapiUpdate.refreshRuntimeInfo',
+    )
+  }
 
-  const recheckAfterInstall = useCallback(
-    async (installedVersion: string) => {
-      try {
-        const result = await launcherPort.checkSmapiUpdate()
-        if (shouldAcceptSmapiRecheckResult(checkResultRef.current, result, installedVersion)) {
-          checkResultRef.current = result
-          setCheckResult(result)
-          setInstallSuccessVersion(null)
-        }
-      } catch {
-        // Keep the install success state; the user can re-check manually later.
-      }
-    },
-    [launcherPort],
-  )
-
-  const runInstall = useCallback(
-    async (request: InstallSmapiUpdateRequest, initialPhase: SmapiUpdatePhase, failureFallback: string) => {
-      if (installScopeRef.current) {
-        return false
-      }
-      const jobId = request.jobId ?? `smapi-update:${Date.now()}`
-      let installSucceeded = false
-
-      await runInstallTask(async (scope) => {
-        installScopeRef.current = scope
-        activeInstallJobIdRef.current = jobId
-        setInstallError(null)
+  const recheckAfterInstall = async (installedVersion: string) => {
+    try {
+      const result = await launcherPort.checkSmapiUpdate()
+      if (shouldAcceptSmapiRecheckResult(checkResultRef.current, result, installedVersion)) {
+        checkResultRef.current = result
+        setCheckResult(result)
         setInstallSuccessVersion(null)
-        setInstallRun({ jobId, phase: initialPhase, percent: null, message: '' })
+      }
+    } catch (error) {
+      reportRecovered(error, 'smapi-update.recheck-after-install')
+      // Keep the install success state; the user can re-check manually later.
+    }
+  }
 
-        const handleProgress = (payload: SmapiUpdateProgressPayload) => {
-          if (!scope.isCurrent()) {
-            return
-          }
-          setInstallRun({
-            jobId,
-            phase: payload.phase,
-            percent: clampSmapiProgressPercent(payload.percent),
-            message: payload.message.trim(),
-          })
+  const runInstall = async (request: InstallSmapiUpdateRequest, initialPhase: SmapiUpdatePhase, failureFallback: string) => {
+    if (installScopeRef.current) {
+      return false
+    }
+    const jobId = request.jobId ?? `smapi-update:${Date.now()}`
+    let installSucceeded = false
+
+    const installTask = runInstallTask(async (scope) => {
+      installScopeRef.current = scope
+      activeInstallJobIdRef.current = jobId
+      setInstallError(null)
+      setInstallSuccessVersion(null)
+      setInstallRun({ jobId, phase: initialPhase, percent: null, message: '' })
+
+      const handleProgress = (payload: SmapiUpdateProgressPayload) => {
+        if (!scope.isCurrent()) {
+          return
         }
+        setInstallRun({
+          jobId,
+          phase: payload.phase,
+          percent: clampSmapiProgressPercent(payload.percent),
+          message: payload.message.trim(),
+        })
+      }
 
-        let unlisten: (() => void) | null = null
-        try {
-          unlisten = await launcherPort.listenToSmapiUpdateProgress(handleProgress).catch(() => null)
-          const installResult = await launcherPort.installSmapiUpdate({ ...request, jobId })
-          if (!scope.isCurrent()) {
-            return
-          }
-          installSucceeded = true
-          setInstallRun(null)
-          setInstallSuccessVersion(installResult.installedVersion)
-          refreshRuntimeInfoAfterInstall()
-          void recheckAfterInstall(installResult.installedVersion)
-        } catch (nextError) {
-          if (!scope.isCurrent() || isTaskCancelled(nextError)) {
-            return
-          }
-          setInstallRun(null)
-          setInstallError(getErrorMessage(nextError, failureFallback))
-        } finally {
-          unlisten?.()
-          if (installScopeRef.current === scope) {
-            installScopeRef.current = null
-          }
-          if (activeInstallJobIdRef.current === jobId) {
-            activeInstallJobIdRef.current = null
-          }
+      let unlisten: (() => void) | null = null
+      try {
+        unlisten = await orNull(launcherPort.listenToSmapiUpdateProgress(handleProgress), 'smapiUpdate.listenProgress')
+        const installResult = await launcherPort.installSmapiUpdate({ ...request, jobId })
+        if (!scope.isCurrent()) {
+          return
         }
-      }).catch(() => {})
+        installSucceeded = true
+        setInstallRun(null)
+        setInstallSuccessVersion(installResult.installedVersion)
+        refreshRuntimeInfoAfterInstall()
+        void recheckAfterInstall(installResult.installedVersion)
+      } catch (nextError) {
+        if (!scope.isCurrent() || isTaskCancelled(nextError)) {
+          return
+        }
+        setInstallRun(null)
+        setInstallError(getErrorMessage(nextError, failureFallback))
+      } finally {
+        unlisten?.()
+        if (installScopeRef.current === scope) {
+          installScopeRef.current = null
+        }
+        if (activeInstallJobIdRef.current === jobId) {
+          activeInstallJobIdRef.current = null
+        }
+      }
+    })
+    await ignoreError(installTask, 'smapiUpdate.installTask')
 
-      return installSucceeded
-    },
-    [launcherPort, recheckAfterInstall, refreshRuntimeInfoAfterInstall, runInstallTask],
-  )
+    return installSucceeded
+  }
 
-  const startInstall = useCallback(async () => {
+  const startInstall = async () => {
     let result = checkResultRef.current
     if (!result?.download?.url || !result.updateAvailable) {
       try {
@@ -245,37 +249,31 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
       'downloading',
       copy.installFailedFallback,
     )
-  }, [copy.checkFailedFallback, copy.installFailedFallback, launcherPort, runInstall])
+  }
 
-  const startLocalInstall = useCallback(
-    async (candidate: SmapiInstallerDownloadCandidate) => {
-      const request = buildSmapiLocalInstallRequest(candidate, checkResultRef.current)
-      return runInstall(request, 'verifying', copy.localInstallFailedFallback)
-    },
-    [copy.localInstallFailedFallback, runInstall],
-  )
+  const startLocalInstall = async (candidate: SmapiInstallerDownloadCandidate) => {
+    const request = buildSmapiLocalInstallRequest(candidate, checkResultRef.current)
+    return runInstall(request, 'verifying', copy.localInstallFailedFallback)
+  }
 
-  const startPickedFileInstall = useCallback(
-    async (filePath: string) => {
-      const parsedVersion = parseSmapiInstallerFileNameVersion(baseFileName(filePath))
-      const targetVersion = parsedVersion ?? checkResultRef.current?.targetVersion ?? ''
-      if (!targetVersion) {
-        return false
-      }
-      return runInstall({ localFilePath: filePath, targetVersion }, 'verifying', copy.localInstallFailedFallback)
-    },
-    [copy.localInstallFailedFallback, runInstall],
-  )
+  const startPickedFileInstall = async (filePath: string) => {
+    const parsedVersion = parseSmapiInstallerFileNameVersion(baseFileName(filePath))
+    const targetVersion = parsedVersion ?? checkResultRef.current?.targetVersion ?? ''
+    if (!targetVersion) {
+      return false
+    }
+    return runInstall({ localFilePath: filePath, targetVersion }, 'verifying', copy.localInstallFailedFallback)
+  }
 
-  const pickLocalInstaller = useCallback(async () => {
-    const filePath = await launcherPort.chooseArchiveFile(copy.localInstallerPickerTitle).catch(() => null)
+  const pickLocalInstaller = async () => {
+    const filePath = await orNull(launcherPort.chooseArchiveFile(copy.localInstallerPickerTitle), 'smapiUpdate.chooseInstaller')
     if (!filePath) {
       return false
     }
     return startPickedFileInstall(filePath)
-  }, [copy.localInstallerPickerTitle, launcherPort, startPickedFileInstall])
+  }
 
-  const openNexusManualDownload = useCallback(() => {
+  const openNexusManualDownload = () => {
     const download = checkResultRef.current?.download
     const url = download?.nexusDownloadPopupUrl?.trim() || download?.nexusModPageUrl?.trim()
     if (!url) {
@@ -283,14 +281,14 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
     }
     void launcherPort.openUrl({ url })
     return true
-  }, [launcherPort])
+  }
 
-  const rescanInstallerDownloads = useCallback(() => {
+  const rescanInstallerDownloads = () => {
     void scanInstallerDownloads()
     void runCheck()
-  }, [runCheck, scanInstallerDownloads])
+  }
 
-  const cancelInstall = useCallback(() => {
+  const cancelInstall = () => {
     const scope = installScopeRef.current
     const jobId = activeInstallJobIdRef.current
     if (!scope || !jobId) {
@@ -300,8 +298,8 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
     activeInstallJobIdRef.current = null
     scope.cancel(new TaskCancelledError('SMAPI update install cancelled.'))
     setInstallRun(null)
-    void launcherPort.cancelDownload(jobId).catch(() => {})
-  }, [launcherPort])
+    void ignoreError(launcherPort.cancelDownload(jobId), 'smapiUpdate.cancelDownload')
+  }
 
   useEffect(() => {
     if (!gamePath?.trim()) {

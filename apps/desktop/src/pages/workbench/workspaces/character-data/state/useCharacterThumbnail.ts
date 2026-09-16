@@ -25,24 +25,18 @@ export function useCharacterThumbnail(
     }
 
     let cancelled = false
-    void loadCharacterImageState(spritePath, locale)
-      .then((image) => {
-        if (!cancelled) {
-          setState({
-            ...EMPTY_CHARACTER_VISUAL_ASSET_STATE,
-            spritePath: image.path,
-            spriteUrl: image.url,
-            spriteSheetWidth: image.width,
-            spriteSheetHeight: image.height,
-            spriteImage: image.image ?? null,
-          })
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState(EMPTY_CHARACTER_VISUAL_ASSET_STATE)
-        }
-      })
+    void loadCharacterImageState(spritePath, locale).then((image) => {
+      if (!cancelled) {
+        setState({
+          ...EMPTY_CHARACTER_VISUAL_ASSET_STATE,
+          spritePath: image.path,
+          spriteUrl: image.url,
+          spriteSheetWidth: image.width,
+          spriteSheetHeight: image.height,
+          spriteImage: image.image ?? null,
+        })
+      }
+    })
 
     return () => {
       cancelled = true

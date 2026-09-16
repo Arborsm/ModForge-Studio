@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { EditorProps } from '@features/cp-maker'
 import type { ThemeMode } from '@locales/api'
@@ -50,7 +50,6 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
   const externalGameRootPath = resources.gameRootPath
   const isDirty = draftPort.isDirty()
   const editorCopy = useEditorCopy()
-  const viewportLabels = editorCopy.viewportLabels
   const hubCopy = editorCopy.studioDesk.eventPatchHub
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? EMPTY_ENTRIES
@@ -76,7 +75,7 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
   }, [patch.id, gameRootPath, locale])
   const prepared = preparedPatchId === patch.id
 
-  const entryKeys = useMemo(() => Object.keys(entries), [entries])
+  const entryKeys = Object.keys(entries)
   const selectedKey =
     localSelectedKey && entries[localSelectedKey] != null
       ? localSelectedKey
@@ -89,7 +88,7 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
     onSelectedEventKeyChange?.(selectedKey)
   }, [onSelectedEventKeyChange, selectedKey])
 
-  const hubPatch = useMemo(() => buildEventPatchHubPatches([patch])[0] ?? null, [patch])
+  const hubPatch = buildEventPatchHubPatches([patch])[0] ?? null
   const conditionBuilderEvent = selectedKey ? (hubPatch?.events.find((event) => event.key === selectedKey) ?? null) : null
   const eventAliases = eventAliasesFromState(editorState)
   const conditionBuilderAlias = conditionBuilderEvent ? (eventAliases[conditionBuilderEvent.key] ?? '') : ''
@@ -238,12 +237,10 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
           locale={locale}
           theme={theme}
           accentColor={accentColor}
-          viewportLabels={viewportLabels}
           assetLoader={assetLoader}
           directoryInfo={directoryInfo}
           playerAppearanceProfile={playerAppearanceProfile}
           onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-          conditionBuilderLabel={hubCopy.conditionBuilderAction}
           onOpenConditionBuilder={() => setConditionBuilderOpen(true)}
           onOpenConfig={onOpenConfig}
           onSaveDraft={onSaveDraft}
@@ -258,8 +255,6 @@ export function EventPatchEditor({ patch, draftPort, resources, assetLoader }: E
           event={conditionBuilderEvent}
           allEvents={hubPatch.events}
           alias={conditionBuilderAlias}
-          hubCopy={hubCopy}
-          copy={hubCopy.conditionBuilder}
           onApply={applyConditionBuilder}
           onCancel={() => setConditionBuilderOpen(false)}
         />

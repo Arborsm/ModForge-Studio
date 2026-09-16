@@ -165,7 +165,8 @@ const guides: GuidesCopy = {
         },
         'map-inspector-map': {
           title: 'Add warps and doors',
-          description: 'The Inspector > Map tab holds semantic cards for warps, doors, day/night tile swaps, music, and ambient light.',
+          description:
+            'The Inspector > Content tab manages warps, doors and day/night swaps. Use Add, then pick the cell right inside the dialog. Music and ambient light live in the editor top bar.',
         },
         'map-save-button': {
           title: 'Save your changes',

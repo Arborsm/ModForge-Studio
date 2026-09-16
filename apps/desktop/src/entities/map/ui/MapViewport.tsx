@@ -21,6 +21,7 @@ import { createMapTileRect, type MapTileRect } from '../model/tileSelection'
 import { resolveTilesetImagePath } from '../lib/assets'
 import { getMapContentBounds, getMapPreviewBounds, type MapContentBounds } from '../lib/mapContentBounds'
 import type { LocaleCode, ThemeMode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
@@ -69,107 +70,123 @@ function isRuleTileDataObject(object: MapObject) {
 }
 
 type MapViewportProps = {
-  locale: LocaleCode
-  mapDocument: MapDocument | null
-  visibleLayerIds: number[]
-  visibleObjectGroupIds: number[]
-  /**
-   * When true, skips rectangle rendering and hit-testing for `TileData`
-   * objects that are not light markers — their rules are presented through
-   * the overlay mode instead. Defaults to false; other consumers are
-   * unaffected.
-   */
-  hideRuleTileDataObjects?: boolean
-  onHoverChange?: (info: TileHoverInfo | null) => void
-  onAtlasPortalOpen?: (targetMapName: string) => void
-  theme: ThemeMode
-  accentColor: string
-  showGrid: boolean
-  onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
-  showStatsChips?: boolean
-  mapOverlay?: ReactNode
-  scaleMapOverlayWithViewport?: boolean
-  mapOverlayLayer?: 'between' | 'top'
-  viewportOverlay?: ReactNode
-  /** Static world lightmap (time-of-day base + light glows); baked to a multiply overlay over the map. */
-  worldLighting?: WorldLightingState | null
-  /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
-  gameRootPath?: string | null
-  focusWorldPoint?: ViewportWorldPoint | null
-  contextMenuEnabled?: boolean
-  /** Adds editor-specific commands using the tile under the context-menu pointer. */
-  contextMenuExtraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
-  onExportPng?: () => void
-  onAddObjectHere?: (tileX: number, tileY: number) => void
-  onTileClick?: (tileX: number, tileY: number) => void
-  /** Enables a left-button tile stroke and commits its unique points on pointerup. */
-  onTileStroke?: (points: readonly { tileX: number; tileY: number }[]) => void
-  /** Receives the accumulated unique points while a tile stroke drags, for live previews. */
-  onTileStrokeLive?: (points: readonly { tileX: number; tileY: number }[]) => void
-  /**
-   * Paint preview: a semi-transparent ghost of the current palette selection
-   * rendered at the hovered tile position while a brush/stamp tool is active.
-   * Null clears the preview. The tileset image is resolved from the document's
-   * tilesets by the viewport (it already loads them for rendering).
-   */
-  paintPreview?: {
-    tilesetName: string
-    startIndex: number
-    width: number
-    height: number
-  } | null
-  /**
-   * Tileset hover preview: a full-sheet image rendered centered over the
-   * entire viewport with a dimming backdrop while the user hovers a sheet
-   * card in the palette gallery. `mode` true keeps the overlay backdrop
-   * always visible (gallery open); `imageSrc` controls the preview image.
-   */
-  tilesetPreview?: { imageSrc: string | null; mode?: boolean } | null
-  /**
-   * Cell-rule overlay coloring: colored tiles of the active layer's cell
-   * properties, drawn over the map (cell index → display rule). Usually active
-   * only while the overlay paint mode is on; the object markers render above it.
-   */
-  cellOverlay?: { layerId: number; width: number; height: number; cells: Record<number, CellOverlayCell> } | null
-  /**
-   * Day/night swap highlight: cells with registered DayTiles/NightTiles
-   * properties, drawn as purple dashed borders over the map. Independent of
-   * the cellOverlay paint mode; null or empty clears the highlight.
-   */
-  dayNightHighlight?: { width: number; height: number; cells: Array<{ x: number; y: number }> } | null
-  /** Persisted tile rectangle drawn over the map when no drag is active. */
-  selectedTileRect?: MapTileRect | null
-  /**
-   * Inspector hover highlight: tile rectangles drawn as dashed accent frames
-   * (independent of the active layer) plus object-group markers stroked with
-   * the accent color. Null or empty clears the highlight.
-   */
-  inspectorHighlight?: MapInspectorHighlight | null
-  /** Enables left-button rectangle selection and receives the committed tile bounds. */
-  onTileRectSelect?: (rect: MapTileRect) => void
+  mapState: {
+    mapDocument: MapDocument | null
+    visibleLayerIds: number[]
+    visibleObjectGroupIds: number[]
+    /**
+     * When true, skips rectangle rendering and hit-testing for `TileData`
+     * objects that are not light markers — their rules are presented through
+     * the overlay mode instead. Defaults to false; other consumers are
+     * unaffected.
+     */
+    hideRuleTileDataObjects?: boolean
+  }
+  display: {
+    locale: LocaleCode
+    theme: ThemeMode
+    accentColor: string
+    showGrid: boolean
+    showStatsChips?: boolean
+  }
+  overlays?: {
+    mapOverlay?: ReactNode
+    scaleMapOverlayWithViewport?: boolean
+    mapOverlayLayer?: 'between' | 'top'
+    viewportOverlay?: ReactNode
+  }
+  lighting?: {
+    /** Static world lightmap (time-of-day base + light glows); baked to a multiply overlay over the map. */
+    worldLighting?: WorldLightingState | null
+    /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+    gameRootPath?: string | null
+  }
+  editing?: {
+    /**
+     * Paint preview: a semi-transparent ghost of the current palette selection
+     * rendered at the hovered tile position while a brush/stamp tool is active.
+     * Null clears the preview. The tileset image is resolved from the document's
+     * tilesets by the viewport (it already loads them for rendering).
+     */
+    paintPreview?: {
+      tilesetName: string
+      startIndex: number
+      width: number
+      height: number
+    } | null
+    /**
+     * Tileset hover preview: a full-sheet image rendered centered over the
+     * entire viewport with a dimming backdrop while the user hovers a sheet
+     * card in the palette gallery. `mode` true keeps the overlay backdrop
+     * always visible (gallery open); `imageSrc` controls the preview image.
+     */
+    tilesetPreview?: { imageSrc: string | null; mode?: boolean } | null
+    /**
+     * Cell-rule overlay coloring: colored tiles of the active layer's cell
+     * properties, drawn over the map (cell index → display rule). Usually active
+     * only while the overlay paint mode is on; the object markers render above it.
+     */
+    cellOverlay?: { layerId: number; width: number; height: number; cells: Record<number, CellOverlayCell> } | null
+    /**
+     * Day/night swap highlight: cells with registered DayTiles/NightTiles
+     * properties, drawn as purple dashed borders over the map. Independent of
+     * the cellOverlay paint mode; null or empty clears the highlight.
+     */
+    dayNightHighlight?: { width: number; height: number; cells: Array<{ x: number; y: number }> } | null
+    /** Persisted tile rectangle drawn over the map when no drag is active. */
+    selectedTileRect?: MapTileRect | null
+    /**
+     * Inspector hover highlight: tile rectangles drawn as dashed accent frames
+     * (independent of the active layer) plus object-group markers stroked with
+     * the accent color. Null or empty clears the highlight.
+     */
+    inspectorHighlight?: MapInspectorHighlight | null
+  }
+  contextMenu?: {
+    enabled?: boolean
+    /** Adds editor-specific commands using the tile under the context-menu pointer. */
+    extraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
+  }
+  fit?: {
+    focusWorldPoint?: ViewportWorldPoint | null
+    initialZoom?: number | null
+    includeHiddenLayers?: boolean
+    fitContentBounds?: boolean
+    fitContentOptions?: {
+      mode?: 'content' | 'preview'
+      includeObjects?: boolean
+      paddingTiles?: number
+      minimumCoverageRatio?: number
+      targetAspectRatio?: number
+      ignoreTransparentTiles?: boolean
+      includeHiddenLayers?: boolean
+    }
+    fitBounds?: MapContentBounds | null
+    fitPadding?: number
+    maxFitZoom?: number | null
+    minimumFitViewportSize?: number
+    viewportOverpan?: number
+  }
   /** Enables dragging object-layer markers on the canvas. Coordinates are tile units. */
   objectDrag?: {
     onStart: (objectId: number) => void
     onPreview: (objectId: number, tileX: number, tileY: number) => void
     onEnd: () => void
   }
-  initialZoom?: number | null
-  includeHiddenLayers?: boolean
-  fitContentBounds?: boolean
-  fitContentOptions?: {
-    mode?: 'content' | 'preview'
-    includeObjects?: boolean
-    paddingTiles?: number
-    minimumCoverageRatio?: number
-    targetAspectRatio?: number
-    ignoreTransparentTiles?: boolean
-    includeHiddenLayers?: boolean
+  actions?: {
+    onHoverChange?: (info: TileHoverInfo | null) => void
+    onAtlasPortalOpen?: (targetMapName: string) => void
+    onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
+    onExportPng?: () => void
+    onAddObjectHere?: (tileX: number, tileY: number) => void
+    onTileClick?: (tileX: number, tileY: number) => void
+    /** Enables a left-button tile stroke and commits its unique points on pointerup. */
+    onTileStroke?: (points: readonly { tileX: number; tileY: number }[]) => void
+    /** Receives the accumulated unique points while a tile stroke drags, for live previews. */
+    onTileStrokeLive?: (points: readonly { tileX: number; tileY: number }[]) => void
+    /** Enables left-button rectangle selection and receives the committed tile bounds. */
+    onTileRectSelect?: (rect: MapTileRect) => void
   }
-  fitBounds?: MapContentBounds | null
-  fitPadding?: number
-  maxFitZoom?: number | null
-  minimumFitViewportSize?: number
-  viewportOverpan?: number
 }
 
 type TilesetImageState = {
@@ -343,41 +360,24 @@ function includeContentBounds(current: MapContentBounds | null, next: MapContent
 }
 
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
-  {
-    locale,
-    mapDocument,
-    visibleLayerIds,
-    visibleObjectGroupIds,
-    hideRuleTileDataObjects = false,
-    onHoverChange,
-    onAtlasPortalOpen,
-    theme,
-    accentColor,
-    showGrid,
-    onZoomChange,
-    showStatsChips = true,
-    mapOverlay,
-    scaleMapOverlayWithViewport = false,
-    mapOverlayLayer = 'between',
-    viewportOverlay,
-    worldLighting = null,
-    gameRootPath = null,
-    focusWorldPoint,
-    contextMenuEnabled = true,
-    contextMenuExtraItems,
-    onExportPng,
-    onAddObjectHere,
-    onTileClick,
-    onTileStroke,
-    onTileStrokeLive,
+  { mapState, display, overlays, lighting, editing, contextMenu, fit, objectDrag, actions },
+  ref,
+) {
+  const { mapDocument, visibleLayerIds, visibleObjectGroupIds, hideRuleTileDataObjects = false } = mapState
+  const { locale, theme, accentColor, showGrid, showStatsChips = true } = display
+  const { mapOverlay, scaleMapOverlayWithViewport = false, mapOverlayLayer = 'between', viewportOverlay } = overlays ?? {}
+  const { worldLighting = null, gameRootPath = null } = lighting ?? {}
+  const {
     paintPreview = null,
     tilesetPreview = null,
     cellOverlay,
     dayNightHighlight = null,
     selectedTileRect = null,
     inspectorHighlight = null,
-    onTileRectSelect,
-    objectDrag,
+  } = editing ?? {}
+  const { enabled: contextMenuEnabled = true, extraItems: contextMenuExtraItems } = contextMenu ?? {}
+  const {
+    focusWorldPoint,
     initialZoom = null,
     includeHiddenLayers = false,
     fitContentBounds = false,
@@ -387,9 +387,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     maxFitZoom = null,
     minimumFitViewportSize = 96,
     viewportOverpan = VIEWPORT_OVERPAN,
-  },
-  ref,
-) {
+  } = fit ?? {}
+  const {
+    onHoverChange,
+    onAtlasPortalOpen,
+    onZoomChange,
+    onExportPng,
+    onAddObjectHere,
+    onTileClick,
+    onTileStroke,
+    onTileStrokeLive,
+    onTileRectSelect,
+  } = actions ?? {}
   const labels = useEditorCopy().viewportLabels
   const initialDefaultViewportState = useMemo(() => getDefaultViewportState(mapDocument), [mapDocument])
   const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
@@ -556,6 +565,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         })
       } catch (error) {
         if (!disposed) {
+          appEvent('warning', 'Failed to load map tileset images')
+            .error(error)
+            .context({ source: 'map-viewport', operation: 'load-tileset-images' })
+            .emit({ notify: false })
           setTilesetImageState({
             sourcePath: tilesetLoadDocument.sourcePath,
             items: {},
@@ -2382,9 +2395,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                       top: `${rect.y * mapDocument.tileHeight * zoom}px`,
                       width: `${rect.width * mapDocument.tileWidth * zoom}px`,
                       height: `${rect.height * mapDocument.tileHeight * zoom}px`,
-                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.1 : 0.13),
-                      border: `1.5px dashed ${rgbaFromHex(accentColor, 0.92)}`,
-                      boxShadow: `inset 0 0 0 1px ${rgbaFromHex(accentColor, 0.18)}`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.1 : 0.14),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.95)}`,
+                      borderRadius: '2px',
                     }}
                   />
                 ))}

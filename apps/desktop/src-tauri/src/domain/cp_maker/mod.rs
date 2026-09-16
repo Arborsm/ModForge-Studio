@@ -12,6 +12,7 @@ pub use self::map_asset::build_cp_maker_map_asset;
 use self::storage::{
     copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir, list_cp_maker_drafts_at_dir,
     load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
+    save_cp_maker_draft_preserving_project_assets_at_dir,
 };
 use self::types::{
     CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary, CpMakerExportRequest,
@@ -40,7 +41,7 @@ pub fn load_cp_maker_draft(draft_storage_key: String) -> anyhow::Result<CpMakerD
 
 pub fn save_cp_maker_draft(draft: CpMakerDraftRecord) -> anyhow::Result<CpMakerDraftRecord> {
     let drafts_dir = cp_maker_drafts_dir()?;
-    save_cp_maker_draft_at_dir(&drafts_dir, draft)
+    save_cp_maker_draft_preserving_project_assets_at_dir(&drafts_dir, draft)
 }
 
 pub fn delete_cp_maker_draft(draft_storage_key: String) -> anyhow::Result<()> {

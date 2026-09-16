@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Grid2x2, List } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { forwardRef, useCallback, useMemo, useRef, type WheelEvent } from 'react'
+import { forwardRef, useCallback, useRef, type WheelEvent } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '@pages/workbench/workspaces/mod'
@@ -160,7 +160,7 @@ export function CatalogPane({
   onCatalogViewModeChange: (mode: CatalogViewMode) => void
 }) {
   const copy = useItemsCopy()
-  const paginationTokens = useMemo(() => buildPaginationTokens(currentPage, pageCount), [currentPage, pageCount])
+  const paginationTokens = buildPaginationTokens(currentPage, pageCount)
   const { viewportRef } = useCatalogPageSize(catalogViewMode, itemsPerPage, items.length, onItemsPerPageChange)
   const wheelAccumulatorRef = useRef(0)
   const lastWheelFlipRef = useRef(0)

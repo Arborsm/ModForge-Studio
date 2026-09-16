@@ -31,6 +31,7 @@ function plugin(overrides: Partial<CompatPluginSummary> = {}): CompatPluginSumma
     loadError: null,
     assetSchemas: [],
     conditionSyntax: [],
+    capabilities: [],
     ...overrides,
   }
 }

@@ -1,3 +1,5 @@
+import { orNull } from '@platform/observability'
+
 /**
  * @file Pre-warms shared caches (resource registry + item catalog) so the event
  * editor mounts with data already loaded.
@@ -16,7 +18,7 @@ import { loadItemWorkspaceEntries } from '@entities/item'
  */
 export function warmEventEditorResources(gameRootPath: string, locale: LocaleCode): Promise<unknown[]> {
   return Promise.all([
-    loadResourceRegistry(gameRootPath, locale).catch(() => null),
-    loadItemWorkspaceEntries(gameRootPath, locale).catch(() => null),
+    orNull(loadResourceRegistry(gameRootPath, locale), 'eventResources.warmRegistry'),
+    orNull(loadItemWorkspaceEntries(gameRootPath, locale), 'eventResources.warmItems'),
   ])
 }

@@ -19,9 +19,9 @@ import {
   useBuildingAuthoringHandoff,
   validateBuildingEntries,
 } from '@entities/building'
-import { useBuildingDataEditorCopy, useEditorCopy } from '@locales/provider'
+import { useBuildingDataEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useEditModeStore } from '../../../model/editModeStore'
 import { buildPreviewEntry, buildUpgradeChainStages, useVanillaBuildingIndex } from '../state/useBuildingAuthoringSources'
 import { BuildingPreviewPane, type BuildingAuthoringToolRequest } from '../ui/BuildingPreviewPane'
@@ -166,10 +166,9 @@ function sortedBuildingKeys(projectKeys: readonly string[], vanillaKeys: readonl
 export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, resources: environment }) => {
   const { draft } = draftPort
   const { gameRootPath, directoryInfo, locale, theme, accentColor } = environment
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const copy = useBuildingDataEditorCopy()
-  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const requestedBuildingKey = useBuildingAuthoringHandoff((state) => state.pendingBuildingKey)
   const consumePendingBuildingKey = useBuildingAuthoringHandoff((state) => state.consumePending)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -495,8 +494,6 @@ export const BuildingDataPatchEditor: EditorComponent = ({ patch, draftPort, res
       <RemoveEntryDialog buildingId={removeCandidate} onClose={() => setRemoveCandidate(null)} onConfirm={handleRemoveConfirmed} />
       {gsqRequest !== null ? (
         <EventGameStateQueryBuilderModal
-          copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-          hubCopy={hubCopy}
           initialQuery={gsqRequest.initialQuery || undefined}
           onApply={(result) => {
             gsqRequest.apply(result.query)

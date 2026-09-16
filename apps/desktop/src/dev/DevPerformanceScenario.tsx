@@ -5,7 +5,6 @@
  * @module dev
  */
 import { useDeferredValue, useState, type ReactNode } from 'react'
-import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
 import type { LauncherModConfigResult, SaveLauncherModConfigRequest } from '@features/launcher/model/launcherContracts'
@@ -21,9 +20,6 @@ import type { EventPatchHubEvent } from '@entities/event'
 import type { WorkspaceId } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 
-const copy = localeBundles['en-US']
-const editorCopy = copy.editor
-const hubCopy = editorCopy.studioDesk.eventPatchHub
 const noop = () => {}
 const asyncNoop = async () => {}
 
@@ -592,8 +588,6 @@ function EventConditionScenario() {
         event={event}
         allEvents={range(240).map(createEvent)}
         alias="performance-alias"
-        hubCopy={hubCopy}
-        copy={hubCopy.conditionBuilder}
         onApply={noop}
         onCancel={noop}
       />
@@ -604,13 +598,7 @@ function EventConditionScenario() {
 function EventGameStateScenario() {
   return (
     <ScenarioFrame id="event-game-state-query-builder">
-      <EventGameStateQueryBuilderModal
-        copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-        hubCopy={hubCopy}
-        initialQuery="TIME 1900 2300, PLAYER_HAS_ITEM (O)74 12"
-        onApply={noop}
-        onCancel={noop}
-      />
+      <EventGameStateQueryBuilderModal initialQuery="TIME 1900 2300, PLAYER_HAS_ITEM (O)74 12" onApply={noop} onCancel={noop} />
     </ScenarioFrame>
   )
 }

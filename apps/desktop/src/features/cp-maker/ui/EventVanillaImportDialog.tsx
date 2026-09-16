@@ -3,10 +3,11 @@
  * `editorState.entries`.
  * @module features/cp-maker
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckSquare, FileJson, Loader2, Search } from 'lucide-react'
 import { loadEventAsset } from '@entities/game/api'
 import { useEditorCopy, useLocale } from '@locales/provider'
+import { reportRecovered } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import type { EventScript } from '@shared/contracts/event-script'
@@ -58,7 +59,8 @@ export function EventVanillaImportDialog({ open, gameRootPath, target, existingK
           setLoading(false)
         }
       },
-      () => {
+      (error) => {
+        reportRecovered(error, 'cp-maker.load-vanilla-events')
         if (active) {
           setEvents([])
           setLoadFailed(true)
@@ -71,11 +73,9 @@ export function EventVanillaImportDialog({ open, gameRootPath, target, existingK
     }
   }, [gameRootPath, target, locale, open])
 
-  const existing = useMemo(() => new Set(existingKeys), [existingKeys])
-  const rows = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return events.filter((event) => !normalized || eventSearchText(event).includes(normalized))
-  }, [events, query])
+  const existing = new Set(existingKeys)
+  const normalized = query.trim().toLowerCase()
+  const rows = events.filter((event) => !normalized || eventSearchText(event).includes(normalized))
 
   function toggle(event: EventScript) {
     if (existing.has(event.key)) {

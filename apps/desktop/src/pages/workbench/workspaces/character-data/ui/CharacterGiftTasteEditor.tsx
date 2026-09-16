@@ -22,7 +22,7 @@ import {
 } from '@entities/character'
 import { ResourcePicker, type ResourceBrowserOption } from '@features/resource-browser'
 import { useCharacterDataEditorCopy } from '@locales/provider'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 export type GiftTasteEditorProps = {
@@ -68,7 +68,7 @@ function TasteSection({
   onChange: (next: NpcGiftTasteEntry) => void
 }) {
   const copy = useCharacterDataEditorCopy()
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const section = entry[kind]
   const externalText = section.items.join(' ')
   const [itemsText, setItemsText] = useState(externalText)

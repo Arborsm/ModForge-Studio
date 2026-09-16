@@ -36,8 +36,8 @@ function useVariantAssets(
     let cancelled = false
     setState((current) => ({ ...current, loading: true }))
 
-    void Promise.all([loadCharacterImageState(spritePath, locale), loadCharacterImageState(portraitPath, locale)])
-      .then(([sprite, portrait]) => {
+    void Promise.all([loadCharacterImageState(spritePath, locale), loadCharacterImageState(portraitPath, locale)]).then(
+      ([sprite, portrait]) => {
         if (!cancelled) {
           setState({
             ...EMPTY_CHARACTER_VISUAL_ASSET_STATE,
@@ -55,10 +55,8 @@ function useVariantAssets(
             portraitOriginalHeight: portrait.originalHeight,
           })
         }
-      })
-      .catch(() => {
-        if (!cancelled) setState(EMPTY_CHARACTER_VISUAL_ASSET_STATE)
-      })
+      },
+    )
 
     return () => {
       cancelled = true

@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useEditorCopy } from '@locales/provider'
 import { Disclosure } from '@shared/ui/Disclosure'
 import { parseWhenConditions, serializeWhenConditions, type WhenConditionRow } from '@entities/content-patcher'
@@ -42,7 +42,7 @@ function toKeyValueRows(record: Record<string, unknown> | undefined): Array<{ ke
  * resets on patch change (same pattern as EditDataAdvancedOps).
  */
 export function ExpertPanel({ patch, extraTokenNames = [], onPatchChange }: ExpertPanelProps) {
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
 
   if (!expertMode || !patch) {
     return null

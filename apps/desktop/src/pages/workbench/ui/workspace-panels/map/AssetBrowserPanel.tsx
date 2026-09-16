@@ -1,5 +1,5 @@
 import { ChevronDown, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { PanelFrame } from '@shared/ui/PanelFrame'
@@ -22,7 +22,7 @@ export function AssetBrowserPanel({
 }: AssetBrowserPanelProps) {
   const copy = useEditorCopy()
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
-  const groupedAssets = useMemo(() => {
+  const groupedAssets = (() => {
     const groups = new Map<string, typeof filteredAssets>()
     for (const asset of filteredAssets) {
       const groupLabel = getAssetGroupLabel(asset)
@@ -41,11 +41,9 @@ export function AssetBrowserPanel({
         grouped: items.length > 1,
       }))
       .sort((left, right) => right.items.length - left.items.length || left.label.localeCompare(right.label))
-  }, [filteredAssets])
-  const visibleCount = useMemo(
-    () => (browserSourceMode === 'mod' ? modMapGroups.reduce((total, group) => total + group.items.length, 0) : filteredAssets.length),
-    [browserSourceMode, filteredAssets.length, modMapGroups],
-  )
+  })()
+  const visibleCount =
+    browserSourceMode === 'mod' ? modMapGroups.reduce((total, group) => total + group.items.length, 0) : filteredAssets.length
 
   return (
     <PanelFrame

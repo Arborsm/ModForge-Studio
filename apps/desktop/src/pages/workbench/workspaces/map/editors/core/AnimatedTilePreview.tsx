@@ -3,6 +3,7 @@ import type { MapDocument, MapTileset } from '@entities/map'
 import { resolveTilesetImagePath } from '@entities/map/lib/assets'
 import { loadImage } from '@entities/map/ui/mapViewportHelpers'
 import type { LocaleCode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import type { AnimationGroup } from '@entities/map/lib/animationGroups'
 
 /**
@@ -46,8 +47,14 @@ export function AnimatedTilePreview({
       .then((img) => {
         if (!cancelled) setImage(img)
       })
-      .catch(() => {
-        if (!cancelled) setImage(null)
+      .catch((error) => {
+        if (!cancelled) {
+          appEvent('warning', 'Failed to load animated tile preview')
+            .error(error)
+            .context({ source: 'map-animation-preview', operation: 'load-image', path: imagePath })
+            .emit({ notify: false })
+          setImage(null)
+        }
       })
     return () => {
       cancelled = true

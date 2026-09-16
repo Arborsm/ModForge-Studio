@@ -1,4 +1,4 @@
-import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 import { NotificationViewport } from './NotificationViewport'
 import { playNotificationSound } from './notificationSounds'
 
@@ -191,19 +191,13 @@ export function clearNotifications() {
   emitNotifications()
 }
 
-const NotificationDispatchContext = createContext<typeof publishNotification | null>(null)
-
-export function useNotificationPublisher() {
-  return useContext(NotificationDispatchContext) ?? publishNotification
-}
-
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationSnapshot, getNotificationSnapshot)
 
   return (
-    <NotificationDispatchContext.Provider value={publishNotification}>
+    <>
       {children}
       <NotificationViewport notifications={notifications} onDismiss={dismissNotification} />
-    </NotificationDispatchContext.Provider>
+    </>
   )
 }

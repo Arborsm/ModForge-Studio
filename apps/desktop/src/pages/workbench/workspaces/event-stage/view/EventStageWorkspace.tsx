@@ -8,12 +8,12 @@ import { getActorSpriteFrameHeight } from '@entities/event'
 import { resolveSpriteFrameGeometry } from '@entities/character'
 import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
-import { useEventStageCopy } from '@locales/provider'
+import { useEditorCopy, useEventStageCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { useEventStageWorkspace } from '../state/useEventStageWorkspace'
 import { useEventStageAnimationEffect } from '../state/eventStageAnimationClock'
 import { type GameDirectoryInfo, type MapAssetContent } from '@entities/game/api'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import { MapViewport, type MapViewportHandle } from '@entities/map'
 import { EventStageActorSprite } from './EventStageActorSprite'
 import { EventStageScreenEffectSprite, EventStageWorldEffectSprite } from './EventStageEffectSprite'
@@ -49,59 +49,62 @@ function EventStageFlashOverlay({ flashOverlay }: { flashOverlay: ScreenFlashSta
 }
 
 type EventStageWorkspaceProps = {
-  locale: LocaleCode
-  directoryInfo: GameDirectoryInfo | null
-  viewportLabels: ViewportLabels
-  theme: ThemeMode
-  accentColor: string
-  parsedEventAsset: ParsedEventAsset | null
-  selectedEvent: EventScript | null
-  eventStatusMessage: string
-  playerAppearanceProfile: PlayerAppearanceProfile | null
-  onSelectTimelineEntry: (entryId: string) => void
-  onPlaybackCommandChange: (commandId: string | null) => void
-  onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
-  onOpenPlayerAppearanceWindow: () => void
-  className?: string
-  hideHeader?: boolean
-  chromeMode?: EventStageWorkspaceChromeMode
-  additionalViewportOverlay?: ReactNode
-  hideViewportStatus?: boolean
-  onTileClick?: (tileX: number, tileY: number) => void
-  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
-  conditionBuilderLabel?: string
-  mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
-  imageResourceLoader?: EventStageAssetImageLoader
-  onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
+  environment: {
+    locale: LocaleCode
+    directoryInfo: GameDirectoryInfo | null
+    theme: ThemeMode
+    accentColor: string
+  }
+  eventData: {
+    parsedEventAsset: ParsedEventAsset | null
+    selectedEvent: EventScript | null
+    eventStatusMessage: string
+    playerAppearanceProfile: PlayerAppearanceProfile | null
+  }
+  chrome?: {
+    className?: string
+    hideHeader?: boolean
+    chromeMode?: EventStageWorkspaceChromeMode
+    additionalViewportOverlay?: ReactNode
+    hideViewportStatus?: boolean
+  }
+  loaders?: {
+    mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
+    imageResourceLoader?: EventStageAssetImageLoader
+  }
+  actions: {
+    selectTimelineEntry: (entryId: string) => void
+    playbackCommandChange: (commandId: string | null) => void
+    stageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
+    openPlayerAppearanceWindow: () => void
+    tileClick?: (tileX: number, tileY: number) => void
+    contextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
+    actorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
+  }
 }
 
-export default function EventStageWorkspace({
-  locale,
-  directoryInfo,
-  viewportLabels,
-  theme,
-  accentColor,
-  parsedEventAsset,
-  selectedEvent,
-  eventStatusMessage,
-  playerAppearanceProfile,
-  onSelectTimelineEntry,
-  onPlaybackCommandChange,
-  onStageSeekReady,
-  onOpenPlayerAppearanceWindow,
-  className,
-  hideHeader: _hideHeader,
-  chromeMode = 'workspace',
-  additionalViewportOverlay,
-  hideViewportStatus = false,
-  onTileClick,
-  onContextMenuAction,
-  conditionBuilderLabel,
-  mapAssetLoader,
-  imageResourceLoader,
-  onActorAssetsChange,
-}: EventStageWorkspaceProps) {
+export default function EventStageWorkspace({ environment, eventData, chrome, loaders, actions }: EventStageWorkspaceProps) {
+  const { locale, directoryInfo, theme, accentColor } = environment
+  const { parsedEventAsset, selectedEvent, eventStatusMessage, playerAppearanceProfile } = eventData
+  const {
+    className,
+    hideHeader: _hideHeader,
+    chromeMode = 'workspace',
+    additionalViewportOverlay,
+    hideViewportStatus = false,
+  } = chrome ?? {}
+  const { mapAssetLoader, imageResourceLoader } = loaders ?? {}
+  const {
+    selectTimelineEntry: onSelectTimelineEntry,
+    playbackCommandChange: onPlaybackCommandChange,
+    stageSeekReady: onStageSeekReady,
+    openPlayerAppearanceWindow: onOpenPlayerAppearanceWindow,
+    tileClick: onTileClick,
+    contextMenuAction: onContextMenuAction,
+    actorAssetsChange: onActorAssetsChange,
+  } = actions
   const copy = useEventStageCopy()
+  const conditionBuilderLabel = useEditorCopy().studioDesk.eventPatchHub.conditionBuilderAction
   const consoleChrome = chromeMode === 'console'
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const mapViewportRef = useRef<MapViewportHandle | null>(null)
@@ -136,7 +139,6 @@ export default function EventStageWorkspace({
     copy,
     locale,
     directoryInfo,
-    viewportLabels,
     parsedEventAsset,
     selectedEvent,
     playerAppearanceProfile,
@@ -193,55 +195,39 @@ export default function EventStageWorkspace({
     () => playbackState.stageEffects.filter((effect) => effect.space === 'screen'),
     [playbackState.stageEffects],
   )
-  const visibleSortedActors = useMemo(
-    () =>
-      Object.values(playbackState.actors)
-        .filter((actor) => actor.visible)
-        .sort((left, right) => left.tileY - right.tileY),
-    [playbackState.actors],
-  )
-  const worldEffectEntries = useMemo(
-    () =>
-      worldStageEffects.map((effect) => ({
-        effect,
-        asset: effectAssets[effect.textureName],
-      })),
-    [effectAssets, worldStageEffects],
-  )
-  const screenEffectEntries = useMemo(
-    () =>
-      screenStageEffects.map((effect) => ({
-        effect,
-        asset: effectAssets[effect.textureName],
-      })),
-    [effectAssets, screenStageEffects],
-  )
-  const actorRenderEntries = useMemo(
-    () =>
-      visibleSortedActors.map((actor) => {
-        const asset = actorAssets[toActorKey(actor.actorName)]
-        const baseWidth = asset?.characterMetadata?.size.x ?? 16
-        const baseHeight = asset?.characterMetadata?.size.y ?? getActorSpriteFrameHeight(actor.actorName)
-        const { frameWidth, frameHeight, spriteColumns } = resolveSpriteFrameGeometry(
-          baseWidth,
-          baseHeight,
-          asset?.spriteSheetWidth ?? null,
-          asset?.spriteSheetHeight ?? null,
-          asset?.spriteImage ?? null,
-        )
+  const visibleSortedActors = Object.values(playbackState.actors)
+    .filter((actor) => actor.visible)
+    .sort((left, right) => left.tileY - right.tileY)
+  const worldEffectEntries = worldStageEffects.map((effect) => ({
+    effect,
+    asset: effectAssets[effect.textureName],
+  }))
+  const screenEffectEntries = screenStageEffects.map((effect) => ({
+    effect,
+    asset: effectAssets[effect.textureName],
+  }))
+  const actorRenderEntries = visibleSortedActors.map((actor) => {
+    const asset = actorAssets[toActorKey(actor.actorName)]
+    const baseWidth = asset?.characterMetadata?.size.x ?? 16
+    const baseHeight = asset?.characterMetadata?.size.y ?? getActorSpriteFrameHeight(actor.actorName)
+    const { frameWidth, frameHeight, spriteColumns } = resolveSpriteFrameGeometry(
+      baseWidth,
+      baseHeight,
+      asset?.spriteSheetWidth ?? null,
+      asset?.spriteSheetHeight ?? null,
+      asset?.spriteImage ?? null,
+    )
 
-        return {
-          actor,
-          asset,
-          frameWidth,
-          frameHeight,
-          spriteColumns,
-        }
-      }),
-    [actorAssets, visibleSortedActors],
-  )
+    return {
+      actor,
+      asset,
+      frameWidth,
+      frameHeight,
+      spriteColumns,
+    }
+  })
 
-  const mapOverlay = useMemo(() => {
+  const mapOverlay = (() => {
     if (!mapDocument) {
       return null
     }
@@ -281,9 +267,9 @@ export default function EventStageWorkspace({
         ))}
       </div>
     )
-  }, [actorRenderEntries, effectAssets, mapDocument, viewportZoom, worldEffectEntries, worldOverlaySprites])
+  })()
 
-  const screenEffectsOverlay = useMemo(() => {
+  const screenEffectsOverlay = (() => {
     if (screenEffectEntries.length === 0) {
       return null
     }
@@ -295,7 +281,7 @@ export default function EventStageWorkspace({
         ))}
       </div>
     )
-  }, [screenEffectEntries])
+  })()
 
   const viewportOverlay = (
     <div className="absolute inset-0">
@@ -482,60 +468,50 @@ export default function EventStageWorkspace({
                 ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
                 : `empty:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
             }
-            locale={locale}
-            mapDocument={mapDocument}
-            visibleLayerIds={visibleLayerIds}
-            visibleObjectGroupIds={visibleObjectGroupIds}
-            theme={theme}
-            accentColor={accentColor}
-            showGrid={showGrid}
-            showStatsChips={false}
-            initialZoom={EVENT_STAGE_INITIAL_ZOOM}
-            mapOverlay={mapOverlay}
-            viewportOverlay={viewportOverlay}
-            worldLighting={worldLighting}
-            gameRootPath={directoryInfo?.rootPath ?? null}
-            focusWorldPoint={focusWorldPoint}
-            onZoomChange={handleZoomChange}
-            onHoverChange={setHoverInfo}
-            onTileClick={onTileClick}
-            contextMenuEnabled={Boolean(onContextMenuAction)}
-            contextMenuExtraItems={
-              onContextMenuAction && hoverInfo ? (
-                <>
-                  <ContextMenu.Separator className="context-menu-separator" />
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
-                    {conditionBuilderLabel ?? labels.scene}
-                  </ContextMenu.Item>
-                  <ContextMenu.Separator className="context-menu-separator" />
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.addActorHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <Camera className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.setCameraHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.addWarpHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                </>
-              ) : null
-            }
+            mapState={{ mapDocument, visibleLayerIds, visibleObjectGroupIds }}
+            display={{ locale, theme, accentColor, showGrid, showStatsChips: false }}
+            overlays={{ mapOverlay, viewportOverlay }}
+            lighting={{ worldLighting, gameRootPath: directoryInfo?.rootPath ?? null }}
+            fit={{ initialZoom: EVENT_STAGE_INITIAL_ZOOM, focusWorldPoint }}
+            actions={{ onZoomChange: handleZoomChange, onHoverChange: setHoverInfo, onTileClick }}
+            contextMenu={{
+              enabled: Boolean(onContextMenuAction),
+              extraItems:
+                onContextMenuAction && hoverInfo ? (
+                  <>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
+                      {conditionBuilderLabel}
+                    </ContextMenu.Item>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.addActorHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Camera className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.setCameraHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.addWarpHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                  </>
+                ) : null,
+            }}
           />
           {!mapDocument && additionalViewportOverlay ? (
             <div className="pointer-events-none absolute inset-0 z-18">{additionalViewportOverlay}</div>

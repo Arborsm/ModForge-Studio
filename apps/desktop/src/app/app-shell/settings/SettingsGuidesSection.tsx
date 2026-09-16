@@ -4,7 +4,7 @@
 import type { GuideId } from '@locales/api'
 import { useGuidesCopy, useSettingsMenuCopy } from '@locales/provider'
 import { useGuideEngineStore } from '@features/guide'
-import { publishNotification } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { appGuideDefinitions } from '../../guide-setup'
 
 /** Guide replay controls loaded only when the interaction settings category is visible. */
@@ -23,21 +23,19 @@ export function SettingsGuidesSection() {
   const replayGuide = (guideId: string, guideTitle: string) => {
     requestGuideReplay(guideId)
     if (useGuideEngineStore.getState().pendingGuideId === guideId) {
-      publishNotification({
-        level: 'info',
-        title: guidesCopy.replayPendingTitle,
-        description: guidesCopy.replayPendingDescription(guideTitle),
-      })
+      appEvent('info', guidesCopy.replayPendingTitle)
+        .description(guidesCopy.replayPendingDescription(guideTitle))
+        .context({ source: 'settings-guides', operation: 'replay-guide' })
+        .emit()
     }
   }
 
   const replayAllGuides = () => {
     resetAllGuideProgress()
-    publishNotification({
-      level: 'info',
-      title: settingsCopy.guideReplayAllLabel,
-      description: settingsCopy.guideReplayAllDescription,
-    })
+    appEvent('info', settingsCopy.guideReplayAllLabel)
+      .description(settingsCopy.guideReplayAllDescription)
+      .context({ source: 'settings-guides', operation: 'replay-all-guides' })
+      .emit()
   }
 
   return (

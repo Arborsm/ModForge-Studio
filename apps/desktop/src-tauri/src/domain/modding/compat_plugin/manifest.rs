@@ -10,8 +10,8 @@ use crate::support::logging::event::LogEvent;
 use crate::support::logging::event::targets;
 
 use super::types::{
-    CURRENT_MANIFEST_FORMAT, CompatPluginManifest, PLUGIN_ID_PATTERN, PageFieldDecl,
-    PluginLoadError, PluginLoadReport,
+    CAPABILITY_ID_PATTERN, CURRENT_MANIFEST_FORMAT, CompatPluginManifest, PLUGIN_ID_PATTERN,
+    PageFieldDecl, PluginLoadError, PluginLoadReport,
 };
 
 /// Loads and validates all `manifest.json` files found under the given roots.
@@ -24,6 +24,8 @@ use super::types::{
 pub(crate) fn load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport {
     let mut report = PluginLoadReport::default();
     let id_re = regex::Regex::new(PLUGIN_ID_PATTERN).expect("plugin id regex is valid");
+    let capability_id_re =
+        regex::Regex::new(CAPABILITY_ID_PATTERN).expect("capability id regex is valid");
     // Roots are priority-ordered (user data dir first, bundled source tree
     // second); the same plugin id can appear in multiple roots (e.g. the
     // built-in sync copies plugins into the data dir while the dev source
@@ -35,14 +37,10 @@ pub(crate) fn load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport {
         let entries = match std::fs::read_dir(root) {
             Ok(entries) => entries,
             Err(error) => {
-                log::warn!(
-                    target: targets::APP_UI,
-                    "{}",
-                    LogEvent::new("compatPlugin.scanRoot")
-                        .field("root", root.display())
-                        .field("error", error.to_string())
-                        .render()
-                );
+                LogEvent::new("compatPlugin.scanRoot")
+                    .field("root", root.display())
+                    .field("error", error.to_string())
+                    .emit_warn(targets::APP_UI);
                 continue;
             }
         };
@@ -58,17 +56,13 @@ pub(crate) fn load_plugin_manifests(roots: &[PathBuf]) -> PluginLoadReport {
             }
 
             let plugin_dir = path.display().to_string();
-            match load_single_manifest(&manifest_path, &path, &id_re) {
+            match load_single_manifest(&manifest_path, &path, &id_re, &capability_id_re) {
                 Ok(manifest) => {
                     if !seen_ids.insert(manifest.id.clone()) {
-                        log::warn!(
-                            target: targets::APP_UI,
-                            "{}",
-                            LogEvent::new("compatPlugin.duplicateId")
-                                .field("pluginDir", plugin_dir)
-                                .field("pluginId", manifest.id)
-                                .render()
-                        );
+                        LogEvent::new("compatPlugin.duplicateId")
+                            .field("pluginDir", plugin_dir)
+                            .field("pluginId", manifest.id)
+                            .emit_warn(targets::APP_UI);
                         continue;
                     }
                     report.manifests.push(manifest);
@@ -90,12 +84,13 @@ fn load_single_manifest(
     manifest_path: &Path,
     plugin_dir: &Path,
     id_re: &regex::Regex,
+    capability_id_re: &regex::Regex,
 ) -> Result<CompatPluginManifest, String> {
     let raw = std::fs::read_to_string(manifest_path)
         .map_err(|error| format!("read manifest.json failed: {error}"))?;
     let mut manifest: CompatPluginManifest = serde_json::from_str(&raw)
         .map_err(|error| format!("parse manifest.json failed: {error}"))?;
-    validate_manifest(&manifest, plugin_dir, id_re)?;
+    validate_manifest(&manifest, plugin_dir, id_re, capability_id_re)?;
     manifest.plugin_dir = plugin_dir.to_path_buf();
     Ok(manifest)
 }
@@ -108,6 +103,7 @@ fn validate_manifest(
     manifest: &CompatPluginManifest,
     plugin_dir: &Path,
     id_re: &regex::Regex,
+    capability_id_re: &regex::Regex,
 ) -> Result<(), String> {
     // V1: format version
     if manifest.format != CURRENT_MANIFEST_FORMAT {
@@ -184,7 +180,8 @@ fn validate_manifest(
         || manifest.contributions.attached_api.is_some()
         || !manifest.contributions.pages.is_empty()
         || !manifest.contributions.asset_schemas.is_empty()
-        || !manifest.contributions.condition_syntax.is_empty();
+        || !manifest.contributions.condition_syntax.is_empty()
+        || !manifest.contributions.capabilities.is_empty();
     if !has_contrib {
         return Err("contributions must declare at least one non-empty key".to_string());
     }
@@ -207,7 +204,21 @@ fn validate_manifest(
         }
     }
 
-    // V8: capabilities references (stage 1+; no capabilities field yet, skip)
+    // V8: capabilities references — each declared id must be non-blank and a
+    // valid kebab-case lowercase identifier. The frontend resolves declared ids
+    // against its capability registry, so a typo or an out-of-registry id must
+    // fail at scan time instead of silently returning undefined at runtime.
+    if manifest
+        .contributions
+        .capabilities
+        .iter()
+        .any(|id| !capability_id_re.is_match(id))
+    {
+        return Err(
+            "capabilities must be a list of non-empty kebab-case lowercase ids".to_string(),
+        );
+    }
+
     // V9: unknown top-level fields — warn only, do not reject (SMAPI ExtraFields
     // tolerance). serde already ignores unknown keys during deserialization, so
     // there is nothing to do here for now.
@@ -256,6 +267,7 @@ const VALID_FIELD_TYPES: &[&str] = &[
     "string-list",
     "record-list",
     "object",
+    "game-item",
 ];
 
 /// Recursively validates a page field descriptor and its sub-fields.
@@ -290,6 +302,14 @@ fn validate_page_field(page_id: &str, field: &PageFieldDecl) -> Result<(), Strin
     if field.allow_values.is_some() && field.field_type != "choice" {
         return Err(format!(
             "page {} field {} declares allowValues but type is {} (allowValues requires type choice)",
+            page_id, field.id, field.field_type
+        ));
+    }
+
+    // idPath is only valid for game-item fields.
+    if field.id_path.is_some() && field.field_type != "game-item" {
+        return Err(format!(
+            "page {} field {} declares idPath but type is {} (idPath requires type game-item)",
             page_id, field.id, field.field_type
         ));
     }

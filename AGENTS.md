@@ -2,6 +2,11 @@
 
 面向 AI 编码助手的仓库规则。先读本文件；需要背景时再读 `README.md`、`docs/frontend-architecture.md`、`docs/maintenance.md` 或对应源码。
 
+## 产品方向
+
+- ModForge 的目标是把 Content Patcher 操作包装成点选式 UX，**面向不懂模组技术的玩家**——全程点选，不用手写配置文件。
+- 工作台 UI/交互/文案的设计权威是 `docs/design/workbench-design-principles.md`（去填表化、极简 chrome、hover 收纳、去 CP 黑话、浅色主题扁平白面）；改任何工作台页面前先对照它。视觉落位细则见 `docs/design/page-design-spec.md`。
+
 ## 事实来源
 
 - 项目概览、平台支持和启动方式以 `README.md` 为准。
@@ -9,6 +14,7 @@
 - 构建、发布、CI、签名和维护命令以 `docs/maintenance.md` 为准。
 - Nexus Mods GraphQL 事实以 `docs/nexusmods-graphql/**` 的生成快照为准。
 - 后端分层、域间依赖与共享内核规则以 `docs/backend-architecture.md` 为准。
+- 浏览器 dev mock 与 Playwright 可视化验证的做法以 `docs/dev-verification.md` 为准。
 - 不要在本文件维护长目录树、依赖清单或迁移流水账；这些内容容易过期。
 
 ## 快速定位
@@ -122,6 +128,11 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - 如果范围过大，拆成可独立合并的完整纵切片；每个切片都要能被真实用户使用。
 - 收尾时删除调试代码、临时兼容层、一次性迁移入口和未使用导出。
 
+## 消息系统
+
+- 操作失败与任务结果统一走 `@shared/ui/notifications` 的 `publishNotification`（组件内用 `useNotificationPublisher()`），不回退到页内内联错误横幅；失败通知的 `title` 用 locale 通用文案，`description` 带原始错误信息——禁止吞错误。
+- 稳定 `id` 去重，成功/恢复后 `dismissNotification` 清理；页面级状态（整页加载失败、文档校验 banner）仍可内联。细节见 `docs/dev-verification.md` §3。
+
 ## 验证规则
 
 - 只跑改动相关的验证、架构测试，不要每次收尾都跑完整前端或 Rust 套件；改动面广或 targeted run 出现无关失败时再回退到全量。
@@ -129,7 +140,7 @@ MODFORGE_COMMAND_TRACE=1 vp run dev
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或具体测试模块；除非跨模块影响，否则不必全量 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
 - 删除 locale 行为级测试后，必须用架构测试静态扫描替代护栏：禁 copy / labels props，禁生产代码直接 import imperative locale getter。
-- UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。
+- UI/布局变更需要截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。脚本模式与 dev mock 约定见 `docs/dev-verification.md`。
 - 测试应覆盖当前真实需求、已确认 bug 和合理相邻回归；不要为了“防止未来有人把行为改回来”添加透支未来的投机断言。
 
 ## Git 规则

@@ -3,7 +3,7 @@
  * @module features/resource-browser
  */
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,6 +26,7 @@ import { loadAudioDataUrl, loadXactAudioDataUrl } from '@entities/game/api'
 import { ItemSprite, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { useResourceBrowserCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { ignoreError } from '@platform/observability'
 import { CompactSelect } from '@shared/ui/CompactSelect'
 
 /** Resource kind displayed in the browser — drives card rendering and filtering. */
@@ -96,7 +97,6 @@ export type ResourcePickerProps = {
   triggerContent?: ReactNode
   /** Changing this value opens the browser from an external workflow step. */
   openRequest?: string | number
-  emptyLabel?: string
 }
 
 type ResourceFilterId = 'all' | 'game' | 'project' | 'catalog'
@@ -443,7 +443,7 @@ export function AudioCard({
   const [playing, setPlaying] = useState(false)
   const [url, setUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const bars = useMemo(() => formatAudioWaveformBars(option.value), [option.value])
+  const bars = formatAudioWaveformBars(option.value)
 
   useEffect(() => {
     if (!option.audio) {
@@ -452,21 +452,23 @@ export function AudioCard({
     let cancelled = false
     const { rootPath, cue } = option.audio
     if (rootPath && cue) {
-      loadXactAudioDataUrl(rootPath, cue)
-        .then((dataUrl) => {
+      void ignoreError(
+        loadXactAudioDataUrl(rootPath, cue).then((dataUrl) => {
           if (!cancelled) {
             setUrl(dataUrl)
           }
-        })
-        .catch(() => {})
+        }),
+        'resourcePicker.loadXactAudio',
+      )
     } else {
-      loadAudioDataUrl(option.audio.absolutePath)
-        .then((dataUrl) => {
+      void ignoreError(
+        loadAudioDataUrl(option.audio.absolutePath).then((dataUrl) => {
           if (!cancelled) {
             setUrl(dataUrl)
           }
-        })
-        .catch(() => {})
+        }),
+        'resourcePicker.loadAudio',
+      )
     }
     return () => {
       cancelled = true
@@ -664,7 +666,6 @@ export function ResourcePicker({
   triggerClassName,
   triggerContent,
   openRequest,
-  emptyLabel,
 }: ResourcePickerProps) {
   const copy = useResourceBrowserCopy().picker
   const [query, setQuery] = useState('')
@@ -682,42 +683,28 @@ export function ResourcePicker({
   const draftValueRef = useRef(value)
   const selected = options.find((option) => option.value === value)
   const draftSelected = options.find((option) => option.value === draftValue)
-  const filtered = useMemo(() => options.filter((option) => optionMatches(option, query)), [options, query])
-  const filterCounts = useMemo(() => {
-    const counts: Record<ResourceFilterId, number> = { all: filtered.length, game: 0, project: 0, catalog: 0 }
-    for (const option of filtered) {
-      counts[optionFilter(option)] += 1
-    }
-    return counts
-  }, [filtered])
-  const sourceFiltered = useMemo(
-    () => (activeFilter === 'all' ? filtered : filtered.filter((option) => optionFilter(option) === activeFilter)),
-    [activeFilter, filtered],
-  )
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const option of sourceFiltered) {
-      const category = optionCategory(option)
-      counts.set(category, (counts.get(category) ?? 0) + 1)
-    }
-    return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0]))
-  }, [sourceFiltered])
-  const visibleCategories = useMemo(() => {
-    const normalized = categoryQuery.trim().toLowerCase()
-    if (!normalized) {
-      return categories
-    }
-    return categories.filter(([category]) => category.toLowerCase().includes(normalized))
-  }, [categories, categoryQuery])
+  const filtered = options.filter((option) => optionMatches(option, query))
+  const filterCounts: Record<ResourceFilterId, number> = { all: filtered.length, game: 0, project: 0, catalog: 0 }
+  for (const option of filtered) {
+    filterCounts[optionFilter(option)] += 1
+  }
+  const sourceFiltered = activeFilter === 'all' ? filtered : filtered.filter((option) => optionFilter(option) === activeFilter)
+  const categoryCounts = new Map<string, number>()
+  for (const option of sourceFiltered) {
+    const category = optionCategory(option)
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1)
+  }
+  const categories = [...categoryCounts.entries()].sort((left, right) => left[0].localeCompare(right[0]))
+  const normalizedCategoryQuery = categoryQuery.trim().toLowerCase()
+  const visibleCategories = !normalizedCategoryQuery
+    ? categories
+    : categories.filter(([category]) => category.toLowerCase().includes(normalizedCategoryQuery))
   const effectiveActiveCategory =
     activeCategory === 'all' || categories.some(([category]) => category === activeCategory) ? activeCategory : 'all'
-  const categoryFiltered = useMemo(
-    () =>
-      effectiveActiveCategory === 'all'
-        ? sourceFiltered
-        : sourceFiltered.filter((option) => optionCategory(option) === effectiveActiveCategory),
-    [effectiveActiveCategory, sourceFiltered],
-  )
+  const categoryFiltered =
+    effectiveActiveCategory === 'all'
+      ? sourceFiltered
+      : sourceFiltered.filter((option) => optionCategory(option) === effectiveActiveCategory)
   const trimmedQuery = query.trim()
   const canApplyQuery = trimmedQuery.length > 0 && filtered.length === 0 && !options.some((option) => option.value === trimmedQuery)
   const pageCount = Math.max(1, Math.ceil((categoryFiltered.length + (canApplyQuery ? 1 : 0)) / pageSize))
@@ -739,7 +726,7 @@ export function ResourcePicker({
   const rangeEnd = Math.min(pageStartIndex + pageSize, categoryFiltered.length + (canApplyQuery ? 1 : 0))
   const triggerTitle = value ? `${label}: ${value}` : label
   const draftLabel = draftSelected?.label ?? draftValue ?? placeholder
-  const effectiveEmptyLabel = emptyLabel ?? copy.none
+  const effectiveEmptyLabel = copy.none
   const usesConfirmSelection = selectionMode === 'confirm'
   const pageSizeOptions = PAGE_SIZE_OPTIONS.map((size) => ({
     value: size,

@@ -60,18 +60,16 @@ export function WarpDestinationPointPicker({
       </header>
       {state.status === 'ready' ? (
         <MapViewport
-          locale={locale}
-          mapDocument={state.document}
-          visibleLayerIds={state.document.layers.map((layer) => layer.id)}
-          visibleObjectGroupIds={state.document.objectGroups.map((group) => group.id)}
-          includeHiddenLayers={state.document.layers.every((layer) => !layer.visible)}
-          theme={theme}
-          accentColor={accentColor}
-          showGrid
-          showStatsChips={false}
-          contextMenuEnabled={false}
-          onTileClick={onPick}
-          selectedTileRect={null}
+          mapState={{
+            mapDocument: state.document,
+            visibleLayerIds: state.document.layers.map((layer) => layer.id),
+            visibleObjectGroupIds: state.document.objectGroups.map((group) => group.id),
+          }}
+          display={{ locale, theme, accentColor, showGrid: true, showStatsChips: false }}
+          fit={{ includeHiddenLayers: state.document.layers.every((layer) => !layer.visible) }}
+          contextMenu={{ enabled: false }}
+          actions={{ onTileClick: onPick }}
+          editing={{ selectedTileRect: null }}
         />
       ) : (
         <div className={cx('map-warp-destination-state', state.status === 'error' && 'is-error')}>

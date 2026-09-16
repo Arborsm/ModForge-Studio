@@ -8,11 +8,21 @@ import { CompactSelect } from '@shared/ui/CompactSelect'
 import { useCompatModuleCopy } from '@locales/provider'
 import type { CompatPluginField } from '../api/types'
 import type { FieldValidationError } from '../lib/schemaEvaluator'
+import type { GameItemOption } from '../lib/gameItemCatalog'
+import { CompatGameItemPicker } from './CompatGameItemPicker'
 
 type CompatFieldRendererProps = {
   field: CompatPluginField
   value: unknown
   onChange: (value: unknown) => void
+  /**
+   * Writes multiple field paths at once. Used by `game-item` fields to write
+   * the paired `idPath` alongside `field.path` when a catalogued item is
+   * selected; absent for field types that only write one path.
+   */
+  onChangePaths?: (patches: Record<string, unknown>) => void
+  /** Catalogued vanilla item options for `game-item` fields; empty/absent when the registry is unavailable. */
+  gameItemOptions?: readonly GameItemOption[]
   label: string
   error: FieldValidationError | undefined
   t: (key: string) => string
@@ -23,6 +33,8 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
   field,
   value,
   onChange,
+  onChangePaths,
+  gameItemOptions,
   label,
   error,
   t,
@@ -199,13 +211,28 @@ export const CompatFieldRenderer: ComponentType<CompatFieldRendererProps> = func
           </div>
         )
 
+      case 'game-item':
+        return (
+          <CompatGameItemPicker
+            field={field}
+            value={typeof value === 'string' ? value : ''}
+            options={gameItemOptions ?? []}
+            onChange={(v) => onChange(v)}
+            onChangePaths={onChangePaths ?? (() => undefined)}
+            label={labelText}
+          />
+        )
+
       default:
         return null
     }
   }
 
+  const spanWideFields = new Set(['string-list', 'record-list', 'object', 'game-item', 'keybind', 'keybind-list'])
+  const fieldClassName = spanWideFields.has(field.type) ? 'compat-field compat-field--span2' : 'compat-field'
+
   return (
-    <div className="compat-field">
+    <div className={fieldClassName}>
       {renderControl()}
       {error && (
         <p className="compat-field-error" id={errorId} role="alert">

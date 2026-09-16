@@ -13,6 +13,7 @@ import { loadResourceRegistry, type GameDirectoryInfo } from '@entities/game/api
 import { loadItemTextureAssetState, loadItemWorkspaceEntries, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import type { DraftPatch } from '@features/cp-maker'
 import type { LocaleCode } from '@locales'
+import { appEvent } from '@platform/observability'
 
 export type CharacterAuthoringResources = {
   /** Qualified item ids the Winter Star gift override may reference. */
@@ -65,8 +66,20 @@ export function useCharacterAuthoringResources({
     let cancelled = false
 
     void Promise.all([
-      loadItemWorkspaceEntries(gameRootPath, locale).catch(() => []),
-      loadResourceRegistry(gameRootPath, locale).catch(() => null),
+      loadItemWorkspaceEntries(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Character authoring item resources unavailable')
+          .error(error)
+          .context({ source: 'character-authoring', operation: 'load-item-resources' })
+          .emit({ notify: false })
+        return []
+      }),
+      loadResourceRegistry(gameRootPath, locale).catch((error: unknown) => {
+        appEvent('warning', 'Character authoring resource registry unavailable')
+          .error(error)
+          .context({ source: 'character-authoring', operation: 'load-resource-registry' })
+          .emit({ notify: false })
+        return null
+      }),
     ])
       .then(async ([items, registry]) => {
         if (cancelled) {
@@ -89,8 +102,12 @@ export function useCharacterAuthoringResources({
           locationNames: sortedUnique((registry?.entries ?? []).filter((entry) => entry.kind === 'location').map((entry) => entry.value)),
         })
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
+          appEvent('error', 'Character authoring resources failed to load')
+            .error(error)
+            .context({ source: 'character-authoring', operation: 'load-resources' })
+            .emit({ notify: false })
           setGameResources(EMPTY_RESOURCES)
         }
       })

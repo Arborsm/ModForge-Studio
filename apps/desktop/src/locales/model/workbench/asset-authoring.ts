@@ -327,6 +327,7 @@ export type AssetIssueMessageKey =
   | 'event.preconditionUnknown'
   | 'event.preconditionDeprecated'
   | 'patch.sourceFileMissing'
+  | 'patch.targetMissing'
   | 'manifest.nameMissing'
   | 'manifest.uniqueIdMissing'
   | 'manifest.uniqueIdShape'

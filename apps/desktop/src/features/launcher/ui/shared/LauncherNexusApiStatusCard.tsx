@@ -1,29 +1,14 @@
 import { AlertTriangle, ExternalLink, KeyRound, RefreshCw } from 'lucide-react'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import type { SsoSnapshot, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherSettings } from '@features/launcher/model/useLauncherSettings'
 
-type LauncherNexusApiStatusCardVariant = 'state-block' | 'debug-card' | 'route-row'
-type LauncherNexusApiRouteStatus = 'loading' | 'warning' | 'success' | 'error'
-
 type LauncherNexusApiStatusCardProps = {
   settingsState: ReturnType<typeof useLauncherSettings>
-  variant?: LauncherNexusApiStatusCardVariant
   className?: string
-  renderCard?: (content: {
-    title: string
-    description: string
-    icon: ReactNode
-    actions: ReactNode
-    children: ReactNode
-    status: LauncherNexusApiRouteStatus
-    statusLabel: string
-    detail: string
-    meta: string[]
-  }) => ReactNode
 }
 
 type NexusMessageCardKind = keyof ReturnType<typeof useEditorCopy>['launcher']['diagnostics']['errors']
@@ -90,12 +75,7 @@ function classifySsoError(snapshot: SsoSnapshot | null, bridgeError: string | nu
   }
 }
 
-export function LauncherNexusApiStatusCard({
-  settingsState,
-  variant = 'state-block',
-  className,
-  renderCard,
-}: LauncherNexusApiStatusCardProps) {
+export function LauncherNexusApiStatusCard({ settingsState, className }: LauncherNexusApiStatusCardProps) {
   const launcherPort = useLauncherPort()
   const diagnosticsCopy = useEditorCopy().launcher.diagnostics
   const { settings, refresh } = settingsState
@@ -196,7 +176,7 @@ export function LauncherNexusApiStatusCard({
     }
   }, [isSsoActive, launcherPort, refresh, refreshApiKeyStatus])
 
-  const startSso = useCallback(async () => {
+  const startSso = async () => {
     setSsoStarting(true)
     setSsoError(null)
     try {
@@ -207,9 +187,9 @@ export function LauncherNexusApiStatusCard({
     } finally {
       setSsoStarting(false)
     }
-  }, [launcherPort])
+  }
 
-  const cancelSso = useCallback(async () => {
+  const cancelSso = async () => {
     setSsoError(null)
     try {
       await launcherPort.cancelNexusSso()
@@ -217,36 +197,13 @@ export function LauncherNexusApiStatusCard({
     } catch (nextError) {
       setSsoError(nextError instanceof Error ? nextError.message : String(nextError))
     }
-  }, [launcherPort])
+  }
 
   const apiStatusDetail = apiKeyStatus
     ? `${apiKeyStatus.userName} · ${apiKeyStatus.isPremium ? diagnosticsCopy.premiumActive : diagnosticsCopy.premiumFree}`
     : hasApiKey
       ? diagnosticsCopy.apiKeyUnchecked
       : diagnosticsCopy.apiKeyMissing
-  const rawErrorLog = apiKeyError ?? ssoError ?? (ssoStatus?.status === 'failed' ? ssoStatus.errorMessage : null)
-  const apiRouteStatus: LauncherNexusApiRouteStatus =
-    apiKeyChecking || ssoStarting || isSsoActive
-      ? 'loading'
-      : apiKeyError || ssoError || ssoStatus?.status === 'failed'
-        ? 'error'
-        : apiKeyStatus || ssoStatus?.status === 'authorized'
-          ? 'success'
-          : 'warning'
-  const apiRouteMeta = [
-    apiKeyStatus ? null : apiStatusDetail,
-    apiKeyStatus
-      ? `${diagnosticsCopy.apiKeyBadge}: ${apiKeyStatus.isPremium ? diagnosticsCopy.premiumActive : diagnosticsCopy.premiumFree}`
-      : null,
-    apiKeyStatus?.dailyRemaining != null ? diagnosticsCopy.quotaRemaining(String(apiKeyStatus.dailyRemaining)) : null,
-    apiKeyStatus?.hourlyRemaining != null ? diagnosticsCopy.hourlyQuotaRemaining(String(apiKeyStatus.hourlyRemaining)) : null,
-    apiKeyStatus?.hourlyResetAt != null ? diagnosticsCopy.quotaResetAt(formatQuotaResetAt(apiKeyStatus.hourlyResetAt)) : null,
-    apiKeyStatus?.dailyResetAt != null ? diagnosticsCopy.quotaResetAt(formatQuotaResetAt(apiKeyStatus.dailyResetAt)) : null,
-    ssoStatus?.status === 'authorized' ? diagnosticsCopy.ssoAuthorized : null,
-    ssoStatus?.status === 'failed' && ssoStatus.errorMessage ? ssoStatus.errorMessage : null,
-    ssoError,
-    rawErrorLog ? `Log: ${rawErrorLog}` : null,
-  ].filter((item): item is string => Boolean(item))
   const messageCards = [classifyApiError(apiKeyError), classifySsoError(ssoStatus, ssoError)].filter((item): item is NexusMessageCard =>
     Boolean(item),
   )
@@ -270,74 +227,6 @@ export function LauncherNexusApiStatusCard({
       ) : null}
     </div>
   )
-
-  const content = (
-    <div className={cx('launcher-nexus-api-status-grid', variant === 'debug-card' && 'launcher-debug-api-status-grid')}>
-      <section className="launcher-state-block launcher-state-block-compact">
-        <div className="launcher-state-block-copy">
-          <h3 className="launcher-state-block-title">{diagnosticsCopy.apiKeyBadge}</h3>
-          <p className="launcher-state-block-detail">{apiStatusDetail}</p>
-          {apiKeyStatus?.dailyRemaining != null ? (
-            <p className="launcher-state-block-detail">{diagnosticsCopy.quotaRemaining(String(apiKeyStatus.dailyRemaining))}</p>
-          ) : null}
-          {apiKeyStatus?.hourlyRemaining != null ? (
-            <p className="launcher-state-block-detail">{diagnosticsCopy.hourlyQuotaRemaining(String(apiKeyStatus.hourlyRemaining))}</p>
-          ) : null}
-          {apiKeyStatus?.hourlyResetAt != null ? (
-            <p className="launcher-state-block-detail">{diagnosticsCopy.quotaResetAt(formatQuotaResetAt(apiKeyStatus.hourlyResetAt))}</p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="launcher-state-block launcher-state-block-compact">
-        <div className="launcher-state-block-copy">
-          <h3 className="launcher-state-block-title">{diagnosticsCopy.startSsoAction}</h3>
-          {ssoStatus?.status === 'authorized' ? (
-            <p className="launcher-state-block-detail">{diagnosticsCopy.ssoAuthorized}</p>
-          ) : (
-            <p className="launcher-state-block-detail">{isSsoActive ? diagnosticsCopy.ssoWaiting : diagnosticsCopy.apiKeyUnchecked}</p>
-          )}
-        </div>
-      </section>
-      {messageCards.map((card) => {
-        const message = diagnosticsCopy.errors[card.kind]
-
-        return (
-          <section
-            key={`${card.source}-${card.kind}`}
-            className="launcher-alert-card launcher-alert-card-error launcher-nexus-message-card"
-            role="alert"
-          >
-            <div className="launcher-alert-card-title-row">
-              <span className="launcher-alert-card-icon" aria-hidden="true">
-                <AlertTriangle className="h-4 w-4" />
-              </span>
-              <div className="launcher-alert-card-copy">
-                <p className="launcher-alert-card-eyebrow">{diagnosticsCopy.errorCardLabel}</p>
-                <h3 className="launcher-alert-card-title">{message.title}</h3>
-                <p className="launcher-alert-card-subtitle">{message.detail}</p>
-                <p className="launcher-alert-card-note">{message.action}</p>
-              </div>
-            </div>
-          </section>
-        )
-      })}
-    </div>
-  )
-
-  if (renderCard) {
-    return renderCard({
-      title: diagnosticsCopy.apiKeyTitle,
-      description: diagnosticsCopy.apiKeySubtitle,
-      icon: <KeyRound className="h-4 w-4" />,
-      actions,
-      children: content,
-      status: apiRouteStatus,
-      statusLabel: apiRouteStatus,
-      detail: primaryMessageCopy?.title ?? apiStatusDetail,
-      meta: primaryMessageCopy ? [primaryMessageCopy.detail, primaryMessageCopy.action, ...apiRouteMeta] : apiRouteMeta,
-    })
-  }
 
   return (
     <section className={cx('launcher-state-block', className)}>

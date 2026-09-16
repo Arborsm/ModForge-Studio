@@ -8,7 +8,7 @@
  * removes the key so the game default applies.
  */
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { BookText, Eraser } from 'lucide-react'
 import { useLocalizedTextResolution } from '@entities/game/api'
 import type { AssetTextCategoryKey } from '@locales/api'
@@ -92,7 +92,7 @@ export function ResourcePickerField({
 }: ResourcePickerFieldProps) {
   const copy = useAssetAuthoringCopy().picker
   const text = typeof value === 'string' ? value : ''
-  const options = useMemo(() => resourceOptionsFor(resources, kind), [resources, kind])
+  const options = resourceOptionsFor(resources, kind)
   const selectedOption = options.find((option) => resourceOptionHasValue(option, text)) ?? null
   const unresolved = text !== '' && options.length > 0 && selectedOption === null
 

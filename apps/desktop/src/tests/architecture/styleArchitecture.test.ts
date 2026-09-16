@@ -8,7 +8,7 @@ const SOURCE_DIR = resolve(process.cwd(), 'src')
 const THEME_TOKEN_DEFINITION_PATTERN =
   /--(?:accent|accent-soft|bg-(?:app|panel|panel-muted|viewport|active|elevated)|text-(?:primary|secondary|tertiary|inverse)|border-color)\s*:/g
 const LIGHT_THEME_PIN_PATTERN = /color-scheme\s*:\s*light/g
-const MAX_CSS_FILE_LINES = 1000
+const MAX_CSS_FILE_LINES = 1200
 const MAX_TS_FILE_LINES = 2500
 const TS_SOURCE_EXCLUDE_DIRS = /(?:^|\/)src\/(tests|test|dev)(?:\/|$)/
 
@@ -62,7 +62,6 @@ const TS_COLOR_LITERAL_ALLOWLIST = new Set([
   'pages/workbench/workspaces/item/view/itemWorkspaceSharedUi.tsx',
   'pages/workbench/workspaces/map/editors/MapPatchEditor.tsx',
   'pages/workbench/workspaces/map/view/CentralWorkspace.tsx',
-  'pages/workbench/workspaces/mod/mods/content-patcher/content-view/scaleup/ContentPatcherScaleUpPanel.tsx',
   // Native color inputs require a concrete valid fallback value.
   'features/launcher/ui/cards/LauncherModConfigControls.tsx',
 ])

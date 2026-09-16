@@ -17,7 +17,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import { useEditorCopy } from '@locales/provider'
 import type { StudioDeskGalleryProject, StudioDeskModel, WorkspaceId } from '@features/cp-maker'
 import { cx } from '@shared/lib/helper'
@@ -175,15 +175,11 @@ export function WorkbenchHomePage({
   const continueLabel =
     continueMode && continueMode in navCopy.rootModeLabels ? navCopy.rootModeLabels[continueMode] : navCopy.rootModeLabels.map
 
-  const contentCounts = useMemo(
-    () =>
-      CONTENT_MODES.map((mode) => ({
-        mode,
-        count: getContentCount(studioDeskModel, mode),
-        label: navCopy.rootModeLabels[mode],
-      })),
-    [navCopy.rootModeLabels, studioDeskModel],
-  )
+  const contentCounts = CONTENT_MODES.map((mode) => ({
+    mode,
+    count: getContentCount(studioDeskModel, mode),
+    label: navCopy.rootModeLabels[mode],
+  }))
 
   const recentProjects = studioDeskModel.gallery.projects.slice(0, 8)
   const recentListRef = useRef<HTMLDivElement | null>(null)

@@ -28,6 +28,20 @@
     padding: 0.5rem;
   }
 
+  .map-tilesheet-gallery-import {
+    @apply mb-3 flex w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed text-sm;
+    min-height: 5rem;
+    border-color: var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+  }
+
+  .map-tilesheet-gallery-import:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
   .map-tilesheet-gallery-empty {
     @apply text-text-tertiary py-4 text-center text-sm;
   }
@@ -105,6 +119,81 @@
   .map-tilesheet-gallery-card-info small {
     @apply text-text-tertiary truncate;
     font-size: 0.5625rem;
+  }
+
+  .tilesheet-import-dialog {
+    min-width: min(42rem, calc(100vw - 2rem));
+  }
+
+  .tilesheet-import-toolbar {
+    @apply flex items-center gap-3;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .tilesheet-import-search {
+    @apply flex flex-1 items-center gap-2;
+    color: var(--text-tertiary);
+  }
+
+  .tilesheet-import-search input {
+    @apply min-w-0 flex-1 bg-transparent text-sm;
+    border: 0;
+    outline: 0;
+    color: var(--text-primary);
+  }
+
+  .tilesheet-import-body {
+    min-height: 18rem;
+  }
+
+  .tilesheet-import-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    gap: 0.625rem;
+  }
+
+  .tilesheet-import-card {
+    @apply flex flex-col items-center gap-1 rounded-md border p-2 text-center text-xs;
+    min-width: 0;
+    border-color: var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+  }
+
+  .tilesheet-import-card:hover,
+  .tilesheet-import-card.is-selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .tilesheet-import-card .asset-image-thumbnail {
+    @apply flex w-full items-center justify-center;
+    height: 5rem;
+    background: var(--bg-hover);
+  }
+
+  .tilesheet-import-card span:not(.asset-image-thumbnail) {
+    @apply w-full truncate;
+  }
+
+  .tilesheet-import-card small {
+    color: var(--accent);
+  }
+
+  .tilesheet-import-actions {
+    @apply flex gap-2;
+  }
+
+  .tilesheet-import-box-select {
+    position: absolute;
+    z-index: 2;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    pointer-events: none;
   }
 
   .map-tilesheet-gallery-card-badge {

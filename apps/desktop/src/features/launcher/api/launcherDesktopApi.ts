@@ -2,6 +2,7 @@
  * @file Launcher desktop host command client: typed wrappers, caching, and
  * update-check session bookkeeping for every launcher backend command.
  */
+import { appEvent } from '@platform/observability'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'
@@ -224,7 +225,10 @@ function ensureLauncherUpdatesProgressBridge() {
     .then(() => undefined)
     .catch((error) => {
       launcherUpdatesProgressBridgePromise = null
-      console.warn('Failed to bridge launcher update progress events.', error)
+      appEvent('warning', 'Failed to bridge launcher update progress events')
+        .error(error)
+        .context({ source: 'launcher-desktop-api', operation: 'listen-update-progress' })
+        .emit({ notify: false })
     })
 
   return launcherUpdatesProgressBridgePromise

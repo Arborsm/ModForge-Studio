@@ -2,7 +2,7 @@
  * @file Generated host→plugin component wiring — do not edit by hand.
  *
  * Regenerate with `vp run --filter @modforge/desktop gen:plugin-docs`. Source of truth:
- * `apps/desktop/scripts/generate-plugin-docs.mjs` and `apps/desktop/src/shared/ui/*.tsx`.
+ * `apps/desktop/scripts/gen/generate-plugin-docs.mjs` and `apps/desktop/src/shared/ui/*.tsx`.
  * The explicit `PluginComponents` annotation is the drift guard: host tsc fails when a
  * real component props no longer satisfy the SDK's plugin-facing declarations.
  */

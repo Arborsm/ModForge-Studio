@@ -1,7 +1,7 @@
 import { useBuildingsCopy } from '@locales/provider'
 import { MapViewport } from '@entities/map'
 import { BuildingSpritePreview, type BuildingTextureAssetState, type BuildingWorkspaceEntry } from '@entities/building'
-import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@entities/map'
 
 export type BuildingPrimaryPreviewProps = {
@@ -12,7 +12,6 @@ export type BuildingPrimaryPreviewProps = {
   activeExteriorFocusPoint: ViewportWorldPoint | null
   activeExteriorMapPath: string | null
   locale: LocaleCode
-  viewportLabels: ViewportLabels
   theme: ThemeMode
   accentColor: string
   showGrid: boolean
@@ -57,15 +56,13 @@ export function BuildingPrimaryPreview({
       <div className="building-workspace-square-map">
         <MapViewport
           key={`${building.key}:${activeExteriorMapDocument.relativePath}`}
-          locale={locale}
-          mapDocument={activeExteriorMapDocument}
-          visibleLayerIds={exteriorVisibleLayerIds}
-          visibleObjectGroupIds={exteriorVisibleObjectGroupIds}
-          theme={theme}
-          accentColor={accentColor}
-          showGrid={showGrid}
-          showStatsChips={false}
-          focusWorldPoint={activeExteriorFocusPoint}
+          mapState={{
+            mapDocument: activeExteriorMapDocument,
+            visibleLayerIds: exteriorVisibleLayerIds,
+            visibleObjectGroupIds: exteriorVisibleObjectGroupIds,
+          }}
+          display={{ locale, theme, accentColor, showGrid, showStatsChips: false }}
+          fit={{ focusWorldPoint: activeExteriorFocusPoint }}
         />
       </div>
     )

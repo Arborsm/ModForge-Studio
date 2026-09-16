@@ -1,6 +1,7 @@
 import type { PlatformPorts } from '@shared/contracts'
-import { describe, expect, it, vi } from 'vite-plus/test'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createHostCommandClient } from '@platform/host-command-client'
+import { configureObservability } from '@platform/observability'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -59,6 +60,13 @@ function createPorts(invokeCommand: PlatformPorts['fileSystem']['invokeCommand']
 }
 
 describe('host command client', () => {
+  const report = vi.fn()
+
+  beforeEach(() => {
+    configureObservability({ writeFrontendLog: report })
+    vi.clearAllMocks()
+  })
+
   it('rejects a stale latest command result when a newer command wins', async () => {
     const first = createDeferred<string>()
     const invokeCommand = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValueOnce('new')
@@ -76,6 +84,46 @@ describe('host command client', () => {
     await expect(secondRun).resolves.toBe('new')
     first.resolve('old')
     await expect(firstRun).rejects.toBeTruthy()
+  })
+
+  it('reports ordinary failures and rethrows the original error', async () => {
+    const failure = new Error('network down')
+    const client = createHostCommandClient(createPorts(vi.fn().mockRejectedValue(failure)))
+    await expect(client.invoke({ command: 'search_launcher_catalog', policy: { kind: 'parallelPool', pool: 'test' } })).rejects.toBe(
+      failure,
+    )
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+        keyValues: expect.objectContaining({ source: 'host-command', command: 'search_launcher_catalog' }),
+      }),
+    )
+  })
+
+  it('does not report abort or opted-out failures', async () => {
+    const abortClient = createHostCommandClient(createPorts(vi.fn().mockRejectedValue(new DOMException('cancelled', 'AbortError'))))
+    await expect(
+      abortClient.invoke({ command: 'search_launcher_catalog', policy: { kind: 'parallelPool', pool: 'abort' } }),
+    ).rejects.toThrow()
+    expect(report).not.toHaveBeenCalled()
+    const optOutClient = createHostCommandClient(createPorts(vi.fn().mockRejectedValue(new Error('opt out'))))
+    await expect(
+      optOutClient.invoke({ command: 'search_launcher_catalog', policy: { kind: 'parallelPool', pool: 'opt' }, errorReporting: false }),
+    ).rejects.toThrow('opt out')
+    expect(report).not.toHaveBeenCalled()
+  })
+
+  it('keeps the original error when reporting throws', async () => {
+    const failure = new Error('original')
+    configureObservability({
+      writeFrontendLog: vi.fn(() => {
+        throw new Error('report failed')
+      }),
+    })
+    const client = createHostCommandClient(createPorts(vi.fn().mockRejectedValue(failure)))
+    await expect(client.invoke({ command: 'search_launcher_catalog', policy: { kind: 'parallelPool', pool: 'report' } })).rejects.toBe(
+      failure,
+    )
   })
 
   it('serializes exclusive mutations by resource', async () => {

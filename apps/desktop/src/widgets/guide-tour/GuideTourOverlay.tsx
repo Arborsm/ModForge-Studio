@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGuidesCopy } from '@locales/provider'
 import type { GuideDefinition } from '@shared/contracts'
-import { notifyGuideStepActivated } from '@shared/lib/guide-tour-events'
 import { resolveGuideCardLayout, useGuideEngineStore, type GuideAnchorRect, type GuideCardSize } from '@features/guide'
 
 const ANCHOR_PADDING = 8
@@ -408,20 +407,6 @@ export function GuideTourOverlay() {
   const definition = useGuideEngineStore((state) => (state.activeRun ? state.definitions[state.activeRun.guideId] : null))
 
   useGuideSurfaceWatcher()
-
-  const activeStep = activeRun && definition ? definition.steps[activeRun.stepIndex] : null
-  const activeGuideId = activeRun?.guideId ?? null
-  const activeStepId = activeStep?.id ?? null
-  const activeStepAnchor = activeStep?.anchor ?? null
-
-  // Announce the active step so pages can reveal the anchored UI (drawers,
-  // detail panels) without coupling to the guide engine.
-  useEffect(() => {
-    if (!activeGuideId || !activeStepId) {
-      return
-    }
-    notifyGuideStepActivated({ guideId: activeGuideId, stepId: activeStepId, anchor: activeStepAnchor })
-  }, [activeGuideId, activeStepId, activeStepAnchor])
 
   if (!activeRun || !definition) {
     return null

@@ -38,16 +38,26 @@ const REQWEST_CONNECT_LOG_TARGET: &str = "reqwest::connect";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogFileConfig {
     pub directory: PathBuf,
-    pub file_name: &'static str,
+    pub file_name: String,
     pub max_file_size_bytes: u128,
     pub retained_file_count: usize,
 }
 
+/// Log files are grouped into monthly folders and named by date:
+/// `<logs>/YYYY-MM/modforge-studio-YYYY-MM-DD.log`.
+fn current_log_date_parts() -> (String, String) {
+    let now = time::OffsetDateTime::now_local().unwrap_or_else(|_| time::OffsetDateTime::now_utc());
+    let month = format!("{:04}-{:02}", now.year(), now.month() as u8);
+    let day = format!("{month}-{:02}", now.day());
+    (month, day)
+}
+
 /// Returns the active log file configuration (directory, name, size, retention).
 pub fn log_file_config() -> anyhow::Result<LogFileConfig> {
+    let (month, day) = current_log_date_parts();
     Ok(LogFileConfig {
-        directory: app_logs_dir()?,
-        file_name: LOG_FILE_NAME,
+        directory: app_logs_dir()?.join(month),
+        file_name: format!("{LOG_FILE_NAME}-{day}"),
         max_file_size_bytes: LOG_FILE_SIZE_BYTES,
         retained_file_count: LOG_FILE_COUNT,
     })
@@ -278,7 +288,7 @@ impl HostLogFile {
             )
         })?;
 
-        let path = host_log_path(&config.directory, config.file_name);
+        let path = host_log_path(&config.directory, &config.file_name);
         let file = open_host_log_file(&path)?;
         let current_size_bytes = file.metadata().map(|metadata| metadata.len()).unwrap_or(0);
 

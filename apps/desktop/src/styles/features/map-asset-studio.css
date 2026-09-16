@@ -1,0 +1,77 @@
+@layer components {
+  /* Map semantic studio (shared by the day/night, warp and door dialogs):
+   * two-column layout with the picking map on the left and the form +
+   * tilesheet on the right. Split from map-asset-cards.css to stay under
+   * the architecture file-size cap. */
+
+  .map-asset-studio {
+    @apply grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
+    height: min(62vh, 34rem);
+    min-height: 22rem;
+    overflow: hidden;
+  }
+
+  .map-asset-studio-map {
+    @apply min-h-0 min-w-0;
+    border-right: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  /* Cell picker (CurrentMapCellPicker): full-size viewport; the shared
+   * ViewportZoomToolbar pill anchors itself bottom-right inside it. */
+  .map-cell-picker {
+    @apply relative min-h-0 min-w-0;
+    height: 100%;
+  }
+
+  .map-asset-studio-panel {
+    @apply grid min-h-0;
+    align-content: start;
+    gap: 0.625rem;
+    padding: 0.75rem;
+    overflow-y: auto;
+  }
+
+  .map-asset-studio-sheet {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    /* The sheet canvas pans/zooms internally, so the wrapper is a fixed-size
+     * window rather than a scroll container. */
+    height: 12rem;
+    overflow: hidden;
+  }
+
+  /* Day/night studio: day ⇄ night composed region previews side by side. */
+  .map-asset-daynight-preview {
+    @apply flex min-w-0 items-center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-daynight-preview .map-asset-tile-ref-img,
+  .map-asset-daynight-preview .map-asset-tile-ref-ph {
+    width: auto;
+    height: auto;
+    max-width: 8rem;
+    max-height: 6rem;
+  }
+
+  .map-asset-daynight-preview .map-asset-tile-ref-ph {
+    height: 3rem;
+  }
+
+  .map-asset-daynight-preview-swap {
+    @apply text-text-tertiary flex-none;
+  }
+
+  .map-asset-daynight-meta {
+    @apply flex flex-wrap;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .map-asset-daynight-meta small {
+    @apply text-text-tertiary;
+    font-size: 0.5625rem;
+  }
+}

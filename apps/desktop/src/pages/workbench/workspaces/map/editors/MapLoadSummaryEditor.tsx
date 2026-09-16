@@ -19,11 +19,7 @@ export const MapLoadSummaryEditor: EditorComponent = ({ patch, draftPort }) => {
   const environment = useWorkbenchEnvironment()
   const fromFile = patch.fromFile ?? ''
   const targets = splitMapTargets(patch.target).filter((target) => target.trim() !== '')
-  const previewRows = analyzeLoadBindings(
-    patch.target,
-    fromFile,
-    draftPort.draft.projectAssets.map((asset) => asset.relativePath),
-  )
+  const previewRows = analyzeLoadBindings(patch.target, fromFile, draftPort.draft.projectAssets)
 
   function manageInAssetLibrary() {
     useAssetLibraryFocusStore.getState().setFocus({ kind: 'load-binding', key: patch.id })

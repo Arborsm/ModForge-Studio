@@ -292,6 +292,7 @@ const configuration: LauncherConfigurationCopy = {
       success: 'Success 消息',
       warning: 'Warning 消息',
       error: 'Error 消息',
+      fullAttributes: '全属性大卡片',
     },
     logButtons: {
       debug: 'Debug 日志',

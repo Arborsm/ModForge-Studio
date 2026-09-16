@@ -1,7 +1,7 @@
 /**
  * @file App shell root component: manages app mode switching, window controls, settings window, guide tour, and workbench lazy loading.
  */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   canUseDesktopHost,
@@ -25,7 +25,14 @@ import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
-import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
+import {
+  configureObservability,
+  appEvent,
+  setNotificationDispatcher,
+  syncDebugDiagnosticsEnabled,
+  ignoreError,
+} from '@platform/observability'
+
 import {
   applyAppUiStatePatch,
   configureAppUiStatePersistence,
@@ -39,7 +46,6 @@ import {
   configurePreferencesHostAdapter,
   usePreferencesStore,
 } from '@shared/lib/app-state/preferencesStore'
-import { syncEditorModeStoreFromAppUiState } from '@shared/lib/app-state/editorModeStore'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
@@ -50,14 +56,11 @@ import {
 import { syncLauncherDiagnosticsNotification } from '@features/launcher/model/nexusDiagnosticsNotifications'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
-import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
-import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
-import { listenCompatPluginReloadRequests } from '@shared/lib/compat-plugin-reload-events'
+import { registerAppCommandHandler } from '@shared/lib/app-runtime/appCommands'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
-import type { AiSettingsTab, PendingWorkbenchCommandIntent, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
-import { listenForAppSettingsRequests } from '@shared/lib/app-settings-events'
+import type { AiSettingsTab, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 import { QuitDialog } from '@widgets/quit-dialog'
 import { GuideTourOverlay } from '@widgets/guide-tour'
 import { useGuideEngineStore } from '@features/guide'
@@ -98,7 +101,10 @@ async function importWorkbenchPage() {
   // being stuck on the skeleton screen. The compat plugin error remains
   // available via the compat plugin store for the plugin manager to display.
   await buildModule.buildWorkbenchRegistry(false).catch((error) => {
-    console.error('[workbench] Initial registry build failed', error)
+    appEvent('error', 'Initial workbench registry build failed')
+      .error(error)
+      .context({ source: 'app-shell', operation: 'build-workbench-registry' })
+      .emit({ notify: false })
     buildModule.buildStaticFallbackRegistry()
   })
   return { default: pageWithRegistryModule.WorkbenchPageWithRegistry }
@@ -175,26 +181,7 @@ export default function App() {
 
   const copy = editorCopy[locale]
   const launcherPort = useLauncherPort()
-  const eventBus = useMemo(() => createAppEventBus(), [])
-  const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
-  const appCommandHandler = useMemo(
-    () =>
-      createAppCommandHandler({
-        setAppMode: (nextMode) => {
-          if (nextMode === 'workbench') {
-            setWorkbenchHasOpened(true)
-            setWorkbenchActivationKey((current) => current + 1)
-          }
-          setAppMode(nextMode)
-        },
-        onPendingIntent: setPendingWorkbenchIntent,
-      }),
-    [],
-  )
-  const workbenchOrchestration = useMemo(
-    () => createWorkbenchOrchestration({ dispatch: (command) => appCommandHandler.handleCommand(command) }),
-    [appCommandHandler],
-  )
+  const compatReloadDrainRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     appMountedRef.current = true
@@ -209,8 +196,6 @@ export default function App() {
   useEffect(() => {
     launcherPageRef.current = launcherPage
   }, [launcherPage])
-
-  useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
   const confirmAndCloseCurrentWindow = useCallback(async () => {
     const { windowCloseBehavior, rememberCloseChoice } = usePreferencesStore.getState()
@@ -275,7 +260,6 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
-        syncEditorModeStoreFromAppUiState(state.workspace.expertMode)
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
@@ -284,7 +268,11 @@ export default function App() {
         setLauncherPage(nextShellState.launcherPage)
         setAppUiStateReady(true)
       })
-      .catch(() => {
+      .catch((error) => {
+        appEvent('error', 'Failed to initialize app UI state')
+          .error(error)
+          .context({ source: 'app-shell', operation: 'initialize-app-ui-state' })
+          .emit({ notify: false })
         if (!disposed) {
           setAppUiStateReady(true)
         }
@@ -364,15 +352,16 @@ export default function App() {
 
     const loadDiagnostics = () => launcherPort.loadNexusDiagnostics()
 
-    void loadSettledLauncherNexusDiagnostics({
-      loadDiagnostics,
-    })
-      .then((diagnostics) => {
+    void ignoreError(
+      loadSettledLauncherNexusDiagnostics({
+        loadDiagnostics,
+      }).then((diagnostics) => {
         if (!disposed) {
           handleLauncherDiagnosticsUpdate(diagnostics)
         }
-      })
-      .catch(() => {})
+      }),
+      'appShell.loadDiagnostics',
+    )
 
     return () => {
       disposed = true
@@ -384,7 +373,7 @@ export default function App() {
       return
     }
 
-    void launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
+    void ignoreError(launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline), 'appShell.setNexusForceOffline')
   }, [appUiStateReady, hostAvailable, launcherPort])
 
   useEffect(() => {
@@ -430,12 +419,10 @@ export default function App() {
         rememberCloseChoice: usePreferencesStore.getState().rememberCloseChoice,
       },
     }).catch((error) => {
-      reportAppEvent({
-        level: 'error',
-        title: 'Failed to save app shell state',
-        description: error instanceof Error ? error.message : String(error),
-        notify: false,
-      })
+      appEvent('error', 'Failed to save app shell state')
+        .error(error)
+        .context({ source: 'app-shell', operation: 'save-shell-state' })
+        .emit({ notify: false })
     })
   }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 
@@ -540,15 +527,16 @@ export default function App() {
     let disposed = false
     let unlisten: (() => void) | null = null
 
-    void listenToWindowCloseRequest(requestGuardedWindowClose)
-      .then((nextUnlisten) => {
+    void ignoreError(
+      listenToWindowCloseRequest(requestGuardedWindowClose).then((nextUnlisten) => {
         if (disposed) {
           nextUnlisten()
           return
         }
         unlisten = nextUnlisten
-      })
-      .catch(() => {})
+      }),
+      'appShell.listenWindowClose',
+    )
 
     return () => {
       disposed = true
@@ -597,8 +585,6 @@ export default function App() {
     setSettingsWindowOpen(true)
   }, [])
 
-  useEffect(() => listenForAppSettingsRequests(openSettingsTarget), [openSettingsTarget])
-
   useEffect(() => {
     if (appUiStateReady) {
       useGuideEngineStore.getState().markGuideStateReady()
@@ -638,7 +624,7 @@ export default function App() {
 
   useEffect(() => {
     // Lower FSD layers (plugin manager) request compat-plugin hot-reload via
-    // the typed shared event bridge; the app shell owns the registry store and
+    // the typed app command channel; the app shell owns the registry store and
     // rebuilds it here. On failure the previous registry is preserved and the
     // error surfaces through the compat plugin store.
     //
@@ -653,12 +639,10 @@ export default function App() {
       import('../buildWorkbenchRegistry')
         .then((module) => module.buildWorkbenchRegistry(true))
         .catch((error) => {
-          reportAppEvent({
-            level: 'error',
-            title: 'Compat plugin reload failed',
-            description: error instanceof Error ? error.message : String(error),
-            notify: false,
-          })
+          appEvent('error', 'Compat plugin reload failed')
+            .error(error)
+            .context({ source: 'app-shell', operation: 'reload-compat-plugins' })
+            .emit({ notify: false })
         })
         .then(() => undefined)
     const drainReload = () => {
@@ -676,8 +660,19 @@ export default function App() {
         }
       })
     }
-    return listenCompatPluginReloadRequests(drainReload)
+    compatReloadDrainRef.current = drainReload
+    return () => {
+      compatReloadDrainRef.current = null
+    }
   }, [])
+
+  useEffect(() => {
+    const handler = createAppCommandHandler({
+      openSettings: openSettingsTarget,
+      reloadCompatPlugins: () => compatReloadDrainRef.current?.(),
+    })
+    return registerAppCommandHandler(handler.handleCommand)
+  }, [openSettingsTarget])
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return
@@ -745,9 +740,6 @@ export default function App() {
                   onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onHomeRouteActiveChange={setWorkbenchHomeActive}
-                  onWorkbenchEvent={eventBus.emit}
-                  pendingWorkbenchIntent={pendingWorkbenchIntent}
-                  onClearPendingIntent={() => appCommandHandler.clearPendingIntent()}
                   workbenchActivationKey={workbenchActivationKey}
                 />
               </Suspense>
@@ -760,7 +752,6 @@ export default function App() {
                 eventName={null}
                 currentEventCommandId={null}
                 actorCount={0}
-                contextSectionLabel={appMode === 'launcher' ? 'Launcher' : 'App'}
                 contextMetrics={
                   appMode === 'launcher'
                     ? [

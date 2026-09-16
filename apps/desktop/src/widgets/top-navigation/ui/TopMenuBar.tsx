@@ -3,10 +3,10 @@
  */
 import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceTone } from '@locales/api'
+import { type AppMode, type LauncherPage, type ThemeMode } from '@locales/api'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { requestLauncherModDetailDismiss } from '@shared/lib/launcher-overlay-events'
+import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
@@ -41,7 +41,6 @@ type TopMenuBarProps = {
   onAppModeChange: (mode: AppMode) => void
   theme: ThemeMode
   onToggleTheme: () => void
-  statusTone: WorkspaceTone
   desktopHost: boolean
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
@@ -62,7 +61,6 @@ type TopMenuBarProps = {
     downloadsProgressPercent: number | null
     downloadsHasFailure: boolean
     settingsWarning: boolean
-    settingsWarningLabel: string
     downloadsPopover: ReactNode
   }
 }
@@ -84,7 +82,6 @@ export default function TopMenuBar({
   onAppModeChange,
   theme,
   onToggleTheme,
-  statusTone,
   desktopHost,
   onMinimizeWindow,
   onToggleMaximizeWindow,
@@ -354,7 +351,6 @@ export default function TopMenuBar({
           aria-label="Shell controls"
           data-top-menu-no-drag="true"
         >
-          <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
           {launcherNav ? (
             <div className="top-menu-launcher-tools pointer-events-auto" ref={downloadsMenuRef} data-top-menu-no-drag="true">
               <button
@@ -375,7 +371,7 @@ export default function TopMenuBar({
                   // cannot stack above the body-portal mod detail drawer; ask
                   // launcher pages to close their detail panel instead.
                   if (downloadsOpening) {
-                    requestLauncherModDetailDismiss()
+                    useLauncherOverlayDismissStore.getState().requestLauncherOverlayDismiss()
                   }
                 }}
               >
@@ -435,7 +431,7 @@ export default function TopMenuBar({
           </button>
           {desktopHost ? (
             <div
-              className="panel-section-muted panel-section pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg"
+              className="border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
               data-top-menu-no-drag="true"
             >
               <button

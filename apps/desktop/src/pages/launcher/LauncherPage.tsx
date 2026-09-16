@@ -1,7 +1,8 @@
 /**
  * @file Launcher page component: composes the top navigation, downloads popover, and launcher shell.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { appEvent, reportRecovered } from '@platform/observability'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
@@ -183,8 +184,9 @@ export function LauncherPage({
           autoDismissMs: null,
         })
       })
-      .catch(() => {
+      .catch((error) => {
         // Configuration page retry remains available if the startup probe itself cannot run.
+        reportRecovered(error, 'launcherPage.gmcmProbe')
       })
 
     return () => {
@@ -199,7 +201,7 @@ export function LauncherPage({
     launcherRuntime.settingsState.state,
     onLauncherPageChange,
   ])
-  const handleLaunchGame = useCallback(async () => {
+  const handleLaunchGame = async () => {
     if (!desktopHost || launchBusy) {
       return
     }
@@ -219,34 +221,27 @@ export function LauncherPage({
       if (normalizedCode === 'missinggamepath' || normalizedMessage.includes('game path')) {
         onOpenSettings('launcher')
       }
-      publishNotification({
-        level: 'error',
-        title: copy.launcher.actions.launchFailed,
-        description: message,
-      })
+      appEvent('error', copy.launcher.actions.launchFailed)
+        .error(error)
+        .description(message)
+        .context({
+          source: 'launcher-page',
+          operation: 'launch game',
+        })
+        .emit()
     } finally {
       setLaunchBusy(false)
     }
-  }, [
-    copy.launcher.actions.launchFailed,
-    desktopHost,
-    launchBusy,
-    launcherPort,
-    launcherRuntime.settingsState.settings.gamePath,
-    onOpenSettings,
-  ])
+  }
 
-  const handleSearchDiscover = useCallback(
-    (query: string) => {
-      const normalizedQuery = query.trim()
-      if (!normalizedQuery) {
-        return
-      }
-      setDiscoverSearchRequest({ id: Date.now(), query: normalizedQuery })
-      onLauncherPageChange('discover')
-    },
-    [onLauncherPageChange],
-  )
+  const handleSearchDiscover = (query: string) => {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      return
+    }
+    setDiscoverSearchRequest({ id: Date.now(), query: normalizedQuery })
+    onLauncherPageChange('discover')
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -255,7 +250,6 @@ export function LauncherPage({
         onAppModeChange={onAppModeChange}
         theme={theme}
         onToggleTheme={onToggleTheme}
-        statusTone="idle"
         desktopHost={desktopHost}
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
@@ -270,7 +264,6 @@ export function LauncherPage({
           downloadsProgressPercent: launcherRuntime.downloads.downloadProgressPercent,
           downloadsHasFailure: launcherRuntime.downloadsHasFailure,
           settingsWarning: false,
-          settingsWarningLabel: '',
           downloadsPopover,
         }}
       />
@@ -291,7 +284,6 @@ export function LauncherPage({
             onDownloadArchivesInstalled={launcherRuntime.downloads.markArchivesInstalled}
             onNavigateToSettings={() => onLauncherPageChange('configuration')}
             onSearchDiscover={handleSearchDiscover}
-            launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
             launchGameBusy={launchBusy}
             onLaunchGame={() => void handleLaunchGame()}

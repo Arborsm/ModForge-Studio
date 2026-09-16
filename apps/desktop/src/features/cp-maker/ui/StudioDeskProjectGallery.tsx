@@ -20,7 +20,7 @@ type StudioDeskProjectGalleryProps = {
   variant?: 'list' | 'cards'
   toolbar?: boolean
   pendingBanner?: ReactNode
-  pendingActionLabel?: string | null
+  pendingAction?: 'open' | 'export' | 'copy' | null
   onCreateDraftRequest: () => void
   onImportDraftRequest: () => void | Promise<void>
   onOpenDraft: (draftStorageKey: string) => void | Promise<void>
@@ -52,7 +52,7 @@ export function StudioDeskProjectGallery({
   variant = 'list',
   toolbar = true,
   pendingBanner,
-  pendingActionLabel,
+  pendingAction,
   onCreateDraftRequest,
   onImportDraftRequest,
   onOpenDraft,
@@ -61,6 +61,14 @@ export function StudioDeskProjectGallery({
   onEditCurrentDraftProperties,
 }: StudioDeskProjectGalleryProps) {
   const desk = useEditorCopy().studioDesk
+  const pendingActionLabel =
+    pendingAction === 'open'
+      ? desk.openProject
+      : pendingAction === 'export'
+        ? desk.pendingExport
+        : pendingAction === 'copy'
+          ? desk.copyProject
+          : null
   const [localProjectQuery, setLocalProjectQuery] = useState('')
   const [pendingDelete, setPendingDelete] = useState<PendingProjectDelete | null>(null)
   const projectQuery = query ?? localProjectQuery
@@ -317,8 +325,6 @@ export function StudioDeskProjectGallery({
         open={Boolean(pendingDelete)}
         title={desk.deleteProjectTitle}
         message={pendingDelete?.message ?? ''}
-        cancelLabel={desk.createDialog.cancel}
-        confirmLabel={desk.deleteProject}
         onClose={() => setPendingDelete(null)}
         onConfirm={deletePendingProjects}
       />

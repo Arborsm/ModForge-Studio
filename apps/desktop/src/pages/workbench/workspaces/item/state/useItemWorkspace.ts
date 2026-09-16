@@ -45,7 +45,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   }, [locale, rootPath])
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
-  const filteredItems = useMemo(() => items.filter((item) => itemMatchesFilter(item, deferredFilter)), [deferredFilter, items])
+  const filteredItems = items.filter((item) => itemMatchesFilter(item, deferredFilter))
   const itemLookupByKey = useMemo(() => buildModEntryLookup(items, (item) => item.key), [items])
   const modItemGroups = useMemo(
     () =>
@@ -59,25 +59,19 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       }),
     [itemFilter, itemLookupByKey, modIndex.mods],
   )
-  const activeItemModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group) => group.items,
-        key: activeItemId,
-      }),
-    [activeItemId, modIndex.mods],
-  )
+  const activeItemModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group) => group.items,
+    key: activeItemId,
+  })
   const activeModItemEntry = useMemo(
     () => findModBrowserEntry(modItemGroups, activeModItemSelectionId),
     [activeModItemSelectionId, modItemGroups],
   )
   const activeItem = items.find((item) => item.key === activeItemId) ?? filteredItems[0] ?? items[0] ?? null
-  const itemLookup = useMemo(() => createItemEntryLookup(items), [items])
-  const effectiveTextureStatesByAssetName = useMemo(
-    () => (browserSourceMode === 'mod' ? { ...textureStatesByAssetName, ...modTextureStatesByAssetName } : textureStatesByAssetName),
-    [browserSourceMode, modTextureStatesByAssetName, textureStatesByAssetName],
-  )
+  const itemLookup = createItemEntryLookup(items)
+  const effectiveTextureStatesByAssetName =
+    browserSourceMode === 'mod' ? { ...textureStatesByAssetName, ...modTextureStatesByAssetName } : textureStatesByAssetName
 
   useEffect(() => {
     if (!rootPath) {

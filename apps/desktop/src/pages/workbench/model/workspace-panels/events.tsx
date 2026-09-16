@@ -101,19 +101,19 @@ export function buildEventsWorkspacePanels(options: BuildEventPanelsOptions): Wo
         1,
         <EventStageWorkspace
           key={`${selectedEvent?.key ?? 'none'}:${parsedEventAsset?.asset.relativePath ?? 'none'}`}
-          locale={locale}
-          directoryInfo={directoryInfo}
-          viewportLabels={copy.viewportLabels}
-          theme={theme}
-          accentColor={accentColor}
-          parsedEventAsset={parsedEventAsset}
-          selectedEvent={selectedEvent}
-          eventStatusMessage={eventStatusMessage}
-          playerAppearanceProfile={activePlayerAppearanceProfile}
-          onSelectTimelineEntry={onSelectTimelineEntry}
-          onPlaybackCommandChange={onPlaybackCommandChange}
-          onStageSeekReady={onStageSeekReady}
-          onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
+          environment={{ locale, directoryInfo, theme, accentColor }}
+          eventData={{
+            parsedEventAsset,
+            selectedEvent,
+            eventStatusMessage,
+            playerAppearanceProfile: activePlayerAppearanceProfile,
+          }}
+          actions={{
+            selectTimelineEntry: onSelectTimelineEntry,
+            playbackCommandChange: onPlaybackCommandChange,
+            stageSeekReady: onStageSeekReady,
+            openPlayerAppearanceWindow: onOpenPlayerAppearanceWindow,
+          }}
         />,
       ),
     },

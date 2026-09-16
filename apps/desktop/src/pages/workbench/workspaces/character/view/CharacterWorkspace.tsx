@@ -11,7 +11,7 @@ import {
 import { getActorSpriteFrameHeight } from '@entities/event'
 import { useCharactersCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
-import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'
+import { getSpriteSheetFrameCount, getSpriteSheetFramePreviewMetrics } from '@shared/infra/asset-formats/spriteSheetFrameMath'
 import { CharacterGiftTasteSection, type GiftTone } from './CharacterGiftTasteSection'
 import { buildAbsoluteSpriteLayerStyle } from '@entities/character'
 
@@ -45,7 +45,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
           }
         : null,
   }
-  const portraitCount = getScaleUpFrameCount(portraitFrameImages, {
+  const portraitCount = getSpriteSheetFrameCount(portraitFrameImages, {
     frameWidth: 64,
     frameHeight: 64,
   })
@@ -210,7 +210,7 @@ export default function CharacterWorkspace({ character, activeVariant, assetStat
             {portraitUrl && portraitSheetWidth && portraitSheetHeight ? (
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {Array.from({ length: portraitCount }, (_, index) => {
-                  const previewMetrics = getScaleUpFramePreviewMetrics(portraitFrameImages, index, {
+                  const previewMetrics = getSpriteSheetFramePreviewMetrics(portraitFrameImages, index, {
                     frameWidth: 64,
                     frameHeight: 64,
                     previewScale: PORTRAIT_PREVIEW_SCALE,

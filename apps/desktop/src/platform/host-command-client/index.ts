@@ -6,6 +6,7 @@
 import { globalTaskRuntime, type TaskScope } from '@shared/lib/task-runtime'
 import type { PlatformPorts } from '@shared/contracts'
 import type { HostCommandName } from '@platform/host-commands'
+import { appEvent } from '@platform/observability'
 
 /**
  * UI-side request lifecycle policy. This governs how the frontend dedups
@@ -34,6 +35,7 @@ export type HostCommandRequest<TArgs> = {
   policy: HostCommandPolicy
   signal?: AbortSignal
   scope?: TaskScope
+  errorReporting?: boolean
 }
 
 /** Entry point for invoking typed desktop commands through the configured platform ports and task runtime. */
@@ -66,6 +68,7 @@ function linkAbortSignal(scope: TaskScope, signal?: AbortSignal) {
 export function createHostCommandClient(ports: PlatformPorts): HostCommandClient {
   async function rawInvoke<TArgs, TResult>(request: HostCommandRequest<TArgs>, scope: TaskScope) {
     throwIfAborted(request.signal)
+    const startedAt = performance.now()
     const unlink = linkAbortSignal(scope, request.signal)
     try {
       const result = await ports.fileSystem.invokeCommand<TResult>(request.command, request.args as Record<string, unknown> | undefined)
@@ -73,6 +76,25 @@ export function createHostCommandClient(ports: PlatformPorts): HostCommandClient
         throw scope.signal.reason ?? new DOMException('The command result is stale.', 'AbortError')
       }
       return result
+    } catch (caught) {
+      const cancelled = caught instanceof DOMException && caught.name === 'AbortError'
+      const stale = !scope.isCurrent() || scope.signal.aborted
+      if (request.errorReporting !== false && !cancelled && !stale) {
+        try {
+          appEvent('error', `Host command failed: ${request.command}`)
+            .error(caught)
+            .context({
+              source: 'host-command',
+              command: request.command,
+              policy: request.policy.kind,
+              durationMs: String(Math.round(performance.now() - startedAt)),
+            })
+            .emit({ notify: false })
+        } catch {
+          // Reporting must not replace the original host command error.
+        }
+      }
+      throw caught
     } finally {
       unlink()
     }

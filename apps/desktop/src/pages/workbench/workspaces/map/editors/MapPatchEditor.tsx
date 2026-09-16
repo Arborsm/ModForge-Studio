@@ -22,10 +22,10 @@ import type { MapDocument, MapTileRect } from '@entities/map'
 import { MapViewport } from '@entities/map'
 import { useEditorCopy, useMapAuthoringCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { useEditorModeStore } from '@shared/lib/app-state/editorModeStore'
+import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { useEditModeStore } from '../../../model/editModeStore'
 import { useAssetLibraryFocusStore } from '@shared/lib/app-state/assetLibraryFocusStore'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 import { mapCatalogCategory } from '../state/mapAuthoringCatalog'
 import { useMapAuthoringCatalog } from '../state/useMapAuthoringCatalog'
 import { applyMapAreaPreview, applyMapTilePreview, splitMapTargets } from '../model/mapPatchReducer'
@@ -242,7 +242,7 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
   const copy = useEditorCopy().studioDesk.mapPatchEditor
   const patchCopy = useEditorCopy().studioDesk.configSchemaDialog
   const authoringCopy = useMapAuthoringCopy()
-  const expertMode = useEditorModeStore((state) => state.expertMode)
+  const expertMode = usePreferencesStore((state) => state.expertMode)
   const navigateToPatch = useEditModeStore((state) => state.navigateToPatch)
   const project = useWorkbenchProject()
   const environment = useWorkbenchEnvironment()
@@ -260,9 +260,6 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
   const [warpPick, setWarpPick] = useState<WarpPick>(null)
   const [importing, setImporting] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  // Operation failures surface through the shared notification system; the
-  // original error message rides along as the description, never swallowed.
-  const publishNotification = useNotificationPublisher()
 
   const previewTargets = splitMapTargets(patch.target)
   const target = previewTargets[0] ?? patch.target
@@ -290,9 +287,14 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       .then((document) => {
         if (active) setTargetMapState({ key: mapLoadKey, status: 'ready', document, error: null })
       })
-      .catch(() => {
-        if (active)
+      .catch((error) => {
+        if (active) {
+          appEvent('error', copyRef.current.unableToLoadTarget(target))
+            .error(error)
+            .context({ source: 'map-patch-editor', operation: 'load-target-map', target })
+            .emit({ notify: false })
           setTargetMapState({ key: mapLoadKey, status: 'error', document: null, error: copyRef.current.unableToLoadTarget(target) })
+        }
       })
     return () => {
       active = false
@@ -318,8 +320,14 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
         if (active)
           setSourceMapState({ key: sourceLoadKey, status: 'ready', document: JSON.parse(asset.content) as MapDocument, error: null })
       })
-      .catch(() => {
-        if (active) setSourceMapState({ key: sourceLoadKey, status: 'error', document: null, error: copyRef.current.unableToLoadMap })
+      .catch((error) => {
+        if (active) {
+          appEvent('error', copyRef.current.unableToLoadMap)
+            .error(error)
+            .context({ source: 'map-patch-editor', operation: 'load-source-map', path: sourceAsset.relativePath })
+            .emit({ notify: false })
+          setSourceMapState({ key: sourceLoadKey, status: 'error', document: null, error: copyRef.current.unableToLoadMap })
+        }
       })
     return () => {
       active = false
@@ -329,8 +337,8 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
   const targetDocument = embeddedDocument ?? (targetMapState.key === mapLoadKey ? targetMapState.document : null)
   const sourceDocument = sourceMapState.key === sourceLoadKey ? sourceMapState.document : null
   const allMapTiles = useMemo(() => changes.filter((c) => c.type === 'tiles').flatMap((c) => c.mapTiles ?? []), [changes])
-  const allWarps = useMemo(() => changes.filter((c) => c.type === 'warps').flatMap((c) => c.warps ?? []), [changes])
-  const previewDocument = useMemo(() => {
+  const allWarps = changes.filter((c) => c.type === 'warps').flatMap((c) => c.warps ?? [])
+  const previewDocument = (() => {
     if (!targetDocument) return null
     let doc = targetDocument
     for (const entry of changes) {
@@ -345,11 +353,11 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       }
     }
     return applyMapTilePreview(doc, allMapTiles)
-  }, [allMapTiles, changes, patch.fromFile, sourceDocument, targetDocument])
+  })()
   const displayedDocument = previewMode === 'before' ? targetDocument : previewDocument
 
   const mapCatalog = useMapAuthoringCatalog(resources.gameRootPath, resources.directoryInfo, resources.locale)
-  const mapOptions = useMemo(() => {
+  const mapOptions = (() => {
     const projectMaps: ResourceBrowserOption[] = draft.patches
       .filter((candidate) => candidate.target.trim().toLowerCase().startsWith('maps/'))
       .map((candidate) => ({
@@ -365,48 +373,35 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       ...projectMaps,
       ...toMapResourceBrowserOptions(mapCatalog.assets, (asset) => authoringCopy.categories[mapCatalogCategory(asset.name)], 'map-editor'),
     ])
-  }, [authoringCopy, draft.patches, mapCatalog.assets])
-  const projectMapAssetOptions = useMemo<ResourceBrowserOption[]>(
-    () =>
-      draft.projectAssets
-        .filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))
-        .map((asset) => ({
-          id: `project-map-asset:${asset.relativePath.toLowerCase()}`,
-          kind: 'map' as const,
-          value: asset.relativePath,
-          label: asset.relativePath.split('/').pop() ?? asset.relativePath,
-          subtitle: asset.relativePath,
-          category: authoringCopy.projectBadge,
-          sourceKind: 'project' as const,
-        })),
-    [authoringCopy.projectBadge, draft.projectAssets],
-  )
+  })()
+  const projectMapAssetOptions: ResourceBrowserOption[] = draft.projectAssets
+    .filter((asset) => /\.(?:tmx|tbin)$/iu.test(asset.relativePath))
+    .map((asset) => ({
+      id: `project-map-asset:${asset.relativePath.toLowerCase()}`,
+      kind: 'map' as const,
+      value: asset.relativePath,
+      label: asset.relativePath.split('/').pop() ?? asset.relativePath,
+      subtitle: asset.relativePath,
+      category: authoringCopy.projectBadge,
+      sourceKind: 'project' as const,
+    }))
 
-  const updateChanges = useCallback(
-    (next: ChangeEntry[]) => {
-      updatePatch(patch.id, { editorState: { ...editorState, changes: next } })
-    },
-    [editorState, patch.id, updatePatch],
-  )
+  const updateChanges = (next: ChangeEntry[]) => {
+    updatePatch(patch.id, { editorState: { ...editorState, changes: next } })
+  }
 
-  const updateChange = useCallback(
-    (id: string, data: Partial<ChangeEntry>) => {
-      updateChanges(changes.map((c) => (c.id === id ? { ...c, ...data } : c)))
-    },
-    [changes, updateChanges],
-  )
+  const updateChange = (id: string, data: Partial<ChangeEntry>) => {
+    updateChanges(changes.map((c) => (c.id === id ? { ...c, ...data } : c)))
+  }
 
-  const addChange = useCallback(
-    (type: PatchOperation) => {
-      // A patch can carry at most one file card; the serializer reads the first.
-      if (type === 'file' && changes.some((c) => c.type === 'file')) return
-      const entry = createEmptyChange(type)
-      updateChanges([...changes, entry])
-      setExpandedCards((prev) => new Set(prev).add(entry.id))
-      setActiveCardId(entry.id)
-    },
-    [changes, updateChanges],
-  )
+  const addChange = (type: PatchOperation) => {
+    // A patch can carry at most one file card; the serializer reads the first.
+    if (type === 'file' && changes.some((c) => c.type === 'file')) return
+    const entry = createEmptyChange(type)
+    updateChanges([...changes, entry])
+    setExpandedCards((prev) => new Set(prev).add(entry.id))
+    setActiveCardId(entry.id)
+  }
 
   const deleteChange = useCallback(
     (id: string) => {
@@ -430,25 +425,20 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
     [activeCardId, changes, editorState, patch.id, updateChanges, updatePatch],
   )
 
-  const loadWarpTargetDocument = useCallback(
-    (mapTarget: string) => {
-      if (!gameRootPath) return Promise.reject(new Error(copyRef.current.noGameRoot))
-      return loadGameMapDocument(gameRootPath, mapTarget, locale)
-    },
-    [gameRootPath, locale],
-  )
+  const loadWarpTargetDocument = (mapTarget: string) => {
+    if (!gameRootPath) return Promise.reject(new Error(copyRef.current.noGameRoot))
+    return loadGameMapDocument(gameRootPath, mapTarget, locale)
+  }
 
   async function openProjectMapAsset(relativePath: string) {
     try {
       if (!resources.onOpenMapAsset) throw new Error(copy.openMapAssetFailed)
       resources.onOpenMapAsset(relativePath)
     } catch (error) {
-      publishNotification({
-        id: 'map-patch-open-asset',
-        level: 'error',
-        title: copy.openMapAssetFailed,
-        description: error instanceof Error ? error.message : null,
-      })
+      appEvent('error', copy.openMapAssetFailed)
+        .error(error)
+        .context({ source: 'map-patch-editor', operation: 'open-project-map-asset', path: relativePath })
+        .emit()
     }
   }
 
@@ -470,12 +460,7 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       if (paths.length === 0) return
       await project.importProjectAssets(paths, 'assets/maps')
     } catch (error) {
-      publishNotification({
-        id: 'map-patch-import',
-        level: 'error',
-        title: copy.importMapFailed,
-        description: error instanceof Error ? error.message : null,
-      })
+      appEvent('error', copy.importMapFailed).error(error).context({ source: 'map-patch-editor', operation: 'import-map-files' }).emit()
     } finally {
       setImporting(false)
     }
@@ -501,12 +486,10 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
       await project.writeProjectAssets(prepared.assets, 'generated')
       updatePatch(patch.id, { fromFile: prepared.document.relativePath || undefined })
     } catch (error) {
-      publishNotification({
-        id: 'map-patch-import-game',
-        level: 'error',
-        title: copy.importMapFailed,
-        description: error instanceof Error ? error.message : null,
-      })
+      appEvent('error', copy.importMapFailed)
+        .error(error)
+        .context({ source: 'map-patch-editor', operation: 'import-map-from-game', target })
+        .emit()
     } finally {
       setImporting(false)
     }
@@ -591,27 +574,28 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
         <section className="map-patch-canvas" aria-label={copy.previewTitle}>
           {displayedDocument ? (
             <MapViewport
-              locale={locale}
-              mapDocument={displayedDocument}
-              visibleLayerIds={displayedDocument.layers.map((layer) => layer.id)}
-              visibleObjectGroupIds={displayedDocument.objectGroups.map((group) => group.id)}
-              theme={theme}
-              accentColor={accentColor}
-              showGrid
-              showStatsChips={false}
-              contextMenuEnabled={false}
-              onTileClick={handleTargetTileClick}
-              onTileRectSelect={activeEntry?.type === 'file' ? handleFileRectSelect : undefined}
-              selectedTileRect={activeEntry?.type === 'file' ? areaToTileRect(activeEntry.toArea ?? null) : null}
-              mapOverlay={
-                previewMode === 'diff' ? (
-                  <MapTileDiffOverlay document={displayedDocument} edits={allMapTiles} />
-                ) : (
-                  <MapWarpOverlay document={displayedDocument} warps={allWarps} />
-                )
-              }
-              scaleMapOverlayWithViewport
-              mapOverlayLayer="top"
+              mapState={{
+                mapDocument: displayedDocument,
+                visibleLayerIds: displayedDocument.layers.map((layer) => layer.id),
+                visibleObjectGroupIds: displayedDocument.objectGroups.map((group) => group.id),
+              }}
+              display={{ locale, theme, accentColor, showGrid: true, showStatsChips: false }}
+              contextMenu={{ enabled: false }}
+              editing={{ selectedTileRect: activeEntry?.type === 'file' ? areaToTileRect(activeEntry.toArea ?? null) : null }}
+              actions={{
+                onTileClick: handleTargetTileClick,
+                onTileRectSelect: activeEntry?.type === 'file' ? handleFileRectSelect : undefined,
+              }}
+              overlays={{
+                scaleMapOverlayWithViewport: true,
+                mapOverlayLayer: 'top',
+                mapOverlay:
+                  previewMode === 'diff' ? (
+                    <MapTileDiffOverlay document={displayedDocument} edits={allMapTiles} />
+                  ) : (
+                    <MapWarpOverlay document={displayedDocument} warps={allWarps} />
+                  ),
+              }}
             />
           ) : (
             <div className={cx('map-patch-canvas-state', targetMapState.status === 'error' && 'is-error')}>
@@ -695,7 +679,6 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
                         value={patch.fromFile ?? ''}
                         label={copy.fromFilePlaceholder}
                         placeholder={copy.fromFilePlaceholder}
-                        emptyLabel={copy.fromFilePlaceholder}
                         options={projectMapAssetOptions}
                         selectionMode="confirm"
                         triggerClassName="control-button"
@@ -707,19 +690,18 @@ export const MapPatchEditor: EditorComponent = ({ patch, draftPort, resources })
                         <div className="thumb">
                           {sourceDocument ? (
                             <MapViewport
-                              locale={locale}
-                              mapDocument={sourceDocument}
-                              visibleLayerIds={sourceDocument.layers.map((layer) => layer.id)}
-                              visibleObjectGroupIds={sourceDocument.objectGroups.map((group) => group.id)}
-                              theme={theme}
-                              accentColor={accentColor}
-                              showGrid={false}
-                              showStatsChips={false}
-                              contextMenuEnabled={false}
-                              onTileRectSelect={(rect) =>
-                                updateChange(entry.id, { fromArea: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } })
-                              }
-                              selectedTileRect={areaToTileRect(entry.fromArea ?? null)}
+                              mapState={{
+                                mapDocument: sourceDocument,
+                                visibleLayerIds: sourceDocument.layers.map((layer) => layer.id),
+                                visibleObjectGroupIds: sourceDocument.objectGroups.map((group) => group.id),
+                              }}
+                              display={{ locale, theme, accentColor, showGrid: false, showStatsChips: false }}
+                              contextMenu={{ enabled: false }}
+                              editing={{ selectedTileRect: areaToTileRect(entry.fromArea ?? null) }}
+                              actions={{
+                                onTileRectSelect: (rect) =>
+                                  updateChange(entry.id, { fromArea: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }),
+                              }}
                             />
                           ) : sourceMapState.status === 'loading' ? (
                             <span className="animate-spin">◌</span>
