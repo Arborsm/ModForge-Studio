@@ -1,0 +1,197 @@
+{
+  "description": "Launcher domain host-command protocol manifest. Single source of truth for the launcher commands shared by generate-host-commands.mjs (frontend HOST_COMMANDS + Tauri wiring) and generate-android-bridge.mjs (C# WebView bridge). `params` maps wire arg names (camelCase, as sent by the frontend) to TypeScript type expressions; `result` is the TypeScript type expression of the ok payload. `android` names the C# service property (on LauncherCommandServices) and method that implements the command in modforge-android; absent/null means the command is not implemented on Android yet and the bridge answers with an unavailable error.",
+  "domain": "launcher",
+  "rustModule": "domain::launcher::commands",
+  "commands": [
+    {
+      "name": "load_launcher_settings",
+      "params": {},
+      "result": "LauncherSettings",
+      "android": { "service": "Runtime", "method": "LoadLauncherSettingsAsync" }
+    },
+    {
+      "name": "save_launcher_settings",
+      "params": { "request": "SaveLauncherSettingsRequest" },
+      "result": "LauncherSettings",
+      "android": { "service": "Runtime", "method": "SaveLauncherSettingsAsync" }
+    },
+    {
+      "name": "launch_launcher_game",
+      "params": {},
+      "result": "LauncherGameLaunchResult",
+      "android": { "service": "Runtime", "method": "LaunchLauncherGameAsync" }
+    },
+    {
+      "name": "get_launcher_backup_directory",
+      "params": {},
+      "result": "string",
+      "android": { "service": "Install", "method": "GetLauncherBackupDirectoryAsync" }
+    },
+    { "name": "open_launcher_path", "params": { "request": "OpenLauncherPathRequest" }, "result": "void" },
+    {
+      "name": "open_launcher_url",
+      "params": { "request": "OpenLauncherUrlRequest" },
+      "result": "void",
+      "android": { "service": "Runtime", "method": "OpenLauncherUrlAsync" }
+    },
+    {
+      "name": "load_launcher_library_state",
+      "params": {},
+      "result": "LauncherLibraryState",
+      "android": { "service": "Library", "method": "LoadLauncherLibraryStateAsync" }
+    },
+    {
+      "name": "save_launcher_library_state",
+      "params": { "request": "LauncherLibraryState" },
+      "result": "LauncherLibraryState",
+      "android": { "service": "Library", "method": "SaveLauncherLibraryStateAsync" }
+    },
+    {
+      "name": "load_launcher_library_covers",
+      "params": {},
+      "result": "LauncherLibraryCoversState",
+      "android": { "service": "Library", "method": "LoadLauncherLibraryCoversAsync" }
+    },
+    {
+      "name": "load_launcher_image_failures",
+      "params": {},
+      "result": "LauncherImageFailuresState",
+      "android": { "service": "Library", "method": "LoadLauncherImageFailuresAsync" }
+    },
+    {
+      "name": "record_launcher_image_failure",
+      "params": { "request": "RecordLauncherImageFailureRequest" },
+      "result": "LauncherImageFailuresState",
+      "android": { "service": "Library", "method": "RecordLauncherImageFailureAsync" }
+    },
+    {
+      "name": "set_launcher_library_cover",
+      "params": { "request": "SetLauncherLibraryCoverRequest" },
+      "result": "LauncherLibraryCoversState",
+      "android": { "service": "Library", "method": "SetLauncherLibraryCoverAsync" }
+    },
+    {
+      "name": "persist_launcher_library_remote_cover",
+      "params": { "request": "PersistLauncherLibraryRemoteCoverRequest" },
+      "result": "LauncherLibraryCoversState"
+    },
+    {
+      "name": "scan_launcher_library",
+      "params": { "request": "ScanLauncherLibraryRequest" },
+      "result": "LauncherLibraryScanResult",
+      "android": { "service": "Library", "method": "ScanLauncherLibraryAsync" }
+    },
+    {
+      "name": "load_launcher_runtime_info",
+      "params": {},
+      "result": "LauncherRuntimeInfo",
+      "android": { "service": "Runtime", "method": "LoadLauncherRuntimeInfoAsync" }
+    },
+    {
+      "name": "set_launcher_mod_enabled",
+      "params": { "request": "SetLauncherModEnabledRequest" },
+      "result": "SetLauncherModEnabledResult",
+      "android": { "service": "Library", "method": "SetLauncherModEnabledAsync" }
+    },
+    {
+      "name": "load_launcher_mod_config",
+      "params": { "request": "LoadLauncherModConfigRequest" },
+      "result": "LauncherModConfigResult",
+      "android": { "service": "ModConfig", "method": "LoadLauncherModConfigAsync" }
+    },
+    { "name": "load_launcher_gmcm_probe_diagnostics", "params": {}, "result": "LauncherGmcmProbeDiagnosticsResult" },
+    {
+      "name": "save_launcher_mod_config",
+      "params": { "request": "SaveLauncherModConfigRequest" },
+      "result": "LauncherModConfigResult",
+      "android": { "service": "ModConfig", "method": "SaveLauncherModConfigAsync" }
+    },
+    { "name": "load_launcher_download_queue", "params": {}, "result": "LauncherDownloadQueueState" },
+    {
+      "name": "save_launcher_download_queue",
+      "params": { "request": "LauncherDownloadQueueState" },
+      "result": "LauncherDownloadQueueState"
+    },
+    { "name": "download_launcher_mod", "params": { "request": "DownloadLauncherModRequest" }, "result": "DownloadLauncherModResult" },
+    { "name": "cancel_launcher_download", "params": { "downloadId": "string" }, "result": "void" },
+    { "name": "search_launcher_catalog", "params": { "request": "SearchLauncherCatalogRequest" }, "result": "LauncherCatalogPageResult" },
+    {
+      "name": "load_launcher_remote_mod_detail",
+      "params": { "request": "LoadLauncherRemoteModDetailRequest" },
+      "result": "LauncherRemoteModDetail"
+    },
+    {
+      "name": "load_launcher_update_changelog",
+      "params": { "request": "LoadLauncherUpdateChangelogRequest" },
+      "result": "LauncherUpdateChangelogResult"
+    },
+    { "name": "resolve_launcher_image", "params": { "request": "ResolveLauncherImageRequest" }, "result": "ResolveLauncherImageResult" },
+    {
+      "name": "resolve_cached_launcher_image",
+      "params": { "request": "ResolveLauncherImageRequest" },
+      "result": "ResolveLauncherImageResult | null"
+    },
+    { "name": "clear_launcher_image_cache", "params": {}, "result": "void" },
+    { "name": "load_launcher_nexus_diagnostics", "params": {}, "result": "LauncherNexusDiagnosticsResult" },
+    { "name": "restart_launcher_nexus_diagnostics", "params": {}, "result": "LauncherNexusDiagnosticsResult" },
+    { "name": "retry_launcher_nexus_diagnostics_route", "params": { "routeId": "string" }, "result": "LauncherNexusDiagnosticsResult" },
+    { "name": "set_launcher_nexus_force_offline", "params": { "forceOffline": "boolean" }, "result": "LauncherNexusDiagnosticsResult" },
+    {
+      "name": "load_cached_launcher_updates",
+      "params": { "request": "LoadCachedLauncherUpdatesRequest" },
+      "result": "LauncherUpdatesResult | null"
+    },
+    {
+      "name": "load_suppressed_launcher_update_mod_ids",
+      "params": { "request": "LoadSuppressedLauncherUpdateModIdsRequest" },
+      "result": "LauncherSuppressedUpdateModIdsResult"
+    },
+    { "name": "check_launcher_updates", "params": { "request": "CheckLauncherUpdatesRequest" }, "result": "LauncherUpdatesResult" },
+    {
+      "name": "check_smapi_update",
+      "params": {},
+      "result": "SmapiUpdateCheckResult",
+      "android": { "service": "Smapi", "method": "CheckSmapiUpdateAsync" }
+    },
+    {
+      "name": "install_smapi_update",
+      "params": { "request": "InstallSmapiUpdateRequest" },
+      "result": "InstallSmapiUpdateResult",
+      "android": { "service": "Smapi", "method": "InstallSmapiUpdateAsync" }
+    },
+    {
+      "name": "find_smapi_installer_downloads",
+      "params": {},
+      "result": "FindSmapiInstallerDownloadsResult",
+      "android": { "service": "Smapi", "method": "FindSmapiInstallerDownloadsAsync" }
+    },
+    {
+      "name": "install_launcher_archive",
+      "params": { "request": "InstallLauncherArchiveRequest" },
+      "result": "InstallLauncherArchiveResult",
+      "android": { "service": "Install", "method": "InstallLauncherArchiveAsync" }
+    },
+    {
+      "name": "list_launcher_install_backups",
+      "params": { "request": "ListLauncherInstallBackupsRequest" },
+      "result": "LauncherInstallBackupSummary[]",
+      "android": { "service": "Install", "method": "ListLauncherInstallBackupsAsync" }
+    },
+    {
+      "name": "restore_launcher_install_backup",
+      "params": { "request": "RestoreLauncherInstallBackupRequest" },
+      "result": "RestoreLauncherInstallBackupResult",
+      "android": { "service": "Install", "method": "RestoreLauncherInstallBackupAsync" }
+    },
+    {
+      "name": "inspect_launcher_archive",
+      "params": { "request": "InspectLauncherArchiveRequest" },
+      "result": "InspectLauncherArchiveResult",
+      "android": { "service": "Install", "method": "InspectLauncherArchiveAsync" }
+    },
+    { "name": "validate_nexus_api_key", "params": {}, "result": "ValidateApiKeyResult" },
+    { "name": "start_nexus_sso", "params": {}, "result": "SsoStartResult" },
+    { "name": "get_nexus_sso_status", "params": {}, "result": "SsoSnapshot" },
+    { "name": "cancel_nexus_sso", "params": {}, "result": "void" }
+  ]
+}
