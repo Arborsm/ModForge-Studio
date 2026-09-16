@@ -701,12 +701,18 @@ function applyMockAppUiStatePatch(current: AppUiState, patch: PatchAppUiStateReq
   }
 }
 
-/** Installs a query-param gated Tauri IPC mock for browser-only launcher UI debugging. */
-export function installDevLauncherMock() {
-  if (!shouldEnableDevLauncherMock()) {
-    return
-  }
+/** Asynchronous host command handler shape shared by the Tauri and Android dev mocks. */
+export type DevLauncherMockIpcHandler = (command: string, payload: unknown) => Promise<unknown>
 
+/**
+ * Creates the launcher mock IPC handler shared by the Tauri browser mock and
+ * the Android WebView host mock. Progress/stream events are delivered through
+ * `onEvent`, which defaults to the Tauri event bridge used by
+ * `installDevLauncherMock`; callers own the enablement gate.
+ */
+export function createDevLauncherMockIpcHandler(
+  onEvent: (event: string, payload: unknown) => Promise<void> = emit,
+): DevLauncherMockIpcHandler {
   const mods = createMockMods()
   let appUiState = readMockSessionState<AppUiState>('appUiState') ?? createInitialAppUiState()
   const mockGameDirectory = resolveDevMockGameDirectory()
@@ -752,736 +758,741 @@ export function installDevLauncherMock() {
   const handleCpMakerMockCommand = createCpMakerMockHandler(mockGameDirectory)
   window.__modforgeDevHostCommands = []
 
-  mockWindows('main')
-  mockConvertFileSrc('windows')
-  mockIPC(
-    async (command, payload) => {
-      window.__modforgeDevHostCommands?.push(command)
-      const localizationKnowledgeResult = handleLocalizationKnowledgeMockCommand(command, payload)
-      if (localizationKnowledgeResult.handled) {
-        return localizationKnowledgeResult.result
+  return async (command, payload) => {
+    window.__modforgeDevHostCommands?.push(command)
+    const localizationKnowledgeResult = handleLocalizationKnowledgeMockCommand(command, payload)
+    if (localizationKnowledgeResult.handled) {
+      return localizationKnowledgeResult.result
+    }
+    const modTranslationResult = handleModTranslationMockCommand(command, payload)
+    if (modTranslationResult.handled) {
+      return modTranslationResult.result
+    }
+    const cpMakerResult = handleCpMakerMockCommand(command, payload)
+    if (cpMakerResult.handled) {
+      return cpMakerResult.result
+    }
+    switch (command) {
+      case 'detect_default_game_directory':
+        return mockGameDirectory
+      case 'list_known_game_directories':
+        return [mockGameDirectory]
+      case 'load_app_ui_state':
+        return appUiState
+      case 'patch_app_ui_state': {
+        appUiState = applyMockAppUiStatePatch(appUiState, getMockRequest<PatchAppUiStateRequest>(payload) ?? {})
+        writeMockSessionState('appUiState', appUiState)
+        return appUiState
       }
-      const modTranslationResult = handleModTranslationMockCommand(command, payload)
-      if (modTranslationResult.handled) {
-        return modTranslationResult.result
-      }
-      const cpMakerResult = handleCpMakerMockCommand(command, payload)
-      if (cpMakerResult.handled) {
-        return cpMakerResult.result
-      }
-      switch (command) {
-        case 'detect_default_game_directory':
-          return mockGameDirectory
-        case 'list_known_game_directories':
-          return [mockGameDirectory]
-        case 'load_app_ui_state':
-          return appUiState
-        case 'patch_app_ui_state': {
-          appUiState = applyMockAppUiStatePatch(appUiState, getMockRequest<PatchAppUiStateRequest>(payload) ?? {})
-          writeMockSessionState('appUiState', appUiState)
-          return appUiState
-        }
-        case 'load_ai_settings':
-          return aiSettings
-        case 'save_ai_settings': {
-          const request = getMockRequest<SaveAiSettingsRequest>(payload) ?? { defaultProfileId: null, profiles: [] }
-          aiSettings = {
-            version: 1,
-            defaultProfileId: request.defaultProfileId,
-            presets: DEV_AI_PRESETS,
-            profiles: request.profiles.map((profile) => {
-              const previous = aiSettings.profiles.find((candidate) => candidate.id === profile.id)
-              const preset = DEV_AI_PRESETS.find((item) => item.id === profile.presetId)
-              const keyConfigured =
-                preset?.requiresApiKey === false
-                  ? false
-                  : Boolean(profile.apiKey) || (!profile.clearApiKey && previous?.keyConfigured === true)
-              return {
-                id: profile.id,
-                name: profile.name,
-                presetId: profile.presetId,
-                protocol: profile.protocol,
-                baseUrl: profile.baseUrl,
-                model: profile.model,
-                credentialEnvironment: profile.credentialEnvironment,
-                allowInsecureHttp: profile.allowInsecureHttp,
-                contextWindowTokens: profile.contextWindowTokens,
-                maxOutputTokens: profile.maxOutputTokens,
-                maxBatchBytes: profile.maxBatchBytes,
-                temperature: profile.temperature,
-                topP: profile.topP,
-                frequencyPenalty: profile.frequencyPenalty,
-                presencePenalty: profile.presencePenalty,
-                enableReasoning: profile.enableReasoning,
-                reasoningEffort: profile.reasoningEffort,
-                streamTranslation: profile.streamTranslation,
-                keyConfigured,
-                resolvedCredentialSource: keyConfigured ? 'keychain' : preset?.requiresApiKey === false ? null : null,
-              }
-            }),
-          }
-          return aiSettings
-        }
-        case 'list_ai_models':
-          return [
-            { id: 'gpt-4.1-mini', displayName: 'GPT-4.1 mini', contextWindowTokens: 128000 },
-            { id: 'gpt-4.1', displayName: 'GPT-4.1', contextWindowTokens: 128000 },
-            { id: 'qwen2.5:14b', displayName: 'Qwen2.5 14B', contextWindowTokens: 32768 },
-            { id: 'mock-translation-model', displayName: 'Mock translation model', contextWindowTokens: 65536 },
-          ]
-        case 'fetch_ai_models_dev_catalog':
-          return {
-            fetchedAtMs: Date.now(),
-            providers: [
-              {
-                id: 'openai',
-                name: 'OpenAI',
-                models: [
-                  { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', contextWindowTokens: 128000, maxOutputTokens: 32768 },
-                  { id: 'gpt-4.1', name: 'GPT-4.1', contextWindowTokens: 128000, maxOutputTokens: 32768 },
-                ],
-              },
-              {
-                id: 'anthropic',
-                name: 'Anthropic',
-                models: [
-                  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindowTokens: 200000, maxOutputTokens: 8192 },
-                ],
-              },
-            ],
-          }
-        case 'test_ai_profile': {
-          const profileId =
-            getMockRequest<{ profileId?: string }>(payload)?.profileId ??
-            (payload && typeof payload === 'object' && 'profileId' in payload
-              ? String((payload as { profileId: string }).profileId)
-              : aiSettings.defaultProfileId)
-          const profile = aiSettings.profiles.find((item) => item.id === profileId) ?? aiSettings.profiles[0]
-          const result: AiProfileTestResult = {
-            provider: profile?.presetId ?? 'openai',
-            protocol: profile?.protocol ?? 'openai-responses',
-            baseUrl: profile?.baseUrl ?? 'https://api.openai.com/v1',
-            model: profile?.model || 'gpt-4.1-mini',
-            latencyMs: 142,
-            credentialSource: profile?.resolvedCredentialSource ?? null,
-            reasoning: profile?.enableReasoning
-              ? 'Dev mock reasoning: the probe sentence was tokenized and translated through the mock pipeline.'
-              : null,
-          }
-          return result
-        }
-        case 'export_ai_profiles':
-          return aiSettings.profiles.length
-        case 'preview_ai_profiles_import':
-          return {
-            formatVersion: 1,
-            credentialsExcluded: true,
-            entries: aiSettings.profiles.map((profile) => ({
+      case 'load_ai_settings':
+        return aiSettings
+      case 'save_ai_settings': {
+        const request = getMockRequest<SaveAiSettingsRequest>(payload) ?? { defaultProfileId: null, profiles: [] }
+        aiSettings = {
+          version: 1,
+          defaultProfileId: request.defaultProfileId,
+          presets: DEV_AI_PRESETS,
+          profiles: request.profiles.map((profile) => {
+            const previous = aiSettings.profiles.find((candidate) => candidate.id === profile.id)
+            const preset = DEV_AI_PRESETS.find((item) => item.id === profile.presetId)
+            const keyConfigured =
+              preset?.requiresApiKey === false
+                ? false
+                : Boolean(profile.apiKey) || (!profile.clearApiKey && previous?.keyConfigured === true)
+            return {
               id: profile.id,
               name: profile.name,
-              provider: profile.presetId,
+              presetId: profile.presetId,
+              protocol: profile.protocol,
+              baseUrl: profile.baseUrl,
               model: profile.model,
-              conflicts: true,
-            })),
-          }
-        case 'apply_ai_profiles_import':
-          return {
-            settings: aiSettings,
-            imported: 0,
-            overwritten: aiSettings.profiles.length,
-            copied: 0,
-            skipped: 0,
-          }
-        case 'load_machine_translation_settings':
-          return machineTranslationSettings
-        case 'save_machine_translation_settings': {
-          const request =
-            getMockRequest<SaveMachineTranslationSettingsRequest>(payload) ??
-            ({ defaultProfileId: null, profiles: [] } satisfies SaveMachineTranslationSettingsRequest)
-          machineTranslationSettings = {
-            version: 1,
-            defaultProfileId: request.defaultProfileId,
-            presets: machineTranslationSettings.presets,
-            profiles: request.profiles.map((profile) => {
-              const previous = machineTranslationSettings.profiles.find((item) => item.id === profile.id)
-              const credentialSources: MachineTranslationSettingsSnapshot['profiles'][number]['credentialSources'] = {
-                ...previous?.credentialSources,
-              }
-              for (const [field, value] of Object.entries(profile.credentials ?? {})) {
-                if (value) credentialSources[field] = 'keychain'
-              }
-              for (const field of profile.clearCredentials ?? []) {
-                delete credentialSources[field]
-              }
-              return {
-                id: profile.id,
-                name: profile.name,
-                presetId: profile.presetId,
-                protocol: profile.protocol,
-                baseUrl: profile.baseUrl,
-                region: profile.region,
-                enabled: profile.enabled,
-                defaultSourceLocale: profile.defaultSourceLocale,
-                defaultTargetLocale: profile.defaultTargetLocale,
-                credentialEnvironments: profile.credentialEnvironments,
-                credentialSources,
-              }
-            }),
-          }
-          return machineTranslationSettings
-        }
-        case 'list_machine_translation_languages':
-          return [
-            { code: 'EN', name: 'English', supportsSource: true, supportsTarget: true },
-            { code: 'ZH', name: 'Chinese', supportsSource: true, supportsTarget: true },
-            { code: 'JA', name: 'Japanese', supportsSource: true, supportsTarget: true },
-          ]
-        case 'test_machine_translation_profile':
-          return { latencyMs: 186, detectedLanguage: 'EN' }
-        case 'load_localization_default_engine':
-          return defaultEngine
-        case 'prewarm_localization_corpus':
-          // The browser mock keeps knowledge in memory and the semantic runtime is
-          // considered builtin-ready, so the corpus is warm by construction.
-          return { knowledge: 'ready', semantic: 'ready', official: 'skipped', ready: true, error: null }
-        case 'save_localization_default_engine': {
-          const engine =
-            payload && typeof payload === 'object' && 'engine' in payload
-              ? ((payload as { engine: LocalizationEngineRef }).engine ?? null)
-              : getMockRequest<LocalizationEngineRef>(payload)
-          if (engine) defaultEngine = engine
-          return defaultEngine
-        }
-        case 'load_localization_semantic_settings':
-          return semanticSettings
-        case 'save_localization_semantic_settings': {
-          const request = getMockRequest<AiSemanticSettingsSnapshot>(payload)
-          if (request) {
-            semanticSettings = {
-              mode: request.mode,
-              executionPreference: request.executionPreference,
-              activeExecutionProvider: request.executionPreference === 'auto' ? 'directml' : 'cpu',
-              executionFallbackReason: null,
-              localModelDirectory: request.localModelDirectory,
-              activeRemoteProfileId: request.activeRemoteProfileId,
-              remoteProfiles: request.remoteProfiles ?? [],
+              credentialEnvironment: profile.credentialEnvironment,
+              allowInsecureHttp: profile.allowInsecureHttp,
+              contextWindowTokens: profile.contextWindowTokens,
+              maxOutputTokens: profile.maxOutputTokens,
+              maxBatchBytes: profile.maxBatchBytes,
+              temperature: profile.temperature,
+              topP: profile.topP,
+              frequencyPenalty: profile.frequencyPenalty,
+              presencePenalty: profile.presencePenalty,
+              enableReasoning: profile.enableReasoning,
+              reasoningEffort: profile.reasoningEffort,
+              streamTranslation: profile.streamTranslation,
+              keyConfigured,
+              resolvedCredentialSource: keyConfigured ? 'keychain' : preset?.requiresApiKey === false ? null : null,
             }
-            semanticModel = {
-              ...semanticModel,
-              mode: request.mode,
-              available: request.mode !== 'lexical',
-              downloaded: request.mode === 'builtin',
-              modelId: request.mode === 'builtin' ? 'multilingual-e5-small' : request.mode === 'lexical' ? null : semanticModel.modelId,
+          }),
+        }
+        return aiSettings
+      }
+      case 'list_ai_models':
+        return [
+          { id: 'gpt-4.1-mini', displayName: 'GPT-4.1 mini', contextWindowTokens: 128000 },
+          { id: 'gpt-4.1', displayName: 'GPT-4.1', contextWindowTokens: 128000 },
+          { id: 'qwen2.5:14b', displayName: 'Qwen2.5 14B', contextWindowTokens: 32768 },
+          { id: 'mock-translation-model', displayName: 'Mock translation model', contextWindowTokens: 65536 },
+        ]
+      case 'fetch_ai_models_dev_catalog':
+        return {
+          fetchedAtMs: Date.now(),
+          providers: [
+            {
+              id: 'openai',
+              name: 'OpenAI',
+              models: [
+                { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', contextWindowTokens: 128000, maxOutputTokens: 32768 },
+                { id: 'gpt-4.1', name: 'GPT-4.1', contextWindowTokens: 128000, maxOutputTokens: 32768 },
+              ],
+            },
+            {
+              id: 'anthropic',
+              name: 'Anthropic',
+              models: [{ id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindowTokens: 200000, maxOutputTokens: 8192 }],
+            },
+          ],
+        }
+      case 'test_ai_profile': {
+        const profileId =
+          getMockRequest<{ profileId?: string }>(payload)?.profileId ??
+          (payload && typeof payload === 'object' && 'profileId' in payload
+            ? String((payload as { profileId: string }).profileId)
+            : aiSettings.defaultProfileId)
+        const profile = aiSettings.profiles.find((item) => item.id === profileId) ?? aiSettings.profiles[0]
+        const result: AiProfileTestResult = {
+          provider: profile?.presetId ?? 'openai',
+          protocol: profile?.protocol ?? 'openai-responses',
+          baseUrl: profile?.baseUrl ?? 'https://api.openai.com/v1',
+          model: profile?.model || 'gpt-4.1-mini',
+          latencyMs: 142,
+          credentialSource: profile?.resolvedCredentialSource ?? null,
+          reasoning: profile?.enableReasoning
+            ? 'Dev mock reasoning: the probe sentence was tokenized and translated through the mock pipeline.'
+            : null,
+        }
+        return result
+      }
+      case 'export_ai_profiles':
+        return aiSettings.profiles.length
+      case 'preview_ai_profiles_import':
+        return {
+          formatVersion: 1,
+          credentialsExcluded: true,
+          entries: aiSettings.profiles.map((profile) => ({
+            id: profile.id,
+            name: profile.name,
+            provider: profile.presetId,
+            model: profile.model,
+            conflicts: true,
+          })),
+        }
+      case 'apply_ai_profiles_import':
+        return {
+          settings: aiSettings,
+          imported: 0,
+          overwritten: aiSettings.profiles.length,
+          copied: 0,
+          skipped: 0,
+        }
+      case 'load_machine_translation_settings':
+        return machineTranslationSettings
+      case 'save_machine_translation_settings': {
+        const request =
+          getMockRequest<SaveMachineTranslationSettingsRequest>(payload) ??
+          ({ defaultProfileId: null, profiles: [] } satisfies SaveMachineTranslationSettingsRequest)
+        machineTranslationSettings = {
+          version: 1,
+          defaultProfileId: request.defaultProfileId,
+          presets: machineTranslationSettings.presets,
+          profiles: request.profiles.map((profile) => {
+            const previous = machineTranslationSettings.profiles.find((item) => item.id === profile.id)
+            const credentialSources: MachineTranslationSettingsSnapshot['profiles'][number]['credentialSources'] = {
+              ...previous?.credentialSources,
             }
-          }
-          return semanticSettings
+            for (const [field, value] of Object.entries(profile.credentials ?? {})) {
+              if (value) credentialSources[field] = 'keychain'
+            }
+            for (const field of profile.clearCredentials ?? []) {
+              delete credentialSources[field]
+            }
+            return {
+              id: profile.id,
+              name: profile.name,
+              presetId: profile.presetId,
+              protocol: profile.protocol,
+              baseUrl: profile.baseUrl,
+              region: profile.region,
+              enabled: profile.enabled,
+              defaultSourceLocale: profile.defaultSourceLocale,
+              defaultTargetLocale: profile.defaultTargetLocale,
+              credentialEnvironments: profile.credentialEnvironments,
+              credentialSources,
+            }
+          }),
         }
-        case 'inspect_localization_semantic_model':
-          return semanticModel
-        case 'inspect_localization_semantic_index':
-          return semanticIndex
-        case 'verify_localization_semantic_model':
-          return {
-            mode: 'builtin' as const,
-            modelId: 'multilingual-e5-small',
-            dimensions: 384,
-            pooling: 'mean' as const,
-            normalized: true as const,
-            fingerprint: 'mock-fingerprint',
-            verifiedAtMs: Date.now(),
-            files: [
-              { relativePath: 'model.onnx', sizeBytes: 90_000_000, sha256: 'a'.repeat(64) },
-              { relativePath: 'tokenizer.json', sizeBytes: 700_000, sha256: 'b'.repeat(64) },
-            ],
+        return machineTranslationSettings
+      }
+      case 'list_machine_translation_languages':
+        return [
+          { code: 'EN', name: 'English', supportsSource: true, supportsTarget: true },
+          { code: 'ZH', name: 'Chinese', supportsSource: true, supportsTarget: true },
+          { code: 'JA', name: 'Japanese', supportsSource: true, supportsTarget: true },
+        ]
+      case 'test_machine_translation_profile':
+        return { latencyMs: 186, detectedLanguage: 'EN' }
+      case 'load_localization_default_engine':
+        return defaultEngine
+      case 'prewarm_localization_corpus':
+        // The browser mock keeps knowledge in memory and the semantic runtime is
+        // considered builtin-ready, so the corpus is warm by construction.
+        return { knowledge: 'ready', semantic: 'ready', official: 'skipped', ready: true, error: null }
+      case 'save_localization_default_engine': {
+        const engine =
+          payload && typeof payload === 'object' && 'engine' in payload
+            ? ((payload as { engine: LocalizationEngineRef }).engine ?? null)
+            : getMockRequest<LocalizationEngineRef>(payload)
+        if (engine) defaultEngine = engine
+        return defaultEngine
+      }
+      case 'load_localization_semantic_settings':
+        return semanticSettings
+      case 'save_localization_semantic_settings': {
+        const request = getMockRequest<AiSemanticSettingsSnapshot>(payload)
+        if (request) {
+          semanticSettings = {
+            mode: request.mode,
+            executionPreference: request.executionPreference,
+            activeExecutionProvider: request.executionPreference === 'auto' ? 'directml' : 'cpu',
+            executionFallbackReason: null,
+            localModelDirectory: request.localModelDirectory,
+            activeRemoteProfileId: request.activeRemoteProfileId,
+            remoteProfiles: request.remoteProfiles ?? [],
           }
-        case 'probe_localization_semantic_search': {
-          const query =
-            payload && typeof payload === 'object' && 'request' in payload
-              ? String((payload as { request: { query?: string } }).request.query ?? 'spring')
-              : 'spring'
-          return {
-            query,
-            retrievalMode: 'semantic',
-            elapsedMs: 38,
-            totalCandidates: 12,
-            records: [
-              {
-                sourceKind: 'official',
-                sourceId: 'StringsFromCSFiles:1',
-                sourceText: 'Welcome to the valley!',
-                targetText: '欢迎来到山谷！',
-                context: 'StringsFromCSFiles',
-                score: 0.92,
-                semanticSimilarity: 0.91,
-                lexicalSimilarity: 0.4,
-                matchKind: 'semantic',
-                retrievalMode: 'semantic',
-              },
-              {
-                sourceKind: 'translation-memory',
-                sourceId: 'tm:42',
-                sourceText: 'A soft spring rain.',
-                targetText: '一场轻柔的春雨。',
-                context: 'Event',
-                score: 0.81,
-                semanticSimilarity: 0.78,
-                lexicalSimilarity: 0.55,
-                matchKind: 'hybrid',
-                retrievalMode: 'partial',
-              },
-            ],
-            warnings: [],
-          }
-        }
-        case 'download_localization_semantic_model':
           semanticModel = {
             ...semanticModel,
-            downloaded: true,
-            available: true,
-            revision: 'mock-rev-1',
-            modelPath: 'E:\\ModForge Dev\\Models\\multilingual-e5-small',
-            cacheBytes: 128 * 1024 * 1024,
-          }
-          return semanticModel
-        case 'delete_localization_semantic_model':
-          semanticModel = { ...semanticModel, downloaded: false, revision: null, modelPath: null, cacheBytes: 0 }
-          return semanticModel
-        case 'open_localization_semantic_model_directory':
-          return null
-        case 'rebuild_localization_semantic_index':
-        case 'sync_localization_semantic_index': {
-          const request = getMockRequest<{ jobId: string }>(payload)
-          const total = semanticIndex.sourceRecords
-          for (const percentage of [20, 40, 60, 80, 100]) {
-            const completed = Math.round((total * percentage) / 100)
-            await emit('localization://semantic-progress', {
-              jobId: request?.jobId ?? 'mock-semantic-index',
-              modelId: semanticModel.modelId ?? 'multilingual-e5-small',
-              kind: 'index',
-              phase: command === 'rebuild_localization_semantic_index' ? 'embedding' : 'synchronizing',
-              currentFile: `records ${completed}/${total}`,
-              downloadedBytes: completed,
-              totalBytes: total,
-              percentage,
-              bytesPerSecond: null,
-              fileIndex: completed,
-              fileCount: total,
-            })
-            await new Promise((resolve) => window.setTimeout(resolve, 250))
-          }
-          semanticIndex = {
-            ...semanticIndex,
-            indexedRecords: semanticIndex.sourceRecords,
-            pendingRecords: 0,
-            coveragePercentage: 100,
-            stale: false,
-          }
-          return semanticIndex
-        }
-        case 'test_localization_semantic_remote_profile':
-          return { model: 'text-embedding-3-small', dimensions: 1536, latencyMs: 96 }
-        case 'query_ai_usage_summary':
-          return createMockUsageSummary()
-        case 'query_ai_usage_records': {
-          const request = getMockRequest<AiUsageQuery>(payload)
-          const limit = request?.limit ?? 100
-          const offset = request?.offset ?? 0
-          const records = createMockUsageRecords(offset + limit).slice(offset, offset + limit)
-          return { records, total: 48 }
-        }
-        case 'export_ai_usage':
-          return 48
-        case 'clear_ai_usage':
-          return { removedEvents: 48, removedDailyRows: 7 }
-        case 'translate_ai_batch': {
-          const request = getMockRequest<AiTranslateBatchRequest>(payload)
-          if (!request) throw new Error('Missing mock AI translation request')
-          const profile = aiSettings.profiles.find((item) => item.id === request.profileId)
-          if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
-            const reasoning = 'Dev mock reasoning: tokenize the batch items, translate each segment, then reassemble the bbcode blocks.'
-            const reasoningSteps = reasoning.match(/.{1,24}/g) ?? [reasoning]
-            for (const step of reasoningSteps) {
-              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'reasoning', delta: step })
-              await new Promise((resolve) => window.setTimeout(resolve, 40))
-            }
-            const encoded = JSON.stringify(
-              request.items.map((item) => ({
-                id: item.id,
-                translatedText: `AI/${request.targetLocale} · ${item.text}`,
-                detectedLanguage: request.sourceLocale ?? null,
-              })),
-            )
-            for (let index = 0; index < encoded.length; index += 24) {
-              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
-              await new Promise((resolve) => window.setTimeout(resolve, 30))
-            }
-          }
-          return {
-            jobId: request.jobId,
-            profileId: request.profileId ?? aiSettings.defaultProfileId ?? 'mock-profile',
-            model: 'mock-translation-model',
-            items: request.items.map((item) => ({
-              id: item.id,
-              translatedText: `AI/${request.targetLocale} · ${item.text}`,
-              detectedLanguage: request.sourceLocale ?? null,
-              skippedSameLanguage: false,
-            })),
-            reasoning: profile?.enableReasoning
-              ? 'Dev mock reasoning: split the batch items, translated each segment, then reassembled the bbcode blocks.'
-              : null,
+            mode: request.mode,
+            available: request.mode !== 'lexical',
+            downloaded: request.mode === 'builtin',
+            modelId: request.mode === 'builtin' ? 'multilingual-e5-small' : request.mode === 'lexical' ? null : semanticModel.modelId,
           }
         }
-        case 'translate_localization_batch': {
-          const request = getMockRequest<LocalizationTranslateBatchRequest>(payload)
-          if (!request) throw new Error('Missing mock localization translation request')
-          const profile =
-            request.engine.kind === 'generative-ai' ? aiSettings.profiles.find((item) => item.id === request.engine.profileId) : undefined
-          if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
-            // Same as translate_ai_batch: emit content deltas by jobId (no reasoning,
-            // since the workbench has no chain-of-thought control), for manual streaming verification in dev mode.
-            const encoded = JSON.stringify(
-              request.items.map((item) => ({
-                id: item.id,
-                translatedText: `AI/${request.targetLocale} · ${item.text}`,
-                detectedLanguage: request.sourceLocale ?? null,
-              })),
-            )
-            for (let index = 0; index < encoded.length; index += 24) {
-              await emit('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
-              await new Promise((resolve) => window.setTimeout(resolve, 30))
-            }
-          }
-          const result: LocalizationTranslateBatchResult = {
-            jobId: request.jobId,
-            engine: request.engine,
-            model: request.engine.kind === 'generative-ai' ? 'mock-translation-model' : null,
-            items: request.items.map((item) => ({
-              id: item.id,
-              translatedText: `AI/${request.targetLocale} · ${item.text}`,
-              detectedLanguage: request.sourceLocale ?? null,
-              skippedSameLanguage: false,
-            })),
-            validationIssues: [],
-            usageRecordState: 'recorded',
-            knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
-            knowledgeRevision: 'disabled',
-          }
-          return result
-        }
-        case 'cancel_ai_job':
-          return null
-        case 'read_ai_translation_cache': {
-          const request = getMockRequest<Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>>(payload)
-          if (!request) return null
-          const cached = aiCache.get(`${request.scopeKey}:${request.targetLocale}`)
-          return cached?.sourceHash === request.sourceHash ? cached : null
-        }
-        case 'write_ai_translation_cache': {
-          const entry =
-            payload && typeof payload === 'object' && 'entry' in payload ? (payload as { entry: AiTranslationCacheEntry }).entry : null
-          if (!entry) throw new Error('Missing mock AI cache entry')
-          aiCache.set(`${entry.scopeKey}:${entry.targetLocale}`, entry)
-          return entry
-        }
-        case 'get_ai_translation_cache_stats':
-          return {
-            entryCount: aiCache.size,
-            sizeBytes: [...aiCache.values()].reduce((total, entry) => total + entry.translatedText.length, 0),
-          }
-        case 'clear_ai_translation_cache':
-          aiCache.clear()
-          return { entryCount: 0, sizeBytes: 0 }
-        case 'load_launcher_settings':
-          return settings
-        case 'save_launcher_settings':
-          settings = { ...settings, ...getMockRequest<Partial<LauncherSettings>>(payload) }
-          return settings
-        case 'load_launcher_library_state':
-          exposeLauncherCustomSortState(libraryState)
-          return libraryState
-        case 'save_launcher_library_state':
-          libraryState = getMockRequest<LauncherLibraryState>(payload) ?? libraryState
-          exposeLauncherCustomSortState(libraryState)
-          return libraryState
-        case 'load_launcher_library_covers':
-          return { covers: [] } satisfies LauncherLibraryCoversState
-        case 'load_launcher_download_queue':
-          return queueState
-        case 'save_launcher_download_queue':
-          queueState = getMockRequest<LauncherDownloadQueueState>(payload) ?? queueState
-          return queueState
-        case 'scan_launcher_library':
-          return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, mods } satisfies LauncherLibraryScanResult
-        case 'load_launcher_runtime_info':
-          return { gameVersion: '1.6.15', smapiVersion: mockSmapiInstalledVersion } satisfies LauncherRuntimeInfo
-        case 'check_smapi_update': {
-          const updateAvailable = mockSmapiInstalledVersion !== MOCK_SMAPI_TARGET_VERSION
-          return {
-            installedVersion: mockSmapiInstalledVersion,
-            gameVersion: '1.6.15',
-            latestStableVersion: MOCK_SMAPI_TARGET_VERSION,
-            targetVersion: MOCK_SMAPI_TARGET_VERSION,
-            updateAvailable,
-            versionSource: mockSmapiNexusSource ? 'nexus' : 'github',
-            requiredByMods: updateAvailable
-              ? [
-                  { modId: 'ModForge.Dev.Mock01', modName: 'Mock Mod 01', minimumApiVersion: '4.1.0' },
-                  { modId: 'ModForge.Dev.Mock10', modName: 'Mock Mod 10', minimumApiVersion: '4.1.0' },
-                ]
-              : [],
-            download: updateAvailable
-              ? mockSmapiNexusSource
-                ? {
-                    source: 'nexus',
-                    sizeBytes: 1_024,
-                    assetName: MOCK_NEXUS_INSTALLER_FILE_NAME,
-                    nexusModPageUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400',
-                    nexusDownloadPopupUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400?tab=files&file_id=123456',
-                    nexusFileId: 123456,
-                  }
-                : {
-                    source: 'github',
-                    url: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
-                    sha256: 'dev-mock-smapi-sha256',
-                    sizeBytes: 1_024,
-                    assetName: 'SMAPI-4.1.10-installer.zip',
-                  }
-              : null,
-          } satisfies SmapiUpdateCheckResult
-        }
-        case 'install_smapi_update': {
-          const request = getMockRequest<InstallSmapiUpdateRequest>(payload)
-          if (!request?.targetVersion?.trim()) {
-            throw new Error('targetVersion is required.')
-          }
-          if (!request.downloadUrl?.trim() && !request.localFilePath?.trim()) {
-            throw new Error('downloadUrl or localFilePath is required.')
-          }
-          mockSmapiInstalledVersion = request.targetVersion.trim()
-          return { success: true, installedVersion: mockSmapiInstalledVersion } satisfies InstallSmapiUpdateResult
-        }
-        case 'find_smapi_installer_downloads': {
-          // One satisfying Nexus-named candidate; junk files are ignored by the scanner.
-          return {
-            candidates: [
-              {
-                path: `C:\\Users\\Mock\\Downloads\\${MOCK_NEXUS_INSTALLER_FILE_NAME}`,
-                fileName: MOCK_NEXUS_INSTALLER_FILE_NAME,
-                version: MOCK_SMAPI_TARGET_VERSION,
-                sizeBytes: 1_024,
-                doubleZipped: false,
-                naming: 'nexus',
-                compatible: true,
-                satisfiesTarget: true,
-              },
-            ],
-          } satisfies FindSmapiInstallerDownloadsResult
-        }
-        case 'open_launcher_url':
-          return undefined
-        case 'load_launcher_remote_mod_detail': {
-          const request = getMockRequest<{ modId?: number; includeFiles?: boolean }>(payload)
-          const modId = request?.modId ?? 20001
-          const index = Math.max(1, modId - 20000)
-          const includeFiles = request?.includeFiles ?? true
-          // Rich detail so the launcher mod detail panel can exercise the AI
-          // translation streaming (multiple bbcode segments + changelog lines).
-          return {
-            modId,
-            title: `Mock Nexus Mod ${String(index).padStart(2, '0')}`,
-            summary: 'Adds a seasonal crop with [b]custom textures[/b] and a small [i]quest chain[/i] for the valley.',
-            description: [
-              'This mod reworks the forest path with [b]new sprites[/b], a [color=#d4a15f]golden hour[/color] palette and gentle particle effects. The content ships as ContentPatcher packs with per-season variants for every climate.',
-              '[b]Features[/b]',
-              '[list]',
-              '[*][b]Four seasons[/b] of retextures, plus a [color=#7fc97f]spring-only[/color] bonus variant.',
-              '[*]Configurable intensity through [b]Generic Mod Config Menu[/b].',
-              '[*]Compatible with [url=https://smapi.io]SMAPI[/url] 4.0+ and Stardew Valley 1.6.',
-              '[/list]',
-              'Requires ContentPatcher. The optional seasonal variant is recommended for full visual parity. Installation is a standard drop-in folder copy; existing saves keep working.',
-            ].join('\n\n'),
-            author: 'Mock Author',
-            version: '2.1.0',
-            modUrl: `https://www.nexusmods.com/stardewvalley/mods/${modId}`,
-            imageUrl: null,
-            galleryImages: [],
-            category: 'Misc',
-            downloads: 12_345,
-            endorsements: 678,
-            tags: ['Content Patcher', 'Visual'],
-            updatedAt: '2025-03-10T12:00:00Z',
-            fileSize: 2_400_000,
-            primaryFileId: 90_001,
-            primaryFileName: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
-            primaryFileVersion: '2.1.0',
-            primaryFileCategory: 'MAIN',
-            primaryFileChangelog: [
-              '2.1.0 — Added golden-hour palette and per-season variants.',
-              '2.0.2 — Fixed winter sprite clipping on the riverbank.',
-              '2.0.0 — Initial release with forest path rework.',
-            ],
-            files: includeFiles
-              ? [
-                  {
-                    fileId: 90_001,
-                    name: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
-                    version: '2.1.0',
-                    category: 'MAIN',
-                    primary: true,
-                    sizeBytes: 2_400_000,
-                    managerDownloadEnabled: true,
-                    changelog: ['2.1.0 — Added golden-hour palette and per-season variants.'],
-                  },
-                  {
-                    fileId: 90_002,
-                    name: 'Optional seasonal variant.zip',
-                    version: '2.0.0',
-                    category: 'OPTIONAL',
-                    primary: false,
-                    sizeBytes: 860_000,
-                    managerDownloadEnabled: true,
-                    changelog: ['2.0.0 — Initial seasonal variant release.'],
-                  },
-                ]
-              : [],
-            requirements: [
-              { name: 'Content Patcher', notes: 'Required for loading content packs.', modId: 1915 },
-              { name: 'SMAPI', notes: 'Required mod loader.', external: true },
-            ],
-          } satisfies LauncherRemoteModDetail
-        }
-        case 'load_launcher_gmcm_probe_diagnostics':
-          // Quiet ready status for settings mock screenshots; keep warning for launcher-only mock.
-          return {
-            status: isSettingsMockPreferred() ? 'ready' : 'warning',
-            probeAssemblyPath: isSettingsMockPreferred() ? 'E:\\ModForge Dev\\gmcm-reader.dll' : null,
-            dotnetPath: 'dotnet',
-            dotnetAvailable: isSettingsMockPreferred(),
-            net6RuntimeAvailable: isSettingsMockPreferred(),
-            installedRuntimes: isSettingsMockPreferred() ? ['.NET 6.0'] : [],
-            warnings: isSettingsMockPreferred() ? [] : ['browser-dev-mock'],
-            repairActions: isSettingsMockPreferred() ? [] : ['run-desktop-host'],
-          } satisfies LauncherGmcmProbeDiagnosticsResult
-        case 'load_launcher_nexus_diagnostics':
-        case 'restart_launcher_nexus_diagnostics':
-          // Settings visual mock: no warning toasts over the dialog screenshots.
-          if (isSettingsMockPreferred()) {
-            return {
-              routes: DEV_LAUNCHER_NEXUS_DIAGNOSTICS.routes.map((route) => ({
-                ...route,
-                status: 'success' as const,
-                available: true,
-                attempts: 1,
-                maxAttempts: 3,
-                message: 'OK',
-              })),
-            } satisfies LauncherNexusDiagnosticsResult
-          }
-          return DEV_LAUNCHER_NEXUS_DIAGNOSTICS
-        case 'set_launcher_nexus_force_offline':
-          return { routes: [] } satisfies LauncherNexusDiagnosticsResult
-        case 'load_suppressed_launcher_update_mod_ids':
-          return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, modIds: [] } satisfies LauncherSuppressedUpdateModIdsResult
-        case 'load_cached_launcher_updates':
-          return null
-        case 'check_launcher_updates':
-          return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, checkedAtMs: Date.now(), updates: [] } satisfies LauncherUpdatesResult
-        case 'set_launcher_mod_enabled': {
-          const setEnabledRequest = getMockRequest<{ modPath?: string; enabled?: boolean }>(payload)
-          return {
-            absolutePath: String(setEnabledRequest?.modPath ?? ''),
-            enabled: Boolean(setEnabledRequest?.enabled),
-          }
-        }
-        case 'load_launcher_mod_config': {
-          const request = getMockRequest<{ modPath?: string }>(payload)
-          const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
-          return {
-            modPath,
-            configPath: `${modPath}\\config.json`,
-            configExists: true,
-            schemaSources: ['content-patcher', 'config-json'],
-            warnings: ['GMCM probe is unavailable in the browser dev mock.'],
-            probeStatus: 'unavailable',
-            fields: [
-              {
-                key: 'EnableFeature',
-                label: 'Enable feature',
-                description: 'Development mock boolean option.',
-                section: 'General',
-                fieldType: 'boolean',
-                value: true,
-                defaultValue: true,
-                allowValues: [],
-                allowBlank: false,
-                allowMultiple: false,
-                editable: true,
-                source: 'content-patcher',
-              },
-              {
-                key: 'Mode',
-                label: 'Mode',
-                description: null,
-                section: 'General',
-                fieldType: 'string',
-                value: 'balanced',
-                defaultValue: 'balanced',
-                allowValues: ['balanced', 'fast', 'safe'],
-                allowBlank: false,
-                allowMultiple: false,
-                editable: true,
-                source: 'content-patcher',
-              },
-            ],
-          }
-        }
-        case 'save_launcher_mod_config': {
-          const request = getMockRequest<{ modPath?: string }>(payload)
-          const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
-          return {
-            modPath,
-            configPath: `${modPath}\\config.json`,
-            configExists: true,
-            schemaSources: ['config-json'],
-            warnings: [],
-            probeStatus: 'unavailable',
-            fields: [],
-          }
-        }
-        case 'plugin:dialog|open': {
-          const options = (payload as { options?: { directory?: boolean; multiple?: boolean } } | null)?.options
-          if (options?.directory) return 'E:\\ModForge Dev\\Imports'
-          if (options?.multiple) return ['E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png', 'E:\\ModForge Dev\\Imports\\Dev Tilesheet B.png']
-          return 'E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png'
-        }
-        case 'open_launcher_path':
-        case 'record_launcher_image_failure':
-        case 'write_frontend_log':
-        case 'print_host_runtime_diagnostics':
-          return null
-        case 'get_launcher_backup_directory':
-          return 'E:\\ModForge Dev\\Backups'
-        case 'validate_nexus_api_key':
-          return {
-            userName: 'Dev User',
-            avatarUrl: null,
-            profileUrl: null,
-            isPremium: true,
-            dailyRemaining: null,
-            hourlyRemaining: null,
-            dailyResetAt: null,
-            hourlyResetAt: null,
-          }
-        case 'start_nexus_sso':
-          return { ssoId: 'dev-sso', status: 'idle' }
-        case 'get_nexus_sso_status':
-          return { status: 'idle', isPremium: false }
-        case 'cancel_nexus_sso':
-          return null
-        default:
-          throw new Error(`Unhandled dev launcher mock command: ${command}`)
+        return semanticSettings
       }
-    },
-    { shouldMockEvents: true },
-  )
+      case 'inspect_localization_semantic_model':
+        return semanticModel
+      case 'inspect_localization_semantic_index':
+        return semanticIndex
+      case 'verify_localization_semantic_model':
+        return {
+          mode: 'builtin' as const,
+          modelId: 'multilingual-e5-small',
+          dimensions: 384,
+          pooling: 'mean' as const,
+          normalized: true as const,
+          fingerprint: 'mock-fingerprint',
+          verifiedAtMs: Date.now(),
+          files: [
+            { relativePath: 'model.onnx', sizeBytes: 90_000_000, sha256: 'a'.repeat(64) },
+            { relativePath: 'tokenizer.json', sizeBytes: 700_000, sha256: 'b'.repeat(64) },
+          ],
+        }
+      case 'probe_localization_semantic_search': {
+        const query =
+          payload && typeof payload === 'object' && 'request' in payload
+            ? String((payload as { request: { query?: string } }).request.query ?? 'spring')
+            : 'spring'
+        return {
+          query,
+          retrievalMode: 'semantic',
+          elapsedMs: 38,
+          totalCandidates: 12,
+          records: [
+            {
+              sourceKind: 'official',
+              sourceId: 'StringsFromCSFiles:1',
+              sourceText: 'Welcome to the valley!',
+              targetText: '欢迎来到山谷！',
+              context: 'StringsFromCSFiles',
+              score: 0.92,
+              semanticSimilarity: 0.91,
+              lexicalSimilarity: 0.4,
+              matchKind: 'semantic',
+              retrievalMode: 'semantic',
+            },
+            {
+              sourceKind: 'translation-memory',
+              sourceId: 'tm:42',
+              sourceText: 'A soft spring rain.',
+              targetText: '一场轻柔的春雨。',
+              context: 'Event',
+              score: 0.81,
+              semanticSimilarity: 0.78,
+              lexicalSimilarity: 0.55,
+              matchKind: 'hybrid',
+              retrievalMode: 'partial',
+            },
+          ],
+          warnings: [],
+        }
+      }
+      case 'download_localization_semantic_model':
+        semanticModel = {
+          ...semanticModel,
+          downloaded: true,
+          available: true,
+          revision: 'mock-rev-1',
+          modelPath: 'E:\\ModForge Dev\\Models\\multilingual-e5-small',
+          cacheBytes: 128 * 1024 * 1024,
+        }
+        return semanticModel
+      case 'delete_localization_semantic_model':
+        semanticModel = { ...semanticModel, downloaded: false, revision: null, modelPath: null, cacheBytes: 0 }
+        return semanticModel
+      case 'open_localization_semantic_model_directory':
+        return null
+      case 'rebuild_localization_semantic_index':
+      case 'sync_localization_semantic_index': {
+        const request = getMockRequest<{ jobId: string }>(payload)
+        const total = semanticIndex.sourceRecords
+        for (const percentage of [20, 40, 60, 80, 100]) {
+          const completed = Math.round((total * percentage) / 100)
+          await onEvent('localization://semantic-progress', {
+            jobId: request?.jobId ?? 'mock-semantic-index',
+            modelId: semanticModel.modelId ?? 'multilingual-e5-small',
+            kind: 'index',
+            phase: command === 'rebuild_localization_semantic_index' ? 'embedding' : 'synchronizing',
+            currentFile: `records ${completed}/${total}`,
+            downloadedBytes: completed,
+            totalBytes: total,
+            percentage,
+            bytesPerSecond: null,
+            fileIndex: completed,
+            fileCount: total,
+          })
+          await new Promise((resolve) => window.setTimeout(resolve, 250))
+        }
+        semanticIndex = {
+          ...semanticIndex,
+          indexedRecords: semanticIndex.sourceRecords,
+          pendingRecords: 0,
+          coveragePercentage: 100,
+          stale: false,
+        }
+        return semanticIndex
+      }
+      case 'test_localization_semantic_remote_profile':
+        return { model: 'text-embedding-3-small', dimensions: 1536, latencyMs: 96 }
+      case 'query_ai_usage_summary':
+        return createMockUsageSummary()
+      case 'query_ai_usage_records': {
+        const request = getMockRequest<AiUsageQuery>(payload)
+        const limit = request?.limit ?? 100
+        const offset = request?.offset ?? 0
+        const records = createMockUsageRecords(offset + limit).slice(offset, offset + limit)
+        return { records, total: 48 }
+      }
+      case 'export_ai_usage':
+        return 48
+      case 'clear_ai_usage':
+        return { removedEvents: 48, removedDailyRows: 7 }
+      case 'translate_ai_batch': {
+        const request = getMockRequest<AiTranslateBatchRequest>(payload)
+        if (!request) throw new Error('Missing mock AI translation request')
+        const profile = aiSettings.profiles.find((item) => item.id === request.profileId)
+        if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
+          const reasoning = 'Dev mock reasoning: tokenize the batch items, translate each segment, then reassemble the bbcode blocks.'
+          const reasoningSteps = reasoning.match(/.{1,24}/g) ?? [reasoning]
+          for (const step of reasoningSteps) {
+            await onEvent('ai://translation-stream', { jobId: request.jobId, kind: 'reasoning', delta: step })
+            await new Promise((resolve) => window.setTimeout(resolve, 40))
+          }
+          const encoded = JSON.stringify(
+            request.items.map((item) => ({
+              id: item.id,
+              translatedText: `AI/${request.targetLocale} · ${item.text}`,
+              detectedLanguage: request.sourceLocale ?? null,
+            })),
+          )
+          for (let index = 0; index < encoded.length; index += 24) {
+            await onEvent('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
+            await new Promise((resolve) => window.setTimeout(resolve, 30))
+          }
+        }
+        return {
+          jobId: request.jobId,
+          profileId: request.profileId ?? aiSettings.defaultProfileId ?? 'mock-profile',
+          model: 'mock-translation-model',
+          items: request.items.map((item) => ({
+            id: item.id,
+            translatedText: `AI/${request.targetLocale} · ${item.text}`,
+            detectedLanguage: request.sourceLocale ?? null,
+            skippedSameLanguage: false,
+          })),
+          reasoning: profile?.enableReasoning
+            ? 'Dev mock reasoning: split the batch items, translated each segment, then reassembled the bbcode blocks.'
+            : null,
+        }
+      }
+      case 'translate_localization_batch': {
+        const request = getMockRequest<LocalizationTranslateBatchRequest>(payload)
+        if (!request) throw new Error('Missing mock localization translation request')
+        const profile =
+          request.engine.kind === 'generative-ai' ? aiSettings.profiles.find((item) => item.id === request.engine.profileId) : undefined
+        if (profile?.streamTranslation || shouldStreamLauncherAiMock()) {
+          // Same as translate_ai_batch: emit content deltas by jobId (no reasoning,
+          // since the workbench has no chain-of-thought control), for manual streaming verification in dev mode.
+          const encoded = JSON.stringify(
+            request.items.map((item) => ({
+              id: item.id,
+              translatedText: `AI/${request.targetLocale} · ${item.text}`,
+              detectedLanguage: request.sourceLocale ?? null,
+            })),
+          )
+          for (let index = 0; index < encoded.length; index += 24) {
+            await onEvent('ai://translation-stream', { jobId: request.jobId, kind: 'content', delta: encoded.slice(index, index + 24) })
+            await new Promise((resolve) => window.setTimeout(resolve, 30))
+          }
+        }
+        const result: LocalizationTranslateBatchResult = {
+          jobId: request.jobId,
+          engine: request.engine,
+          model: request.engine.kind === 'generative-ai' ? 'mock-translation-model' : null,
+          items: request.items.map((item) => ({
+            id: item.id,
+            translatedText: `AI/${request.targetLocale} · ${item.text}`,
+            detectedLanguage: request.sourceLocale ?? null,
+            skippedSameLanguage: false,
+          })),
+          validationIssues: [],
+          usageRecordState: 'recorded',
+          knowledgeTrace: { officialMatches: 0, globalGlossaryMatches: 0, projectGlossaryMatches: 0, translationMemoryMatches: 0 },
+          knowledgeRevision: 'disabled',
+        }
+        return result
+      }
+      case 'cancel_ai_job':
+        return null
+      case 'read_ai_translation_cache': {
+        const request = getMockRequest<Pick<AiTranslationCacheEntry, 'scopeKey' | 'targetLocale' | 'sourceHash'>>(payload)
+        if (!request) return null
+        const cached = aiCache.get(`${request.scopeKey}:${request.targetLocale}`)
+        return cached?.sourceHash === request.sourceHash ? cached : null
+      }
+      case 'write_ai_translation_cache': {
+        const entry =
+          payload && typeof payload === 'object' && 'entry' in payload ? (payload as { entry: AiTranslationCacheEntry }).entry : null
+        if (!entry) throw new Error('Missing mock AI cache entry')
+        aiCache.set(`${entry.scopeKey}:${entry.targetLocale}`, entry)
+        return entry
+      }
+      case 'get_ai_translation_cache_stats':
+        return {
+          entryCount: aiCache.size,
+          sizeBytes: [...aiCache.values()].reduce((total, entry) => total + entry.translatedText.length, 0),
+        }
+      case 'clear_ai_translation_cache':
+        aiCache.clear()
+        return { entryCount: 0, sizeBytes: 0 }
+      case 'load_launcher_settings':
+        return settings
+      case 'save_launcher_settings':
+        settings = { ...settings, ...getMockRequest<Partial<LauncherSettings>>(payload) }
+        return settings
+      case 'load_launcher_library_state':
+        exposeLauncherCustomSortState(libraryState)
+        return libraryState
+      case 'save_launcher_library_state':
+        libraryState = getMockRequest<LauncherLibraryState>(payload) ?? libraryState
+        exposeLauncherCustomSortState(libraryState)
+        return libraryState
+      case 'load_launcher_library_covers':
+        return { covers: [] } satisfies LauncherLibraryCoversState
+      case 'load_launcher_download_queue':
+        return queueState
+      case 'save_launcher_download_queue':
+        queueState = getMockRequest<LauncherDownloadQueueState>(payload) ?? queueState
+        return queueState
+      case 'scan_launcher_library':
+        return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, mods } satisfies LauncherLibraryScanResult
+      case 'load_launcher_runtime_info':
+        return { gameVersion: '1.6.15', smapiVersion: mockSmapiInstalledVersion } satisfies LauncherRuntimeInfo
+      case 'check_smapi_update': {
+        const updateAvailable = mockSmapiInstalledVersion !== MOCK_SMAPI_TARGET_VERSION
+        return {
+          installedVersion: mockSmapiInstalledVersion,
+          gameVersion: '1.6.15',
+          latestStableVersion: MOCK_SMAPI_TARGET_VERSION,
+          targetVersion: MOCK_SMAPI_TARGET_VERSION,
+          updateAvailable,
+          versionSource: mockSmapiNexusSource ? 'nexus' : 'github',
+          requiredByMods: updateAvailable
+            ? [
+                { modId: 'ModForge.Dev.Mock01', modName: 'Mock Mod 01', minimumApiVersion: '4.1.0' },
+                { modId: 'ModForge.Dev.Mock10', modName: 'Mock Mod 10', minimumApiVersion: '4.1.0' },
+              ]
+            : [],
+          download: updateAvailable
+            ? mockSmapiNexusSource
+              ? {
+                  source: 'nexus',
+                  sizeBytes: 1_024,
+                  assetName: MOCK_NEXUS_INSTALLER_FILE_NAME,
+                  nexusModPageUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400',
+                  nexusDownloadPopupUrl: 'https://www.nexusmods.com/stardewvalley/mods/2400?tab=files&file_id=123456',
+                  nexusFileId: 123456,
+                }
+              : {
+                  source: 'github',
+                  url: 'https://smapi.io/download/SMAPI-4.1.10-installer.zip',
+                  sha256: 'dev-mock-smapi-sha256',
+                  sizeBytes: 1_024,
+                  assetName: 'SMAPI-4.1.10-installer.zip',
+                }
+            : null,
+        } satisfies SmapiUpdateCheckResult
+      }
+      case 'install_smapi_update': {
+        const request = getMockRequest<InstallSmapiUpdateRequest>(payload)
+        if (!request?.targetVersion?.trim()) {
+          throw new Error('targetVersion is required.')
+        }
+        if (!request.downloadUrl?.trim() && !request.localFilePath?.trim()) {
+          throw new Error('downloadUrl or localFilePath is required.')
+        }
+        mockSmapiInstalledVersion = request.targetVersion.trim()
+        return { success: true, installedVersion: mockSmapiInstalledVersion } satisfies InstallSmapiUpdateResult
+      }
+      case 'find_smapi_installer_downloads': {
+        // One satisfying Nexus-named candidate; junk files are ignored by the scanner.
+        return {
+          candidates: [
+            {
+              path: `C:\\Users\\Mock\\Downloads\\${MOCK_NEXUS_INSTALLER_FILE_NAME}`,
+              fileName: MOCK_NEXUS_INSTALLER_FILE_NAME,
+              version: MOCK_SMAPI_TARGET_VERSION,
+              sizeBytes: 1_024,
+              doubleZipped: false,
+              naming: 'nexus',
+              compatible: true,
+              satisfiesTarget: true,
+            },
+          ],
+        } satisfies FindSmapiInstallerDownloadsResult
+      }
+      case 'open_launcher_url':
+        return undefined
+      case 'load_launcher_remote_mod_detail': {
+        const request = getMockRequest<{ modId?: number; includeFiles?: boolean }>(payload)
+        const modId = request?.modId ?? 20001
+        const index = Math.max(1, modId - 20000)
+        const includeFiles = request?.includeFiles ?? true
+        // Rich detail so the launcher mod detail panel can exercise the AI
+        // translation streaming (multiple bbcode segments + changelog lines).
+        return {
+          modId,
+          title: `Mock Nexus Mod ${String(index).padStart(2, '0')}`,
+          summary: 'Adds a seasonal crop with [b]custom textures[/b] and a small [i]quest chain[/i] for the valley.',
+          description: [
+            'This mod reworks the forest path with [b]new sprites[/b], a [color=#d4a15f]golden hour[/color] palette and gentle particle effects. The content ships as ContentPatcher packs with per-season variants for every climate.',
+            '[b]Features[/b]',
+            '[list]',
+            '[*][b]Four seasons[/b] of retextures, plus a [color=#7fc97f]spring-only[/color] bonus variant.',
+            '[*]Configurable intensity through [b]Generic Mod Config Menu[/b].',
+            '[*]Compatible with [url=https://smapi.io]SMAPI[/url] 4.0+ and Stardew Valley 1.6.',
+            '[/list]',
+            'Requires ContentPatcher. The optional seasonal variant is recommended for full visual parity. Installation is a standard drop-in folder copy; existing saves keep working.',
+          ].join('\n\n'),
+          author: 'Mock Author',
+          version: '2.1.0',
+          modUrl: `https://www.nexusmods.com/stardewvalley/mods/${modId}`,
+          imageUrl: null,
+          galleryImages: [],
+          category: 'Misc',
+          downloads: 12_345,
+          endorsements: 678,
+          tags: ['Content Patcher', 'Visual'],
+          updatedAt: '2025-03-10T12:00:00Z',
+          fileSize: 2_400_000,
+          primaryFileId: 90_001,
+          primaryFileName: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
+          primaryFileVersion: '2.1.0',
+          primaryFileCategory: 'MAIN',
+          primaryFileChangelog: [
+            '2.1.0 — Added golden-hour palette and per-season variants.',
+            '2.0.2 — Fixed winter sprite clipping on the riverbank.',
+            '2.0.0 — Initial release with forest path rework.',
+          ],
+          files: includeFiles
+            ? [
+                {
+                  fileId: 90_001,
+                  name: `Mock Mod ${String(index).padStart(2, '0')} 2.1.0.zip`,
+                  version: '2.1.0',
+                  category: 'MAIN',
+                  primary: true,
+                  sizeBytes: 2_400_000,
+                  managerDownloadEnabled: true,
+                  changelog: ['2.1.0 — Added golden-hour palette and per-season variants.'],
+                },
+                {
+                  fileId: 90_002,
+                  name: 'Optional seasonal variant.zip',
+                  version: '2.0.0',
+                  category: 'OPTIONAL',
+                  primary: false,
+                  sizeBytes: 860_000,
+                  managerDownloadEnabled: true,
+                  changelog: ['2.0.0 — Initial seasonal variant release.'],
+                },
+              ]
+            : [],
+          requirements: [
+            { name: 'Content Patcher', notes: 'Required for loading content packs.', modId: 1915 },
+            { name: 'SMAPI', notes: 'Required mod loader.', external: true },
+          ],
+        } satisfies LauncherRemoteModDetail
+      }
+      case 'load_launcher_gmcm_probe_diagnostics':
+        // Quiet ready status for settings mock screenshots; keep warning for launcher-only mock.
+        return {
+          status: isSettingsMockPreferred() ? 'ready' : 'warning',
+          probeAssemblyPath: isSettingsMockPreferred() ? 'E:\\ModForge Dev\\gmcm-reader.dll' : null,
+          dotnetPath: 'dotnet',
+          dotnetAvailable: isSettingsMockPreferred(),
+          net6RuntimeAvailable: isSettingsMockPreferred(),
+          installedRuntimes: isSettingsMockPreferred() ? ['.NET 6.0'] : [],
+          warnings: isSettingsMockPreferred() ? [] : ['browser-dev-mock'],
+          repairActions: isSettingsMockPreferred() ? [] : ['run-desktop-host'],
+        } satisfies LauncherGmcmProbeDiagnosticsResult
+      case 'load_launcher_nexus_diagnostics':
+      case 'restart_launcher_nexus_diagnostics':
+        // Settings visual mock: no warning toasts over the dialog screenshots.
+        if (isSettingsMockPreferred()) {
+          return {
+            routes: DEV_LAUNCHER_NEXUS_DIAGNOSTICS.routes.map((route) => ({
+              ...route,
+              status: 'success' as const,
+              available: true,
+              attempts: 1,
+              maxAttempts: 3,
+              message: 'OK',
+            })),
+          } satisfies LauncherNexusDiagnosticsResult
+        }
+        return DEV_LAUNCHER_NEXUS_DIAGNOSTICS
+      case 'set_launcher_nexus_force_offline':
+        return { routes: [] } satisfies LauncherNexusDiagnosticsResult
+      case 'load_suppressed_launcher_update_mod_ids':
+        return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, modIds: [] } satisfies LauncherSuppressedUpdateModIdsResult
+      case 'load_cached_launcher_updates':
+        return null
+      case 'check_launcher_updates':
+        return { modsPath: DEV_LAUNCHER_MOCK_MODS_PATH, checkedAtMs: Date.now(), updates: [] } satisfies LauncherUpdatesResult
+      case 'set_launcher_mod_enabled': {
+        const setEnabledRequest = getMockRequest<{ modPath?: string; enabled?: boolean }>(payload)
+        return {
+          absolutePath: String(setEnabledRequest?.modPath ?? ''),
+          enabled: Boolean(setEnabledRequest?.enabled),
+        }
+      }
+      case 'load_launcher_mod_config': {
+        const request = getMockRequest<{ modPath?: string }>(payload)
+        const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
+        return {
+          modPath,
+          configPath: `${modPath}\\config.json`,
+          configExists: true,
+          schemaSources: ['content-patcher', 'config-json'],
+          warnings: ['GMCM probe is unavailable in the browser dev mock.'],
+          probeStatus: 'unavailable',
+          fields: [
+            {
+              key: 'EnableFeature',
+              label: 'Enable feature',
+              description: 'Development mock boolean option.',
+              section: 'General',
+              fieldType: 'boolean',
+              value: true,
+              defaultValue: true,
+              allowValues: [],
+              allowBlank: false,
+              allowMultiple: false,
+              editable: true,
+              source: 'content-patcher',
+            },
+            {
+              key: 'Mode',
+              label: 'Mode',
+              description: null,
+              section: 'General',
+              fieldType: 'string',
+              value: 'balanced',
+              defaultValue: 'balanced',
+              allowValues: ['balanced', 'fast', 'safe'],
+              allowBlank: false,
+              allowMultiple: false,
+              editable: true,
+              source: 'content-patcher',
+            },
+          ],
+        }
+      }
+      case 'save_launcher_mod_config': {
+        const request = getMockRequest<{ modPath?: string }>(payload)
+        const modPath = request?.modPath ?? `${DEV_LAUNCHER_MOCK_MODS_PATH}\\Dev Mod`
+        return {
+          modPath,
+          configPath: `${modPath}\\config.json`,
+          configExists: true,
+          schemaSources: ['config-json'],
+          warnings: [],
+          probeStatus: 'unavailable',
+          fields: [],
+        }
+      }
+      case 'plugin:dialog|open': {
+        const options = (payload as { options?: { directory?: boolean; multiple?: boolean } } | null)?.options
+        if (options?.directory) return 'E:\\ModForge Dev\\Imports'
+        if (options?.multiple) return ['E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png', 'E:\\ModForge Dev\\Imports\\Dev Tilesheet B.png']
+        return 'E:\\ModForge Dev\\Imports\\Dev Tilesheet A.png'
+      }
+      case 'open_launcher_path':
+      case 'record_launcher_image_failure':
+      case 'write_frontend_log':
+      case 'print_host_runtime_diagnostics':
+        return null
+      case 'get_launcher_backup_directory':
+        return 'E:\\ModForge Dev\\Backups'
+      case 'validate_nexus_api_key':
+        return {
+          userName: 'Dev User',
+          avatarUrl: null,
+          profileUrl: null,
+          isPremium: true,
+          dailyRemaining: null,
+          hourlyRemaining: null,
+          dailyResetAt: null,
+          hourlyResetAt: null,
+        }
+      case 'start_nexus_sso':
+        return { ssoId: 'dev-sso', status: 'idle' }
+      case 'get_nexus_sso_status':
+        return { status: 'idle', isPremium: false }
+      case 'cancel_nexus_sso':
+        return null
+      default:
+        throw new Error(`Unhandled dev launcher mock command: ${command}`)
+    }
+  }
+}
+
+/** Installs a query-param gated Tauri IPC mock for browser-only launcher UI debugging. */
+export function installDevLauncherMock() {
+  if (!shouldEnableDevLauncherMock()) {
+    return
+  }
+
+  const handleDevLauncherCommand = createDevLauncherMockIpcHandler()
+  mockWindows('main')
+  mockConvertFileSrc('windows')
+  mockIPC(handleDevLauncherCommand, { shouldMockEvents: true })
 }
