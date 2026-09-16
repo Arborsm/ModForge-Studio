@@ -26,6 +26,8 @@ export type LauncherLibraryPageProps = {
   routeEnterSequence?: number
   /** False while the library route is hidden (cached pages stay mounted). */
   routeActive?: boolean
+  /** True inside the Android WebView launcher host; surfaces a tap-friendly install entry. */
+  androidHost?: boolean
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   onSearchDiscover?: (query: string) => void
@@ -46,6 +48,7 @@ export function LauncherLibraryPageContent({
   launchGameBusy,
   routeEnterSequence = 0,
   routeActive = true,
+  androidHost = false,
   onLaunchGame,
   onQueueDownload,
   onSearchDiscover,
@@ -207,6 +210,7 @@ export function LauncherLibraryPageContent({
         <section className="launcher-library-page">
           <LauncherLibraryHeader
             key={`launcher-library-header:${routeEnterSequence}`}
+            androidHost={androidHost}
             editState={{
               editMode,
               editCount,

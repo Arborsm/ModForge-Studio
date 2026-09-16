@@ -42,6 +42,12 @@ type TopMenuBarProps = {
   theme: ThemeMode
   onToggleTheme: () => void
   desktopHost: boolean
+  /**
+   * Whether the desktop window control group (minimize / maximize / close) is
+   * shown; hosts without desktop window semantics (e.g. Android) hide it.
+   * Defaults to `desktopHost` for callers that never split the two concepts.
+   */
+  windowControls?: boolean
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => void
@@ -83,6 +89,7 @@ export default function TopMenuBar({
   theme,
   onToggleTheme,
   desktopHost,
+  windowControls = desktopHost,
   onMinimizeWindow,
   onToggleMaximizeWindow,
   onCloseWindow,
@@ -429,7 +436,7 @@ export default function TopMenuBar({
           >
             <Settings2 className="h-4 w-4" />
           </button>
-          {desktopHost ? (
+          {desktopHost && windowControls ? (
             <div
               className="border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
               data-top-menu-no-drag="true"

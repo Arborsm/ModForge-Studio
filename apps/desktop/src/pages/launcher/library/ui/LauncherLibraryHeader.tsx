@@ -30,6 +30,8 @@ import type { LauncherPackPreset } from '@features/launcher/model/types'
 import type { LibrarySortMode } from '../model/launcherLibraryDisplay'
 
 type LauncherLibraryHeaderProps = {
+  /** True inside the Android WebView launcher host; drag install is replaced by a visible file picker button. */
+  androidHost?: boolean
   editState: {
     editMode: boolean
     editCount: number
@@ -103,6 +105,7 @@ type LauncherLibraryHeaderProps = {
 }
 
 export function LauncherLibraryHeader({
+  androidHost = false,
   editState,
   menus,
   menuRefs,
@@ -484,6 +487,18 @@ export function LauncherLibraryHeader({
           >
             <RefreshCw className="h-4 w-4" />
           </button>
+
+          {androidHost ? (
+            <button
+              type="button"
+              className="launcher-library-icon-button"
+              onClick={onInspectArchive}
+              aria-label={copy.actions.installArchive}
+              title={copy.actions.installArchive}
+            >
+              <FolderArchive className="h-4 w-4" />
+            </button>
+          ) : null}
 
           <div className="launcher-library-popover-shell launcher-library-actions-menu-shell" ref={actionsMenuRef}>
             <button

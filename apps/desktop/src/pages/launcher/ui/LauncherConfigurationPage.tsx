@@ -62,6 +62,8 @@ import { ConfigAccountCard, ConfigCompletionRail, ConfigDownloadDefaults, type C
 
 type LauncherConfigurationPageProps = {
   debugEnabled: boolean
+  /** True inside the Android WebView launcher host; hides the desktop .NET GMCM probe surfaces. */
+  androidHost: boolean
   onToggleDebugMode: () => void
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   settingsState: ReturnType<typeof useLauncherSettings>
@@ -1413,6 +1415,7 @@ function ConfigSmapiUpdateCard({
 
 export function LauncherConfigurationPage({
   debugEnabled,
+  androidHost,
   onToggleDebugMode,
   onLauncherDiagnosticsUpdate,
   settingsState,
@@ -1446,7 +1449,9 @@ export function LauncherConfigurationPage({
   const gmcmProbeStepTone = getProbeStatusTone(gmcmProbeDiagnostics)
   const gmcmPreferenceReady = settingsState.state === 'ready'
   const gmcmParsingEnabled = settingsState.settings.gmcmParsingEnabled !== false
-  const hasGmcmProbeIssue = gmcmParsingEnabled && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
+  // The .NET GMCM probe cannot run on Android; mod config editing there uses the pure JSON path.
+  const gmcmProbeAvailable = !androidHost
+  const hasGmcmProbeIssue = gmcmParsingEnabled && gmcmProbeAvailable && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
   const stepItems: ConfigStep[] = [
     {
       id: 'paths',
@@ -1469,11 +1474,13 @@ export function LauncherConfigurationPage({
     {
       id: 'gmcm-probe',
       label: copy.settings.stepGmcmProbe,
-      detail: !gmcmParsingEnabled
-        ? copy.configuration.gmcmParsingDisabled
-        : hasGmcmProbeIssue
-          ? copy.settings.gmcmProbeReview
-          : copy.settings.gmcmProbeReady,
+      detail: !gmcmProbeAvailable
+        ? copy.configuration.gmcmProbeUnavailable
+        : !gmcmParsingEnabled
+          ? copy.configuration.gmcmParsingDisabled
+          : hasGmcmProbeIssue
+            ? copy.settings.gmcmProbeReview
+            : copy.settings.gmcmProbeReady,
       tone: hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok',
     },
   ]
@@ -1658,7 +1665,7 @@ export function LauncherConfigurationPage({
     }
   }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
   useEffect(() => {
-    if (!gmcmPreferenceReady || !gmcmParsingEnabled) {
+    if (!gmcmPreferenceReady || !gmcmParsingEnabled || !gmcmProbeAvailable) {
       setGmcmProbeDiagnostics(null)
       setGmcmProbeRefreshing(false)
       return
@@ -1706,7 +1713,16 @@ export function LauncherConfigurationPage({
     return () => {
       disposed = true
     }
-  }, [copy, debugEnabled, diagnosticsRestartNonce, gmcmParsingEnabled, gmcmPreferenceReady, handleNavigateToGmcmProbe, launcherPort])
+  }, [
+    copy,
+    debugEnabled,
+    diagnosticsRestartNonce,
+    gmcmParsingEnabled,
+    gmcmPreferenceReady,
+    gmcmProbeAvailable,
+    handleNavigateToGmcmProbe,
+    launcherPort,
+  ])
   const handleViewLogs = () => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {
@@ -1825,19 +1841,21 @@ export function LauncherConfigurationPage({
             <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
 
-          <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={4} className="launcher-config-wide-panel">
-            <ConfigGmcmProbePanel
-              copy={copy}
-              diagnostics={gmcmProbeDiagnostics}
-              refreshing={gmcmProbeRefreshing}
-              onRefreshDiagnostics={handleRefreshDiagnostics}
-              detailsOpen={gmcmProbeDetailsOpen}
-              onOpenDetails={handleOpenGmcmProbeDetails}
-              onCloseDetails={() => setGmcmProbeDetailsOpen(false)}
-              onDownloadDotnet={handleDownloadDotnet}
-              enabled={gmcmParsingEnabled}
-            />
-          </LoadingMotionReveal>
+          {!gmcmProbeAvailable ? null : (
+            <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={4} className="launcher-config-wide-panel">
+              <ConfigGmcmProbePanel
+                copy={copy}
+                diagnostics={gmcmProbeDiagnostics}
+                refreshing={gmcmProbeRefreshing}
+                onRefreshDiagnostics={handleRefreshDiagnostics}
+                detailsOpen={gmcmProbeDetailsOpen}
+                onOpenDetails={handleOpenGmcmProbeDetails}
+                onCloseDetails={() => setGmcmProbeDetailsOpen(false)}
+                onDownloadDotnet={handleDownloadDotnet}
+                enabled={gmcmParsingEnabled}
+              />
+            </LoadingMotionReveal>
+          )}
           <div className="launcher-config-wide-panel">
             <LauncherConfigurationMoreTools
               debugEnabled={debugEnabled}

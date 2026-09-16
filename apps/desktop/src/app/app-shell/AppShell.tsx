@@ -18,6 +18,7 @@ import {
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 } from '@platform/host'
+import { isAndroidHost } from '@platform/android'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
@@ -149,6 +150,9 @@ export default function App() {
   const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
   const desktopHost = usePreferencesStore((state) => state.desktopHost)
   const hostAvailable = desktopHost || canUseDesktopHost()
+  // Mobile launcher host: no desktop window chrome and no .NET GMCM probe; the
+  // launcher trims those surfaces instead of branching on user-agent strings.
+  const androidHost = isAndroidHost()
   const debugEnabled = usePreferencesStore((state) => state.debugEnabled)
   const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
   const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
@@ -700,6 +704,7 @@ export default function App() {
                 page={launcherPage}
                 debugEnabled={debugEnabled}
                 desktopHost={hostAvailable}
+                androidHost={androidHost}
                 theme={theme}
                 locale={locale}
                 onToggleTheme={() => {
