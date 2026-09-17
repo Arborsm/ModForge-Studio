@@ -76,7 +76,8 @@ et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签�
 4. SMAPI 更新：检查 SMAPI-Android-1.6 最新 release → 下载（进度事件）→ SHA-256 → 解压进程序集目录；或用本地已拷入的 zip 安装。
 5. mod 配置：纯 JSON 表单（CP ConfigSchema / options.json / config.json）。
 6. 启动游戏：版本门槛校验 → SMAPIActivity 拉起游戏。
-7. 返回键：WebView 可后退则后退，否则回到桌面（App 保活）。
+7. 返回键：SPA 收到 `android:back` 事件后优先关闭最上层浮层（下载/通知页面），150ms 内回执 `bridge.backHandled()` 则停留，否则回到桌面（App 保活）。
+8. **移动端 UX 走查**（≤640px 或 `?mfAndroidMock=1` dev mock 可预览）：底部导航四页（图标+标签）；顶栏只有品牌+下载/通知/设置；下载与通知是全屏页面（返回箭头），mod 详情三入口均为全屏页头返回式；设置窗口全屏化；配置页「查看日志」打开运行日志对话框（`read_launcher_log`，安卓侧 LogCapture tee 采集游戏/SMAPI/.NET 输出到 `files/launcher-log.txt`）；移动端 toast 只显示最新一条、常显关闭；工作台模式在安卓端完全不可达（持久化 workbench 状态会被强制回 launcher）。
 
 ### 2.4 调试手段（已具备）
 

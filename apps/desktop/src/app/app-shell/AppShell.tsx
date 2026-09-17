@@ -8,6 +8,7 @@ import {
   forceCloseCurrentWindow,
   isCurrentWindowMaximized,
   isCurrentWindowFullscreen,
+  listenToAndroidBackRequest,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
@@ -18,7 +19,7 @@ import {
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 } from '@platform/host'
-import { isAndroidHost } from '@platform/android'
+import { isAndroidHost, notifyAndroidBackHandled } from '@platform/android'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
 import { canEnterWorkbench, normalizeAppShellState, resolveStartupAppMode } from '@shared/lib/app-state/appShellState'
@@ -60,6 +61,7 @@ import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { registerAppCommandHandler } from '@shared/lib/app-runtime/appCommands'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
+import { useMobilePageStore } from '@pages/launcher/ui/mobile/mobilePageStore'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { AiSettingsTab, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 import { QuitDialog } from '@widgets/quit-dialog'
@@ -636,6 +638,40 @@ export default function App() {
     document.addEventListener('contextmenu', handler)
     return () => document.removeEventListener('contextmenu', handler)
   }, [])
+
+  useEffect(() => {
+    // Android system back: close the topmost launcher utility page and claim the
+    // press; with nothing to close the activity moves the task to the background.
+    if (!androidHost) {
+      return
+    }
+
+    let disposed = false
+    let unlisten: (() => void) | null = null
+
+    void ignoreError(
+      listenToAndroidBackRequest(() => {
+        const { page, closePage } = useMobilePageStore.getState()
+        if (page) {
+          closePage()
+          notifyAndroidBackHandled()
+        }
+      }).then((nextUnlisten: () => void) => {
+        if (disposed) {
+          nextUnlisten()
+          return
+        }
+
+        unlisten = nextUnlisten
+      }),
+      'appShell.listenAndroidBack',
+    )
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [androidHost])
 
   useEffect(() => {
     // Lower FSD layers (plugin manager) request compat-plugin hot-reload via
