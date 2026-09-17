@@ -43,4 +43,9 @@ export type LauncherUpdatesCopy = {
   copyLogsAction: string
   blockedTitle: string
   blockedDetail: string
+  /** Android-host-only chrome: pinned batch button with live count, status line. */
+  mobile: {
+    updateSelectedCount: (count: number) => string
+    statusLine: (count: number) => string
+  }
 }

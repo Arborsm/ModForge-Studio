@@ -9,10 +9,20 @@ import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/helper'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 
-const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
-const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))
+const LauncherDiscoverPage = lazy(() =>
+  import('./LauncherDiscoverPage').then((module) => ({
+    default: module.LauncherDiscoverPage,
+  })),
+)
+const LauncherUpdatesPage = lazy(() =>
+  import('./LauncherUpdatesPage').then((module) => ({
+    default: module.LauncherUpdatesPage,
+  })),
+)
 const LauncherConfigurationPage = lazy(() =>
-  import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
+  import('./LauncherConfigurationPage').then((module) => ({
+    default: module.LauncherConfigurationPage,
+  })),
 )
 
 const INITIAL_CACHED_PAGES = new Set<LauncherPage>(['library'])
@@ -170,6 +180,7 @@ export default function LauncherShell({
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
                 routeActive={activePage === 'updates'}
+                androidHost={androidHost}
               />
             </Suspense>
           ) : null}

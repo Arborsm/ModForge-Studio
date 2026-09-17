@@ -114,6 +114,7 @@ const ZUSTAND_REGISTRY = new Set([
   'src/pages/workbench/workspaces/map/model/mapEditorSessions.ts', // 模块 session（地图编辑器会话，跨模块切换存活）
   'src/shared/lib/app-state/assetLibraryFocusStore.ts', // 跨模块 handoff（补充机制）
   'src/shared/lib/app-state/launcherOverlayDismissStore.ts', // 跨模块一次性信号（补充机制，epoch）
+  'src/shared/lib/app-state/launcherMobileChromeStore.ts', // 跨模块 handoff（补充机制）：launcher 页面向顶栏注入搜索/标题槽
   'src/shared/lib/app-state/preferencesStore.ts', // 全局偏好主 store
 ])
 
