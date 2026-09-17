@@ -77,6 +77,8 @@ export function renderAndroidBridge(manifest) {
   lines.push('')
   lines.push('using System.Text.Json;')
   lines.push('using System.Text.Json.Serialization;')
+  lines.push('using System.Text.Json.Serialization.Metadata;')
+  lines.push('using System.Threading.Tasks;')
   lines.push('using SMAPIGameLoader.Services;')
   lines.push('')
   lines.push('namespace SMAPIGameLoader.Bridge;')
