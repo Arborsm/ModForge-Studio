@@ -228,9 +228,11 @@ function LauncherModCardContent({ content, cover, state, contextMenu, actions }:
             <p className="launcher-mod-card-title">{title}</p>
             {normalizedAuthor || versionLabel ? (
               <p className="launcher-mod-card-meta">
-                <span className="launcher-mod-card-author" data-tooltip={normalizedAuthor || undefined}>
-                  {normalizedAuthor || copy.common.none}
-                </span>
+                {normalizedAuthor ? (
+                  <span className="launcher-mod-card-author" data-tooltip={normalizedAuthor}>
+                    {normalizedAuthor}
+                  </span>
+                ) : null}
                 {versionLabel ? (
                   updateTooltip ? (
                     <span
@@ -246,15 +248,11 @@ function LauncherModCardContent({ content, cover, state, contextMenu, actions }:
                       {versionLabel}
                     </span>
                   )
-                ) : (
-                  <span className="launcher-mod-card-version" data-tooltip={copy.common.none}>
-                    {copy.common.none}
-                  </span>
-                )}
+                ) : null}
               </p>
-            ) : (
-              <p className="launcher-mod-card-meta">{meta || copy.common.none}</p>
-            )}
+            ) : meta ? (
+              <p className="launcher-mod-card-meta">{meta}</p>
+            ) : null}
           </div>
         </button>
       </div>

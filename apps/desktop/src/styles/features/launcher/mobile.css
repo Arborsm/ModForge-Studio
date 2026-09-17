@@ -128,3 +128,83 @@
     border-radius: 0.5rem 0.5rem 0 0;
   }
 }
+
+/* Phone widths: tighten the library console chrome toward the mock density. */
+@media (max-width: 640px) {
+  .launcher-library-console {
+    border-radius: 12px;
+  }
+
+  .launcher-library-icon-button {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .launcher-library-search {
+    padding-inline: 0.75rem;
+  }
+
+  .launcher-library-primary-action {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+
+  /* The brand mark gets a light bordered tile like the mock top bar. */
+  .top-menu-brand-icon {
+    background: var(--bg-panel);
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 9px;
+    padding: 2px;
+    box-shadow: none;
+  }
+}
+
+/* Phone widths: match the mock — cards sit directly on the page background
+   (no outer panel), the console title tightens, and the bottom nav uses the
+   Material 3 soft pill instead of a solid accent block. */
+@media (max-width: 640px) {
+  .launcher-library-shell {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .launcher-library-content {
+    padding-inline: 0.25rem;
+  }
+
+  .launcher-library-title-button {
+    font-size: 1.125rem;
+  }
+
+  .launcher-library-title-button strong,
+  .launcher-library-title-button .launcher-library-title-menu-trigger-label {
+    font-size: 1.125rem;
+  }
+
+  /* With no author the lone version number hugs the name instead of floating right. */
+  .launcher-mod-card-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .top-menu-gooey-nav.gooey-nav-container {
+    --gooey-active-bg: var(--accent-soft);
+  }
+
+  .top-menu-gooey-nav nav ul li.active {
+    color: var(--accent);
+  }
+
+  .top-menu-gooey-nav nav ul li.active .gooey-nav-item-badge {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: 0 0 0 0.125rem var(--bg-panel);
+  }
+}
+
+@media (max-width: 640px) {
+  .launcher-mod-card-version {
+    text-align: left;
+    justify-self: start;
+  }
+}
