@@ -651,6 +651,17 @@ export default function App() {
 
     void ignoreError(
       listenToAndroidBackRequest(() => {
+        // Overlay priority: settings window > bottom sheet > mod detail drawer.
+        // Each layer owns an Escape handler, so synthesize the keydown on the
+        // React root and let the topmost layer consume it.
+        const overlayRoot = ['.settings-window-backdrop', '.mobile-sheet-root', '.launcher-library-drawer-open']
+          .map((selector) => document.querySelector(selector))
+          .find((node): node is Element => Boolean(node))
+        if (overlayRoot) {
+          document.getElementById('root')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          notifyAndroidBackHandled()
+          return
+        }
         const { page, closePage } = useMobilePageStore.getState()
         if (page) {
           closePage()
