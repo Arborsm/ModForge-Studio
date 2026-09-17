@@ -485,18 +485,27 @@ function ConfigPathPanel({
   settingsState,
   copy,
   browseLabel,
+  androidHost,
 }: {
   settingsState: ReturnType<typeof useLauncherSettings>
   copy: LauncherCopy
   browseLabel: string
+  /** True inside the Android WebView host; the desktop game-path row is hidden there. */
+  androidHost: boolean
 }) {
   const launcherPort = useLauncherPort()
   const rows = [
-    {
-      field: 'gamePath' as const,
-      label: copy.fields.gamePath,
-      value: settingsState.settings.gamePath,
-    },
+    // The game directory is a desktop-launcher concept: the Android host ships
+    // the game inside its own app data and never exposes a user-picked path.
+    ...(androidHost
+      ? []
+      : [
+          {
+            field: 'gamePath' as const,
+            label: copy.fields.gamePath,
+            value: settingsState.settings.gamePath,
+          },
+        ]),
     {
       field: 'modsPath' as const,
       label: copy.fields.modsPath,
@@ -1820,7 +1829,7 @@ export function LauncherConfigurationPage({
             </LoadingMotionReveal>
 
             <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} />
+              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
             </LoadingMotionReveal>
 
             <LoadingMotionReveal itemId="launcher-config-network" index={3}>

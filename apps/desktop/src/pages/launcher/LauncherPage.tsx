@@ -253,6 +253,7 @@ export function LauncherPage({
       <TopMenuBar
         appMode="launcher"
         onAppModeChange={onAppModeChange}
+        modeSwitchable={!androidHost}
         theme={theme}
         onToggleTheme={onToggleTheme}
         desktopHost={desktopHost}

@@ -1,7 +1,22 @@
 /**
  * @file Top menu bar component: hosts mode switching, project menu, launcher navigation, and window controls.
  */
-import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
+import {
+  BookOpenText,
+  ChevronDown,
+  Compass,
+  Download,
+  LayoutDashboard,
+  Minus,
+  Moon,
+  RefreshCw,
+  Rocket,
+  Settings2,
+  Square,
+  Stethoscope,
+  Sun,
+  X,
+} from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode } from '@locales/api'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
@@ -39,6 +54,11 @@ export type TopMenuBarProjectMenu = {
 type TopMenuBarProps = {
   appMode: AppMode
   onAppModeChange: (mode: AppMode) => void
+  /**
+   * Whether the launcher/workbench mode switcher is rendered. Hosts locked to
+   * the launcher (Android) pass `false`; desktop keeps the default `true`.
+   */
+  modeSwitchable?: boolean
   theme: ThemeMode
   onToggleTheme: () => void
   desktopHost: boolean
@@ -86,6 +106,7 @@ function formatLauncherNavBadgeCount(count: number) {
 export default function TopMenuBar({
   appMode,
   onAppModeChange,
+  modeSwitchable = true,
   theme,
   onToggleTheme,
   desktopHost,
@@ -163,39 +184,41 @@ export default function TopMenuBar({
             <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
           </div>
 
-          <div
-            className="top-menu-mode-segment pointer-events-auto"
-            role="group"
-            aria-label={copy.shell.modeLabel}
-            data-top-menu-no-drag="true"
-          >
-            <button
-              type="button"
-              className="top-menu-mode-option"
-              data-active={launcherModeActive ? 'true' : 'false'}
-              aria-pressed={launcherModeActive}
-              title={copy.shell.launcher}
-              onClick={() => {
-                if (!launcherModeActive) onAppModeChange('launcher')
-              }}
+          {modeSwitchable ? (
+            <div
+              className="top-menu-mode-segment pointer-events-auto"
+              role="group"
+              aria-label={copy.shell.modeLabel}
+              data-top-menu-no-drag="true"
             >
-              <Rocket className="h-4 w-4" aria-hidden="true" />
-              <span>{copy.shell.launcher}</span>
-            </button>
-            <button
-              type="button"
-              className="top-menu-mode-option"
-              data-active={!launcherModeActive ? 'true' : 'false'}
-              aria-pressed={!launcherModeActive}
-              title={copy.shell.workbench}
-              onClick={() => {
-                if (launcherModeActive) onAppModeChange('workbench')
-              }}
-            >
-              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-              <span>{copy.shell.workbench}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                className="top-menu-mode-option"
+                data-active={launcherModeActive ? 'true' : 'false'}
+                aria-pressed={launcherModeActive}
+                title={copy.shell.launcher}
+                onClick={() => {
+                  if (!launcherModeActive) onAppModeChange('launcher')
+                }}
+              >
+                <Rocket className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.shell.launcher}</span>
+              </button>
+              <button
+                type="button"
+                className="top-menu-mode-option"
+                data-active={!launcherModeActive ? 'true' : 'false'}
+                aria-pressed={!launcherModeActive}
+                title={copy.shell.workbench}
+                onClick={() => {
+                  if (launcherModeActive) onAppModeChange('workbench')
+                }}
+              >
+                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.shell.workbench}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
@@ -205,8 +228,15 @@ export default function TopMenuBar({
                 <GooeyNav
                   items={launcherNav.visiblePages.map((page) => {
                     const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
+                    const pageIcon = {
+                      library: <BookOpenText className="h-5 w-5" />,
+                      discover: <Compass className="h-5 w-5" />,
+                      updates: <RefreshCw className="h-5 w-5" />,
+                      configuration: <Stethoscope className="h-5 w-5" />,
+                    }[page]
                     return {
                       label: copy.launcher.pages[page],
+                      icon: pageIcon,
                       badge: updatesBadge ?? undefined,
                     } satisfies GooeyNavItem
                   })}
@@ -438,7 +468,7 @@ export default function TopMenuBar({
           </button>
           {desktopHost && windowControls ? (
             <div
-              className="border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
+              className="top-menu-window-controls border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
               data-top-menu-no-drag="true"
             >
               <button

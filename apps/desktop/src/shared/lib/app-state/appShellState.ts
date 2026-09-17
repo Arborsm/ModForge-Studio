@@ -31,6 +31,28 @@ function isAppMode(value: string | null): value is AppMode {
   return value === 'workbench' || value === 'launcher'
 }
 
+/**
+ * Whether the workbench mode is reachable at all. The Android WebView host is a
+ * launcher-only product; the workbench (map/event editors, desktop workspaces)
+ * is a desktop-only surface and must stay unreachable there.
+ */
+export function canEnterWorkbench(isAndroidHost: boolean): boolean {
+  return !isAndroidHost
+}
+
+/**
+ * Resolves the effective startup shell mode. Persisted `workbench` state from a
+ * previous session must not restore into the workbench on the Android host,
+ * which is locked to the launcher.
+ */
+export function resolveStartupAppMode(isAndroidHost: boolean, persisted: AppMode): AppMode {
+  if (isAndroidHost) {
+    return 'launcher'
+  }
+
+  return persisted
+}
+
 function parseLauncherPage(value: string | null): LauncherPage | null {
   return !!value && launcherPages.includes(value as LauncherPage) ? (value as LauncherPage) : null
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { DEFAULT_APP_SHELL_STATE, normalizeAppShellState } from '@shared/lib/app-state/appShellState'
+import {
+  DEFAULT_APP_SHELL_STATE,
+  canEnterWorkbench,
+  normalizeAppShellState,
+  resolveStartupAppMode,
+} from '@shared/lib/app-state/appShellState'
 
 describe('appShell', () => {
   it('returns defaults when no shell state is provided', () => {
@@ -32,5 +37,14 @@ describe('appShell', () => {
         notificationSoundEnabled: 'loud',
       } as never),
     ).toEqual(DEFAULT_APP_SHELL_STATE)
+  })
+
+  it('locks the Android host to launcher-only shell mode', () => {
+    expect(canEnterWorkbench(true)).toBe(false)
+    expect(canEnterWorkbench(false)).toBe(true)
+    expect(resolveStartupAppMode(true, 'workbench')).toBe('launcher')
+    expect(resolveStartupAppMode(true, 'launcher')).toBe('launcher')
+    expect(resolveStartupAppMode(false, 'workbench')).toBe('workbench')
+    expect(resolveStartupAppMode(false, 'launcher')).toBe('launcher')
   })
 })

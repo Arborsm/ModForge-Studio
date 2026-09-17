@@ -142,6 +142,7 @@
   /* ------------------------------------------------------------------ */
 
   .gooey-nav-item-icon {
+    display: none;
     @apply inline-flex items-center justify-center;
     flex-shrink: 0;
   }

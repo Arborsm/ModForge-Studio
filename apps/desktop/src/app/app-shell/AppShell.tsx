@@ -21,7 +21,7 @@ import {
 import { isAndroidHost } from '@platform/android'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
-import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
+import { canEnterWorkbench, normalizeAppShellState, resolveStartupAppMode } from '@shared/lib/app-state/appShellState'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
@@ -159,9 +159,11 @@ export default function App() {
   const windowIsFullscreen = usePreferencesStore((state) => state.windowIsFullscreen)
   const setTheme = usePreferencesStore((state) => state.setTheme)
   const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
-  const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
+  const [appMode, setAppMode] = useState<AppMode>(resolveStartupAppMode(androidHost, initialShellState.appMode))
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
-  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(
+    canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench',
+  )
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsShellPrepared, setSettingsShellPrepared] = useState(false)
@@ -170,7 +172,7 @@ export default function App() {
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
   const [quitDialogRemember, setQuitDialogRemember] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
-  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
@@ -264,11 +266,11 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
-        if (nextShellState.appMode === 'workbench') {
+        if (canEnterWorkbench(androidHost) && nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
         }
-        setAppMode(nextShellState.appMode)
+        setAppMode(resolveStartupAppMode(androidHost, nextShellState.appMode))
         setLauncherPage(nextShellState.launcherPage)
         setAppUiStateReady(true)
       })
@@ -285,7 +287,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [hostAvailable])
+  }, [androidHost, hostAvailable])
 
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
@@ -396,9 +398,12 @@ export default function App() {
       void preloadSettingsWindow().then(() => {
         if (cancelled) return
         setSettingsShellPrepared(true)
-        cancelWorkbenchPreload = deferToTimeout(() => {
-          void preloadWorkbenchPage()
-        }, 0)
+        // Android never downloads the workbench chunks: it is a launcher-only host.
+        cancelWorkbenchPreload = canEnterWorkbench(androidHost)
+          ? deferToTimeout(() => {
+              void preloadWorkbenchPage()
+            }, 0)
+          : null
       })
     }, 0)
     return () => {
@@ -406,7 +411,7 @@ export default function App() {
       cancelSettingsPreload()
       cancelWorkbenchPreload?.()
     }
-  }, [appMode, appUiStateReady])
+  }, [androidHost, appMode, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -451,7 +456,7 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
+  const workbenchLoaded = canEnterWorkbench(androidHost) && (workbenchHasOpened || appMode === 'workbench')
 
   useEffect(() => {
     if (!hostAvailable) {
@@ -548,13 +553,19 @@ export default function App() {
     }
   }, [hostAvailable, requestGuardedWindowClose])
 
-  const handleAppModeChange = useCallback((nextMode: AppMode) => {
-    if (nextMode === 'workbench') {
-      setWorkbenchHasOpened(true)
-      setWorkbenchActivationKey((current) => current + 1)
-    }
-    setAppMode(nextMode)
-  }, [])
+  const handleAppModeChange = useCallback(
+    (nextMode: AppMode) => {
+      if (!canEnterWorkbench(androidHost) && nextMode === 'workbench') {
+        return
+      }
+      if (nextMode === 'workbench') {
+        setWorkbenchHasOpened(true)
+        setWorkbenchActivationKey((current) => current + 1)
+      }
+      setAppMode(nextMode)
+    },
+    [androidHost],
+  )
 
   const handleSwitchToLauncher = useCallback(() => {
     setAppMode('launcher')
@@ -602,7 +613,7 @@ export default function App() {
     }
 
     const navigation = resolveGuideSurfaceNavigation(guideReplayRequest.surface)
-    if (navigation?.appMode === 'workbench') {
+    if (canEnterWorkbench(androidHost) && navigation?.appMode === 'workbench') {
       setWorkbenchHasOpened(true)
       setWorkbenchActivationKey((current) => current + 1)
       setAppMode('workbench')
@@ -615,7 +626,7 @@ export default function App() {
 
     setSettingsWindowOpen(false)
     useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
-  }, [guideReplayRequest])
+  }, [androidHost, guideReplayRequest])
 
   useEffect(() => {
     // Suppress the native browser context menu app-wide. Interactive surfaces
