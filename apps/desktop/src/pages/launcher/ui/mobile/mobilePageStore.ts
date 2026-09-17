@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 
-export type MobileLauncherPage = 'downloads' | 'notifications'
+export type MobileLauncherPage = 'downloads' | 'notifications' | 'logs'
 
 type MobilePageState = {
   page: MobileLauncherPage | null

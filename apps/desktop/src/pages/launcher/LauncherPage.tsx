@@ -18,6 +18,7 @@ import { dismissNotification, markNotificationsSeen, publishNotification, Notifi
 import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
+import { LauncherLogView } from './ui/LauncherLogDialog'
 import { MobilePageShell } from './ui/mobile/MobilePageShell'
 import { useMobilePageStore } from './ui/mobile/mobilePageStore'
 
@@ -316,11 +317,19 @@ export function LauncherPage({
           />
           {mobilePage ? (
             <MobilePageShell
-              title={mobilePage === 'downloads' ? copy.launcher.downloads.title : notificationsCopy.centerTitle}
+              title={
+                mobilePage === 'downloads'
+                  ? copy.launcher.downloads.title
+                  : mobilePage === 'logs'
+                    ? copy.launcher.configuration.logViewer.title
+                    : notificationsCopy.centerTitle
+              }
               onClose={closeMobilePage}
             >
               {mobilePage === 'downloads' ? (
                 downloadsPopover
+              ) : mobilePage === 'logs' ? (
+                <LauncherLogView active />
               ) : (
                 <NotificationCenter showHeader={false} onAfterCloseOnClickAction={closeMobilePage} />
               )}

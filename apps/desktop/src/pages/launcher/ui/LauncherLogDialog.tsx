@@ -1,6 +1,7 @@
 /**
- * @file Runtime log viewer dialog: shows the tail of the host log file (on Android the
- * LogCapture tee feeds game/SMAPI output into it) with manual refresh and copy.
+ * @file Runtime log viewer: the shared log-tail view plus its two shells — a
+ * Dialog for desktop and a full-screen mobile page opened through the
+ * mobile page stack (configuration page → 查看日志).
  */
 
 import { RefreshCw } from 'lucide-react'
@@ -11,15 +12,15 @@ import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { publishNotification } from '@shared/ui/notifications'
 
-type LauncherLogDialogProps = {
-  open: boolean
-  onClose: () => void
-}
-
 const LOG_DIALOG_NOTIFICATION_ID = 'launcher-log-viewer'
 
-/** Log tail viewer for the launcher configuration page. */
-export function LauncherLogDialog({ open, onClose }: LauncherLogDialogProps) {
+type LauncherLogViewProps = {
+  /** Reloads the tail whenever this turns true after being false. */
+  active: boolean
+}
+
+/** Shared log-tail body: loads on activation, refresh + copy actions included. */
+export function LauncherLogView({ active }: LauncherLogViewProps) {
   const launcherCopy = useEditorCopy().launcher
   const copy = launcherCopy.configuration
   const [page, setPage] = useState<LauncherLogPage | null>(null)
@@ -45,10 +46,10 @@ export function LauncherLogDialog({ open, onClose }: LauncherLogDialogProps) {
   }, [copy.logViewer.loadFailed])
 
   useEffect(() => {
-    if (open) {
+    if (active) {
       void loadLog()
     }
-  }, [loadLog, open])
+  }, [active, loadLog])
 
   useEffect(() => {
     return () => {
@@ -82,6 +83,35 @@ export function LauncherLogDialog({ open, onClose }: LauncherLogDialogProps) {
   }
 
   return (
+    <div className="launcher-log-view">
+      <div className="launcher-log-view-tools">
+        <button type="button" className="launcher-config-button" onClick={() => void loadLog()} disabled={loading}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          {copy.logViewer.refresh}
+        </button>
+        <button
+          type="button"
+          className="launcher-config-button launcher-config-button-brand"
+          onClick={() => void handleCopy()}
+          disabled={!page?.lines.length}
+        >
+          {copied ? copy.logViewer.copyDone : copy.logViewer.copy}
+        </button>
+      </div>
+      <pre className="launcher-log-dialog-output" data-loading={loading ? 'true' : undefined}>
+        {page?.lines.length ? page.lines.join('\n') : copy.logViewer.empty}
+      </pre>
+      {page?.truncated ? <p className="launcher-log-dialog-note">{copy.logViewer.truncatedDetail(page.lines.length)}</p> : null}
+    </div>
+  )
+}
+
+/** Desktop shell: the log view inside the standard dialog chrome. */
+export function LauncherLogDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const launcherCopy = useEditorCopy().launcher
+  const copy = launcherCopy.configuration
+
+  return (
     <Dialog open={open} onClose={onClose} size="xl" ariaLabel={copy.logViewer.title}>
       <DialogHeader
         title={copy.logViewer.title}
@@ -90,19 +120,10 @@ export function LauncherLogDialog({ open, onClose }: LauncherLogDialogProps) {
         onClose={onClose}
       />
       <DialogBody>
-        <pre className="launcher-log-dialog-output" data-loading={loading ? 'true' : undefined}>
-          {page?.lines.length ? page.lines.join('\n') : copy.logViewer.empty}
-        </pre>
-        {page?.truncated ? <p className="launcher-log-dialog-note">{copy.logViewer.truncatedDetail(page.lines.length)}</p> : null}
+        <LauncherLogView active={open} />
       </DialogBody>
       <DialogFooter>
-        <DialogAction onClick={() => void loadLog()} disabled={loading}>
-          <RefreshCw className="h-3.5 w-3.5" />
-          {copy.logViewer.refresh}
-        </DialogAction>
-        <DialogAction tone="primary" onClick={() => void handleCopy()} disabled={!page?.lines.length}>
-          {copied ? copy.logViewer.copyDone : copy.logViewer.copy}
-        </DialogAction>
+        <DialogAction onClick={onClose}>{launcherCopy.actions.closeDialog}</DialogAction>
       </DialogFooter>
     </Dialog>
   )

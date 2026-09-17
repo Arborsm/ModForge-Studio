@@ -56,6 +56,7 @@ import type {
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
 import { LauncherLogDialog } from './LauncherLogDialog'
+import { useMobilePageStore } from './mobile/mobilePageStore'
 import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
 import type { SmapiUpdateCardStatus } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
@@ -1735,6 +1736,12 @@ export function LauncherConfigurationPage({
   ])
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const handleViewLogs = () => {
+    // Android host: full-screen page; desktop keeps the dialog.
+    if (androidHost) {
+      useMobilePageStore.getState().openPage('logs')
+      return
+    }
+
     setLogDialogOpen(true)
   }
   const handleToggleForceOffline = useCallback(async () => {
@@ -1816,13 +1823,15 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
-              <ConfigSmapiUpdateCard
-                copy={copy}
-                gamePath={settingsState.settings.gamePath}
-                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
-              />
-            </LoadingMotionReveal>
+            {!androidHost ? (
+              <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+                <ConfigSmapiUpdateCard
+                  copy={copy}
+                  gamePath={settingsState.settings.gamePath}
+                  onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+                />
+              </LoadingMotionReveal>
+            ) : null}
 
             <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
               <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
