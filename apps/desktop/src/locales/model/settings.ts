@@ -13,6 +13,7 @@ export type SettingsMenuCopy = {
     debug: string
   }
   closeDialogLabel: string
+  backLabel: string
   cancelActionLabel: string
   unsavedChangesTitle: string
   unsavedChangesDescription: string

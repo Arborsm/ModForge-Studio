@@ -864,3 +864,169 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ===== Android host: two-level settings page stack ===== */
+
+@media (max-width: 640px) {
+  /* The pane view already shows the category name in the header row. */
+  .settings-window-panel-android .settings-window-page-head {
+    display: none;
+  }
+
+  /* Level 1: category list rows (colored icon + name + subtitle + chevron). */
+  .settings-mobile-category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .settings-mobile-category-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 4rem;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 1rem;
+    background: var(--bg-panel);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings-mobile-category-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: 0.75rem;
+  }
+
+  /* Category identity hues from the mobile mock (decorative category marks). */
+  .settings-mobile-category-row[data-category='appearance'] .settings-mobile-category-icon {
+    color: #8b5cf6;
+    background: color-mix(in srgb, #8b5cf6 14%, var(--bg-panel));
+  }
+
+  .settings-mobile-category-row[data-category='loading'] .settings-mobile-category-icon {
+    color: #3b82f6;
+    background: color-mix(in srgb, #3b82f6 14%, var(--bg-panel));
+  }
+
+  .settings-mobile-category-row[data-category='interaction'] .settings-mobile-category-icon {
+    color: #22c55e;
+    background: color-mix(in srgb, #22c55e 14%, var(--bg-panel));
+  }
+
+  .settings-mobile-category-row[data-category='ai'] .settings-mobile-category-icon {
+    color: #f97316;
+    background: color-mix(in srgb, #f97316 14%, var(--bg-panel));
+  }
+
+  .settings-mobile-category-row[data-category='debug'] .settings-mobile-category-icon {
+    color: #ef4444;
+    background: color-mix(in srgb, #ef4444 14%, var(--bg-panel));
+  }
+
+  .settings-mobile-category-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .settings-mobile-category-name {
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .settings-mobile-category-desc {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-mobile-category-chevron {
+    flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--text-tertiary);
+  }
+
+  /* Theme grid becomes a vertical list of bars (swatch + name + check). */
+  .settings-window-panel-android .settings-window-theme-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .settings-window-panel-android .settings-window-theme-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.25rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 0.875rem;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+  }
+
+  .settings-window-panel-android .settings-window-theme-tile.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.0625rem var(--accent);
+  }
+
+  .settings-window-panel-android .settings-window-theme-tile.is-active::after {
+    margin-left: auto;
+    color: var(--accent);
+    font-weight: 700;
+    content: '✓';
+  }
+
+  .settings-window-panel-android .settings-window-theme-preview {
+    flex: 0 0 auto;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 0.5rem;
+  }
+
+  .settings-window-panel-android .settings-window-theme-preview-panel {
+    display: block;
+    width: 45%;
+    height: 45%;
+    margin: auto;
+    border-radius: 0.25rem;
+  }
+
+  /* Language chips adopt the same bar structure. */
+  .settings-window-panel-android .settings-window-locale-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .settings-window-panel-android .settings-window-locale-chip {
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    padding: 0 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 0.875rem;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+  }
+
+  .settings-window-panel-android .settings-window-locale-chip.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.0625rem var(--accent);
+  }
+}
