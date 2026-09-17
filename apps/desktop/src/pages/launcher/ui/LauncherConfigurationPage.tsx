@@ -1440,7 +1440,7 @@ export function LauncherConfigurationPage({
 }: LauncherConfigurationPageProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
-  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.settings.configurationGameTitle}</h1>, androidHost && routeActive)
+  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.pages.configuration}</h1>, androidHost && routeActive)
   const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const [bbcodePreviewExpanded, setBbcodePreviewExpanded] = useState(false)
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
@@ -1886,25 +1886,27 @@ export function LauncherConfigurationPage({
               />
             </LoadingMotionReveal>
           )}
-          <div className="launcher-config-wide-panel">
-            <LauncherConfigurationMoreTools
-              debugEnabled={debugEnabled}
-              debugToolsExpanded={debugToolsExpanded}
-              forceNonPremium={forceNonPremium}
-              forceNonPremiumBusy={forceNonPremiumBusy}
-              forceOffline={forceOffline}
-              forceOfflineBusy={forceOfflineBusy}
-              bbcodePreviewExpanded={bbcodePreviewExpanded}
-              debugSimulationActive={debugSimulationActive}
-              onToggleDebugMode={onToggleDebugMode}
-              onToggleForceNonPremium={handleToggleForceNonPremium}
-              onToggleForceOffline={handleToggleForceOffline}
-              onClearLauncherImageCache={handleClearLauncherImageCache}
-              onStartDebugSimulation={downloads.startDebugSimulation}
-              setDebugToolsExpanded={setDebugToolsExpanded}
-              setBbcodePreviewExpanded={setBbcodePreviewExpanded}
-            />
-          </div>
+          {!androidHost ? (
+            <div className="launcher-config-wide-panel">
+              <LauncherConfigurationMoreTools
+                debugEnabled={debugEnabled}
+                debugToolsExpanded={debugToolsExpanded}
+                forceNonPremium={forceNonPremium}
+                forceNonPremiumBusy={forceNonPremiumBusy}
+                forceOffline={forceOffline}
+                forceOfflineBusy={forceOfflineBusy}
+                bbcodePreviewExpanded={bbcodePreviewExpanded}
+                debugSimulationActive={debugSimulationActive}
+                onToggleDebugMode={onToggleDebugMode}
+                onToggleForceNonPremium={handleToggleForceNonPremium}
+                onToggleForceOffline={handleToggleForceOffline}
+                onClearLauncherImageCache={handleClearLauncherImageCache}
+                onStartDebugSimulation={downloads.startDebugSimulation}
+                setDebugToolsExpanded={setDebugToolsExpanded}
+                setBbcodePreviewExpanded={setBbcodePreviewExpanded}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
