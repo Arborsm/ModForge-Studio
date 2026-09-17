@@ -75,4 +75,18 @@ export type LauncherDiscoverCopy = {
   pageLabel: (page: number) => string
   jumpToPage: string
   pageUnit: string
+  /** Android-host-only chrome: the bottom filter sheet replaces the retired rail. */
+  mobile: {
+    sheetTitle: string
+    apply: string
+    timeGroupLabel: string
+    sortGroupLabel: string
+    categoryGroupLabel: string
+    languageGroupLabel: string
+    sizeGroupLabel: string
+    anyLanguage: string
+    ascendingChip: string
+    descendingChip: string
+    recheckAction: string
+  }
 }

@@ -124,6 +124,19 @@ const discover: LauncherDiscoverCopy = {
   pageLabel: (page) => `Page ${page}`,
   jumpToPage: 'Jump to',
   pageUnit: 'page',
+  mobile: {
+    sheetTitle: 'Filter & Sort',
+    apply: 'Apply',
+    timeGroupLabel: 'Time',
+    sortGroupLabel: 'Sort',
+    categoryGroupLabel: 'Category',
+    languageGroupLabel: 'Language',
+    sizeGroupLabel: 'File size',
+    anyLanguage: 'Any language',
+    ascendingChip: 'Ascending',
+    descendingChip: 'Descending',
+    recheckAction: 'Recheck',
+  },
 }
 
 export default discover

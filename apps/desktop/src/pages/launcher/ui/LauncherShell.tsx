@@ -154,6 +154,7 @@ export default function LauncherShell({
                 onNavigateToSettings={onNavigateToSettings}
                 searchRequest={discoverSearchRequest}
                 routeActive={activePage === 'discover'}
+                androidHost={androidHost}
               />
             </Suspense>
           ) : null}

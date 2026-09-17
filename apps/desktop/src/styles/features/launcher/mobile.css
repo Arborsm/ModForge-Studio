@@ -784,3 +784,19 @@
     animation: none;
   }
 }
+
+/* ===== P3: discover page chrome retirement on the Android host ===== */
+
+@media (max-width: 640px) {
+  /* Pull indicator anchors to the discover shell. */
+  .launcher-discover-shell {
+    position: relative;
+  }
+
+  /* The retired toolbar leaves the console as a slim title/range row. */
+  .top-menu-bar-android .launcher-discover-console {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}

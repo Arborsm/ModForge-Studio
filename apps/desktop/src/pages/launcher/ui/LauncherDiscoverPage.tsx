@@ -10,6 +10,7 @@ import {
   Clock,
   Filter,
   LayoutGrid,
+  ListFilter,
   RefreshCw,
   Search,
 } from 'lucide-react'
@@ -26,10 +27,30 @@ import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarStat
 import { useLauncherDiscover, useLauncherPort, useLauncherRemoteModDetail, parseLauncherModIdQuery } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
 import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
-import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState, useLauncherOverlayDismissStore } from '@shared/lib/app-state'
+import {
+  applyAppUiStatePatch,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+  useLauncherMobileTopLeading,
+  useLauncherOverlayDismissStore,
+} from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
+import { LauncherDiscoverFilterSheet } from './LauncherDiscoverFilterSheet'
+import { usePullToRefresh } from './mobile/usePullToRefresh'
+import { MobilePullToRefreshIndicator } from './mobile/MobilePullToRefreshIndicator'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
+import {
+  CATEGORY_OPTIONS,
+  DOWNLOAD_PRESETS,
+  ENDORSEMENT_PRESETS,
+  FILE_SIZE_PRESETS,
+  LANGUAGE_OPTIONS,
+  PAGE_SIZE_VALUES,
+  SORT_VALUES,
+  TIME_RANGE_VALUES,
+  type RangePreset,
+} from '../model/launcherDiscoverOptions'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -40,6 +61,8 @@ type LauncherDiscoverPageProps = {
   searchRequest?: LauncherDiscoverSearchRequest | null
   /** False while the discover route is hidden (cached pages stay mounted). */
   routeActive?: boolean
+  /** True inside the Android WebView launcher host; the rail retires and search moves to the top bar. */
+  androidHost?: boolean
 }
 
 type DiscoverOption<T extends string | number> = {
@@ -47,63 +70,11 @@ type DiscoverOption<T extends string | number> = {
   label: string
 }
 
-const CATEGORY_OPTIONS = [
-  'Gameplay Mechanics',
-  'Interiors',
-  'Items',
-  'Livestock and Animals',
-  'Locations',
-  'Maps',
-  'Miscellaneous',
-  'Modding Tools',
-  'New Characters',
-  'Pets / Horses',
-  'Player',
-  'Portraits',
-  'User Interface',
-  'Visuals and Graphics',
-]
-
-const LANGUAGE_OPTIONS = ['Any', 'English', 'Chinese', 'Japanese', 'Spanish', 'German', 'French']
-
-const TIME_RANGE_VALUES = ['all', 'day', 'week', 'month', 'year'] as const
-const SORT_VALUES = ['newest', 'updated', 'trending', 'downloads', 'endorsements', 'name'] as const
-const PAGE_SIZE_VALUES = [20, 40, 80] as const
-
 type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'limits'
 type DiscoverItem = ReturnType<typeof useLauncherDiscover>['items'][number]
 type DiscoverFilters = ReturnType<typeof useLauncherDiscover>['filters']
-type RangePresetKey = 'any' | 'lt10kb' | '10to100kb' | 'gt100kb' | '10kPlus' | '100kPlus' | '500kPlus' | '1kPlus' | '5kPlus'
 
 const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
-
-type RangePreset = {
-  key: RangePresetKey
-  label: string
-  min: string
-  max: string
-}
-
-const FILE_SIZE_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: 'lt10kb', label: '< 10 KB', min: '', max: '10240' },
-  { key: '10to100kb', label: '10-100 KB', min: '10240', max: '102400' },
-  { key: 'gt100kb', label: '> 100 KB', min: '102400', max: '' },
-]
-
-const DOWNLOAD_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
-  { key: '100kPlus', label: '100K+', min: '100000', max: '' },
-  { key: '500kPlus', label: '500K+', min: '500000', max: '' },
-]
-
-const ENDORSEMENT_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: '1kPlus', label: '1K+', min: '1000', max: '' },
-  { key: '5kPlus', label: '5K+', min: '5000', max: '' },
-  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
-]
 
 function parseTagTokens(value: string) {
   return value
@@ -696,6 +667,7 @@ export function LauncherDiscoverPage({
   onRetryDiagnostics,
   searchRequest,
   routeActive = true,
+  androidHost = false,
 }: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
@@ -741,6 +713,7 @@ export function LauncherDiscoverPage({
       initialToolbarState={hydratedToolbarState}
       launcherUiStateReady={launcherUiStateReady}
       routeActive={routeActive}
+      androidHost={androidHost}
     />
   )
 }
@@ -753,6 +726,7 @@ function LauncherDiscoverPageContent({
   initialToolbarState,
   launcherUiStateReady,
   routeActive = true,
+  androidHost = false,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToDiagnostics?: () => void
@@ -761,6 +735,7 @@ function LauncherDiscoverPageContent({
   initialToolbarState: LauncherDiscoverToolbarState
   launcherUiStateReady: boolean
   routeActive?: boolean
+  androidHost?: boolean
 }) {
   const copy = useEditorCopy().launcher
   const launcherPort = useLauncherPort()
@@ -1094,8 +1069,54 @@ function LauncherDiscoverPageContent({
     }
   }, [routeActive])
 
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const discoverScrollHostRef = useRef<HTMLElement | null>(null)
+  const pullToRefresh = usePullToRefresh({
+    hostRef: discoverScrollHostRef,
+    scrollSelector: '.launcher-discover-results-viewport',
+    onRefresh: () => discover.refresh(),
+    disabled: !androidHost || !routeActive,
+  })
+
+  // The Android host pins the page size to the mock's fixed 20 per page.
+  useEffect(() => {
+    if (androidHost && discover.pageSize !== 20) {
+      discover.setPageSize(20)
+    }
+  }, [androidHost, discover])
+
+  const mobileTopSearch = (
+    <div className="mobile-top-search" role="search">
+      <Search className="mobile-top-search-icon" aria-hidden="true" />
+      <input
+        className="mobile-top-search-input"
+        value={searchDraft}
+        onChange={(event) => setSearchDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            submitDiscoverSearch()
+          }
+        }}
+        placeholder={copy.discover.searchPlaceholder}
+        aria-label={copy.discover.searchPlaceholder}
+        spellCheck={false}
+        disabled={discoverBlocked || discoverRequestFailed}
+      />
+      <button
+        type="button"
+        className="mobile-top-search-filter"
+        aria-label={copy.discover.mobile.sheetTitle}
+        aria-expanded={filterSheetOpen}
+        onClick={() => setFilterSheetOpen(true)}
+      >
+        <ListFilter className="h-3 w-3" aria-hidden="true" />
+      </button>
+    </div>
+  )
+  useLauncherMobileTopLeading(mobileTopSearch, androidHost && routeActive)
+
   return (
-    <section className="launcher-discover-page">
+    <section className="launcher-discover-page" ref={discoverScrollHostRef}>
       <LoadingMotionReveal itemId="launcher-discover-console" index={0} as="header" className="launcher-discover-console panel-surface">
         <div className="launcher-discover-console-top">
           <div className="launcher-discover-console-heading">
@@ -1104,134 +1125,136 @@ function LauncherDiscoverPageContent({
             </div>
             <p className="launcher-discover-console-subtitle">{copy.discover.resultRange(rangeStart, rangeEnd, formattedResultCount)}</p>
           </div>
-          <div className="launcher-discover-console-toolbar">
-            <div className="launcher-discover-toolbar-group">
-              <label className="launcher-discover-searchbar" data-guide="launcher-discover-search">
-                <input
-                  className="launcher-discover-searchbar-input"
-                  value={searchDraft}
-                  onChange={(event) => setSearchDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      submitDiscoverSearch()
-                    }
-                  }}
-                  placeholder={copy.discover.searchPlaceholder}
-                  aria-label={copy.discover.searchPlaceholder}
-                  spellCheck={false}
-                  disabled={discoverBlocked || discoverRequestFailed}
-                />
+          {androidHost ? null : (
+            <div className="launcher-discover-console-toolbar">
+              <div className="launcher-discover-toolbar-group">
+                <label className="launcher-discover-searchbar" data-guide="launcher-discover-search">
+                  <input
+                    className="launcher-discover-searchbar-input"
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        submitDiscoverSearch()
+                      }
+                    }}
+                    placeholder={copy.discover.searchPlaceholder}
+                    aria-label={copy.discover.searchPlaceholder}
+                    spellCheck={false}
+                    disabled={discoverBlocked || discoverRequestFailed}
+                  />
+                  <button
+                    type="button"
+                    className="launcher-discover-searchbar-button"
+                    onClick={submitDiscoverSearch}
+                    aria-label={copy.discover.searchAction}
+                    title={copy.discover.searchAction}
+                    disabled={!searchDirty || discoverBlocked || discoverRequestFailed}
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </label>
                 <button
                   type="button"
-                  className="launcher-discover-searchbar-button"
-                  onClick={submitDiscoverSearch}
-                  aria-label={copy.discover.searchAction}
-                  title={copy.discover.searchAction}
-                  disabled={!searchDirty || discoverBlocked || discoverRequestFailed}
+                  className={cx('launcher-discover-filters-toggle', !effectiveFiltersHidden && 'launcher-discover-filters-toggle-active')}
+                  onClick={() => setFiltersHidden((current) => !current)}
+                  disabled={discoverBlocked || discoverRequestFailed}
+                  aria-label={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
+                  title={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
                 >
-                  <Search className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
                 </button>
-              </label>
+              </div>
+
+              <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+              <div className="launcher-discover-console-actions launcher-discover-toolbar-group" data-guide="launcher-discover-toolbar">
+                <DiscoverMenu
+                  label={copy.discover.timeRangeLabel}
+                  value={discover.timeRange}
+                  options={timeRangeOptions}
+                  open={effectiveOpenMenuId === 'time'}
+                  disabled={discoverBlocked}
+                  icon={Clock}
+                  onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
+                  onSelect={(value) => {
+                    discover.setTimeRange(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+                <DiscoverMenu
+                  label={copy.discover.sortLabel}
+                  value={discover.sort}
+                  options={sortOptions}
+                  open={effectiveOpenMenuId === 'sort'}
+                  disabled={discoverBlocked}
+                  icon={ArrowDownUp}
+                  onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
+                  onSelect={(value) => {
+                    discover.setSort(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+                <DiscoverMenu
+                  label={copy.discover.pageSizeLabel}
+                  value={discover.pageSize}
+                  options={pageSizeOptions}
+                  open={effectiveOpenMenuId === 'size'}
+                  disabled={discoverBlocked}
+                  icon={LayoutGrid}
+                  onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
+                  onSelect={(value) => {
+                    discover.setPageSize(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+              </div>
+
               <button
                 type="button"
-                className={cx('launcher-discover-filters-toggle', !effectiveFiltersHidden && 'launcher-discover-filters-toggle-active')}
-                onClick={() => setFiltersHidden((current) => !current)}
-                disabled={discoverBlocked || discoverRequestFailed}
-                aria-label={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
-                title={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
-              >
-                <Filter className="h-4 w-4" />
-              </button>
-            </div>
-
-            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
-
-            <div className="launcher-discover-console-actions launcher-discover-toolbar-group" data-guide="launcher-discover-toolbar">
-              <DiscoverMenu
-                label={copy.discover.timeRangeLabel}
-                value={discover.timeRange}
-                options={timeRangeOptions}
-                open={effectiveOpenMenuId === 'time'}
-                disabled={discoverBlocked}
-                icon={Clock}
-                onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
-                onSelect={(value) => {
-                  discover.setTimeRange(value)
-                  setOpenMenuId(null)
-                }}
-              />
-              <DiscoverMenu
-                label={copy.discover.sortLabel}
-                value={discover.sort}
-                options={sortOptions}
-                open={effectiveOpenMenuId === 'sort'}
-                disabled={discoverBlocked}
-                icon={ArrowDownUp}
-                onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
-                onSelect={(value) => {
-                  discover.setSort(value)
-                  setOpenMenuId(null)
-                }}
-              />
-              <DiscoverMenu
-                label={copy.discover.pageSizeLabel}
-                value={discover.pageSize}
-                options={pageSizeOptions}
-                open={effectiveOpenMenuId === 'size'}
-                disabled={discoverBlocked}
-                icon={LayoutGrid}
-                onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
-                onSelect={(value) => {
-                  discover.setPageSize(value)
-                  setOpenMenuId(null)
-                }}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="launcher-discover-icon-button launcher-discover-order-button"
-              onClick={() => discover.setAscending(!discover.ascending)}
-              aria-label={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
-              title={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
-              disabled={discoverBlocked}
-            >
-              {discover.ascending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-            </button>
-
-            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
-
-            <div className="launcher-discover-toolbar-group">
-              <button
-                type="button"
-                className="launcher-discover-icon-button launcher-discover-desktop-only"
-                aria-label={copy.discover.gridViewLabel}
-                title={copy.discover.gridViewLabel}
+                className="launcher-discover-icon-button launcher-discover-order-button"
+                onClick={() => discover.setAscending(!discover.ascending)}
+                aria-label={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
+                title={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
                 disabled={discoverBlocked}
               >
-                <LayoutGrid className="h-4 w-4" />
+                {discover.ascending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
               </button>
-              <button
-                type="button"
-                className="launcher-discover-icon-button launcher-discover-desktop-only"
-                onClick={discover.refresh}
-                aria-label={copy.actions.refresh}
-                title={copy.actions.refresh}
-                disabled={discoverBlocked}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
+
+              <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+              <div className="launcher-discover-toolbar-group">
+                <button
+                  type="button"
+                  className="launcher-discover-icon-button launcher-discover-desktop-only"
+                  aria-label={copy.discover.gridViewLabel}
+                  title={copy.discover.gridViewLabel}
+                  disabled={discoverBlocked}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="launcher-discover-icon-button launcher-discover-desktop-only"
+                  onClick={discover.refresh}
+                  aria-label={copy.actions.refresh}
+                  title={copy.actions.refresh}
+                  disabled={discoverBlocked}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </LoadingMotionReveal>
 
       <LoadingMotionReveal
         itemId="launcher-discover-shell"
         index={1}
-        className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}
+        className={cx('launcher-discover-shell', (androidHost || effectiveFiltersHidden) && 'launcher-discover-shell-filters-hidden')}
       >
-        {!effectiveFiltersHidden ? (
+        {!androidHost && !effectiveFiltersHidden ? (
           <aside
             className={cx(
               'launcher-discover-sidebar panel-surface panel-surface-muted',
@@ -1451,6 +1474,14 @@ function LauncherDiscoverPageContent({
           </aside>
         ) : null}
 
+        {androidHost && routeActive ? (
+          <MobilePullToRefreshIndicator
+            state={pullToRefresh}
+            hint={copy.library.mobile.pullHint}
+            release={copy.library.mobile.pullRelease}
+            refreshing={copy.library.mobile.pullRefreshing}
+          />
+        ) : null}
         <div
           ref={contentRef}
           className={cx(
@@ -1669,6 +1700,9 @@ function LauncherDiscoverPageContent({
             </div>
           ) : null}
 
+          {androidHost && routeActive ? (
+            <LauncherDiscoverFilterSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} discover={discover} />
+          ) : null}
           {detailModId != null ? (
             <LauncherDiscoverDetailPanel
               item={null}
