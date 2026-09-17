@@ -195,6 +195,7 @@ export default function LauncherShell({
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
                 settingsState={settingsState}
                 downloads={downloads}
+                routeActive={activePage === 'configuration'}
               />
             </Suspense>
           ) : null}
