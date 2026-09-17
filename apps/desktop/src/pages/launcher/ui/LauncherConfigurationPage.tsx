@@ -55,6 +55,7 @@ import type {
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
+import { LauncherLogDialog } from './LauncherLogDialog'
 import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
 import type { SmapiUpdateCardStatus } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
@@ -1732,14 +1733,9 @@ export function LauncherConfigurationPage({
     handleNavigateToGmcmProbe,
     launcherPort,
   ])
+  const [logDialogOpen, setLogDialogOpen] = useState(false)
   const handleViewLogs = () => {
-    setDebugToolsExpanded(true)
-    window.requestAnimationFrame(() => {
-      document.querySelector('[data-loading-section="launcher-debug-logs"]')?.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth',
-      })
-    })
+    setLogDialogOpen(true)
   }
   const handleToggleForceOffline = useCallback(async () => {
     const nextForceOffline = !forceOffline
@@ -1886,6 +1882,8 @@ export function LauncherConfigurationPage({
           </div>
         </div>
       </div>
+
+      <LauncherLogDialog open={logDialogOpen} onClose={() => setLogDialogOpen(false)} />
     </section>
   )
 }

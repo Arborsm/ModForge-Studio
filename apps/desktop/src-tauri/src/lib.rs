@@ -316,6 +316,7 @@ pub fn run() {
             domain::launcher::commands::open_launcher_path,
             domain::launcher::commands::open_launcher_url,
             domain::launcher::commands::persist_launcher_library_remote_cover,
+            domain::launcher::commands::read_launcher_log,
             domain::launcher::commands::record_launcher_image_failure,
             domain::launcher::commands::resolve_cached_launcher_image,
             domain::launcher::commands::resolve_launcher_image,

@@ -333,6 +333,9 @@ pub(crate) fn resolve_command(
         crate::host_command_wire!(persist_launcher_library_remote_cover) => resolve_typed::<
             crate::domain::launcher::commands::PersistLauncherLibraryRemoteCoverParams,
         >(ctx, id, args),
+        crate::host_command_wire!(read_launcher_log) => resolve_typed::<
+            crate::domain::launcher::commands::ReadLauncherLogParams,
+        >(ctx, id, args),
         crate::host_command_wire!(record_launcher_image_failure) => resolve_typed::<
             crate::domain::launcher::commands::RecordLauncherImageFailureParams,
         >(ctx, id, args),

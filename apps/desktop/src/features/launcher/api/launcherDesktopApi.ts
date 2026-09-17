@@ -12,6 +12,7 @@ import type { HostCommandPolicy } from '@platform/host-command-client'
 import type {
   CheckLauncherUpdatesRequest,
   DownloadLauncherModRequest,
+  LauncherLogPage,
   DownloadLauncherModResult,
   InspectLauncherArchiveRequest,
   InspectLauncherArchiveResult,
@@ -315,6 +316,11 @@ export async function clearLauncherImageCache() {
 }
 
 /** Loads persisted launcher settings. */
+/** Reads the tail of the current host log file for the in-app log viewer. */
+export function readLauncherLog(maxLines = 400) {
+  return invokeDesktop<LauncherLogPage>(HOST_COMMANDS.readLauncherLog, { request: { maxLines } }, launcherIoPoolPolicy)
+}
+
 export function loadLauncherSettings() {
   return readCached(loadLauncherSettingsCache, 'default', () =>
     invokeDesktop<LauncherSettings>(HOST_COMMANDS.loadLauncherSettings, undefined, launcherIoPoolPolicy),

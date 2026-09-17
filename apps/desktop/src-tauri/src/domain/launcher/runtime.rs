@@ -3,8 +3,8 @@
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
-    LauncherGameLaunchResult, LauncherGameLaunchTarget, LauncherRuntimeInfo, LauncherSettings,
-    OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    LauncherGameLaunchResult, LauncherGameLaunchTarget, LauncherLogPage, LauncherRuntimeInfo,
+    LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest, ReadLauncherLogRequest,
 };
 use crate::AppHandle;
 use crate::domain::app_paths::{launcher_backup_dir, launcher_settings_path};
@@ -305,6 +305,24 @@ fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Reads the tail of the current desktop host log file for the in-app log viewer.
+/// A missing log file (fresh install, nothing logged yet) yields an empty page.
+pub fn read_launcher_log(request: ReadLauncherLogRequest) -> anyhow::Result<LauncherLogPage> {
+    let max_lines = request.max_lines.clamp(1, 2_000) as usize;
+    let config = crate::support::logging::log_file_config()?;
+    let path = config.directory.join(format!("{}.log", config.file_name));
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len() as u64;
+    let start = usize::try_from(total_lines.saturating_sub(max_lines as u64)).unwrap_or(0);
+    let page = lines[start..].iter().map(|line| line.to_string()).collect();
+    Ok(LauncherLogPage {
+        lines: page,
+        total_lines,
+        truncated: start > 0,
+    })
 }
 
 #[cfg(test)]

@@ -998,3 +998,17 @@ fn default_unsorted_storage_folder() -> LauncherLibraryStorageFolder {
         mod_keys: Vec::new(),
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadLauncherLogRequest {
+    pub max_lines: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherLogPage {
+    pub lines: Vec<String>,
+    pub total_lines: u64,
+    pub truncated: bool,
+}

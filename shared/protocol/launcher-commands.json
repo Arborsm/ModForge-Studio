@@ -60,6 +60,17 @@
       }
     },
     {
+      "name": "read_launcher_log",
+      "params": {
+        "request": "ReadLauncherLogRequest"
+      },
+      "result": "LauncherLogPage",
+      "android": {
+        "service": "Runtime",
+        "method": "ReadLauncherLogAsync"
+      }
+    },
+    {
       "name": "load_launcher_library_state",
       "params": {},
       "result": "LauncherLibraryState",

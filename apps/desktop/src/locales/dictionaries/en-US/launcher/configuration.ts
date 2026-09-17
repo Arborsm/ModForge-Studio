@@ -175,6 +175,16 @@ const configuration: LauncherConfigurationCopy = {
     gmcmProbeReview: 'Dynamic configs need attention',
   },
   configuration: {
+    logViewer: {
+      title: 'Runtime log',
+      subtitle: 'Recent application log, including game and SMAPI output.',
+      refresh: 'Refresh',
+      copy: 'Copy log',
+      copyDone: 'Copied',
+      empty: 'No log entries yet',
+      truncatedDetail: (count) => `Showing the most recent ${count} lines; see the log file for the full content`,
+      loadFailed: 'The log could not be read',
+    },
     title: 'Diagnostics',
     subtitle: 'Review launcher paths, Nexus access, download defaults, and diagnostics from one place.',
     moreToolsTitle: 'Debug Utilities',

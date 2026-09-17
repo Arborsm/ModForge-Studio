@@ -808,3 +808,9 @@ export type InspectLauncherArchiveResult = {
   modRoots: LauncherArchiveModRootInfo[]
   tree: LauncherArchiveTreeNode[]
 }
+
+export type LauncherLogPage = {
+  lines: string[]
+  totalLines: number
+  truncated: boolean
+}
