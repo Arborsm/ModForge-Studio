@@ -2,7 +2,7 @@
  * @file Launcher mod detail drawer: hero, tabbed detail/file/changelog/
  * dependency views, AI translation, config panel, and download queueing.
  */
-import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorCopy } from '@locales/provider'
@@ -349,6 +349,20 @@ export function LauncherModDetailPanel({
         aria-label={displayName}
         data-guide="launcher-mod-detail"
       >
+        {/* Phone widths render the drawer as a full-screen page with a back header. */}
+        <header className="launcher-mod-detail-page-head">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleClose}
+            aria-label={launcherCopy.actions.closeDialog}
+            title={launcherCopy.actions.closeDialog}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="launcher-mod-detail-page-head-title">{displayName}</h2>
+        </header>
+
         {showRemoteLoading ? (
           <div className="launcher-mod-detail-loading-overlay" role="status">
             <div className="launcher-mod-detail-loading-card">

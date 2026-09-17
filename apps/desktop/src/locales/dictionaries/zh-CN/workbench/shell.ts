@@ -29,6 +29,7 @@ const shell: WorkbenchShellCopy = {
     error: '错误',
   },
   controls: {
+    back: '返回',
     toggleTheme: '切换主题',
     toggleLocale: '切换语言',
     browse: '浏览',

@@ -16,6 +16,7 @@ export type WorkbenchShellCopy = {
   localeShort: Record<LocaleCode, string>
   statusTone: Record<WorkspaceTone, string>
   controls: {
+    back: string
     toggleTheme: string
     toggleLocale: string
     browse: string

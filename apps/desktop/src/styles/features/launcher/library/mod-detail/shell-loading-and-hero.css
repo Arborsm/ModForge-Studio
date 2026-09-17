@@ -45,6 +45,11 @@
     grid-template-rows: auto minmax(0, 1fr) 4rem;
   }
 
+  /* Phone-only full-screen page header (displayed by the ≤640px block). */
+  .launcher-mod-detail-page-head {
+    display: none;
+  }
+
   .launcher-mod-detail-loading-overlay {
     position: absolute;
     inset: 0;

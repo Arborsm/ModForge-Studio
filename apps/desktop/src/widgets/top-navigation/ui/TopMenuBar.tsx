@@ -90,6 +90,12 @@ type TopMenuBarProps = {
     downloadsHasFailure: boolean
     settingsWarning: boolean
     downloadsPopover: ReactNode
+    /**
+     * Provided by page-style hosts (Android): opens downloads/notifications as
+     * full-screen pages instead of the anchored titlebar floats.
+     */
+    onOpenDownloads?: () => void
+    onOpenNotifications?: () => void
   }
 }
 
@@ -405,10 +411,15 @@ export default function TopMenuBar({
                   launcherNav.downloadsHasFailure && 'top-menu-icon-action-failure',
                 )}
                 aria-label={copy.launcher.downloads.title}
-                aria-haspopup="dialog"
-                aria-expanded={downloadsMenuOpen}
-                aria-controls={downloadsMenuId}
+                aria-haspopup={launcherNav.onOpenDownloads ? undefined : 'dialog'}
+                aria-expanded={launcherNav.onOpenDownloads ? undefined : downloadsMenuOpen}
+                aria-controls={launcherNav.onOpenDownloads ? undefined : downloadsMenuId}
                 onClick={() => {
+                  // Page-style hosts open downloads as a full-screen page.
+                  if (launcherNav.onOpenDownloads) {
+                    launcherNav.onOpenDownloads()
+                    return
+                  }
                   const downloadsOpening = activeMenu !== 'downloads'
                   setActiveMenu(downloadsOpening ? 'downloads' : null)
                   // The downloads float renders inside the window frame, so it
@@ -461,9 +472,14 @@ export default function TopMenuBar({
                     ? notificationCopy.unreadBadgeAriaLabel(unreadNotificationCount)
                     : notificationCopy.centerTitle
                 }
-                aria-haspopup="dialog"
-                aria-expanded={notificationsMenuOpen}
+                aria-haspopup={launcherNav.onOpenNotifications ? undefined : 'dialog'}
+                aria-expanded={launcherNav.onOpenNotifications ? undefined : notificationsMenuOpen}
                 onClick={() => {
+                  // Page-style hosts open the notification center as a page.
+                  if (launcherNav.onOpenNotifications) {
+                    launcherNav.onOpenNotifications()
+                    return
+                  }
                   const notificationsOpening = activeMenu !== 'notifications'
                   setActiveMenu(notificationsOpening ? 'notifications' : null)
                   // The float shares the downloads float's layer constraints and
