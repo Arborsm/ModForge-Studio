@@ -20,6 +20,7 @@ import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
 import { LauncherLogView } from './ui/LauncherLogDialog'
 import { MobilePageShell } from './ui/mobile/MobilePageShell'
+import { MobileBottomNav } from './ui/mobile/MobileBottomNav'
 import { useMobilePageStore } from './ui/mobile/mobilePageStore'
 
 type LauncherPageProps = {
@@ -271,6 +272,7 @@ export function LauncherPage({
         appMode="launcher"
         onAppModeChange={onAppModeChange}
         modeSwitchable={!androidHost}
+        androidHost={androidHost}
         theme={theme}
         onToggleTheme={onToggleTheme}
         desktopHost={desktopHost}
@@ -334,6 +336,14 @@ export function LauncherPage({
                 <NotificationCenter showHeader={false} onAfterCloseOnClickAction={closeMobilePage} />
               )}
             </MobilePageShell>
+          ) : null}
+          {androidHost ? (
+            <MobileBottomNav
+              pages={availableLauncherPages}
+              activePage={activeLauncherPage}
+              onPageChange={onLauncherPageChange}
+              updatesBadgeCount={launcherRuntime.updatesBadgeCount}
+            />
           ) : null}
         </div>
       </div>
