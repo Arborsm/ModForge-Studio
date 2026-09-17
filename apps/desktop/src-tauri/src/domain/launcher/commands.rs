@@ -9,18 +9,18 @@ use crate::domain::launcher::types::{
     InstallSmapiUpdateRequest, InstallSmapiUpdateResult, LauncherCatalogPageResult,
     LauncherDownloadQueueState, LauncherGameLaunchResult, LauncherGmcmProbeDiagnosticsResult,
     LauncherImageFailuresState, LauncherInstallBackupSummary, LauncherLibraryCoversState,
-    LauncherLibraryScanResult, LauncherLibraryState, LauncherModConfigResult,
+    LauncherLibraryScanResult, LauncherLibraryState, LauncherLogPage, LauncherModConfigResult,
     LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
     LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherModConfigRequest, LoadLauncherRemoteModDetailRequest,
     LoadLauncherUpdateChangelogRequest, LoadSuppressedLauncherUpdateModIdsRequest,
     OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
-    RecordLauncherImageFailureRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
-    RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
-    SaveLauncherModConfigRequest, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
-    SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
-    SetLauncherModEnabledResult,
+    ReadLauncherLogRequest, RecordLauncherImageFailureRequest, ResolveLauncherImageRequest,
+    ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    RestoreLauncherInstallBackupResult, SaveLauncherModConfigRequest, SaveLauncherSettingsRequest,
+    ScanLauncherLibraryRequest, SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest,
+    SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
 };
 use crate::domain::nexusmods::sso::{SsoSnapshot, SsoStartResult};
 use crate::domain::nexusmods::types::{NexusDiagnosticsResult, ValidateApiKeyResult};
@@ -56,6 +56,14 @@ pub async fn open_launcher_path(
     request: OpenLauncherPathRequest,
 ) -> Result<(), String> {
     domain::launcher::runtime::open_launcher_path(request)
+}
+
+#[host_command(io)]
+pub async fn read_launcher_log(
+    app: AppHandle,
+    request: ReadLauncherLogRequest,
+) -> Result<LauncherLogPage, String> {
+    domain::launcher::runtime::read_launcher_log(request)
 }
 
 #[host_command(control)]

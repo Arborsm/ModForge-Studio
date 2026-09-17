@@ -29,6 +29,7 @@ const shell: WorkbenchShellCopy = {
     error: 'Error',
   },
   controls: {
+    back: 'Back',
     toggleTheme: 'Toggle theme',
     toggleLocale: 'Toggle language',
     browse: 'Browse',

@@ -536,3 +536,30 @@
     white-space: nowrap;
   }
 }
+
+/* Runtime log viewer dialog output (read_launcher_log). */
+.launcher-log-dialog-output {
+  margin: 0;
+  max-height: 56vh;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
+  color: var(--text-secondary);
+  padding: 0.75rem;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 0.7188rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.launcher-log-dialog-output[data-loading='true'] {
+  opacity: 0.6;
+}
+
+.launcher-log-dialog-note {
+  margin: 0.625rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.7188rem;
+}

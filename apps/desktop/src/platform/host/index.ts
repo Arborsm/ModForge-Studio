@@ -32,7 +32,7 @@ export {
   type FrontendLogLevel,
   type FrontendLogRequest,
 } from './logging'
-export { loadAppUiState, patchAppUiState } from './appUi'
+export { listenToAndroidBackRequest, loadAppUiState, patchAppUiState } from './appUi'
 export {
   cancelAiJob,
   clearAiTranslationCache,

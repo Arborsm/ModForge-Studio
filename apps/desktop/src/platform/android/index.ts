@@ -24,6 +24,7 @@ const ANDROID_CREATE_DOCUMENT_COMMAND = 'android:create_document'
 /** Minimal shape of the `modforgeBridge` object injected by the Android WebView host. */
 type ModForgeBridge = {
   invokeCommand: (command: string, argsJson: string, callbackId: string) => void
+  backHandled: () => void
 }
 
 declare global {
@@ -36,6 +37,15 @@ declare global {
 /** Reports whether the current runtime is inside the Android WebView launcher host. */
 export function isAndroidHost() {
   return typeof window !== 'undefined' && 'modforgeBridge' in window
+}
+
+/** Acknowledges an `android:back` event: the SPA closed its topmost overlay. */
+export function notifyAndroidBackHandled() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.modforgeBridge?.backHandled()
 }
 
 function assertAndroidHost() {

@@ -107,6 +107,7 @@ const ZUSTAND_REGISTRY = new Set([
   'src/features/compat-plugins/model/pluginLocaleStore.ts', // domain runtime
   'src/features/cp-maker/model/undoStack.ts', // 模块 session
   'src/features/guide/model/guideEngine.ts', // domain runtime + 持久化进度
+  'src/pages/launcher/ui/mobile/mobilePageStore.ts', // 移动端工具页面栈（Android 宿主返回键联动）
   'src/pages/workbench/model/editModeStore.ts', // 模块 session（工作区交互）
   'src/pages/workbench/model/playerAppearanceStore.ts', // 工作区持久
   'src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/editorStore.ts', // 模块 session

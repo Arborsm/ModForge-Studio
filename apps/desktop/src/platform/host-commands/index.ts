@@ -116,6 +116,7 @@ export const HOST_COMMANDS = {
   readAiTranslationCache: 'read_ai_translation_cache',
   readCompatPluginEntry: 'read_compat_plugin_entry',
   readCpMakerProjectAsset: 'read_cp_maker_project_asset',
+  readLauncherLog: 'read_launcher_log',
   readPluginAsset: 'read_plugin_asset',
   rebuildLocalizationSemanticIndex: 'rebuild_localization_semantic_index',
   rebuildOfficialLocalizationIndex: 'rebuild_official_localization_index',

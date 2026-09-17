@@ -55,6 +55,8 @@ import type {
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
+import { LauncherLogDialog } from './LauncherLogDialog'
+import { useMobilePageStore } from './mobile/mobilePageStore'
 import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
 import type { SmapiUpdateCardStatus } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
@@ -485,18 +487,27 @@ function ConfigPathPanel({
   settingsState,
   copy,
   browseLabel,
+  androidHost,
 }: {
   settingsState: ReturnType<typeof useLauncherSettings>
   copy: LauncherCopy
   browseLabel: string
+  /** True inside the Android WebView host; the desktop game-path row is hidden there. */
+  androidHost: boolean
 }) {
   const launcherPort = useLauncherPort()
   const rows = [
-    {
-      field: 'gamePath' as const,
-      label: copy.fields.gamePath,
-      value: settingsState.settings.gamePath,
-    },
+    // The game directory is a desktop-launcher concept: the Android host ships
+    // the game inside its own app data and never exposes a user-picked path.
+    ...(androidHost
+      ? []
+      : [
+          {
+            field: 'gamePath' as const,
+            label: copy.fields.gamePath,
+            value: settingsState.settings.gamePath,
+          },
+        ]),
     {
       field: 'modsPath' as const,
       label: copy.fields.modsPath,
@@ -1723,14 +1734,15 @@ export function LauncherConfigurationPage({
     handleNavigateToGmcmProbe,
     launcherPort,
   ])
+  const [logDialogOpen, setLogDialogOpen] = useState(false)
   const handleViewLogs = () => {
-    setDebugToolsExpanded(true)
-    window.requestAnimationFrame(() => {
-      document.querySelector('[data-loading-section="launcher-debug-logs"]')?.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth',
-      })
-    })
+    // Android host: full-screen page; desktop keeps the dialog.
+    if (androidHost) {
+      useMobilePageStore.getState().openPage('logs')
+      return
+    }
+
+    setLogDialogOpen(true)
   }
   const handleToggleForceOffline = useCallback(async () => {
     const nextForceOffline = !forceOffline
@@ -1811,16 +1823,18 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
-              <ConfigSmapiUpdateCard
-                copy={copy}
-                gamePath={settingsState.settings.gamePath}
-                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
-              />
-            </LoadingMotionReveal>
+            {!androidHost ? (
+              <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+                <ConfigSmapiUpdateCard
+                  copy={copy}
+                  gamePath={settingsState.settings.gamePath}
+                  onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+                />
+              </LoadingMotionReveal>
+            ) : null}
 
             <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} />
+              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
             </LoadingMotionReveal>
 
             <LoadingMotionReveal itemId="launcher-config-network" index={3}>
@@ -1877,6 +1891,8 @@ export function LauncherConfigurationPage({
           </div>
         </div>
       </div>
+
+      <LauncherLogDialog open={logDialogOpen} onClose={() => setLogDialogOpen(false)} />
     </section>
   )
 }

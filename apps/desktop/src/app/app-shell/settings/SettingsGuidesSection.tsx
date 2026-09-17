@@ -4,8 +4,9 @@
 import type { GuideId } from '@locales/api'
 import { useGuidesCopy, useSettingsMenuCopy } from '@locales/provider'
 import { useGuideEngineStore } from '@features/guide'
+import { isAndroidHost } from '@platform/android'
 import { appEvent } from '@platform/observability'
-import { appGuideDefinitions } from '../../guide-setup'
+import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../../guide-setup'
 
 /** Guide replay controls loaded only when the interaction settings category is visible. */
 export function SettingsGuidesSection() {
@@ -14,7 +15,12 @@ export function SettingsGuidesSection() {
   const completedGuideIds = useGuideEngineStore((state) => state.completedGuideIds)
   const requestGuideReplay = useGuideEngineStore((state) => state.requestGuideReplay)
   const resetAllGuideProgress = useGuideEngineStore((state) => state.resetAllGuideProgress)
-  const entries = appGuideDefinitions.map((definition) => ({
+  // The Android host is launcher-only: workbench guide replays would navigate
+  // into a surface that can never be shown, so they are filtered out entirely.
+  const replayableDefinitions = isAndroidHost()
+    ? appGuideDefinitions.filter((definition) => resolveGuideSurfaceNavigation(definition.surface)?.appMode !== 'workbench')
+    : appGuideDefinitions
+  const entries = replayableDefinitions.map((definition) => ({
     id: definition.id,
     title: guidesCopy.definitions[definition.id as GuideId]?.title ?? definition.id,
     watched: completedGuideIds.includes(definition.id),

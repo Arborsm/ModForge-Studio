@@ -7,16 +7,20 @@ import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode } from '@locales/api'
-import { useEditorCopy } from '@locales/provider'
+import { useEditorCopy, useNotificationCopy } from '@locales/provider'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { dismissNotification, markNotificationsSeen, publishNotification, NotificationCenter } from '@shared/ui/notifications'
+import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
+import { LauncherLogView } from './ui/LauncherLogDialog'
+import { MobilePageShell } from './ui/mobile/MobilePageShell'
+import { useMobilePageStore } from './ui/mobile/mobilePageStore'
 
 type LauncherPageProps = {
   page: LauncherPageId
@@ -108,6 +112,7 @@ export function LauncherPage({
   onLauncherDiagnosticsUpdate,
 }: LauncherPageProps) {
   const copy = useEditorCopy()
+  const notificationsCopy = useNotificationCopy()
   const launcherRuntime = useLauncherRuntime()
   useLauncherImageFetchNotifications()
   useLauncherUpdateProgressNotifications()
@@ -117,6 +122,11 @@ export function LauncherPage({
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
+  // Android host: downloads / notifications open as full-screen pages instead
+  // of titlebar floats; the shell never shows them at the same time.
+  const mobilePage = useMobilePageStore((state) => state.page)
+  const openMobilePage = useMobilePageStore((state) => state.openPage)
+  const closeMobilePage = useMobilePageStore((state) => state.closePage)
   const downloadsPopover = (
     <LauncherDownloadsPopover
       downloads={launcherRuntime.downloads}
@@ -125,6 +135,13 @@ export function LauncherPage({
       }}
     />
   )
+  const openLauncherUtilityPage = (utilityPage: 'downloads' | 'notifications') => {
+    useLauncherOverlayDismissStore.getState().requestLauncherOverlayDismiss()
+    if (utilityPage === 'notifications') {
+      markNotificationsSeen()
+    }
+    openMobilePage(utilityPage)
+  }
   useEffect(() => {
     if (
       !desktopHost ||
@@ -253,6 +270,7 @@ export function LauncherPage({
       <TopMenuBar
         appMode="launcher"
         onAppModeChange={onAppModeChange}
+        modeSwitchable={!androidHost}
         theme={theme}
         onToggleTheme={onToggleTheme}
         desktopHost={desktopHost}
@@ -271,6 +289,8 @@ export function LauncherPage({
           downloadsHasFailure: launcherRuntime.downloadsHasFailure,
           settingsWarning: false,
           downloadsPopover,
+          onOpenDownloads: androidHost ? () => openLauncherUtilityPage('downloads') : undefined,
+          onOpenNotifications: androidHost ? () => openLauncherUtilityPage('notifications') : undefined,
         }}
       />
 
@@ -295,6 +315,26 @@ export function LauncherPage({
             launchGameBusy={launchBusy}
             onLaunchGame={() => void handleLaunchGame()}
           />
+          {mobilePage ? (
+            <MobilePageShell
+              title={
+                mobilePage === 'downloads'
+                  ? copy.launcher.downloads.title
+                  : mobilePage === 'logs'
+                    ? copy.launcher.configuration.logViewer.title
+                    : notificationsCopy.centerTitle
+              }
+              onClose={closeMobilePage}
+            >
+              {mobilePage === 'downloads' ? (
+                downloadsPopover
+              ) : mobilePage === 'logs' ? (
+                <LauncherLogView active />
+              ) : (
+                <NotificationCenter showHeader={false} onAfterCloseOnClickAction={closeMobilePage} />
+              )}
+            </MobilePageShell>
+          ) : null}
         </div>
       </div>
     </div>

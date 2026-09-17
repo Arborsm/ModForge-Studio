@@ -147,6 +147,16 @@ export type LauncherConfigurationCopy = {
     gmcmProbeReview: string
   }
   configuration: {
+    logViewer: {
+      title: string
+      subtitle: string
+      refresh: string
+      copy: string
+      copyDone: string
+      empty: string
+      truncatedDetail: (count: number) => string
+      loadFailed: string
+    }
     title: string
     subtitle: string
     moreToolsTitle: string

@@ -60,6 +60,17 @@
       }
     },
     {
+      "name": "read_launcher_log",
+      "params": {
+        "request": "ReadLauncherLogRequest"
+      },
+      "result": "LauncherLogPage",
+      "android": {
+        "service": "Runtime",
+        "method": "ReadLauncherLogAsync"
+      }
+    },
+    {
       "name": "load_launcher_library_state",
       "params": {},
       "result": "LauncherLibraryState",
@@ -448,17 +459,29 @@
     {
       "name": "start_nexus_sso",
       "params": {},
-      "result": "SsoStartResult"
+      "result": "SsoStartResult",
+      "android": {
+        "service": "Sso",
+        "method": "StartNexusSsoAsync"
+      }
     },
     {
       "name": "get_nexus_sso_status",
       "params": {},
-      "result": "SsoSnapshot"
+      "result": "SsoSnapshot",
+      "android": {
+        "service": "Sso",
+        "method": "GetNexusSsoStatusAsync"
+      }
     },
     {
       "name": "cancel_nexus_sso",
       "params": {},
-      "result": "void"
+      "result": "void",
+      "android": {
+        "service": "Sso",
+        "method": "CancelNexusSsoAsync"
+      }
     }
   ]
 }

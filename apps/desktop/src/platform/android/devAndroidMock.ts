@@ -55,6 +55,9 @@ export function installAndroidDevMock() {
   }
 
   window.modforgeBridge = {
+    backHandled() {
+      //The dev mock has no activity to notify.
+    },
     invokeCommand(command, argsJson, callbackId) {
       // The real host executes on a background queue and dispatches later;
       // the mock keeps the same async contract so promise timing is honest.

@@ -8,6 +8,7 @@ import {
   forceCloseCurrentWindow,
   isCurrentWindowMaximized,
   isCurrentWindowFullscreen,
+  listenToAndroidBackRequest,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
@@ -18,10 +19,10 @@ import {
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 } from '@platform/host'
-import { isAndroidHost } from '@platform/android'
+import { isAndroidHost, notifyAndroidBackHandled } from '@platform/android'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
-import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
+import { canEnterWorkbench, normalizeAppShellState, resolveStartupAppMode } from '@shared/lib/app-state/appShellState'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
@@ -60,6 +61,7 @@ import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { registerAppCommandHandler } from '@shared/lib/app-runtime/appCommands'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
+import { useMobilePageStore } from '@pages/launcher/ui/mobile/mobilePageStore'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { AiSettingsTab, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 import { QuitDialog } from '@widgets/quit-dialog'
@@ -159,9 +161,11 @@ export default function App() {
   const windowIsFullscreen = usePreferencesStore((state) => state.windowIsFullscreen)
   const setTheme = usePreferencesStore((state) => state.setTheme)
   const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
-  const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
+  const [appMode, setAppMode] = useState<AppMode>(resolveStartupAppMode(androidHost, initialShellState.appMode))
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
-  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(
+    canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench',
+  )
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsShellPrepared, setSettingsShellPrepared] = useState(false)
@@ -170,7 +174,7 @@ export default function App() {
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
   const [quitDialogRemember, setQuitDialogRemember] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
-  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
@@ -264,11 +268,11 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
-        if (nextShellState.appMode === 'workbench') {
+        if (canEnterWorkbench(androidHost) && nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
         }
-        setAppMode(nextShellState.appMode)
+        setAppMode(resolveStartupAppMode(androidHost, nextShellState.appMode))
         setLauncherPage(nextShellState.launcherPage)
         setAppUiStateReady(true)
       })
@@ -285,7 +289,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [hostAvailable])
+  }, [androidHost, hostAvailable])
 
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
@@ -396,9 +400,12 @@ export default function App() {
       void preloadSettingsWindow().then(() => {
         if (cancelled) return
         setSettingsShellPrepared(true)
-        cancelWorkbenchPreload = deferToTimeout(() => {
-          void preloadWorkbenchPage()
-        }, 0)
+        // Android never downloads the workbench chunks: it is a launcher-only host.
+        cancelWorkbenchPreload = canEnterWorkbench(androidHost)
+          ? deferToTimeout(() => {
+              void preloadWorkbenchPage()
+            }, 0)
+          : null
       })
     }, 0)
     return () => {
@@ -406,7 +413,7 @@ export default function App() {
       cancelSettingsPreload()
       cancelWorkbenchPreload?.()
     }
-  }, [appMode, appUiStateReady])
+  }, [androidHost, appMode, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -451,7 +458,7 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
+  const workbenchLoaded = canEnterWorkbench(androidHost) && (workbenchHasOpened || appMode === 'workbench')
 
   useEffect(() => {
     if (!hostAvailable) {
@@ -548,13 +555,19 @@ export default function App() {
     }
   }, [hostAvailable, requestGuardedWindowClose])
 
-  const handleAppModeChange = useCallback((nextMode: AppMode) => {
-    if (nextMode === 'workbench') {
-      setWorkbenchHasOpened(true)
-      setWorkbenchActivationKey((current) => current + 1)
-    }
-    setAppMode(nextMode)
-  }, [])
+  const handleAppModeChange = useCallback(
+    (nextMode: AppMode) => {
+      if (!canEnterWorkbench(androidHost) && nextMode === 'workbench') {
+        return
+      }
+      if (nextMode === 'workbench') {
+        setWorkbenchHasOpened(true)
+        setWorkbenchActivationKey((current) => current + 1)
+      }
+      setAppMode(nextMode)
+    },
+    [androidHost],
+  )
 
   const handleSwitchToLauncher = useCallback(() => {
     setAppMode('launcher')
@@ -602,7 +615,7 @@ export default function App() {
     }
 
     const navigation = resolveGuideSurfaceNavigation(guideReplayRequest.surface)
-    if (navigation?.appMode === 'workbench') {
+    if (canEnterWorkbench(androidHost) && navigation?.appMode === 'workbench') {
       setWorkbenchHasOpened(true)
       setWorkbenchActivationKey((current) => current + 1)
       setAppMode('workbench')
@@ -615,7 +628,7 @@ export default function App() {
 
     setSettingsWindowOpen(false)
     useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
-  }, [guideReplayRequest])
+  }, [androidHost, guideReplayRequest])
 
   useEffect(() => {
     // Suppress the native browser context menu app-wide. Interactive surfaces
@@ -625,6 +638,40 @@ export default function App() {
     document.addEventListener('contextmenu', handler)
     return () => document.removeEventListener('contextmenu', handler)
   }, [])
+
+  useEffect(() => {
+    // Android system back: close the topmost launcher utility page and claim the
+    // press; with nothing to close the activity moves the task to the background.
+    if (!androidHost) {
+      return
+    }
+
+    let disposed = false
+    let unlisten: (() => void) | null = null
+
+    void ignoreError(
+      listenToAndroidBackRequest(() => {
+        const { page, closePage } = useMobilePageStore.getState()
+        if (page) {
+          closePage()
+          notifyAndroidBackHandled()
+        }
+      }).then((nextUnlisten: () => void) => {
+        if (disposed) {
+          nextUnlisten()
+          return
+        }
+
+        unlisten = nextUnlisten
+      }),
+      'appShell.listenAndroidBack',
+    )
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [androidHost])
 
   useEffect(() => {
     // Lower FSD layers (plugin manager) request compat-plugin hot-reload via
@@ -798,7 +845,8 @@ export default function App() {
                 overlay (dialog layer outranks the guide), so it can no longer
                 be covered; keep the guide suspended while settings is open so
                 the tour does not fight the modal (engine keeps the run). */}
-            {settingsWindowOpen ? null : <GuideTourOverlay />}
+            {/*The desktop coach-mark tour references desktop anchors; phones skip it.*/}
+            {settingsWindowOpen || androidHost ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

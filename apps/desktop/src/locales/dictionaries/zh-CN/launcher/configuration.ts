@@ -175,6 +175,16 @@ const configuration: LauncherConfigurationCopy = {
     gmcmProbeReview: '动态配置需检查',
   },
   configuration: {
+    logViewer: {
+      title: '运行日志',
+      subtitle: '最近的应用运行日志，包含游戏与 SMAPI 输出。',
+      refresh: '刷新',
+      copy: '复制日志',
+      copyDone: '已复制',
+      empty: '暂无日志',
+      truncatedDetail: (count) => `仅显示最近 ${count} 条，完整内容见日志文件`,
+      loadFailed: '无法读取日志',
+    },
     title: '诊断',
     subtitle: '集中检查启动器路径、Nexus 访问、下载默认值与各项诊断能力。',
     moreToolsTitle: '调试工具',

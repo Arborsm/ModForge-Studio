@@ -5,6 +5,11 @@ export type NotificationCopy = {
   dismissLabel: string
   actionHint: string
   levels: Record<'success' | 'info' | 'debug' | 'warning' | 'error', string>
+  /** Notification center (bell float / mobile page): recent + unread history. */
+  centerTitle: string
+  centerEmpty: string
+  centerClearAll: string
+  unreadBadgeAriaLabel: (count: number) => string
   ai: {
     settingsSaveFailedTitle: string
     modelListFailedTitle: string

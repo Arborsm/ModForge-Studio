@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>精修四稿 — 启动贴底条 + 更新页结构</title>
+    <style>
+      :root {
+        --accent: #5b54d6;
+        --accent-soft: rgba(91, 84, 214, 0.12);
+        --bg: #f4f4f8;
+        --panel: #ffffff;
+        --text: #232134;
+        --text-2: #6f6c85;
+        --text-3: #9c99b0;
+        --border: #e7e6ef;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        background: linear-gradient(135deg, #eceaf6, #e3e1f0);
+        padding: 26px 20px 60px;
+        color: var(--text);
+      }
+      h1 {
+        font-size: 21px;
+        margin-bottom: 4px;
+      }
+      .lead {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-bottom: 6px;
+        max-width: 940px;
+      }
+      .group {
+        margin-top: 30px;
+      }
+      .group-title h2 {
+        font-size: 16.5px;
+      }
+      .group-title .where {
+        font-size: 12px;
+        color: var(--text-3);
+        margin-left: 8px;
+      }
+      .plans {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        margin-top: 12px;
+      }
+      .plan {
+        width: 316px;
+      }
+      .plan-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .plan-label .tag {
+        min-width: 40px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 12px;
+        padding: 0 8px;
+      }
+      .plan-label b {
+        font-size: 13.5px;
+      }
+      .plan .note {
+        font-size: 12px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-top: 9px;
+      }
+
+      .phone {
+        width: 316px;
+        background: var(--bg);
+        border: 1px solid #d8d6e6;
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 10px 28px rgba(35, 33, 82, 0.13);
+        position: relative;
+      }
+      .statusbar {
+        height: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 10.5px;
+        font-weight: 700;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 0 9px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        width: 25px;
+        height: 25px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #6c64e8, #4a44b8);
+        color: #fff;
+        font-weight: 800;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .topbar b {
+        font-size: 14px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .icon-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        flex-shrink: 0;
+      }
+      .icon-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+      .topbar .search {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: #e9e8f1;
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .topbar .search svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+      .content {
+        padding: 12px 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+      .cover {
+        height: 62px;
+        border-radius: 10px 10px 0 0;
+      }
+      .card .meta {
+        padding: 7px 9px;
+      }
+      .card .meta b {
+        font-size: 11px;
+        display: block;
+      }
+      .card .meta i {
+        font-style: normal;
+        font-size: 9px;
+        color: var(--text-3);
+      }
+      svg {
+        display: block;
+      }
+
+      /* 库页筛选钮/面板 + 启动预检 */
+      .topbar .search .filter-btn {
+        margin-left: auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .topbar .search .filter-btn svg {
+        width: 11px;
+        height: 11px;
+        color: #fff;
+      }
+      .sheet {
+        position: absolute;
+        inset: auto 0 0 0;
+        background: var(--panel);
+        border-radius: 18px 18px 0 0;
+        padding: 14px 14px 18px;
+        box-shadow: 0 -10px 30px rgba(35, 33, 82, 0.18);
+        z-index: 2;
+      }
+      .sheet::before {
+        content: '';
+        display: block;
+        width: 36px;
+        height: 4px;
+        border-radius: 999px;
+        background: #d9d8e4;
+        margin: 0 auto 12px;
+      }
+      .sheet h3 {
+        font-size: 13.5px;
+        margin-bottom: 10px;
+      }
+      .sheet .frow {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      .sheet .fchip {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-2);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 11px;
+      }
+      .sheet .fchip.on {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .sheet .apply {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 9px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 12.5px;
+        margin-top: 4px;
+      }
+      .dim::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(35, 33, 82, 0.28);
+      }
+      .dim .sheet {
+        z-index: 2;
+      }
+      .pre {
+        padding: 4px 2px 10px;
+      }
+      .pre .prow {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        padding: 9px 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .pre .prow .k {
+        color: var(--text-3);
+      }
+      .pre .prow .v {
+        font-weight: 600;
+      }
+      .pre .prow .v.ok {
+        color: var(--success);
+      }
+
+      /* 库页贴底启动条 */
+      .launch-dock {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        background: color-mix(in srgb, var(--panel) 88%, transparent);
+        backdrop-filter: blur(14px);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 7px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        box-shadow: 0 6px 18px rgba(35, 33, 82, 0.12);
+      }
+      .launch-dock .play {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .launch-dock .play svg {
+        width: 15px;
+        height: 15px;
+        color: #fff;
+      }
+      .launch-dock .t {
+        flex: 1;
+        font-weight: 800;
+        font-size: 12.5px;
+      }
+      .launch-dock .t i {
+        font-style: normal;
+        display: block;
+        font-size: 9.5px;
+        color: var(--text-3);
+        font-weight: 400;
+      }
+      .grid-pad {
+        padding-bottom: 64px;
+      }
+      .navmock {
+        height: 44px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        background: color-mix(in srgb, var(--panel) 92%, transparent);
+        border-top: 1px solid var(--border);
+        font-size: 9.5px;
+        color: var(--text-3);
+      }
+      .navmock .on {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      /* 更新页 */
+      .sub-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--text-3);
+        padding: 0 2px;
+      }
+      .sub-line b {
+        color: var(--accent);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .urow {
+        display: flex;
+        gap: 10px;
+        padding: 11px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 13px;
+      }
+      .urow + .urow {
+        margin-top: 8px;
+      }
+      .urow .art {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+      .urow .u-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .urow .u-main b {
+        font-size: 12px;
+        display: block;
+      }
+      .urow .u-main i {
+        font-style: normal;
+        font-size: 10px;
+        color: var(--text-3);
+      }
+      .urow .u-go {
+        align-self: center;
+        color: var(--accent);
+        font-weight: 800;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .urow .chk {
+        width: 17px;
+        height: 17px;
+        border-radius: 5px;
+        border: 1.5px solid var(--border);
+        align-self: center;
+        flex-shrink: 0;
+      }
+      .urow .chk.on {
+        background: var(--accent);
+        border-color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 10px;
+      }
+      .bottom-cta {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 62px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 11px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 13px;
+        box-shadow: 0 8px 20px rgba(91, 84, 214, 0.35);
+      }
+      .verdict {
+        margin-top: 22px;
+        padding: 13px 15px;
+        background: #fff;
+        border: 1px dashed var(--accent);
+        border-radius: 12px;
+        font-size: 12.5px;
+        color: var(--text-2);
+        line-height: 1.7;
+        max-width: 940px;
+      }
+      svg {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>精修四稿 — 启动贴底条 + 更新页结构</h1>
+    <p class="lead">只动你点名的两处：启动按钮从内容区拿出来贴底常驻；更新页去掉和顶栏重复的按钮行，选择/执行分层。</p>
+
+    <div class="group">
+      <div class="group-title">
+        <h2>① 库页</h2>
+        <span class="where">启动条贴底常驻，网格是唯一主角</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">库页</span><b>顶栏搜索 + 贴底启动条</b></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜已装模组…<span class="filter-btn"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M7 12h10M10 18h4" /></svg
+                ></span>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content grid-pad">
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>v1.14.1</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>v6.9.2</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #5cbf8a, #2e8f60)"></div>
+                  <div class="meta"><b>Lookup</b><i>v2.3.0</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e87ca8, #c93b74)"></div>
+                  <div class="meta"><b>Ridgeside</b><i>v3.1.4</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="launch-dock">
+              <div class="play">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 3 14 9-14 9V3Z" /></svg>
+              </div>
+              <div class="t">启动游戏<i>SMAPI 4.1.10 · 6 个模组</i></div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" width="15" height="15">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </div>
+            <div class="navmock"><span class="on">● 库</span><span>发现</span><span>更新</span><span>诊断</span></div>
+          </div>
+          <p class="note">
+            启动条 = 底部导航上方的毛玻璃胶囊：播放圆钮 + 「启动游戏 / SMAPI 版本·模组数」+
+            箭头（点开启动预检详情）。滚动时常驻但不占内容区第一行——网格从页面顶端开始，就是唯一主角。箭头点开是启动确认面板（预检结果、上次启动时长）。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">
+        <h2>①b 库页二级面板</h2>
+        <span class="where">搜索旁筛选钮 → 筛选面板；启动条箭头 → 启动预检</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">筛选</span><b>点搜索框右侧蓝钮 → 底部面板</b></div>
+          <div class="phone dim">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜已装模组…<span class="filter-btn"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M7 12h10M10 18h4" /></svg
+                ></span>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>v1.14.1</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>v6.9.2</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="sheet">
+              <h3>筛选与排序</h3>
+              <div class="frow"><span class="fchip on">全部</span><span class="fchip">已启用</span><span class="fchip">有更新</span></div>
+              <div class="frow">
+                <span class="fchip on">按名称</span><span class="fchip">按更新时间</span><span class="fchip">按大小</span>
+              </div>
+              <div class="frow"><span class="fchip">显示停用模组</span><span class="fchip">显示文件夹</span></div>
+              <div class="apply">应用</div>
+            </div>
+          </div>
+          <p class="note">
+            库页筛选面板：过滤（全部/已启用/有更新）、排序（名称/更新时间/大小）、显示开关（停用模组、文件夹）。原四个工具钮的功能全部归位到这里。
+          </p>
+        </div>
+
+        <div class="plan">
+          <div class="plan-label"><span class="tag">启动</span><b>点启动条箭头 → 预检面板</b></div>
+          <div class="phone dim">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜已装模组…<span class="filter-btn"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M7 12h10M10 18h4" /></svg
+                ></span>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>v1.14.1</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>v6.9.2</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="sheet">
+              <h3>启动预检</h3>
+              <div class="pre">
+                <div class="prow"><span class="k">游戏版本</span><span class="v ok">1.6.15 ✓</span></div>
+                <div class="prow"><span class="k">SMAPI</span><span class="v ok">4.1.10-android ✓</span></div>
+                <div class="prow"><span class="k">已装模组</span><span class="v">6 个（6 启用）</span></div>
+                <div class="prow"><span class="k">依赖冲突</span><span class="v ok">无 ✓</span></div>
+                <div class="prow"><span class="k">上次启动</span><span class="v">昨天 21:32</span></div>
+              </div>
+              <div class="apply">开始启动</div>
+            </div>
+          </div>
+          <p class="note">
+            启动条主体（圆钮+文字）= 直接启动；箭头 = 打开预检面板（版本/SMAPI/模组/依赖/上次启动五项检查 +
+            开始启动）。直接按圆钮也走同一预检，通过即自动进游戏。
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="group">
+      <div class="group-title">
+        <h2>② 更新页</h2>
+        <span class="where">顶栏刷新，正文只管选择和执行</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">更新</span><b>分层：顶栏刷新 / 行内勾选 / 底部执行</b></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="spacer"></div>
+              <b>更新</b>
+              <div class="spacer"></div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+            </div>
+            <div class="content" style="padding-bottom: 64px">
+              <div class="sub-line"><span>3 个模组可更新 · 刚刚检查</span><b>全选</b></div>
+              <div>
+                <div class="urow">
+                  <span class="chk on">✓</span>
+                  <div class="art" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="u-main"><b>East Scarp</b><i>v6.8.0 → v6.9.2</i></div>
+                  <span class="u-go">更新</span>
+                </div>
+                <div class="urow">
+                  <span class="chk on">✓</span>
+                  <div class="art" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="u-main"><b>SVE</b><i>v1.14.0 → v1.14.1</i></div>
+                  <span class="u-go">更新</span>
+                </div>
+                <div class="urow">
+                  <span class="chk"></span>
+                  <div class="art" style="background: linear-gradient(135deg, #5cbf8a, #2e8f60)"></div>
+                  <div class="u-main"><b>Lookup</b><i>v2.2.9 → v2.3.0</i></div>
+                  <span class="u-go">更新</span>
+                </div>
+              </div>
+            </div>
+            <div class="bottom-cta">更新所选 2 个</div>
+            <div class="navmock"><span>库</span><span>发现</span><span class="on">● 更新</span><span>诊断</span></div>
+          </div>
+          <p class="note">
+            刷新只在顶栏（唯一入口，不再和正文按钮重复）；状态行「3 个可更新 · 刚刚检查 +
+            全选」；每行自带勾选框和蓝色「更新」文字钮（单个直接更）；底部蓝色大按钮「更新所选 2 个」贴底常驻，勾选变化实时更新数字。
+          </p>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <b>顺带说明</b
+        >：诊断页沿用同一结构（顶栏标题+右侧动作，正文卡片流）；发现页维持三稿的顶栏搜索+筛选面板。这两处没动。确认后我按这版实施库页启动条与更新页。
+      </div>
+    </div>
+  </body>
+</html>

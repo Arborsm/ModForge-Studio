@@ -1,13 +1,30 @@
 /**
  * @file Top menu bar component: hosts mode switching, project menu, launcher navigation, and window controls.
  */
-import { ChevronDown, Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
+import {
+  Bell,
+  BookOpenText,
+  ChevronDown,
+  Compass,
+  Download,
+  LayoutDashboard,
+  Minus,
+  Moon,
+  RefreshCw,
+  Rocket,
+  Settings2,
+  Square,
+  Stethoscope,
+  Sun,
+  X,
+} from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode } from '@locales/api'
-import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
+import { useEditorCopy, useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { ProgressRing } from '@shared/ui/ProgressRing'
+import { NotificationCenter, markNotificationsSeen, useUnreadNotificationCount } from '@shared/ui/notifications'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
 /** "Recent projects" list item for the top menu bar. */
@@ -39,6 +56,11 @@ export type TopMenuBarProjectMenu = {
 type TopMenuBarProps = {
   appMode: AppMode
   onAppModeChange: (mode: AppMode) => void
+  /**
+   * Whether the launcher/workbench mode switcher is rendered. Hosts locked to
+   * the launcher (Android) pass `false`; desktop keeps the default `true`.
+   */
+  modeSwitchable?: boolean
   theme: ThemeMode
   onToggleTheme: () => void
   desktopHost: boolean
@@ -68,6 +90,12 @@ type TopMenuBarProps = {
     downloadsHasFailure: boolean
     settingsWarning: boolean
     downloadsPopover: ReactNode
+    /**
+     * Provided by page-style hosts (Android): opens downloads/notifications as
+     * full-screen pages instead of the anchored titlebar floats.
+     */
+    onOpenDownloads?: () => void
+    onOpenNotifications?: () => void
   }
 }
 
@@ -86,6 +114,7 @@ function formatLauncherNavBadgeCount(count: number) {
 export default function TopMenuBar({
   appMode,
   onAppModeChange,
+  modeSwitchable = true,
   theme,
   onToggleTheme,
   desktopHost,
@@ -99,12 +128,15 @@ export default function TopMenuBar({
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
   const settingsMenuCopy = useSettingsMenuCopy()
+  const notificationCopy = useNotificationCopy()
   const navCopy = copy.workbenchNavigation
-  const [activeMenu, setActiveMenu] = useState<'downloads' | 'project' | null>(null)
+  const unreadNotificationCount = useUnreadNotificationCount()
+  const [activeMenu, setActiveMenu] = useState<'downloads' | 'project' | 'notifications' | null>(null)
   const downloadsMenuId = useId()
   const projectMenuId = useId()
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
+  const notificationsFloatRef = useRef<HTMLElement | null>(null)
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
@@ -112,6 +144,7 @@ export default function TopMenuBar({
   const visibleActiveMenu =
     activeMenu === 'downloads' && !launcherNav ? null : activeMenu === 'project' && (launcherModeActive || !projectMenu) ? null : activeMenu
   const downloadsMenuOpen = visibleActiveMenu === 'downloads' && Boolean(launcherNav)
+  const notificationsMenuOpen = visibleActiveMenu === 'notifications'
   useEffect(() => {
     if (!activeMenu) {
       return
@@ -122,6 +155,7 @@ export default function TopMenuBar({
       if (
         downloadsMenuRef.current?.contains(target) ||
         downloadsFloatRef.current?.contains(target) ||
+        notificationsFloatRef.current?.contains(target) ||
         projectMenuRef.current?.contains(target)
       ) {
         return
@@ -163,39 +197,41 @@ export default function TopMenuBar({
             <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
           </div>
 
-          <div
-            className="top-menu-mode-segment pointer-events-auto"
-            role="group"
-            aria-label={copy.shell.modeLabel}
-            data-top-menu-no-drag="true"
-          >
-            <button
-              type="button"
-              className="top-menu-mode-option"
-              data-active={launcherModeActive ? 'true' : 'false'}
-              aria-pressed={launcherModeActive}
-              title={copy.shell.launcher}
-              onClick={() => {
-                if (!launcherModeActive) onAppModeChange('launcher')
-              }}
+          {modeSwitchable ? (
+            <div
+              className="top-menu-mode-segment pointer-events-auto"
+              role="group"
+              aria-label={copy.shell.modeLabel}
+              data-top-menu-no-drag="true"
             >
-              <Rocket className="h-4 w-4" aria-hidden="true" />
-              <span>{copy.shell.launcher}</span>
-            </button>
-            <button
-              type="button"
-              className="top-menu-mode-option"
-              data-active={!launcherModeActive ? 'true' : 'false'}
-              aria-pressed={!launcherModeActive}
-              title={copy.shell.workbench}
-              onClick={() => {
-                if (launcherModeActive) onAppModeChange('workbench')
-              }}
-            >
-              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-              <span>{copy.shell.workbench}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                className="top-menu-mode-option"
+                data-active={launcherModeActive ? 'true' : 'false'}
+                aria-pressed={launcherModeActive}
+                title={copy.shell.launcher}
+                onClick={() => {
+                  if (!launcherModeActive) onAppModeChange('launcher')
+                }}
+              >
+                <Rocket className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.shell.launcher}</span>
+              </button>
+              <button
+                type="button"
+                className="top-menu-mode-option"
+                data-active={!launcherModeActive ? 'true' : 'false'}
+                aria-pressed={!launcherModeActive}
+                title={copy.shell.workbench}
+                onClick={() => {
+                  if (launcherModeActive) onAppModeChange('workbench')
+                }}
+              >
+                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                <span>{copy.shell.workbench}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
@@ -205,8 +241,15 @@ export default function TopMenuBar({
                 <GooeyNav
                   items={launcherNav.visiblePages.map((page) => {
                     const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
+                    const pageIcon = {
+                      library: <BookOpenText className="h-5 w-5" />,
+                      discover: <Compass className="h-5 w-5" />,
+                      updates: <RefreshCw className="h-5 w-5" />,
+                      configuration: <Stethoscope className="h-5 w-5" />,
+                    }[page]
                     return {
                       label: copy.launcher.pages[page],
+                      icon: pageIcon,
                       badge: updatesBadge ?? undefined,
                     } satisfies GooeyNavItem
                   })}
@@ -368,10 +411,15 @@ export default function TopMenuBar({
                   launcherNav.downloadsHasFailure && 'top-menu-icon-action-failure',
                 )}
                 aria-label={copy.launcher.downloads.title}
-                aria-haspopup="dialog"
-                aria-expanded={downloadsMenuOpen}
-                aria-controls={downloadsMenuId}
+                aria-haspopup={launcherNav.onOpenDownloads ? undefined : 'dialog'}
+                aria-expanded={launcherNav.onOpenDownloads ? undefined : downloadsMenuOpen}
+                aria-controls={launcherNav.onOpenDownloads ? undefined : downloadsMenuId}
                 onClick={() => {
+                  // Page-style hosts open downloads as a full-screen page.
+                  if (launcherNav.onOpenDownloads) {
+                    launcherNav.onOpenDownloads()
+                    return
+                  }
                   const downloadsOpening = activeMenu !== 'downloads'
                   setActiveMenu(downloadsOpening ? 'downloads' : null)
                   // The downloads float renders inside the window frame, so it
@@ -413,6 +461,51 @@ export default function TopMenuBar({
                   {launcherNav.downloadsPopover}
                 </section>
               ) : null}
+              <button
+                type="button"
+                className={cx(
+                  'icon-button top-menu-icon-action pointer-events-auto',
+                  notificationsMenuOpen && 'top-menu-icon-action-active',
+                )}
+                aria-label={
+                  unreadNotificationCount > 0
+                    ? notificationCopy.unreadBadgeAriaLabel(unreadNotificationCount)
+                    : notificationCopy.centerTitle
+                }
+                aria-haspopup={launcherNav.onOpenNotifications ? undefined : 'dialog'}
+                aria-expanded={launcherNav.onOpenNotifications ? undefined : notificationsMenuOpen}
+                onClick={() => {
+                  // Page-style hosts open the notification center as a page.
+                  if (launcherNav.onOpenNotifications) {
+                    launcherNav.onOpenNotifications()
+                    return
+                  }
+                  const notificationsOpening = activeMenu !== 'notifications'
+                  setActiveMenu(notificationsOpening ? 'notifications' : null)
+                  // The float shares the downloads float's layer constraints and
+                  // reading the center marks every record seen.
+                  if (notificationsOpening) {
+                    markNotificationsSeen()
+                    useLauncherOverlayDismissStore.getState().requestLauncherOverlayDismiss()
+                  }
+                }}
+              >
+                <Bell className="h-4 w-4" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="top-menu-icon-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>
+                ) : null}
+              </button>
+              {notificationsMenuOpen ? (
+                <section
+                  className="top-menu-float-panel top-menu-notifications-float panel-surface panel-surface-muted pointer-events-auto"
+                  role="dialog"
+                  aria-label={notificationCopy.centerTitle}
+                  ref={notificationsFloatRef}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <NotificationCenter />
+                </section>
+              ) : null}
             </div>
           ) : null}
           <button
@@ -438,7 +531,7 @@ export default function TopMenuBar({
           </button>
           {desktopHost && windowControls ? (
             <div
-              className="border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
+              className="top-menu-window-controls border-border-subtle bg-surface-panel-muted pointer-events-auto ml-1 flex items-center overflow-hidden rounded-lg border"
               data-top-menu-no-drag="true"
             >
               <button

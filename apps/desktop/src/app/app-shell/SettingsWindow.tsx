@@ -1,7 +1,7 @@
 /**
  * @file Settings window component: provides categorized preference panels for appearance, loading motion, view, interaction, AI, debugging, etc.
  */
-import { AlertTriangle, Settings2, X } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Settings2, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
@@ -12,6 +12,7 @@ import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { DEFAULT_THEME_ID, THEME_PRESETS } from '@shared/lib/theme/presets'
 import type { LocaleCode } from '@locales/api'
 import { useSettingsMenuCopy } from '@locales/provider'
+import { isAndroidHost } from '@platform/android'
 import type { AiSettingsTab, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyleId } from '@shared/lib/loading-motion'
 
@@ -55,7 +56,12 @@ type SettingsWindowProps = {
   onClose: () => void
 }
 
-const SETTINGS_CATEGORIES: SettingsWindowCategory[] = ['appearance', 'loading', 'view', 'interaction', 'ai', 'debug']
+const ALL_SETTINGS_CATEGORIES: SettingsWindowCategory[] = ['appearance', 'loading', 'view', 'interaction', 'ai', 'debug']
+// The window-management category is a desktop concept (window border tone,
+// borderless fullscreen, close behavior); the Android host hides it entirely.
+const SETTINGS_CATEGORIES: SettingsWindowCategory[] = isAndroidHost()
+  ? ALL_SETTINGS_CATEGORIES.filter((category) => category !== 'view')
+  : ALL_SETTINGS_CATEGORIES
 
 /** Display order matches prototype theme grid (warm-paper first). */
 const THEME_DISPLAY_ORDER = [
@@ -452,6 +458,15 @@ export default function SettingsWindow({
               ))}
             </nav>
 
+            <button
+              type="button"
+              className="settings-window-back settings-window-close"
+              onClick={requestClose}
+              title={settingsCopy.closeDialogLabel}
+              aria-label={settingsCopy.closeDialogLabel}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
             <button
               type="button"
               className="settings-window-close"

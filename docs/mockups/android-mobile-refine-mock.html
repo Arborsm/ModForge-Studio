@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>移动端打磨方案对比 — 页头 / 设置 / 详情</title>
+    <style>
+      :root {
+        --accent: #5b54d6;
+        --accent-soft: rgba(91, 84, 214, 0.12);
+        --bg: #f4f4f8;
+        --panel: #ffffff;
+        --text: #232134;
+        --text-2: #6f6c85;
+        --text-3: #9c99b0;
+        --border: #e7e6ef;
+        --success: #2e9e5b;
+        --warning: #c47f00;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        background: linear-gradient(135deg, #eceaf6, #e3e1f0);
+        padding: 28px 20px 60px;
+        color: var(--text);
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+      .lead {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-bottom: 8px;
+        max-width: 900px;
+      }
+
+      .group {
+        margin-top: 34px;
+      }
+      .group-title {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 4px;
+      }
+      .group-title h2 {
+        font-size: 17px;
+      }
+      .group-title .where {
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .plans {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .plan {
+        width: 330px;
+      }
+      .plan-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .plan-label .tag {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 13px;
+      }
+      .plan-label b {
+        font-size: 14px;
+      }
+      .plan-label span {
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .plan .note {
+        font-size: 12px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-top: 10px;
+      }
+
+      .phone {
+        width: 330px;
+        background: var(--bg);
+        border: 1px solid #d8d6e6;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(35, 33, 82, 0.14);
+      }
+      .statusbar {
+        height: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 18px;
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        background: var(--panel);
+      }
+      .brand {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #6c64e8, #4a44b8);
+        color: #fff;
+        font-weight: 800;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .icon-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        position: relative;
+      }
+      .icon-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+      .icon-btn.circle {
+        background: var(--panel);
+        border: 1px solid var(--border);
+      }
+      .badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: #d64545;
+        color: #fff;
+        font-size: 8.5px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .content {
+        padding: 12px 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 430px;
+      }
+
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 9px 13px;
+        color: var(--text-3);
+        font-size: 12.5px;
+      }
+      .search svg {
+        width: 14px;
+        height: 14px;
+      }
+      .toolrow {
+        display: flex;
+        gap: 8px;
+      }
+      .tool {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+      }
+      .tool svg {
+        width: 15px;
+        height: 15px;
+      }
+      .cta {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 11px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 13.5px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .page-title {
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .page-sub {
+        font-size: 11.5px;
+        color: var(--text-3);
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+      }
+
+      /* 设置元素 */
+      .seg-line {
+        display: flex;
+        gap: 18px;
+        padding: 0 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .seg-line .on {
+        color: var(--accent);
+        font-weight: 700;
+        border-bottom: 2.5px solid var(--accent);
+        padding-bottom: 9px;
+        font-size: 13px;
+      }
+      .seg-line .off {
+        color: var(--text-3);
+        font-size: 13px;
+        padding-bottom: 9px;
+      }
+      .set-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 12px 13px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 13px;
+      }
+      .set-row + .set-row {
+        margin-top: 8px;
+      }
+      .set-ic {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .set-ic svg {
+        width: 15px;
+        height: 15px;
+      }
+      .set-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .set-main b {
+        font-size: 13px;
+        display: block;
+      }
+      .set-main i {
+        font-style: normal;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .chev {
+        color: var(--text-3);
+      }
+      .chev svg {
+        width: 14px;
+        height: 14px;
+      }
+      .sw {
+        width: 38px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--accent);
+        position: relative;
+        flex-shrink: 0;
+      }
+      .sw::after {
+        content: '';
+        position: absolute;
+        right: 2.5px;
+        top: 2.5px;
+        width: 17px;
+        height: 17px;
+        border-radius: 999px;
+        background: #fff;
+      }
+      .sw.off2 {
+        background: #d9d8e4;
+      }
+      .sw.off2::after {
+        right: auto;
+        left: 2.5px;
+      }
+      .back-icon {
+        color: var(--text);
+      }
+      .settings-h {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px 12px;
+      }
+      .settings-h b {
+        font-size: 16px;
+      }
+
+      /* 详情元素 */
+      .d-hero {
+        display: flex;
+        gap: 11px;
+      }
+      .d-cover {
+        width: 74px;
+        height: 74px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #7f76e8, #4a44b8);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #d9d6ff;
+        font-weight: 800;
+        font-size: 15px;
+      }
+      .d-name {
+        font-size: 16.5px;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+      .d-author {
+        font-size: 11px;
+        color: var(--text-2);
+        margin-top: 3px;
+      }
+      .tags {
+        display: flex;
+        gap: 5px;
+        margin-top: 7px;
+        flex-wrap: wrap;
+      }
+      .pill {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+      }
+      .pill.blue {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .pill.grey {
+        background: #efeff4;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+      .pill.green {
+        background: rgba(46, 158, 91, 0.12);
+        color: var(--success);
+      }
+      .dtabs {
+        display: flex;
+        gap: 14px;
+        border-bottom: 1px solid var(--border);
+        padding: 0 2px;
+      }
+      .dtabs span {
+        font-size: 12px;
+        color: var(--text-3);
+        padding-bottom: 8px;
+      }
+      .dtabs .on {
+        color: var(--accent);
+        font-weight: 700;
+        border-bottom: 2px solid var(--accent);
+      }
+      .vline {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .vline .cur {
+        color: var(--text-3);
+      }
+      .vline .next {
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .vline .btn {
+        margin-left: auto;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        font-size: 11px;
+        padding: 6px 11px;
+        border-radius: 999px;
+      }
+      .vcard {
+        flex: 1;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 9px 11px;
+      }
+      .vcard i {
+        font-style: normal;
+        font-size: 9.5px;
+        color: var(--text-3);
+        letter-spacing: 0.04em;
+        display: block;
+      }
+      .vcard b {
+        font-size: 15px;
+      }
+      .vcard .nxt {
+        color: var(--accent);
+      }
+      .vrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .arrow {
+        color: var(--text-3);
+      }
+      .foot {
+        display: flex;
+        gap: 9px;
+        padding: 10px 12px 2px;
+      }
+      .foot .g {
+        flex: 1;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 999px;
+        padding: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+      }
+      .foot .g svg {
+        width: 15px;
+        height: 15px;
+      }
+      .foot .p {
+        flex: 2;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 10px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 12.5px;
+      }
+
+      .verdict {
+        margin-top: 26px;
+        padding: 14px 16px;
+        background: #fff;
+        border: 1px dashed var(--accent);
+        border-radius: 12px;
+        font-size: 12.5px;
+        color: var(--text-2);
+        line-height: 1.7;
+        max-width: 900px;
+      }
+      svg {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>移动端打磨对比稿</h1>
+    <p class="lead">三组改动点，每组 A/B 两个方向。选定后我按选定方向统一实施到所有页面。配色/圆角沿用现有 tokens。</p>
+
+    <!-- ================= 组 1 ================= -->
+    <div class="group">
+      <div class="group-title">
+        <h2>① 列表页头 + 搜索框</h2>
+        <span class="where">库 / 发现 / 更新 / 诊断 四页通用（以库页为例）</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">A</span><b>无卡直铺 · mock 密度</b><span>推荐</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="spacer"></div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜索已安装的模组
+              </div>
+              <div class="toolrow">
+                <div class="tool">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+                <div class="tool">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M10 18h4" /></svg>
+                </div>
+                <div class="tool">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
+                </div>
+                <div class="tool">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                </div>
+              </div>
+              <div class="cta">▷ 启动游戏</div>
+              <div class="divider"></div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px">
+                <div class="card" style="overflow: hidden">
+                  <div style="height: 64px; background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div style="padding: 8px 10px">
+                    <b style="font-size: 11.5px">SVE</b>
+                    <div style="font-size: 9.5px; color: var(--text-3)">v1.14.1</div>
+                  </div>
+                </div>
+                <div class="card" style="overflow: hidden">
+                  <div style="height: 64px; background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div style="padding: 8px 10px">
+                    <b style="font-size: 11.5px">East Scarp</b>
+                    <div style="font-size: 9.5px; color: var(--text-3)">v6.9.2</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            去掉包住整块内容的大白卡（现库/发现/更新都有一层外卡，显得又厚又空），元素直接铺在页面底色上；搜索条第一个出现、全宽胶囊；工具图标一行小圆钮；Launch
+            Game 全宽。发现/更新/诊断套同一节奏：标题行 → 搜索/按钮行 → 内容。
+          </p>
+        </div>
+
+        <div class="plan">
+          <div class="plan-label"><span class="tag">B</span><b>保留标题行 · 标题+副行结构</b><span>信息更多</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="spacer"></div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <div>
+                  <div class="page-title">模组库</div>
+                  <div class="page-sub">6 个模组 · All Installed Mods ▾</div>
+                </div>
+                <div class="spacer"></div>
+                <div class="tool">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M10 18h4" /></svg>
+                </div>
+              </div>
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜索模组…
+              </div>
+              <div class="divider"></div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px">
+                <div class="card" style="overflow: hidden">
+                  <div style="height: 64px; background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div style="padding: 8px 10px">
+                    <b style="font-size: 11.5px">SVE</b>
+                    <div style="font-size: 9.5px; color: var(--text-3)">v1.14.1</div>
+                  </div>
+                </div>
+                <div class="card" style="overflow: hidden">
+                  <div style="height: 64px; background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div style="padding: 8px 10px">
+                    <b style="font-size: 11.5px">East Scarp</b>
+                    <div style="font-size: 9.5px; color: var(--text-3)">v6.9.2</div>
+                  </div>
+                </div>
+              </div>
+              <div class="cta" style="position: fixed; width: 290px; bottom: 24px; margin-left: 8px">▷ 启动游戏</div>
+            </div>
+          </div>
+          <p class="note">
+            保留页面大标题 + 统计副行（"6 个模组"），工具钮收到标题右侧只留一个；Launch Game
+            从内容区拿出来变成贴底悬浮条（列表滚动时常驻）。发现页同构：标题"发现"+副行"777 个结果"，更新页"更新"+副行"3 个可更新"。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 组 2 ================= -->
+    <div class="group">
+      <div class="group-title">
+        <h2>② 设置页</h2>
+        <span class="where">去掉横屏感的两种做法</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">A</span><b>Android 原生两层（分类列表 → 二级页）</b><span>推荐</span></div>
+          <div class="plans" style="gap: 16px">
+            <div class="phone" style="width: 200px">
+              <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+              <div class="topbar">
+                <div class="back-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                  </svg>
+                </div>
+                <b style="font-size: 14.5px">设置</b>
+              </div>
+              <div class="content" style="gap: 8px">
+                <div class="set-row">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="4" />
+                      <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+                    </svg>
+                  </div>
+                  <div class="set-main"><b>外观</b><i>主题 · 语言</i></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                  ></span>
+                </div>
+                <div class="set-row">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                  </div>
+                  <div class="set-main"><b>加载动效</b><i>风格 · 强度</i></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                  ></span>
+                </div>
+                <div class="set-row">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+                    </svg>
+                  </div>
+                  <div class="set-main"><b>交互</b><i>通知音 · 引导</i></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                  ></span>
+                </div>
+                <div class="set-row">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+                      <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
+                    </svg>
+                  </div>
+                  <div class="set-main"><b>AI 翻译</b><i>档案 · 模型</i></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                  ></span>
+                </div>
+                <div class="set-row">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="m18 16 4-4-4-4" />
+                      <path d="m6 8-4 4 4 4" />
+                      <path d="m14.5 4-5 16" />
+                    </svg>
+                  </div>
+                  <div class="set-main"><b>开发者</b><i>调试 · 日志</i></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <div class="phone" style="width: 200px">
+              <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+              <div class="topbar">
+                <div class="back-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="m12 19-7-7 7-7" />
+                    <path d="M19 12H5" />
+                  </svg>
+                </div>
+                <b style="font-size: 14.5px">外观</b>
+              </div>
+              <div class="content">
+                <div style="font-size: 10.5px; color: var(--text-3); letter-spacing: 0.05em; font-weight: 700">颜色主题</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+                  <div class="card" style="padding: 8px; border: 1.5px solid var(--accent)">
+                    <div style="height: 30px; border-radius: 7px; background: linear-gradient(135deg, #f2ead8, #e2d5b8)"></div>
+                    <b style="font-size: 10.5px; display: block; margin-top: 5px">暖纸</b>
+                  </div>
+                  <div class="card" style="padding: 8px">
+                    <div style="height: 30px; border-radius: 7px; background: linear-gradient(135deg, #eceef2, #d4d8e0)"></div>
+                    <b style="font-size: 10.5px; display: block; margin-top: 5px">中性工具</b>
+                  </div>
+                  <div class="card" style="padding: 8px">
+                    <div style="height: 30px; border-radius: 7px; background: linear-gradient(135deg, #dbe4f0, #b9c8de)"></div>
+                    <b style="font-size: 10.5px; display: block; margin-top: 5px">石板蓝</b>
+                  </div>
+                  <div class="card" style="padding: 8px">
+                    <div style="height: 30px; border-radius: 7px; background: linear-gradient(135deg, #dcead9, #bcd4b8)"></div>
+                    <b style="font-size: 10.5px; display: block; margin-top: 5px">森林</b>
+                  </div>
+                </div>
+                <div style="font-size: 10.5px; color: var(--text-3); letter-spacing: 0.05em; font-weight: 700; margin-top: 4px">语言</div>
+                <div class="set-row">
+                  <div class="set-main"><b>English</b></div>
+                  <span class="chev"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg
+                  ></span>
+                </div>
+                <div class="set-row">
+                  <div class="set-main"><b>简体中文</b></div>
+                  <span style="width: 14px"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            最像原生 Android 设置：首页就是分类列表（图标+名称+副标题+箭头），点进二级页（返回箭头 + 分类内容）。彻底消灭横排 tab
+            和重复大标题。二级页内的设置行统一为「上标题下说明」或「label + 控件」两种。
+          </p>
+        </div>
+
+        <div class="plan">
+          <div class="plan-label"><span class="tag">B</span><b>单页 · 下划线分段 + 行式设置</b><span>改动小</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="back-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </div>
+              <b style="font-size: 15px">设置</b>
+            </div>
+            <div class="content" style="gap: 0">
+              <div class="seg-line">
+                <span class="on">外观</span><span class="off">动效</span><span class="off">交互</span><span class="off">AI</span
+                ><span class="off">开发</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px">
+                <div class="card" style="padding: 8px; border: 1.5px solid var(--accent)">
+                  <div style="height: 28px; border-radius: 7px; background: linear-gradient(135deg, #f2ead8, #e2d5b8)"></div>
+                  <b style="font-size: 10px; display: block; margin-top: 5px">暖纸</b>
+                </div>
+                <div class="card" style="padding: 8px">
+                  <div style="height: 28px; border-radius: 7px; background: linear-gradient(135deg, #eceef2, #d4d8e0)"></div>
+                  <b style="font-size: 10px; display: block; margin-top: 5px">中性工具</b>
+                </div>
+              </div>
+              <div style="font-size: 10.5px; color: var(--text-3); letter-spacing: 0.05em; font-weight: 700; margin-top: 10px">语言</div>
+              <div class="set-row">
+                <div class="set-main"><b>English</b></div>
+                <span class="chev"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg
+                ></span>
+              </div>
+              <div class="set-row">
+                <div class="set-main"><b>简体中文</b></div>
+                <span style="width: 14px"></span>
+              </div>
+              <div style="font-size: 10.5px; color: var(--text-3); letter-spacing: 0.05em; font-weight: 700; margin-top: 10px">交互</div>
+              <div class="set-row">
+                <div class="set-main"><b>通知音效</b><i style="display: block">新通知播放提示音</i></div>
+                <div class="sw"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-main"><b>引导回放</b><i style="display: block">重看功能引导</i></div>
+                <span class="chev"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
+                ></span>
+              </div>
+              <div class="set-row">
+                <div class="set-main"><b>开发者模式</b><i style="display: block">诊断覆盖层与调试日志</i></div>
+                <div class="sw off2"></div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            保持现在的单页结构，只治丑：tab 从「灰底大白块」改成下划线式；删掉 tab
+            下面重复的分类大标题+描述；所有设置项统一成行式卡片（图标可选），每行「标题+说明」左、开关/箭头右。窗口边框等桌面项在安卓上仍然隐藏。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 组 3 ================= -->
+    <div class="group">
+      <div class="group-title">
+        <h2>③ Mod 详情 hero + 版本区</h2>
+        <span class="where">详情页顶部（三入口共用）</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">A</span><b>mock 对齐 · pill 标签 + 版本条</b><span>推荐</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="back-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </div>
+              <b style="font-size: 14px">Mock Mod 01</b>
+              <div class="spacer"></div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="5" r="1.6" />
+                  <circle cx="12" cy="12" r="1.6" />
+                  <circle cx="12" cy="19" r="1.6" />
+                </svg>
+              </div>
+            </div>
+            <div class="content" style="gap: 12px">
+              <div class="d-hero">
+                <div class="d-cover">MOC</div>
+                <div>
+                  <div class="d-name">Mock Mod 01</div>
+                  <div class="d-author">Test Author · Misc</div>
+                  <div class="tags"><span class="pill blue">可更新 v2.1.0</span><span class="pill grey">已启用</span></div>
+                </div>
+              </div>
+              <div class="dtabs">
+                <span class="on">描述</span><span>更新日志</span><span>详情</span><span>依赖 1</span><span>文件</span>
+              </div>
+              <div style="font-size: 12px; line-height: 1.7; color: var(--text-2)">
+                为森林小径重制了贴图，附带一个小任务链。按四季提供 ContentPatcher 变体。
+              </div>
+              <div class="vline">
+                <span class="cur">已装 v1.1.0</span><span class="arrow">→</span><span class="next">最新 v2.1.0</span
+                ><span class="btn">更新</span>
+              </div>
+              <div class="foot" style="padding: 2px 0 0">
+                <div class="g">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v10h18V7H3Z" />
+                    <path d="m3 7 9 6 9-6" />
+                  </svg>
+                </div>
+                <div class="g">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                  </svg>
+                </div>
+                <div class="p">Update Now</div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            hero 只留三样：小封面、名称+作者、两枚 pill（可更新版本 / 状态）。现在乱成一团的版本对比大卡、Enabled·Clean 绿点行、Size
+            行全部收走——版本信息变成 tabs 下方一条「已装 → 最新 + 更新按钮」的紧凑横条，其余字段在 Details
+            tab。底部固定操作条（文件夹/清单/主操作）。
+          </p>
+        </div>
+
+        <div class="plan">
+          <div class="plan-label"><span class="tag">B</span><b>保留版本卡 · 统一视觉收紧</b><span>信息前置</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="back-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </div>
+              <b style="font-size: 14px">Mock Mod 01</b>
+            </div>
+            <div class="content" style="gap: 12px">
+              <div class="d-hero">
+                <div class="d-cover">MOC</div>
+                <div>
+                  <div class="d-name">Mock Mod 01</div>
+                  <div class="d-author">Test Author · Misc</div>
+                  <div class="tags"><span class="pill green">已启用 · 无冲突</span></div>
+                </div>
+              </div>
+              <div class="vrow">
+                <div class="vcard"><i>CURRENT</i><b>v1.1.0</b></div>
+                <span class="arrow"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" /></svg
+                ></span>
+                <div class="vcard"><i>NEXUS LATEST</i><b class="nxt">v2.1.0</b></div>
+              </div>
+              <div class="dtabs">
+                <span class="on">描述</span><span>更新日志</span><span>详情</span><span>依赖 1</span><span>文件</span>
+              </div>
+              <div style="font-size: 12px; line-height: 1.7; color: var(--text-2)">
+                为森林小径重制了贴图，附带一个小任务链。按四季提供 ContentPatcher 变体。
+              </div>
+              <div class="foot" style="padding: 2px 0 0">
+                <div class="g">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v10h18V7H3Z" />
+                    <path d="m3 7 9 6 9-6" />
+                  </svg>
+                </div>
+                <div class="p">Update to v2.1.0</div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            不砍信息：版本对比保留为两枚并排小卡（CURRENT → LATEST，统一小圆角/细边框/同字号），但删掉重复的 Size/Enabled
+            行、大写小标题改小号灰字；状态徽章并进 hero 的 pill。底部操作条同 A。
+          </p>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <b>我的建议组合</b>：①A（无卡直铺）+ ②A（原生两层设置）+ ③A（mock 对齐 hero）。三组方向互相独立，可以任意组合（例如
+        ①A+②B+③B）。回复组合字母即可，或指出要再改哪里。
+      </div>
+    </div>
+  </body>
+</html>

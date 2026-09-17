@@ -76,7 +76,8 @@ et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签�
 4. SMAPI 更新：检查 SMAPI-Android-1.6 最新 release → 下载（进度事件）→ SHA-256 → 解压进程序集目录；或用本地已拷入的 zip 安装。
 5. mod 配置：纯 JSON 表单（CP ConfigSchema / options.json / config.json）。
 6. 启动游戏：版本门槛校验 → SMAPIActivity 拉起游戏。
-7. 返回键：WebView 可后退则后退，否则回到桌面（App 保活）。
+7. 返回键：SPA 收到 `android:back` 事件后优先关闭最上层浮层（下载/通知页面），150ms 内回执 `bridge.backHandled()` 则停留，否则回到桌面（App 保活）。
+8. **移动端 UX 走查**（≤640px 或 `?mfAndroidMock=1` dev mock 可预览）：底部导航四页（图标+标签）；顶栏只有品牌+下载/通知/设置；下载与通知是全屏页面（返回箭头），mod 详情三入口均为全屏页头返回式；设置窗口全屏化；配置页「查看日志」打开运行日志对话框（`read_launcher_log`，安卓侧 LogCapture tee 采集游戏/SMAPI/.NET 输出到 `files/launcher-log.txt`）；移动端 toast 只显示最新一条、常显关闭；工作台模式在安卓端完全不可达（持久化 workbench 状态会被强制回 launcher）。
 
 ### 2.4 调试手段（已具备）
 
@@ -84,7 +85,13 @@ et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签�
 - **logcat**：C# 侧 `Console.WriteLine` 走 `DOTNET` tag；asset/file miss 诊断在响应体与 logcat 双输出。
 - **模拟器**：`E:\Android\Sdk\emulator\emulator -avd mf`（WHPX 加速），`adb install -r` 装包，`input tap x y` 驱动 UI（注意坐标系为 1080x2400 设备像素）。
 
-### 2.5 协议再生成流程
+### 2.5 CI（modforge-android 仓库）
+
+`.github/workflows/build.yml`：push/PR/dispatch 在 ubuntu runner 全自动构建 APK——双仓库 checkout（自身 + ModForge Studio `STUDIO_REF`，默认 `feat/android-host`）→ 前端构建内嵌 www → 9.0 band android workload → runtime pack `libmonosgen` 反射补丁 → 从私有仓 `Arborsm/modforge-private-libs`（Release `dependencies-dll`）拉取游戏编译期 DLL → Release APK artifact。
+
+**一次性配置**（缺 `LIBS_TOKEN` 时 job 快速失败并提示）：创建只读 `Arborsm/modforge-private-libs` Contents 的 fine-grained PAT，然后 `gh secret set LIBS_TOKEN --repo Arborsm/modforge-android`（按提示粘贴 PAT），`gh run rerun` 重跑。
+
+### 2.6 协议再生成流程
 
 launcher 命令变更（主仓库 `commands.rs` + `shared/protocol/launcher-commands.json` 同步改）后：
 
