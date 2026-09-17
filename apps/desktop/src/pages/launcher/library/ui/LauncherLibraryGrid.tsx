@@ -46,6 +46,7 @@ import {
   estimateLauncherLibraryCardHeight,
   getLauncherLibraryPanelPlacement,
   LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX,
+  getLauncherLibraryCardMinWidthPx,
   LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX,
   LAUNCHER_LIBRARY_GRID_GAP_PX,
   LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX,
@@ -197,7 +198,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const selectedIdLookup = new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds)
   const boxSelectionIdLookup = new Set(boxSelectionIds)
   const shouldRevealItems = enableRevealMotion && (isFolderGrid || !hasPlayedInitialReveal)
-  const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
+  const [cardMinWidth, setCardMinWidth] = useState(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
   const [rootFontSize, setRootFontSize] = useState(16)
   const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
   const gridBlocks = useMemo(
@@ -481,7 +482,9 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       // matches the rem-based CSS grid, which scales with the root font size.
       const nextRootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
       setRootFontSize((current) => (current === nextRootFontSize ? current : nextRootFontSize))
-      const scaledCardMinWidth = (LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16) * nextRootFontSize
+      const nextCardMinWidth = getLauncherLibraryCardMinWidthPx(viewportWidth)
+      setCardMinWidth((current) => (current === nextCardMinWidth ? current : nextCardMinWidth))
+      const scaledCardMinWidth = (nextCardMinWidth / 16) * nextRootFontSize
       const scaledGridGap = (LAUNCHER_LIBRARY_GRID_GAP_PX / 16) * nextRootFontSize
       const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
@@ -614,7 +617,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
-                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16}rem, 1fr))`,
+                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
                 gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight / rootFontSize}rem, auto))`,
               }}
             >
@@ -626,6 +629,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   editMode={editMode}
                   sortingActive={sortingActive}
                   rootOrderContainerKey={rootOrderContainerKey}
+                  cardMinWidth={cardMinWidth}
                   editingSelectionIds={editingSelectionIds}
                   boxSelectionIds={boxSelectionIds}
                   childModSelectionMode={childModSelectionMode}
@@ -684,6 +688,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
 
 const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualBlockContent({
   block,
+  cardMinWidth,
   openFolderItemsById,
   latestVersionByModId,
   editMode,
@@ -714,6 +719,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   getContextActions,
 }: {
   block: LauncherLibraryGridBlock
+  cardMinWidth: number
   openFolderItemsById?: Map<string, LauncherLibraryDisplayItem[]>
   latestVersionByModId: Record<number, string>
   editMode: boolean
@@ -816,6 +822,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   itemCount={displayItem.mods.length + displayItem.childFolders.length}
                   contentReady={Boolean(openFolderItemsById?.has(folderLookup))}
                   closing={folderClosing}
+                  cardMinWidth={cardMinWidth}
                   gridColumnCount={columnSpan}
                   columnSpan={columnSpan}
                   rowSpan={folderClosing ? 1 : rowSpan}
@@ -1490,6 +1497,7 @@ function LauncherLibraryFolderPanel({
   itemCount,
   contentReady,
   closing = false,
+  cardMinWidth,
   gridColumnCount,
   columnSpan,
   rowSpan,
@@ -1520,6 +1528,7 @@ function LauncherLibraryFolderPanel({
   itemCount: number
   contentReady: boolean
   closing?: boolean
+  cardMinWidth: number
   gridColumnCount: number
   columnSpan: number
   rowSpan: number
@@ -1606,7 +1615,7 @@ function LauncherLibraryFolderPanel({
             className="launcher-library-folder-panel-grid"
             data-launcher-blank-drop-id={blankDropId}
             style={{
-              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX / 16}rem, 1fr))`,
+              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
               gridAutoRows: `minmax(${estimatedRowHeight / rootFontSize}rem, auto)`,
             }}
           >

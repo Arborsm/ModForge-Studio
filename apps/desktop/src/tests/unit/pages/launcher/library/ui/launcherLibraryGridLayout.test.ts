@@ -3,7 +3,12 @@ import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launc
 import type { LauncherLibraryDisplayItem } from '@pages/launcher/library/model/launcherLibraryDisplay'
 import {
   buildLauncherLibraryGridBlocks,
+  estimateLauncherLibraryCardHeight,
+  getLauncherLibraryCardMinWidthPx,
   getLauncherLibraryPanelPlacement,
+  LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX,
+  LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX,
+  LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX,
   LAUNCHER_LIBRARY_GRID_GAP_PX,
 } from '@pages/launcher/library/ui/launcherLibraryGridLayout'
 
@@ -186,5 +191,21 @@ describe('launcherLibraryGridLayout', () => {
 
     expect(openPlaced).toMatchObject({ columnSpan: 5, rowSpan: 4 })
     expect(closingPlaced).toMatchObject({ columnSpan: 1, rowSpan: 1 })
+  })
+
+  it('shrinks the minimum card width on phone viewports and keeps it for desktop sizes', () => {
+    expect(getLauncherLibraryCardMinWidthPx(412)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
+    expect(getLauncherLibraryCardMinWidthPx(480)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
+    expect(getLauncherLibraryCardMinWidthPx(481)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
+    expect(getLauncherLibraryCardMinWidthPx(1200)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
+    expect(getLauncherLibraryCardMinWidthPx(0)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
+  })
+
+  it('estimates a shorter copy block for compact phone cards', () => {
+    const phoneCardWidth = 180
+    expect(estimateLauncherLibraryCardHeight(phoneCardWidth)).toBeLessThan(estimateLauncherLibraryCardHeight(260))
+    // 180px card: 2 × 12px padding + cover at the 96/55 ratio + the 44px compact copy block.
+    expect(estimateLauncherLibraryCardHeight(phoneCardWidth)).toBe(Math.ceil(24 + (phoneCardWidth - 24) / (96 / 55) + 44))
+    expect(LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX).toBe(54)
   })
 })

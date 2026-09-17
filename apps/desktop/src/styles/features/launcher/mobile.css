@@ -85,3 +85,46 @@
     }
   }
 }
+
+/* Phone widths: pack the mod / discover grids denser — 2 columns of compact
+   cards so a screen shows several mods instead of one or two huge ones. */
+@media (max-width: 640px) {
+  .launcher-library-grid {
+    gap: 0.5rem;
+  }
+
+  .launcher-library-grid-reveal {
+    padding: 0;
+  }
+
+  .launcher-mod-card {
+    min-height: 0;
+    padding: 0.25rem;
+    border-radius: 0.625rem;
+  }
+
+  .launcher-mod-card-cover {
+    border-radius: 0.5rem;
+  }
+
+  .launcher-library-grid .launcher-mod-card-title {
+    font-size: 0.75rem;
+  }
+
+  .launcher-library-grid .launcher-mod-card-meta {
+    font-size: 0.625rem;
+  }
+
+  .launcher-discover-wall {
+    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .launcher-discover-wall-card {
+    border-radius: 0.625rem;
+  }
+
+  .launcher-discover-card-image {
+    border-radius: 0.5rem 0.5rem 0 0;
+  }
+}

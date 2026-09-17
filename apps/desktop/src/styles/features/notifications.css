@@ -656,8 +656,9 @@
 
 @media (max-width: 640px) {
   .notification-viewport {
+    top: calc(var(--app-titlebar-height, 3.5rem) + 0.5rem);
     right: 0.625rem;
-    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    bottom: auto;
     left: 0.625rem;
     width: auto;
   }
