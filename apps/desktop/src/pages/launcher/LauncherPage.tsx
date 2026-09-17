@@ -14,7 +14,14 @@ import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
-import { dismissNotification, markNotificationsSeen, publishNotification, NotificationCenter } from '@shared/ui/notifications'
+import {
+  clearNotifications,
+  dismissNotification,
+  markNotificationsSeen,
+  publishNotification,
+  NotificationCenter,
+  useNotificationLog,
+} from '@shared/ui/notifications'
 import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
@@ -114,6 +121,8 @@ export function LauncherPage({
 }: LauncherPageProps) {
   const copy = useEditorCopy()
   const notificationsCopy = useNotificationCopy()
+  const notificationLog = useNotificationLog()
+  const hasNotifications = notificationLog.length > 0
   const launcherRuntime = useLauncherRuntime()
   useLauncherImageFetchNotifications()
   useLauncherUpdateProgressNotifications()
@@ -327,6 +336,13 @@ export function LauncherPage({
                     : notificationsCopy.centerTitle
               }
               onClose={closeMobilePage}
+              action={
+                mobilePage === 'notifications' ? (
+                  <button type="button" className="mobile-page-head-action" onClick={clearNotifications} disabled={!hasNotifications}>
+                    {notificationsCopy.centerClearAll}
+                  </button>
+                ) : undefined
+              }
             >
               {mobilePage === 'downloads' ? (
                 downloadsPopover
