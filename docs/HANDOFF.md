@@ -78,7 +78,13 @@ et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签�
 6. 启动游戏：版本门槛校验 → SMAPIActivity 拉起游戏。
 7. 返回键：WebView 可后退则后退，否则回到桌面（App 保活）。
 
-### 2.4 协议再生成流程
+### 2.4 调试手段（已具备）
+
+- **CDP 远程调试**：APK 已开启 `WebView.SetWebContentsDebuggingEnabled`。`adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>` 后访问 `http://localhost:9333/json` 拿页面列表，或直接用 `modforge-android/.tmp-extract/cdp-eval.mjs`（Node 22+ 内置 WebSocket）：`CDP_PORT=9334 node cdp-eval.mjs "document.title"`。
+- **logcat**：C# 侧 `Console.WriteLine` 走 `DOTNET` tag；asset/file miss 诊断在响应体与 logcat 双输出。
+- **模拟器**：`E:\Android\Sdk\emulator\emulator -avd mf`（WHPX 加速），`adb install -r` 装包，`input tap x y` 驱动 UI（注意坐标系为 1080x2400 设备像素）。
+
+### 2.5 协议再生成流程
 
 launcher 命令变更（主仓库 `commands.rs` + `shared/protocol/launcher-commands.json` 同步改）后：
 
@@ -98,15 +104,15 @@ vp run --filter @modforge/desktop gen:android-bridge    # 重新生成 LauncherB
 
 ## 4. 已知差异与风险点（有意为之的移植取舍）
 
-1. **安卓侧实现 23/47 条命令**：settings、library（scan/state/covers/image-failures/启停）、install/inspect/backups/restore、SMAPI 更新三件套、mod 配置、runtime/launch/open-url。未实现的（Nexus 搜索/下载/更新检查/SSO/图片 CDN/GMCM probe/下载队列）返回 `LauncherCommandUnavailableException` 错误帧，前端以通知呈现——对应可行性报告的 M3 里程碑。
-2. **zip-only 解压**：桌面支持 zip/7z/rar/tar；安卓仅 zip（System.IO.Compression），其余格式报“不支持的压缩包”。7z/rar 需要额外原生库，留给后续。
-3. **manifest/JSON 为严格解析**：桌面用宽松 JSON（注释/尾逗号/编码探测）；安卓用 `System.Text.Json` 严格解析，坏 manifest 的 mod 会被扫描跳过（不致失败）。
+1. **安卓侧实现 43/47 条命令（2026-09-17 更新，M3 已并入）**：settings、library、install/inspect/backups/restore、SMAPI 更新、mod 配置、runtime/launch/open-url，加上 Nexus 全域——匿名目录搜索（facet）、公开 mod 详情（文件排序/主文件/changelog）、SMAPI 优先的更新检查（自动失败抑制≥3、会话进度事件）、REST 下载（.part 断点续传 + 进度/取消 + 非Premium 浏览器回退 + 自动安装）、sha256 图片缓存、路由诊断、SSO 登录（wss://sso.nexusmods.com WebSocket + 浏览器授权 + api_key 自动入库，已在模拟器全链路验证到 Nexus Cloudflare 验证页）。未实现的 4 条：`open_launcher_path`（安卓无桌面文件夹概念）、`load_launcher_gmcm_probe_diagnostics`（.NET probe 无法运行，前端已隐藏）、下载队列两条由 Bootstrap JSON 存储实现。
+2. **解压格式已对齐桌面（SharpCompress 0.38）**：zip/7z/rar/tar/tar.gz 均可解压，条目路径净化规则与桌面一致。
+3. **JSON 宽松解析已补齐**：严格解析失败时回退注释/尾逗号净化后再解析（json_relaxed 核心规则；编码探测未移植，UTF-8 假设）。
 4. **library state 归一化简化**：桌面 `normalize_library_state`（大量去重/排序/环检测）未整体移植；安卓端 load 缺文件回默认、坏 JSON 报错、save 原样持久化 + 保证 unsorted 文件夹存在。状态由前端生成，正常往返不受影响；手改 `library.json` 可能引入脏数据。
-5. **inspect 文本 diff 不生成**：added/removed/changed + 尺寸/时间戳齐全，`textDiff` 恒为 null（桌面有统一 diff）。
+5. **inspect 文本 diff 简化**：added/removed/changed + 尺寸/时间戳齐全；textDiff 需要统一 diff 算法，暂以 null 下发（桌面有）。
 6. **mod 配置翻译仅本地 i18n**：桌面还有 content-pack 依赖包翻译 BFS 合并；安卓未移植。
-7. **SMAPI 更新简化**：不做 prerelease 通道、无游戏↔SMAPI 兼容表（直接 target 最新 release）；下载走 GitHub latest API + 30 分钟磁盘缓存；`requiredByMods` 用 `MinimumApiVersion` 与已装 SMAPI 比较。安装沿上游“剥第一层目录 → 程序集目录”逻辑，并校验 zip 内含 `StardewModdingAPI.dll`、≤10MB（拒 PC 安装器）。
+7. **SMAPI 更新简化**：不做 prerelease 通道、无游戏↔SMAPI 兼容表（直接 target 最新 release）；下载走 GitHub latest API + 30 分钟磁盘缓存；安装沿上游“剥第一层目录 → 程序集目录”逻辑，并校验 zip 内含 `StardewModdingAPI.dll`、≤10MB（拒 PC 安装器）。
 8. **`open_launcher_path` 不可用**：安卓无“打开文件夹”对应物（可行性报告 §6.3 决策）。
-9. **目录/文档选择返回 SAF URI**：`android:pick_dir` / `android:create_document` 回推 SAF URI 字符串而非文件系统路径（`pick_file` 会拷入沙盒回推真实路径）。工作台导出类功能在安卓切片上不在范围。
+9. **目录/文档选择返回 SAF URI**：`android:pick_dir` / `android:create_document` 回推 SAF URI 字符串而非文件系统路径（`pick_file` 会拷入沙盒回推真实路径）。
 10. **version-gates.json 远端地址**：`https://raw.githubusercontent.com/Arborsm/modforge-android/master/version-gates.json`——需要把该文件推到 fork 的 `master` 分支后才生效；此前/失败时回退内置默认（1.6.15.3 / 4.0.0），不会阻断。
 11. **上游保留但休眠的代码**：`ModInstaller.cs`（被 InstallService 吸收上游能力后仍保留版本断言等工具方法，暂无调用方）、`SaveManagerTool.cs`（上游即休眠）、`AdbExtraTool`（ADB 点击启动入口随旧 UI 移除，不再触发）。
 12. **桥线程模型**：`InvokeCommand` 仅入队；单 worker 串行执行；结果/事件经 UI 线程 `EvaluateJavascript` 回推 `window.__modforgeDispatch`。帧协议与 Electron sidecar NDJSON 同构（`{id, ok, payload}` / `{event, payload}`）。
