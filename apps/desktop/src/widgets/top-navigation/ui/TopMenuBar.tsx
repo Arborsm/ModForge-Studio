@@ -22,7 +22,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode } from '@locales/api'
 import { useEditorCopy, useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
-import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
+import { useLauncherMobileChromeStore, useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { ProgressRing } from '@shared/ui/ProgressRing'
 import { NotificationCenter, markNotificationsSeen, useUnreadNotificationCount } from '@shared/ui/notifications'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
@@ -64,6 +64,12 @@ type TopMenuBarProps = {
   theme: ThemeMode
   onToggleTheme: () => void
   desktopHost: boolean
+  /**
+   * True inside the Android WebView launcher host; hides the brand, the theme
+   * toggle, and the desktop GooeyNav (a fixed bottom nav renders instead), and
+   * fills the bar center with the page-injected mobile leading slot.
+   */
+  androidHost?: boolean
   /**
    * Whether the desktop window control group (minimize / maximize / close) is
    * shown; hosts without desktop window semantics (e.g. Android) hide it.
@@ -118,6 +124,7 @@ export default function TopMenuBar({
   theme,
   onToggleTheme,
   desktopHost,
+  androidHost = false,
   windowControls = desktopHost,
   onMinimizeWindow,
   onToggleMaximizeWindow,
@@ -140,6 +147,7 @@ export default function TopMenuBar({
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
+  const mobileTopLeading = useLauncherMobileChromeStore((state) => state.leading)
   const projectMenuOpen = activeMenu === 'project' && Boolean(projectMenu) && !launcherModeActive
   const visibleActiveMenu =
     activeMenu === 'downloads' && !launcherNav ? null : activeMenu === 'project' && (launcherModeActive || !projectMenu) ? null : activeMenu
@@ -189,13 +197,15 @@ export default function TopMenuBar({
   }
 
   return (
-    <header className="top-menu-bar relative z-120">
+    <header className={cx('top-menu-bar relative z-120', androidHost && 'top-menu-bar-android')}>
       <div className="top-menu-drag-layer absolute inset-0" data-tauri-drag-region aria-hidden="true" />
       <div className="top-menu-primary">
         <div className="top-menu-cluster top-menu-cluster-start flex min-w-0 items-center gap-4">
-          <div className="flex shrink-0 items-center">
-            <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
-          </div>
+          {androidHost ? null : (
+            <div className="flex shrink-0 items-center">
+              <img className="top-menu-brand-icon" src="/brand/modforge-logo-primary.svg" alt="" aria-hidden="true" />
+            </div>
+          )}
 
           {modeSwitchable ? (
             <div
@@ -236,31 +246,39 @@ export default function TopMenuBar({
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
           {launcherNav ? (
-            <div className="top-menu-workspace pointer-events-auto" data-top-menu-no-drag="true">
-              <div className="top-menu-workspace-list" data-guide="launcher-nav-tabs">
-                <GooeyNav
-                  items={launcherNav.visiblePages.map((page) => {
-                    const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
-                    const pageIcon = {
-                      library: <BookOpenText className="h-5 w-5" />,
-                      discover: <Compass className="h-5 w-5" />,
-                      updates: <RefreshCw className="h-5 w-5" />,
-                      configuration: <Stethoscope className="h-5 w-5" />,
-                    }[page]
-                    return {
-                      label: copy.launcher.pages[page],
-                      icon: pageIcon,
-                      badge: updatesBadge ?? undefined,
-                    } satisfies GooeyNavItem
-                  })}
-                  activeIndex={launcherNav.visiblePages.indexOf(launcherNav.page)}
-                  onChange={(index) => launcherNav.onPageChange(launcherNav.visiblePages[index])}
-                  ariaLabel={copy.launcher.navigation}
-                  className="top-menu-gooey-nav"
-                  variant={theme}
-                />
+            androidHost ? (
+              /* The Android host fills the bar with page-injected content
+                 (search field or page title) from the mobile chrome slot. */
+              <div className="top-menu-mobile-leading pointer-events-auto min-w-0 flex-1" data-top-menu-no-drag="true">
+                {mobileTopLeading}
               </div>
-            </div>
+            ) : (
+              <div className="top-menu-workspace pointer-events-auto" data-top-menu-no-drag="true">
+                <div className="top-menu-workspace-list" data-guide="launcher-nav-tabs">
+                  <GooeyNav
+                    items={launcherNav.visiblePages.map((page) => {
+                      const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
+                      const pageIcon = {
+                        library: <BookOpenText className="h-5 w-5" />,
+                        discover: <Compass className="h-5 w-5" />,
+                        updates: <RefreshCw className="h-5 w-5" />,
+                        configuration: <Stethoscope className="h-5 w-5" />,
+                      }[page]
+                      return {
+                        label: copy.launcher.pages[page],
+                        icon: pageIcon,
+                        badge: updatesBadge ?? undefined,
+                      } satisfies GooeyNavItem
+                    })}
+                    activeIndex={launcherNav.visiblePages.indexOf(launcherNav.page)}
+                    onChange={(index) => launcherNav.onPageChange(launcherNav.visiblePages[index])}
+                    ariaLabel={copy.launcher.navigation}
+                    className="top-menu-gooey-nav"
+                    variant={theme}
+                  />
+                </div>
+              </div>
+            )
           ) : projectMenu ? (
             <div className="pointer-events-auto relative" ref={projectMenuRef} data-top-menu-no-drag="true">
               <button
@@ -508,15 +526,17 @@ export default function TopMenuBar({
               ) : null}
             </div>
           ) : null}
-          <button
-            type="button"
-            className="icon-button pointer-events-auto"
-            onClick={onToggleTheme}
-            aria-label={copy.controls.toggleTheme}
-            title={copy.controls.toggleTheme}
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          {androidHost ? null : (
+            <button
+              type="button"
+              className="icon-button pointer-events-auto"
+              onClick={onToggleTheme}
+              aria-label={copy.controls.toggleTheme}
+              title={copy.controls.toggleTheme}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          )}
           <button
             type="button"
             className="icon-button pointer-events-auto"

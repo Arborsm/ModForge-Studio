@@ -333,4 +333,34 @@ export type LauncherLibraryCopy = {
   galleryCoverEmpty: string
   galleryCoverLoading: string
   galleryCoverImageLabel: (index: number) => string
+  /** Android-host-only chrome: bottom filter sheet, launch dock + preflight, pull-to-refresh. */
+  mobile: {
+    filterSheetTitle: string
+    filterGroupLabel: string
+    filterAll: string
+    filterEnabled: string
+    filterUpdates: string
+    sortGroupLabel: string
+    displayGroupLabel: string
+    showDisabled: string
+    showFolders: string
+    actionsGroupLabel: string
+    apply: string
+    filterAction: string
+    launchSubtitle: (smapiVersion: string | null, modCount: number, enabledCount: number) => string
+    preflightTitle: string
+    preflightGameVersion: string
+    preflightSmapi: string
+    preflightInstalledMods: (count: number, enabledCount: number) => string
+    preflightInstalledModsLabel: string
+    preflightDependencies: string
+    preflightDependenciesOk: string
+    preflightDependenciesConflict: (count: number) => string
+    preflightLastLaunch: string
+    preflightLastLaunchUnknown: string
+    preflightStart: string
+    pullHint: string
+    pullRelease: string
+    pullRefreshing: string
+  }
 }

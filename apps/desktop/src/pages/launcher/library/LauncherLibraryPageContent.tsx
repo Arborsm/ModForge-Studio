@@ -1,15 +1,20 @@
 /**
  * @file Launcher mod library page content component: composes the grid, sidebar, detail panel, and dialogs.
  */
-import { useEffect, useRef } from 'react'
-import { FolderSearch, PackageOpen, RefreshCw, Settings } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { FolderSearch, ListFilter, PackageOpen, RefreshCw, Search, Settings } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
+import { useLauncherMobileTopLeading } from '@shared/lib/app-state'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher/model/types'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { LauncherEmptyState } from '@features/launcher/ui/shared/LauncherEmptyState'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
+import { usePullToRefresh } from '../ui/mobile/usePullToRefresh'
+import { MobilePullToRefreshIndicator } from '../ui/mobile/MobilePullToRefreshIndicator'
+import { LauncherLibraryFilterSheet, type LauncherLibraryMobileFilter } from './ui/LauncherLibraryFilterSheet'
+import { LauncherLibraryLaunchDock } from './ui/LauncherLibraryLaunchDock'
 import { LauncherLibraryArchiveDropOverlay } from './ui/LauncherLibraryArchiveDropOverlay'
 import { LauncherLibraryDndScope, VirtualizedLauncherGrid } from './ui/LauncherLibraryGrid'
 import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
@@ -183,6 +188,69 @@ export function LauncherLibraryPageContent({
   } = controllerActions
   const handledDownloadInstallRequestIdRef = useRef<number | null>(null)
 
+  // Android host chrome state: the bottom filter sheet replaces the retired
+  // toolbar round buttons; the updates/folders display filters are mobile-only.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [updatesOnly, setUpdatesOnly] = useState(false)
+  const [showFolders, setShowFolders] = useState(true)
+  const mobileCopy = copy.library.mobile
+  const consoleVisible = !editMode && !childModSelection && !(sortingBannerOpen && sortMode === 'custom')
+  const mobileFilter: LauncherLibraryMobileFilter = updatesOnly ? 'updates' : library.enabledOnly ? 'enabled' : 'all'
+  const libraryScrollHostRef = useRef<HTMLDivElement | null>(null)
+  const pullToRefresh = usePullToRefresh({
+    hostRef: libraryScrollHostRef,
+    scrollSelector: '.launcher-library-grid-viewport',
+    onRefresh: () => void refreshLibrary(),
+    disabled: !androidHost || !routeActive || !consoleVisible,
+  })
+
+  const mobileTopSearch = (
+    <div className="mobile-top-search" role="search">
+      <Search className="mobile-top-search-icon" aria-hidden="true" />
+      <input
+        className="mobile-top-search-input"
+        value={library.filterText}
+        onChange={(event) => library.setFilterText(event.target.value)}
+        placeholder={copy.fields.filterLibrary}
+        aria-label={copy.fields.filterLibrary}
+        spellCheck={false}
+      />
+      <button
+        type="button"
+        className="mobile-top-search-filter"
+        aria-label={mobileCopy.filterAction}
+        aria-expanded={filterSheetOpen}
+        onClick={() => setFilterSheetOpen(true)}
+      >
+        <ListFilter className="h-3 w-3" aria-hidden="true" />
+      </button>
+    </div>
+  )
+  useLauncherMobileTopLeading(mobileTopSearch, androidHost && routeActive && consoleVisible)
+
+  const pickMobileFilter = (filter: LauncherLibraryMobileFilter) => {
+    setUpdatesOnly(filter === 'updates')
+    if (filter !== 'updates') {
+      library.setEnabledOnly(filter === 'enabled')
+    }
+  }
+
+  const modHasUpdate = (mod: (typeof library.mods)[number]) =>
+    mod.nexusModId != null && (library.latestVersionByModId[mod.nexusModId]?.trim() ?? '') !== ''
+
+  const gridDisplayItems =
+    androidHost && (updatesOnly || !showFolders)
+      ? visibleDisplayItems.filter((item) => {
+          if (!showFolders && item.kind === 'folder') {
+            return false
+          }
+          if (updatesOnly && (item.kind !== 'mod' || !modHasUpdate(item.mod))) {
+            return false
+          }
+          return true
+        })
+      : visibleDisplayItems
+
   useEffect(() => {
     if (!downloadInstallRequest || handledDownloadInstallRequestIdRef.current === downloadInstallRequest.id) {
       return
@@ -303,10 +371,18 @@ export function LauncherLibraryPageContent({
               onEditPackInfo={openEditPackDialog}
               onDeletePack={openDeletePackDialog}
             />{' '}
-            <div className="launcher-library-content">
+            <div className="launcher-library-content" ref={libraryScrollHostRef}>
               <div className="launcher-library-browser">
+                {androidHost && routeActive ? (
+                  <MobilePullToRefreshIndicator
+                    state={pullToRefresh}
+                    hint={mobileCopy.pullHint}
+                    release={mobileCopy.pullRelease}
+                    refreshing={mobileCopy.pullRefreshing}
+                  />
+                ) : null}
                 {archiveDropActive ? <LauncherLibraryArchiveDropOverlay /> : null}
-                {library.state !== 'error' && !visibleDisplayItems.length ? (
+                {library.state !== 'error' && !gridDisplayItems.length ? (
                   <div className="launcher-library-empty-host">
                     {!settings.modsPath ? (
                       <LauncherEmptyState
@@ -356,7 +432,7 @@ export function LauncherLibraryPageContent({
                 ) : (
                   <VirtualizedLauncherGrid
                     gridData={{
-                      items: visibleDisplayItems,
+                      items: gridDisplayItems,
                       latestVersionByModId: library.latestVersionByModId,
                       openFolderItemsById: openLibraryFolderItemsById,
                     }}
@@ -399,6 +475,38 @@ export function LauncherLibraryPageContent({
               </div>
             </div>
           </div>
+
+          {androidHost && routeActive ? (
+            <>
+              <LauncherLibraryLaunchDock
+                mods={library.mods}
+                launchGameDisabled={launchGameDisabled}
+                launchGameBusy={launchGameBusy}
+                onLaunchGame={onLaunchGame}
+              />
+              <LauncherLibraryFilterSheet
+                open={filterSheetOpen}
+                onClose={() => setFilterSheetOpen(false)}
+                filter={mobileFilter}
+                onFilterChange={pickMobileFilter}
+                sortOptions={sortOptions}
+                sortMode={sortMode}
+                onSortModeChange={changeSortMode}
+                showDisabled={!library.enabledOnly}
+                onShowDisabledChange={(showDisabled) => {
+                  library.setEnabledOnly(!showDisabled)
+                  if (!showDisabled) {
+                    setUpdatesOnly(false)
+                  }
+                }}
+                showFolders={showFolders}
+                onShowFoldersChange={setShowFolders}
+                onInstallArchive={() => void inspectArchive()}
+                onOpenLibraryRoot={() => void openLibraryRoot()}
+                onRefresh={() => void refreshLibrary()}
+              />
+            </>
+          ) : null}
 
           <LauncherModDetailPanel
             open={Boolean(detailMod)}

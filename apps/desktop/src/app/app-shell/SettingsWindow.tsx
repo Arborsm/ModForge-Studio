@@ -1,7 +1,19 @@
 /**
  * @file Settings window component: provides categorized preference panels for appearance, loading motion, view, interaction, AI, debugging, etc.
  */
-import { ArrowLeft, AlertTriangle, Settings2, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Bot,
+  ChevronRight,
+  MousePointerClick,
+  Palette,
+  Rocket,
+  Settings2,
+  Sparkles,
+  Wrench,
+  X,
+} from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { LOADING_MOTION_INTENSITY_IDS, LOADING_MOTION_SPEED_IDS, LOADING_MOTION_STYLE_IDS } from '@shared/lib/loading-motion'
@@ -19,7 +31,9 @@ import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionStyle
 let aiSettingsPanelPromise: ReturnType<typeof importAiSettingsPanel> | null = null
 
 function importAiSettingsPanel() {
-  return import('./settings/AiSettingsPanel').then((module) => ({ default: module.AiSettingsPanel }))
+  return import('./settings/AiSettingsPanel').then((module) => ({
+    default: module.AiSettingsPanel,
+  }))
 }
 
 function preloadAiSettingsPanel() {
@@ -29,7 +43,9 @@ function preloadAiSettingsPanel() {
 
 const AiSettingsPanel = lazy(preloadAiSettingsPanel)
 const SettingsGuidesSection = lazy(() =>
-  import('./settings/SettingsGuidesSection').then((module) => ({ default: module.SettingsGuidesSection })),
+  import('./settings/SettingsGuidesSection').then((module) => ({
+    default: module.SettingsGuidesSection,
+  })),
 )
 
 type ThemeOption = {
@@ -62,6 +78,17 @@ const ALL_SETTINGS_CATEGORIES: SettingsWindowCategory[] = ['appearance', 'loadin
 const SETTINGS_CATEGORIES: SettingsWindowCategory[] = isAndroidHost()
   ? ALL_SETTINGS_CATEGORIES.filter((category) => category !== 'view')
   : ALL_SETTINGS_CATEGORIES
+
+// Android host: category list rows carry a colored icon per the mobile mock.
+const SETTINGS_CATEGORY_ICONS: Record<SettingsWindowCategory, typeof Palette> = {
+  appearance: Palette,
+  loading: Sparkles,
+  view: MousePointerClick,
+  launcher: Rocket,
+  interaction: MousePointerClick,
+  ai: Bot,
+  debug: Wrench,
+}
 
 /** Display order matches prototype theme grid (warm-paper first). */
 const THEME_DISPLAY_ORDER = [
@@ -141,6 +168,14 @@ export default function SettingsWindow({
   const setNotificationSoundEnabled = usePreferencesStore((state) => state.setNotificationSoundEnabled)
   const setLoadingMotionPreference = usePreferencesStore((state) => state.setLoadingMotionPreference)
   const [uncontrolledActiveCategory, setUncontrolledActiveCategory] = useState<SettingsWindowCategory>('appearance')
+  // Android host: settings is a two-level page stack — category list, then pane.
+  const androidHost = isAndroidHost()
+  const [mobilePaneSelected, setMobilePaneSelected] = useState(false)
+  useEffect(() => {
+    if (open) {
+      setMobilePaneSelected(false)
+    }
+  }, [open])
   const [aiDirty, setAiDirty] = useState(false)
   const [leaveConfirmationOpen, setLeaveConfirmationOpen] = useState(false)
   const pendingLeaveRef = useRef<(() => void) | null>(null)
@@ -202,15 +237,24 @@ export default function SettingsWindow({
   const activeLoadingSpeedMode = loadingMotionPreference.speedMode
   const activeLoadingSpeedId = loadingMotionPreference.speedId
   const activeLoadingSpeedMultiplier = loadingMotionPreference.speedMultiplier
-  const loadingStyleOptions: Array<{ id: LoadingMotionStyleId; label: string }> = LOADING_MOTION_STYLE_IDS.map((id) => ({
+  const loadingStyleOptions: Array<{
+    id: LoadingMotionStyleId
+    label: string
+  }> = LOADING_MOTION_STYLE_IDS.map((id) => ({
     id,
     label: settingsCopy.loadingMotionStyleLabels[id],
   }))
-  const loadingIntensityOptions: Array<{ id: LoadingMotionIntensityId; label: string }> = LOADING_MOTION_INTENSITY_IDS.map((id) => ({
+  const loadingIntensityOptions: Array<{
+    id: LoadingMotionIntensityId
+    label: string
+  }> = LOADING_MOTION_INTENSITY_IDS.map((id) => ({
     id,
     label: settingsCopy.loadingMotionIntensityLabels[id],
   }))
-  const loadingSpeedOptions: Array<{ id: LoadingMotionSpeedId; label: string }> = LOADING_MOTION_SPEED_IDS.map((id) => ({
+  const loadingSpeedOptions: Array<{
+    id: LoadingMotionSpeedId
+    label: string
+  }> = LOADING_MOTION_SPEED_IDS.map((id) => ({
     id,
     label: settingsCopy.loadingMotionSpeedLabels[id],
   }))
@@ -221,10 +265,18 @@ export default function SettingsWindow({
     setLoadingMotionPreference({ ...loadingMotionPreference, intensityId })
   }
   const onSelectLoadingSpeed = (speedId: LoadingMotionSpeedId) => {
-    setLoadingMotionPreference({ ...loadingMotionPreference, speedMode: 'preset', speedId })
+    setLoadingMotionPreference({
+      ...loadingMotionPreference,
+      speedMode: 'preset',
+      speedId,
+    })
   }
   const onSelectCustomLoadingSpeed = (speedMultiplier: number) => {
-    setLoadingMotionPreference({ ...loadingMotionPreference, speedMode: 'custom', speedMultiplier })
+    setLoadingMotionPreference({
+      ...loadingMotionPreference,
+      speedMode: 'custom',
+      speedMultiplier,
+    })
   }
   const localeOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const categoryRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -244,12 +296,22 @@ export default function SettingsWindow({
   leaveConfirmationOpenRef.current = leaveConfirmationOpen
   aiDirtyRef.current = aiDirty
 
-  const handleCategoryChange = (category: SettingsWindowCategory) => {
-    if (category === activeCategory) return
+  const handleCategoryChange = (category: SettingsWindowCategory, afterSwitch?: () => void) => {
+    if (category === activeCategory) {
+      afterSwitch?.()
+      return
+    }
     requestLeave(() => {
       if (controlledActiveCategory === undefined) setUncontrolledActiveCategory(category)
       onActiveCategoryChange?.(category)
+      afterSwitch?.()
     })
+  }
+
+  // Android host: back from a pane returns to the category list; the AI unsaved
+  // guard runs first, so a dirty AI pane still prompts before leaving.
+  const handleMobileBack = () => {
+    requestLeave(() => setMobilePaneSelected(false))
   }
 
   const requestLeave = (action: () => void) => {
@@ -378,12 +440,17 @@ export default function SettingsWindow({
       if (event.key !== 'Escape') return
       // Leave dialog owns Escape while open (Dialog capture + cancelLeave).
       if (leaveConfirmationOpenRef.current) return
+      // Android host: the back key pops the pane stack before closing settings.
+      if (androidHost && mobilePaneSelected) {
+        handleMobileBack()
+        return
+      }
       requestClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
+  }, [onClose, open, androidHost, mobilePaneSelected])
 
   useEffect(() => {
     if (!open || !aiDirty) return
@@ -413,60 +480,81 @@ export default function SettingsWindow({
     <>
       <div className="settings-window-backdrop" onClick={requestClose}>
         <section
-          className="settings-window-panel"
+          className={cx('settings-window-panel', androidHost && 'settings-window-panel-android')}
           role="dialog"
           aria-modal="true"
           aria-labelledby="settings-window-title"
           onClick={(event) => event.stopPropagation()}
         >
           <header className="settings-window-header">
-            <div className="settings-window-header-brand">
-              <span className="settings-window-header-icon" aria-hidden="true">
-                <Settings2 />
-              </span>
+            {androidHost && mobilePaneSelected ? (
               <h1 className="settings-window-title" id="settings-window-title">
-                {title}
+                {categories[activeCategory]}
               </h1>
-            </div>
+            ) : (
+              <div className="settings-window-header-brand">
+                <span className="settings-window-header-icon" aria-hidden="true">
+                  <Settings2 />
+                </span>
+                <h1 className="settings-window-title" id="settings-window-title">
+                  {title}
+                </h1>
+              </div>
+            )}
 
-            <nav className="settings-window-category-tabs" role="tablist" aria-label={title}>
-              {SETTINGS_CATEGORIES.map((categoryId, index) => (
-                <button
-                  key={categoryId}
-                  ref={(node) => {
-                    categoryRefs.current[index] = node
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`settings-category-${categoryId}`}
-                  aria-selected={activeCategory === categoryId}
-                  aria-controls="settings-category-panel"
-                  tabIndex={activeCategory === categoryId ? 0 : -1}
-                  className={cx('settings-window-category-tab', activeCategory === categoryId && 'is-active')}
-                  title={categoryDescriptions[categoryId]}
-                  onClick={() => handleCategoryChange(categoryId)}
-                  onMouseEnter={() => {
-                    if (categoryId === 'ai') void preloadAiSettingsPanel()
-                  }}
-                  onFocus={() => {
-                    if (categoryId === 'ai') void preloadAiSettingsPanel()
-                  }}
-                  onKeyDown={(event) => handleCategoryKeyDown(index, event)}
-                >
-                  {categories[categoryId]}
-                </button>
-              ))}
-            </nav>
+            {androidHost ? null : (
+              <nav className="settings-window-category-tabs" role="tablist" aria-label={title}>
+                {SETTINGS_CATEGORIES.map((categoryId, index) => (
+                  <button
+                    key={categoryId}
+                    ref={(node) => {
+                      categoryRefs.current[index] = node
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`settings-category-${categoryId}`}
+                    aria-selected={activeCategory === categoryId}
+                    aria-controls="settings-category-panel"
+                    tabIndex={activeCategory === categoryId ? 0 : -1}
+                    className={cx('settings-window-category-tab', activeCategory === categoryId && 'is-active')}
+                    title={categoryDescriptions[categoryId]}
+                    onClick={() => handleCategoryChange(categoryId)}
+                    onMouseEnter={() => {
+                      if (categoryId === 'ai') void preloadAiSettingsPanel()
+                    }}
+                    onFocus={() => {
+                      if (categoryId === 'ai') void preloadAiSettingsPanel()
+                    }}
+                    onKeyDown={(event) => handleCategoryKeyDown(index, event)}
+                  >
+                    {categories[categoryId]}
+                  </button>
+                ))}
+              </nav>
+            )}
 
-            <button
-              type="button"
-              className="settings-window-back settings-window-close"
-              onClick={requestClose}
-              title={settingsCopy.closeDialogLabel}
-              aria-label={settingsCopy.closeDialogLabel}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
+            {androidHost && mobilePaneSelected ? (
+              <button
+                type="button"
+                className="settings-window-back settings-window-close"
+                onClick={handleMobileBack}
+                title={settingsCopy.backLabel}
+                aria-label={settingsCopy.backLabel}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            ) : null}
+            {!androidHost ? (
+              <button
+                type="button"
+                className="settings-window-back settings-window-close"
+                onClick={requestClose}
+                title={settingsCopy.closeDialogLabel}
+                aria-label={settingsCopy.closeDialogLabel}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            ) : null}
             <button
               type="button"
               className="settings-window-close"
@@ -480,11 +568,38 @@ export default function SettingsWindow({
 
           <div className="settings-window-body">
             <div className="settings-window-body-inner">
+              {androidHost && !mobilePaneSelected ? (
+                <div className="settings-mobile-category-list" role="list" aria-label={title}>
+                  {SETTINGS_CATEGORIES.map((categoryId) => {
+                    const CategoryIcon = SETTINGS_CATEGORY_ICONS[categoryId]
+                    return (
+                      <button
+                        key={categoryId}
+                        type="button"
+                        role="listitem"
+                        className="settings-mobile-category-row"
+                        data-category={categoryId}
+                        onClick={() => handleCategoryChange(categoryId, () => setMobilePaneSelected(true))}
+                      >
+                        <span className="settings-mobile-category-icon" aria-hidden="true">
+                          <CategoryIcon className="h-5 w-5" />
+                        </span>
+                        <span className="settings-mobile-category-copy">
+                          <span className="settings-mobile-category-name">{categories[categoryId]}</span>
+                          <span className="settings-mobile-category-desc">{categoryDescriptions[categoryId]}</span>
+                        </span>
+                        <ChevronRight className="settings-mobile-category-chevron" aria-hidden="true" />
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null}
               <div
                 className="settings-window-content"
                 role="tabpanel"
                 id="settings-category-panel"
                 aria-labelledby={`settings-category-${activeCategory}`}
+                style={androidHost && !mobilePaneSelected ? { display: 'none' } : undefined}
               >
                 {activeCategory === 'ai' ? (
                   <Suspense fallback={<LoadingMotionFallback />}>
@@ -529,7 +644,12 @@ export default function SettingsWindow({
                                     } as CSSProperties
                                   }
                                 >
-                                  <span className="settings-window-theme-preview-panel" style={{ backgroundColor: option.preview.panel }} />
+                                  <span
+                                    className="settings-window-theme-preview-panel"
+                                    style={{
+                                      backgroundColor: option.preview.panel,
+                                    }}
+                                  />
                                 </span>
                                 <span className="settings-window-theme-name">{option.label}</span>
                               </button>

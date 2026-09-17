@@ -12,6 +12,7 @@ const settings: SettingsMenuCopy = {
     debug: 'Debug',
   },
   closeDialogLabel: 'Close dialog',
+  backLabel: 'Back',
   cancelActionLabel: 'Cancel',
   unsavedChangesTitle: 'Unsaved settings',
   unsavedChangesDescription: 'This settings window still contains changes that have not been saved.',

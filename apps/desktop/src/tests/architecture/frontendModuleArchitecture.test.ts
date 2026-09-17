@@ -167,6 +167,7 @@ const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
 const NON_DIALOG_PRIMITIVE_MODAL_ALLOWLIST = new Set([
   'src/features/launcher/ui/cards/LauncherModDetailPanel.tsx',
   'src/features/resource-browser/ui/ResourcePicker.tsx',
+  'src/pages/launcher/ui/mobile/MobileSheet.tsx', // Android bottom sheet：贴底手势面板，非居中 Dialog
   'src/widgets/guide-tour/GuideTourOverlay.tsx',
 ])
 // `fixed inset-0 z-[200|220]` was the workbench/cp-maker dialog backdrop pattern.

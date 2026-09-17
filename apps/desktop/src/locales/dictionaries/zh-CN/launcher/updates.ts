@@ -50,6 +50,10 @@ const updates: LauncherUpdatesCopy = {
   copyLogsAction: '复制日志',
   blockedTitle: '自动更新检查已暂停',
   blockedDetail: '更新通路连续失败后，后台自动检查会先暂停，避免反复发送同样会失败的请求。',
+  mobile: {
+    updateSelectedCount: (count) => `更新所选 ${count} 个`,
+    statusLine: (count) => `${count} 个模组可更新`,
+  },
 }
 
 export default updates

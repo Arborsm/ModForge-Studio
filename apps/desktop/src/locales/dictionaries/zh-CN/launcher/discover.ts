@@ -123,6 +123,19 @@ const discover: LauncherDiscoverCopy = {
   pageLabel: (page) => `第 ${page} 页`,
   jumpToPage: '跳转到',
   pageUnit: '页',
+  mobile: {
+    sheetTitle: '筛选与排序',
+    apply: '应用',
+    timeGroupLabel: '时间',
+    sortGroupLabel: '排序',
+    categoryGroupLabel: '分类',
+    languageGroupLabel: '语言',
+    sizeGroupLabel: '文件大小',
+    anyLanguage: '任意语言',
+    ascendingChip: '升序',
+    descendingChip: '降序',
+    recheckAction: '重新检查',
+  },
 }
 
 export default discover

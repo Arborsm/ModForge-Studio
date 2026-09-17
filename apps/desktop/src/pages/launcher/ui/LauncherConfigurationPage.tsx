@@ -16,7 +16,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { usePreferencesStore } from '@shared/lib/app-state'
+import { useLauncherMobileTopLeading, usePreferencesStore } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
 import { appEvent, ignoreError } from '@platform/observability'
@@ -73,6 +73,8 @@ type LauncherConfigurationPageProps = {
     activeItems: Array<{ source: string; status: string }>
     startDebugSimulation: (title: string) => void
   }
+  /** False while the diagnostics route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
 }
 
 type ApiRouteTone = 'ok' | 'warn' | 'danger' | 'loading'
@@ -1100,7 +1102,10 @@ function ConfigGmcmProbePanel({
               resolved={diagnostics != null}
               statusAction={
                 diagnostics != null && (row.tone === 'warn' || row.tone === 'danger')
-                  ? { label: copy.configuration.gmcmProbeResolveAction, onClick: onOpenDetails }
+                  ? {
+                      label: copy.configuration.gmcmProbeResolveAction,
+                      onClick: onOpenDetails,
+                    }
                   : undefined
               }
             >
@@ -1431,9 +1436,11 @@ export function LauncherConfigurationPage({
   onLauncherDiagnosticsUpdate,
   settingsState,
   downloads,
+  routeActive = true,
 }: LauncherConfigurationPageProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
+  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.settings.configurationGameTitle}</h1>, androidHost && routeActive)
   const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const [bbcodePreviewExpanded, setBbcodePreviewExpanded] = useState(false)
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
@@ -1519,7 +1526,9 @@ export function LauncherConfigurationPage({
   const handleRuntimeInfoRefreshed = useCallback(
     (info: LauncherRuntimeInfo) => {
       setRuntimeInfo(info)
-      writeCachedLauncherConfigurationRuntimeInfo(info, { gamePath: settingsState.settings.gamePath ?? '' })
+      writeCachedLauncherConfigurationRuntimeInfo(info, {
+        gamePath: settingsState.settings.gamePath ?? '',
+      })
     },
     [settingsState.settings.gamePath],
   )
@@ -1707,7 +1716,10 @@ export function LauncherConfigurationPage({
           appEvent('error', copy.configuration.gmcmProbeTitle)
             .description(getProbeNotificationDescription(diagnostics, copy))
             .logMessage('launcher.gmcmProbe.resolveFailed')
-            .action({ label: copy.actions.viewDetails, callback: handleNavigateToGmcmProbe })
+            .action({
+              label: copy.actions.viewDetails,
+              callback: handleNavigateToGmcmProbe,
+            })
             .debugDiagnostics(true)
             .context(getProbeDiagnosticKeyValues(diagnostics))
             .emit({ notify: false })
@@ -1793,8 +1805,12 @@ export function LauncherConfigurationPage({
             <LoadingMotionReveal itemId="launcher-configuration-header" index={0}>
               <header className="launcher-configuration-page-header">
                 <div className="launcher-config-title-cluster">
-                  <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
-                  <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
+                  {androidHost ? null : (
+                    <>
+                      <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
+                      <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
+                    </>
+                  )}
                   <p className="launcher-config-header-status">{headerStatusLine}</p>
                 </div>
                 <div className="launcher-config-header-actions">

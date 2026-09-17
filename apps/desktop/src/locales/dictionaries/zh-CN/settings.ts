@@ -12,6 +12,7 @@ const settings: SettingsMenuCopy = {
     debug: '调试',
   },
   closeDialogLabel: '关闭对话框',
+  backLabel: '返回',
   cancelActionLabel: '取消',
   unsavedChangesTitle: '设置尚未保存',
   unsavedChangesDescription: '当前设置窗口中还有尚未保存的更改。',

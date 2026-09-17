@@ -51,6 +51,10 @@ const updates: LauncherUpdatesCopy = {
   blockedTitle: 'Automatic Update Checks Are Paused',
   blockedDetail:
     'The update routes failed repeatedly, so automatic background checks are paused to avoid sending the same failing requests over and over.',
+  mobile: {
+    updateSelectedCount: (count) => `Update Selected (${count})`,
+    statusLine: (count) => `${count} update${count === 1 ? '' : 's'} available`,
+  },
 }
 
 export default updates

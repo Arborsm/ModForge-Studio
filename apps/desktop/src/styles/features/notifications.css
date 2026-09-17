@@ -675,19 +675,17 @@
   }
 
   .notification-stack-item[data-front='true'] .notification-toast {
-    width: 100%;
+    /* The desktop stack choreography stamps measured inline widths; the phone
+       layout is a single full-width banner, so those measurements must lose. */
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    border-radius: 0 0 0.75rem 0.75rem;
   }
 
   .notification-toast-close {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
-  }
-}
-
-@media (max-width: 640px) {
-  .notification-stack-item[data-front='true'] .notification-toast {
-    border-radius: 0 0 0.75rem 0.75rem;
-    min-width: 0;
   }
 }

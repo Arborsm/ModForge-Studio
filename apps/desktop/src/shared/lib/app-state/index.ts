@@ -3,6 +3,7 @@ export type { AppShellState as NormalizedAppShellState } from './appShellState'
 export { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from './appUiState'
 export { useAssetLibraryFocusStore, type AssetLibraryFocus } from './assetLibraryFocusStore'
 export { useLauncherOverlayDismissStore } from './launcherOverlayDismissStore'
+export { useLauncherMobileChromeStore, useLauncherMobileTopLeading } from './launcherMobileChromeStore'
 export {
   DEFAULT_MAP_EDITOR_PALETTE_PREFERENCES,
   PALETTE_FAVORITE_LIMIT,
