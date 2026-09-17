@@ -903,3 +903,85 @@
     padding-bottom: 4.5rem;
   }
 }
+
+/* ===== P6: mod detail — compact hero, version bar below description, capsule footer ===== */
+
+@media (max-width: 640px) {
+  /* 72px cover beside the title cluster instead of the 220px banner row. */
+  .launcher-mod-detail-hero {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 0.75rem;
+    padding: 0.875rem 0.75rem 0.5rem;
+    align-items: start;
+  }
+
+  .launcher-mod-detail-cover-frame {
+    margin: 0;
+    border-radius: 0.75rem;
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+
+  .launcher-mod-detail-cover {
+    border-radius: 0;
+  }
+
+  .launcher-mod-detail-hero-main {
+    padding: 0;
+    min-width: 0;
+  }
+
+  /* Property table retires on mobile; the fields live in the Details tab. */
+  .launcher-mod-detail-status-side {
+    display: none;
+  }
+
+  .launcher-mod-detail-status-overview {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding-right: 0;
+  }
+
+  /* Version bar renders below the description via flex order. */
+  .launcher-mod-detail-status-primary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-hero-summary {
+    order: 2;
+  }
+
+  .launcher-mod-detail-version-compare {
+    order: 3;
+  }
+
+  /* Mock underline weight: 2.5px. */
+  .launcher-mod-detail-tabs > button {
+    border-bottom-width: 0.15625rem;
+  }
+
+  /* Floating capsule action bar instead of the flush footer strip. */
+  .launcher-mod-detail-footer {
+    margin: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.375rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 62.4375rem;
+    background: var(--bg-panel);
+    box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--text-primary) 18%, transparent);
+  }
+
+  /* 36px ghost tools inside the capsule. */
+  .launcher-mod-detail-tool-button {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .launcher-mod-detail-primary-action {
+    border-radius: 62.4375rem;
+    min-height: 2.25rem;
+  }
+}
