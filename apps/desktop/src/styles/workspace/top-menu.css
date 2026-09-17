@@ -240,4 +240,51 @@
       @apply px-3 pt-16 pb-3;
     }
   }
+
+  /* Phone widths: the three-column grid cannot fit the gooey tab row next to the
+     brand cluster, so the center column becomes its own horizontally scrollable
+     strip and every cluster tightens to touch-friendly sizes. */
+  @media (max-width: 640px) {
+    .top-menu-primary {
+      @apply h-12 grid-cols-[auto_minmax(0,1fr)_auto] gap-1 px-1.5;
+    }
+
+    .top-menu-cluster {
+      @apply gap-1;
+    }
+
+    .top-menu-brand-icon {
+      @apply h-7 w-7;
+    }
+
+    .top-menu-mode-segment {
+      @apply h-8 p-0.5;
+    }
+
+    .top-menu-mode-option {
+      @apply h-6 min-w-7 px-1.5;
+    }
+
+    .top-menu-center {
+      @apply min-w-0 justify-start;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .top-menu-center::-webkit-scrollbar {
+      display: none;
+    }
+
+    .top-menu-gooey-nav.gooey-nav-container {
+      @apply m-0 shrink-0 px-1 py-1.5;
+    }
+
+    .top-menu-gooey-nav nav ul {
+      @apply gap-0.5 px-0.5 text-xs leading-4;
+    }
+
+    .top-menu-gooey-nav nav ul li a {
+      @apply px-2 py-1 whitespace-nowrap;
+    }
+  }
 }

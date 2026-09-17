@@ -22,6 +22,8 @@ type LauncherPageProps = {
   page: LauncherPageId
   debugEnabled: boolean
   desktopHost: boolean
+  /** True when running inside the Android WebView launcher host; hides desktop-only surfaces. */
+  androidHost: boolean
   theme: ThemeMode
   locale: LocaleCode
   onToggleTheme: () => void
@@ -91,6 +93,7 @@ export function LauncherPage({
   page,
   debugEnabled,
   desktopHost,
+  androidHost,
   theme,
   onToggleTheme,
   onAppModeChange,
@@ -125,6 +128,7 @@ export function LauncherPage({
   useEffect(() => {
     if (
       !desktopHost ||
+      androidHost ||
       launcherRuntime.settingsState.state !== 'ready' ||
       launcherRuntime.settingsState.settings.gmcmParsingEnabled === false
     ) {
@@ -196,6 +200,7 @@ export function LauncherPage({
     copy.launcher.actions.viewDetails,
     copy.launcher.configuration,
     desktopHost,
+    androidHost,
     launcherPort,
     launcherRuntime.settingsState.settings.gmcmParsingEnabled,
     launcherRuntime.settingsState.state,
@@ -251,6 +256,7 @@ export function LauncherPage({
         theme={theme}
         onToggleTheme={onToggleTheme}
         desktopHost={desktopHost}
+        windowControls={desktopHost && !androidHost}
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
         onCloseWindow={onCloseWindow}
@@ -273,6 +279,7 @@ export function LauncherPage({
           <LauncherShell
             page={activeLauncherPage}
             debugEnabled={debugEnabled}
+            androidHost={androidHost}
             onToggleDebugMode={onToggleDebugMode}
             onNavigateToDiagnostics={onNavigateToDiagnostics}
             onRetryDiagnostics={onRetryDiagnostics}

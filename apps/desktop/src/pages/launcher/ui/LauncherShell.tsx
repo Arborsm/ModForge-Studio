@@ -20,6 +20,8 @@ const INITIAL_CACHED_PAGES = new Set<LauncherPage>(['library'])
 type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
+  /** True inside the Android WebView launcher host; hides desktop-only surfaces. */
+  androidHost: boolean
   onToggleDebugMode: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
@@ -39,6 +41,7 @@ type LauncherShellProps = {
 export default function LauncherShell({
   page,
   debugEnabled,
+  androidHost,
   onToggleDebugMode,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
@@ -107,6 +110,7 @@ export default function LauncherShell({
         library={library}
         routeEnterSequence={libraryRouteEnterSequence}
         routeActive={activePage === 'library'}
+        androidHost={androidHost}
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
@@ -119,6 +123,7 @@ export default function LauncherShell({
     ),
     [
       activePage,
+      androidHost,
       downloadInstallRequest,
       downloads.queueDownload,
       library,
@@ -173,6 +178,7 @@ export default function LauncherShell({
             <Suspense fallback={<LoadingMotionFallback />}>
               <LauncherConfigurationPage
                 debugEnabled={debugEnabled}
+                androidHost={androidHost}
                 onToggleDebugMode={onToggleDebugMode}
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
                 settingsState={settingsState}
