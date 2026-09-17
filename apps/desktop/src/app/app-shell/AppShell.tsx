@@ -798,7 +798,8 @@ export default function App() {
                 overlay (dialog layer outranks the guide), so it can no longer
                 be covered; keep the guide suspended while settings is open so
                 the tour does not fight the modal (engine keeps the run). */}
-            {settingsWindowOpen ? null : <GuideTourOverlay />}
+            {/*The desktop coach-mark tour references desktop anchors; phones skip it.*/}
+            {settingsWindowOpen || androidHost ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>
