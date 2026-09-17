@@ -360,211 +360,216 @@ export function LauncherLibraryHeader({
           </div>
         </div>
 
-        <div className="launcher-library-console-actions">
-          <div ref={searchRef} className={cx('launcher-library-search', searchExpanded && 'is-open')} role="search">
+        {/* The Android host retires the desktop toolbar round buttons: search
+            moves to the top bar, sort/filter/display live in the bottom sheet,
+            and launching moves to the pinned launch dock. */}
+        {androidHost ? null : (
+          <div className="launcher-library-console-actions">
+            <div ref={searchRef} className={cx('launcher-library-search', searchExpanded && 'is-open')} role="search">
+              <button
+                type="button"
+                className="launcher-library-search-trigger"
+                aria-label={copy.fields.filterLibrary}
+                aria-expanded={searchExpanded}
+                aria-controls={searchInputId}
+                tabIndex={searchExpanded ? -1 : 0}
+                onClick={() => {
+                  if (!searchExpanded) {
+                    setSearchOpen(true)
+                  }
+                }}
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              <input
+                id={searchInputId}
+                value={filterText}
+                onChange={(event) => onFilterTextChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && !hasFilter) {
+                    event.preventDefault()
+                    setSearchOpen(false)
+                  }
+                }}
+                placeholder={copy.fields.filterLibrary}
+                spellCheck={false}
+                aria-label={copy.fields.filterLibrary}
+                tabIndex={searchExpanded ? 0 : -1}
+              />
+            </div>
+
+            <span className="launcher-library-toolbar-divider" aria-hidden="true" />
+
             <button
               type="button"
-              className="launcher-library-search-trigger"
-              aria-label={copy.fields.filterLibrary}
-              aria-expanded={searchExpanded}
-              aria-controls={searchInputId}
-              tabIndex={searchExpanded ? -1 : 0}
-              onClick={() => {
-                if (!searchExpanded) {
-                  setSearchOpen(true)
-                }
-              }}
+              className={cx('launcher-library-icon-button', enabledOnly && 'launcher-library-icon-button-accent')}
+              aria-pressed={enabledOnly}
+              aria-label={copy.toggles.enabledOnly}
+              title={copy.toggles.enabledOnly}
+              onClick={() => onEnabledOnlyChange(!enabledOnly)}
             >
-              <Search className="h-4 w-4" />
+              {enabledOnly ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </button>
-            <input
-              id={searchInputId}
-              value={filterText}
-              onChange={(event) => onFilterTextChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape' && !hasFilter) {
-                  event.preventDefault()
-                  setSearchOpen(false)
-                }
-              }}
-              placeholder={copy.fields.filterLibrary}
-              spellCheck={false}
-              aria-label={copy.fields.filterLibrary}
-              tabIndex={searchExpanded ? 0 : -1}
-            />
-          </div>
 
-          <span className="launcher-library-toolbar-divider" aria-hidden="true" />
-
-          <button
-            type="button"
-            className={cx('launcher-library-icon-button', enabledOnly && 'launcher-library-icon-button-accent')}
-            aria-pressed={enabledOnly}
-            aria-label={copy.toggles.enabledOnly}
-            title={copy.toggles.enabledOnly}
-            onClick={() => onEnabledOnlyChange(!enabledOnly)}
-          >
-            {enabledOnly ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-          </button>
-
-          <button
-            type="button"
-            className={cx('launcher-library-icon-button', configOnly && 'launcher-library-icon-button-accent')}
-            aria-pressed={configOnly}
-            aria-label={copy.toggles.configOnly}
-            title={copy.toggles.configOnly}
-            onClick={() => onConfigOnlyChange(!configOnly)}
-          >
-            <Settings2 className="h-4 w-4" />
-          </button>
-
-          <div className="launcher-library-popover-shell" ref={sortMenuRef}>
             <button
               type="button"
-              className={cx('launcher-library-icon-button', sortMenuOpen && 'launcher-library-icon-button-active')}
-              aria-haspopup="menu"
-              aria-expanded={sortMenuOpen}
-              aria-label={copy.library.sortLabel}
-              title={currentSortLabel}
-              onClick={onToggleSortMenu}
+              className={cx('launcher-library-icon-button', configOnly && 'launcher-library-icon-button-accent')}
+              aria-pressed={configOnly}
+              aria-label={copy.toggles.configOnly}
+              title={copy.toggles.configOnly}
+              onClick={() => onConfigOnlyChange(!configOnly)}
             >
-              <ArrowDownUp className="h-4 w-4" />
+              <Settings2 className="h-4 w-4" />
             </button>
 
-            {sortMenuOpen ? (
-              <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
-                {sortOptions.map((option) => {
-                  const OptionIcon = sortOptionIcon[option.value]
-                  const selected = sortMode === option.value
-                  return (
+            <div className="launcher-library-popover-shell" ref={sortMenuRef}>
+              <button
+                type="button"
+                className={cx('launcher-library-icon-button', sortMenuOpen && 'launcher-library-icon-button-active')}
+                aria-haspopup="menu"
+                aria-expanded={sortMenuOpen}
+                aria-label={copy.library.sortLabel}
+                title={currentSortLabel}
+                onClick={onToggleSortMenu}
+              >
+                <ArrowDownUp className="h-4 w-4" />
+              </button>
+
+              {sortMenuOpen ? (
+                <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
+                  {sortOptions.map((option) => {
+                    const OptionIcon = sortOptionIcon[option.value]
+                    const selected = sortMode === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selected}
+                        className={cx('launcher-library-sort-option', selected && 'launcher-library-sort-option-active')}
+                        onClick={() => onSortModeChange(option.value)}
+                      >
+                        <OptionIcon className="launcher-library-sort-option-icon h-4 w-4" aria-hidden="true" />
+                        <span className="launcher-library-sort-option-label">{option.label}</span>
+                        {selected ? <Check className="launcher-library-sort-option-check h-4 w-4" aria-hidden="true" /> : null}
+                      </button>
+                    )
+                  })}
+
+                  {!sortingBannerOpen ? (
                     <button
-                      key={option.value}
                       type="button"
-                      role="menuitemradio"
-                      aria-checked={selected}
-                      className={cx('launcher-library-sort-option', selected && 'launcher-library-sort-option-active')}
-                      onClick={() => onSortModeChange(option.value)}
+                      role="menuitem"
+                      className="launcher-library-sort-option launcher-library-sort-reorder-action"
+                      aria-label={copy.library.startSortingLabel}
+                      title={copy.library.customSortHint}
+                      onClick={onStartSortingMode}
                     >
-                      <OptionIcon className="launcher-library-sort-option-icon h-4 w-4" aria-hidden="true" />
-                      <span className="launcher-library-sort-option-label">{option.label}</span>
-                      {selected ? <Check className="launcher-library-sort-option-check h-4 w-4" aria-hidden="true" /> : null}
+                      <Move className="launcher-library-sort-option-icon h-4 w-4" aria-hidden="true" />
+                      <span className="launcher-library-sort-option-label">{copy.library.startSortingLabel}</span>
                     </button>
-                  )
-                })}
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
 
-                {!sortingBannerOpen ? (
+            <button
+              type="button"
+              className="launcher-library-icon-button"
+              onClick={onCreateLibraryFolder}
+              aria-label={copy.library.createLibraryFolder}
+              title={copy.library.createLibraryFolder}
+            >
+              <FolderPlus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="launcher-library-icon-button"
+              onClick={onRefreshLibrary}
+              aria-label={copy.actions.refresh}
+              title={copy.actions.refresh}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+
+            {androidHost ? (
+              <button
+                type="button"
+                className="launcher-library-icon-button"
+                onClick={onInspectArchive}
+                aria-label={copy.actions.installArchive}
+                title={copy.actions.installArchive}
+              >
+                <FolderArchive className="h-4 w-4" />
+              </button>
+            ) : null}
+
+            <div className="launcher-library-popover-shell launcher-library-actions-menu-shell" ref={actionsMenuRef}>
+              <button
+                type="button"
+                className="launcher-library-icon-button"
+                aria-haspopup="menu"
+                aria-expanded={actionsMenuOpen}
+                aria-label={copy.library.moreActions}
+                title={copy.library.moreActions}
+                onClick={onToggleActionsMenu}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {actionsMenuOpen ? (
+                <div className="launcher-library-actions-menu" role="menu" aria-label={copy.library.moreActions}>
                   <button
                     type="button"
                     role="menuitem"
-                    className="launcher-library-sort-option launcher-library-sort-reorder-action"
-                    aria-label={copy.library.startSortingLabel}
-                    title={copy.library.customSortHint}
-                    onClick={onStartSortingMode}
+                    className="launcher-library-actions-menu-item"
+                    onClick={() => {
+                      onCloseActionsMenu()
+                      onOpenLibraryRoot()
+                    }}
                   >
-                    <Move className="launcher-library-sort-option-icon h-4 w-4" aria-hidden="true" />
-                    <span className="launcher-library-sort-option-label">{copy.library.startSortingLabel}</span>
+                    <FolderOpen className="h-4 w-4" />
+                    <span>{copy.actions.openStorageFolder}</span>
                   </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="launcher-library-actions-menu-item"
+                    onClick={() => {
+                      onCloseActionsMenu()
+                      onInspectArchive()
+                    }}
+                  >
+                    <FolderArchive className="h-4 w-4" />
+                    <span>{copy.actions.installArchive}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="launcher-library-actions-menu-item"
+                    onClick={() => {
+                      onCloseActionsMenu()
+                      onOpenInstallBackupsDialog()
+                    }}
+                  >
+                    <Folder className="h-4 w-4" />
+                    <span>{copy.library.installBackupsTitle}</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
 
-          <button
-            type="button"
-            className="launcher-library-icon-button"
-            onClick={onCreateLibraryFolder}
-            aria-label={copy.library.createLibraryFolder}
-            title={copy.library.createLibraryFolder}
-          >
-            <FolderPlus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="launcher-library-icon-button"
-            onClick={onRefreshLibrary}
-            aria-label={copy.actions.refresh}
-            title={copy.actions.refresh}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-
-          {androidHost ? (
             <button
               type="button"
-              className="launcher-library-icon-button"
-              onClick={onInspectArchive}
-              aria-label={copy.actions.installArchive}
-              title={copy.actions.installArchive}
+              className="control-button control-button-primary launcher-library-primary-action"
+              disabled={launchGameDisabled}
+              onClick={onLaunchGame}
             >
-              <FolderArchive className="h-4 w-4" />
+              <Play className="h-4 w-4" />
+              <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
             </button>
-          ) : null}
-
-          <div className="launcher-library-popover-shell launcher-library-actions-menu-shell" ref={actionsMenuRef}>
-            <button
-              type="button"
-              className="launcher-library-icon-button"
-              aria-haspopup="menu"
-              aria-expanded={actionsMenuOpen}
-              aria-label={copy.library.moreActions}
-              title={copy.library.moreActions}
-              onClick={onToggleActionsMenu}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-
-            {actionsMenuOpen ? (
-              <div className="launcher-library-actions-menu" role="menu" aria-label={copy.library.moreActions}>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="launcher-library-actions-menu-item"
-                  onClick={() => {
-                    onCloseActionsMenu()
-                    onOpenLibraryRoot()
-                  }}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  <span>{copy.actions.openStorageFolder}</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="launcher-library-actions-menu-item"
-                  onClick={() => {
-                    onCloseActionsMenu()
-                    onInspectArchive()
-                  }}
-                >
-                  <FolderArchive className="h-4 w-4" />
-                  <span>{copy.actions.installArchive}</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="launcher-library-actions-menu-item"
-                  onClick={() => {
-                    onCloseActionsMenu()
-                    onOpenInstallBackupsDialog()
-                  }}
-                >
-                  <Folder className="h-4 w-4" />
-                  <span>{copy.library.installBackupsTitle}</span>
-                </button>
-              </div>
-            ) : null}
           </div>
-
-          <button
-            type="button"
-            className="control-button control-button-primary launcher-library-primary-action"
-            disabled={launchGameDisabled}
-            onClick={onLaunchGame}
-          >
-            <Play className="h-4 w-4" />
-            <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
-          </button>
-        </div>
+        )}
       </div>
     </LoadingMotionRevealItem>
   )

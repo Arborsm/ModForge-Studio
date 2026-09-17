@@ -440,3 +440,347 @@
     margin: -0.25rem;
   }
 }
+
+/* ===== P2: top-bar search pill, bottom sheets, launch dock, pull-to-refresh ===== */
+
+@layer components {
+  /* Page-semantic search field injected into the Android top bar. */
+  .mobile-top-search {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.5rem;
+    padding-inline: 0.75rem;
+    border-radius: 999px;
+    background: var(--bg-panel-muted);
+    color: var(--text-tertiary);
+  }
+
+  .mobile-top-search-icon {
+    width: 0.8125rem;
+    height: 0.8125rem;
+    flex: 0 0 auto;
+  }
+
+  .mobile-top-search-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+  }
+
+  .mobile-top-search-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  /* Blue filter button at the trailing edge of the search pill. */
+  .mobile-top-search-filter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: -0.25rem;
+    border-radius: 0.5rem;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    flex: 0 0 auto;
+  }
+
+  /* Bottom sheet: dim + rounded panel with a drag handle. */
+  .mobile-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+  }
+
+  .mobile-sheet-dim {
+    position: absolute;
+    inset: 0;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: color-mix(in srgb, var(--text-primary) 32%, transparent);
+    animation: mobile-sheet-dim-enter 180ms ease-out both;
+  }
+
+  .mobile-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 0.875rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: 1.125rem 1.125rem 0 0;
+    background: var(--bg-panel);
+    box-shadow: 0 -0.625rem 1.875rem color-mix(in srgb, var(--text-primary) 18%, transparent);
+    animation: mobile-sheet-enter 240ms cubic-bezier(0.32, 0.72, 0.28, 1) both;
+  }
+
+  .mobile-sheet-handle {
+    display: block;
+    width: 2.125rem;
+    height: 0.25rem;
+    margin: 0.625rem auto 0.6875rem;
+    border-radius: 999px;
+    background: var(--border-color);
+  }
+
+  .mobile-sheet-title {
+    margin: 0 0 0.5625rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mobile-sheet-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .mobile-sheet-group-label {
+    margin: 0 0 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+  }
+
+  .mobile-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4375rem;
+  }
+
+  .mobile-chip {
+    padding: 0.3125rem 0.625rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-app);
+    color: var(--text-secondary);
+    font-size: 0.65625rem;
+    font-weight: 600;
+  }
+
+  .mobile-chip.is-active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .mobile-chip-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+  }
+
+  .mobile-sheet-apply {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.625rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .mobile-sheet-apply:disabled {
+    opacity: 0.55;
+  }
+
+  @keyframes mobile-sheet-enter {
+    from {
+      transform: translateY(100%);
+    }
+
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes mobile-sheet-dim-enter {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Pinned launch capsule above the bottom nav. */
+  .mobile-launch-dock {
+    position: fixed;
+    left: 0.625rem;
+    right: 0.625rem;
+    bottom: calc(4.125rem + env(safe-area-inset-bottom, 0px));
+    z-index: 14;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+    box-shadow: 0 0.375rem 1.125rem color-mix(in srgb, var(--text-primary) 12%, transparent);
+  }
+
+  .mobile-launch-dock-main {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5625rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .mobile-launch-dock-main:disabled {
+    opacity: 0.55;
+  }
+
+  .mobile-launch-dock-play {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    flex: 0 0 auto;
+  }
+
+  .mobile-launch-dock-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .mobile-launch-dock-title {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .mobile-launch-dock-subtitle {
+    font-size: 0.65625rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-launch-dock-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: -0.1875rem;
+    border-radius: 999px;
+    color: var(--text-tertiary);
+    flex: 0 0 auto;
+  }
+
+  /* Preflight rows inside the launch sheet. */
+  .mobile-preflight-rows {
+    padding: 0.125rem 0.125rem 0.625rem;
+  }
+
+  .mobile-preflight-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.125rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    font-size: 0.71875rem;
+  }
+
+  .mobile-preflight-row:last-child {
+    border-bottom: 0;
+  }
+
+  .mobile-preflight-label {
+    color: var(--text-tertiary);
+  }
+
+  .mobile-preflight-value {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .mobile-preflight-value[data-tone='ok'] {
+    color: var(--accent);
+  }
+
+  .mobile-preflight-value[data-tone='conflict'] {
+    color: var(--danger);
+  }
+
+  /* Pull-to-refresh indicator at the top of the library browser. */
+  .mobile-ptr {
+    position: absolute;
+    top: 0.375rem;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4375rem;
+    color: var(--accent);
+    font-size: 0.65625rem;
+    pointer-events: none;
+  }
+
+  .mobile-ptr-ring {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    border-radius: 999px;
+    border: 0.15625rem solid var(--accent-soft);
+    border-top-color: var(--accent);
+    animation: mobile-ptr-spin 0.8s linear infinite;
+  }
+
+  @keyframes mobile-ptr-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .launcher-library-browser {
+    position: relative;
+  }
+
+  /* The pull gesture owns downward drags at the top of the grid. */
+  .launcher-library-grid-viewport {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Room for the pinned launch dock above the bottom nav. */
+  .launcher-library-grid-viewport,
+  .launcher-library-empty-host {
+    padding-bottom: 4.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sheet,
+  .mobile-sheet-dim,
+  .mobile-ptr-ring {
+    animation: none;
+  }
+}
