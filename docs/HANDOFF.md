@@ -84,7 +84,13 @@ et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签�
 - **logcat**：C# 侧 `Console.WriteLine` 走 `DOTNET` tag；asset/file miss 诊断在响应体与 logcat 双输出。
 - **模拟器**：`E:\Android\Sdk\emulator\emulator -avd mf`（WHPX 加速），`adb install -r` 装包，`input tap x y` 驱动 UI（注意坐标系为 1080x2400 设备像素）。
 
-### 2.5 协议再生成流程
+### 2.5 CI（modforge-android 仓库）
+
+`.github/workflows/build.yml`：push/PR/dispatch 在 ubuntu runner 全自动构建 APK——双仓库 checkout（自身 + ModForge Studio `STUDIO_REF`，默认 `feat/android-host`）→ 前端构建内嵌 www → 9.0 band android workload → runtime pack `libmonosgen` 反射补丁 → 从私有仓 `Arborsm/modforge-private-libs`（Release `dependencies-dll`）拉取游戏编译期 DLL → Release APK artifact。
+
+**一次性配置**（缺 `LIBS_TOKEN` 时 job 快速失败并提示）：创建只读 `Arborsm/modforge-private-libs` Contents 的 fine-grained PAT，然后 `gh secret set LIBS_TOKEN --repo Arborsm/modforge-android`（按提示粘贴 PAT），`gh run rerun` 重跑。
+
+### 2.6 协议再生成流程
 
 launcher 命令变更（主仓库 `commands.rs` + `shared/protocol/launcher-commands.json` 同步改）后：
 
