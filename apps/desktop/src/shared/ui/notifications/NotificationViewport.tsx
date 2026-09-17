@@ -8,7 +8,10 @@ import type { PublishedNotification } from './notifications'
 
 type NotificationViewportProps = {
   notifications: PublishedNotification[]
+  /** Explicit user close: removes the record entirely. */
   onDismiss: (id: string) => void
+  /** Auto-dismiss timeout: retires the toast but keeps the center history record. */
+  onExpire: (id: string) => void
 }
 
 const EXIT_ANIMATION_MS = 220
@@ -21,7 +24,8 @@ const STACK_HOVER_REGION_MIN_HEIGHT_PX = 88
 const STACK_OPACITY_STEP = 0.14
 const MIN_STACK_OPACITY = 0.38
 
-function NotificationIcon({ level, loading }: Pick<PublishedNotification, 'level' | 'loading'>) {
+/** Level glyph shared by the toast stack and the notification center. */
+export function NotificationIcon({ level, loading }: Pick<PublishedNotification, 'level' | 'loading'>) {
   if (loading) {
     return <LoaderCircle className="notification-toast-loading-icon h-5 w-5" />
   }
@@ -63,6 +67,7 @@ function NotificationToast({
   actionHint,
   levelLabel,
   onDismiss,
+  onExpire,
   toastRef,
 }: {
   notification: PublishedNotification
@@ -70,29 +75,24 @@ function NotificationToast({
   actionHint: string
   levelLabel: string
   onDismiss: (id: string) => void
+  onExpire: (id: string) => void
   toastRef?: (node: HTMLElement | null) => void
 }) {
   const [hovering, setHovering] = useState(false)
-  const [closing, setClosing] = useState(false)
+  const [closeReason, setCloseReason] = useState<'dismiss' | 'expire' | null>(null)
   const timeoutRef = useRef<number | null>(null)
 
-  const requestClose = () => {
-    setClosing((current) => {
-      if (current) {
-        return current
-      }
-
-      return true
-    })
+  const requestClose = (reason: 'dismiss' | 'expire') => {
+    setCloseReason((current) => current ?? reason)
   }
 
   useEffect(() => {
-    if (notification.autoDismissMs === null || closing) {
+    if (notification.autoDismissMs === null || closeReason !== null) {
       return
     }
 
     timeoutRef.current = window.setTimeout(() => {
-      requestClose()
+      requestClose('expire')
     }, notification.autoDismissMs)
 
     return () => {
@@ -101,10 +101,10 @@ function NotificationToast({
         timeoutRef.current = null
       }
     }
-  }, [closing, notification.autoDismissMs])
+  }, [closeReason, notification.autoDismissMs])
 
   useEffect(() => {
-    if (!closing) {
+    if (closeReason === null) {
       return
     }
 
@@ -112,14 +112,15 @@ function NotificationToast({
       window.clearTimeout(timeoutRef.current)
       timeoutRef.current = null
     }
+    const settle = closeReason === 'expire' ? onExpire : onDismiss
     const handle = window.setTimeout(() => {
-      onDismiss(notification.id)
+      settle(notification.id)
     }, EXIT_ANIMATION_MS)
 
     return () => {
       window.clearTimeout(handle)
     }
-  }, [closing, notification.id, onDismiss])
+  }, [closeReason, notification.id, onDismiss, onExpire])
 
   const handleMouseEnter = () => {
     setHovering(true)
@@ -136,7 +137,7 @@ function NotificationToast({
 
     void action.callback()
     if (action.closeOnClick) {
-      requestClose()
+      requestClose('dismiss')
     }
   }
 
@@ -158,7 +159,7 @@ function NotificationToast({
   return (
     <article
       ref={toastRef}
-      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? 'notification-toast-structured' : ''}${closing ? 'is-closing' : ''}`}
+      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? 'notification-toast-structured' : ''}${closeReason !== null ? 'is-closing' : ''}`}
       role="status"
       aria-live={notification.level === 'error' ? 'assertive' : 'polite'}
       aria-label={`${levelLabel}: ${notification.title}`}
@@ -213,7 +214,13 @@ function NotificationToast({
         ) : null}
       </div>
 
-      <button type="button" className="notification-toast-close" aria-label={dismissLabel} title={dismissLabel} onClick={requestClose}>
+      <button
+        type="button"
+        className="notification-toast-close"
+        aria-label={dismissLabel}
+        title={dismissLabel}
+        onClick={() => requestClose('dismiss')}
+      >
         <X className="h-4 w-4" />
       </button>
 
@@ -240,7 +247,7 @@ function NotificationToast({
 }
 
 /** Renders the notification toast stack with hover-to-expand, collapse-on-leave, and per-toast auto-dismiss. */
-export function NotificationViewport({ notifications, onDismiss }: NotificationViewportProps) {
+export function NotificationViewport({ notifications, onDismiss, onExpire }: NotificationViewportProps) {
   const copy = useNotificationCopy()
   const viewportRef = useRef<HTMLElement | null>(null)
   const collapseTimeoutRef = useRef<number | null>(null)
@@ -425,6 +432,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
               actionHint={copy.actionHint}
               levelLabel={copy.levels[notification.level]}
               onDismiss={onDismiss}
+              onExpire={onExpire}
               toastRef={(node) => {
                 toastRefs.current[notification.id] = node
               }}

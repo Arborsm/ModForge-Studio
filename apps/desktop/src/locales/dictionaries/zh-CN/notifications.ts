@@ -11,6 +11,10 @@ const notifications: NotificationCopy = {
     warning: '警告',
     error: '错误',
   },
+  centerTitle: '通知中心',
+  centerEmpty: '暂无通知',
+  centerClearAll: '全部清除',
+  unreadBadgeAriaLabel: (count) => `通知中心，${count} 条未读`,
   ai: {
     settingsSaveFailedTitle: 'AI 设置未保存',
     modelListFailedTitle: '无法加载 AI 模型',

@@ -11,6 +11,10 @@ const notifications: NotificationCopy = {
     warning: 'Warning',
     error: 'Error',
   },
+  centerTitle: 'Notification center',
+  centerEmpty: 'No notifications',
+  centerClearAll: 'Clear all',
+  unreadBadgeAriaLabel: (count) => `Notification center, ${count} unread`,
   ai: {
     settingsSaveFailedTitle: 'AI settings were not saved',
     modelListFailedTitle: 'AI models could not be loaded',

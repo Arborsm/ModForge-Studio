@@ -66,7 +66,19 @@ export type PublishedNotification = {
   autoDismissMs: number | null
   progress: number | null
   loading: boolean
+  /** Unread marker consumed by the notification center badge and highlights. */
+  unread: boolean
+  /**
+   * The toast already auto-expired; the record is kept for the notification
+   * center history but no longer renders in the viewport stack.
+   */
+  toastExpired: boolean
+  /** Wall-clock publish time (ms) used for center ordering and relative times. */
+  publishedAt: number
 }
+
+/** The notification center keeps a bounded recent-history log of records. */
+const MAX_NOTIFICATION_LOG = 50
 
 const DEFAULT_TRANSIENT_AUTO_DISMISS_MS = 5_000
 const listeners = new Set<() => void>()
@@ -158,12 +170,15 @@ export function publishNotification(request: PublishNotificationRequest) {
     autoDismissMs: normalizeAutoDismiss(request.level, request.autoDismissMs),
     progress: normalizeProgress(request.progress),
     loading: request.loading ?? false,
+    unread: true,
+    toastExpired: false,
+    publishedAt: Date.now(),
   }
 
   const existingIndex = notificationState.findIndex((item) => item.id === id)
   notificationState =
     existingIndex === -1
-      ? [...notificationState, notification]
+      ? [...notificationState, notification].slice(-MAX_NOTIFICATION_LOG)
       : notificationState.map((item, index) => (index === existingIndex ? notification : item))
   if (existingIndex === -1) {
     playNotificationSound(notification.level)
@@ -182,6 +197,38 @@ export function dismissNotification(id: string) {
   emitNotifications()
 }
 
+/** Retires an auto-dismissed toast without deleting its record from the center history. */
+export function expireNotificationToast(id: string) {
+  const existing = notificationState.find((item) => item.id === id)
+  if (!existing || existing.toastExpired) {
+    return
+  }
+
+  notificationState = notificationState.map((item) => (item.id === id ? { ...item, toastExpired: true } : item))
+  emitNotifications()
+}
+
+/** Clears every unread marker once the notification center has been opened. */
+export function markNotificationsSeen() {
+  if (!notificationState.some((item) => item.unread)) {
+    return
+  }
+
+  notificationState = notificationState.map((item) => (item.unread ? { ...item, unread: false } : item))
+  emitNotifications()
+}
+
+/** Marks a single notification read (e.g. after its center row was activated). */
+export function markNotificationRead(id: string) {
+  const existing = notificationState.find((item) => item.id === id)
+  if (!existing || !existing.unread) {
+    return
+  }
+
+  notificationState = notificationState.map((item) => (item.id === id ? { ...item, unread: false } : item))
+  emitNotifications()
+}
+
 export function clearNotifications() {
   if (!notificationState.length) {
     return
@@ -191,13 +238,28 @@ export function clearNotifications() {
   emitNotifications()
 }
 
+export function getUnreadNotificationCount() {
+  return notificationState.reduce((total, item) => (item.unread ? total + 1 : total), 0)
+}
+
+export function useUnreadNotificationCount() {
+  return useSyncExternalStore(subscribeNotifications, getUnreadNotificationCount, getUnreadNotificationCount)
+}
+
+/** Full recent-history log (newest last), including toasts that already expired. */
+export function useNotificationLog() {
+  return useSyncExternalStore(subscribeNotifications, getNotificationSnapshot, getNotificationSnapshot)
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const notifications = useSyncExternalStore(subscribeNotifications, getNotificationSnapshot, getNotificationSnapshot)
+  // Expired toasts stay in the log for the notification center but leave the viewport.
+  const activeNotifications = notifications.filter((item) => !item.toastExpired)
 
   return (
     <>
       {children}
-      <NotificationViewport notifications={notifications} onDismiss={dismissNotification} />
+      <NotificationViewport notifications={activeNotifications} onDismiss={dismissNotification} onExpire={expireNotificationToast} />
     </>
   )
 }

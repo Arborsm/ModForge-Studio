@@ -2,6 +2,7 @@
  * @file Top menu bar component: hosts mode switching, project menu, launcher navigation, and window controls.
  */
 import {
+  Bell,
   BookOpenText,
   ChevronDown,
   Compass,
@@ -19,10 +20,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { type AppMode, type LauncherPage, type ThemeMode } from '@locales/api'
-import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
+import { useEditorCopy, useNotificationCopy, useSettingsMenuCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import { ProgressRing } from '@shared/ui/ProgressRing'
+import { NotificationCenter, markNotificationsSeen, useUnreadNotificationCount } from '@shared/ui/notifications'
 import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
 /** "Recent projects" list item for the top menu bar. */
@@ -120,12 +122,15 @@ export default function TopMenuBar({
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
   const settingsMenuCopy = useSettingsMenuCopy()
+  const notificationCopy = useNotificationCopy()
   const navCopy = copy.workbenchNavigation
-  const [activeMenu, setActiveMenu] = useState<'downloads' | 'project' | null>(null)
+  const unreadNotificationCount = useUnreadNotificationCount()
+  const [activeMenu, setActiveMenu] = useState<'downloads' | 'project' | 'notifications' | null>(null)
   const downloadsMenuId = useId()
   const projectMenuId = useId()
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
+  const notificationsFloatRef = useRef<HTMLElement | null>(null)
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
@@ -133,6 +138,7 @@ export default function TopMenuBar({
   const visibleActiveMenu =
     activeMenu === 'downloads' && !launcherNav ? null : activeMenu === 'project' && (launcherModeActive || !projectMenu) ? null : activeMenu
   const downloadsMenuOpen = visibleActiveMenu === 'downloads' && Boolean(launcherNav)
+  const notificationsMenuOpen = visibleActiveMenu === 'notifications'
   useEffect(() => {
     if (!activeMenu) {
       return
@@ -143,6 +149,7 @@ export default function TopMenuBar({
       if (
         downloadsMenuRef.current?.contains(target) ||
         downloadsFloatRef.current?.contains(target) ||
+        notificationsFloatRef.current?.contains(target) ||
         projectMenuRef.current?.contains(target)
       ) {
         return
@@ -441,6 +448,46 @@ export default function TopMenuBar({
                   onClick={(event) => event.stopPropagation()}
                 >
                   {launcherNav.downloadsPopover}
+                </section>
+              ) : null}
+              <button
+                type="button"
+                className={cx(
+                  'icon-button top-menu-icon-action pointer-events-auto',
+                  notificationsMenuOpen && 'top-menu-icon-action-active',
+                )}
+                aria-label={
+                  unreadNotificationCount > 0
+                    ? notificationCopy.unreadBadgeAriaLabel(unreadNotificationCount)
+                    : notificationCopy.centerTitle
+                }
+                aria-haspopup="dialog"
+                aria-expanded={notificationsMenuOpen}
+                onClick={() => {
+                  const notificationsOpening = activeMenu !== 'notifications'
+                  setActiveMenu(notificationsOpening ? 'notifications' : null)
+                  // The float shares the downloads float's layer constraints and
+                  // reading the center marks every record seen.
+                  if (notificationsOpening) {
+                    markNotificationsSeen()
+                    useLauncherOverlayDismissStore.getState().requestLauncherOverlayDismiss()
+                  }
+                }}
+              >
+                <Bell className="h-4 w-4" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="top-menu-icon-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>
+                ) : null}
+              </button>
+              {notificationsMenuOpen ? (
+                <section
+                  className="top-menu-float-panel top-menu-notifications-float panel-surface panel-surface-muted pointer-events-auto"
+                  role="dialog"
+                  aria-label={notificationCopy.centerTitle}
+                  ref={notificationsFloatRef}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <NotificationCenter />
                 </section>
               ) : null}
             </div>
