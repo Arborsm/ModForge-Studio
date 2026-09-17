@@ -247,9 +247,12 @@
   }
 
   .launcher-discover-console-toolbar .launcher-discover-toolbar-divider,
-  .launcher-discover-console-actions .launcher-discover-icon-button[aria-label]:not([aria-label='']):has(.lucide-layout-grid),
-  .launcher-discover-console-actions .launcher-discover-icon-button:has(.lucide-refresh-cw) {
+  .launcher-discover-desktop-only {
     display: none;
+  }
+
+  .launcher-discover-results-viewport {
+    overflow-x: hidden;
   }
 
   .launcher-discover-console-actions {
@@ -259,6 +262,60 @@
   }
 
   .launcher-discover-pagination-jump {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Compact detail hero: small cover beside the title, like the mock. */
+  .launcher-mod-detail-hero {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.875rem;
+    min-height: 0;
+    max-height: none;
+    padding: 0.875rem;
+  }
+
+  .launcher-mod-detail-hero > .launcher-mod-detail-cover-frame {
+    width: 5.5rem;
+    align-self: start;
+    justify-self: start;
+    aspect-ratio: 1;
+    border-radius: 0.625rem;
+  }
+
+  .launcher-mod-detail-hero .launcher-mod-detail-status-side {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .launcher-mod-detail-hero .launcher-mod-detail-cover-frame {
+    width: 5.5rem;
+  }
+
+  .launcher-mod-detail-hero .launcher-mod-detail-cover {
+    aspect-ratio: 1;
+    border-radius: 0.625rem;
+  }
+
+  .launcher-mod-detail-hero .launcher-mod-detail-status-title {
+    font-size: 1.125rem;
+  }
+
+  /* Key-value rows keep long values from pushing the page wide. */
+  .launcher-mod-detail-panel .launcher-mod-detail-kv,
+  .launcher-mod-detail-panel [class*='launcher-mod-detail'] dl,
+  .launcher-mod-detail-panel dl {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  /* The mock detail page has no property table — those fields live in the
+     Details tab; hiding the side rail also removes its overlap with tabs. */
+  .launcher-mod-detail-status-side {
     display: none;
   }
 }

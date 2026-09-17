@@ -14,6 +14,8 @@ import type {
   LauncherLibraryState,
   LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
+  LauncherCatalogPageResult,
+  LauncherCatalogResult,
   LauncherRuntimeInfo,
   LauncherSettings,
   LauncherSuppressedUpdateModIdsResult,
@@ -23,6 +25,44 @@ import type {
   InstallSmapiUpdateResult,
   FindSmapiInstallerDownloadsResult,
 } from '@features/launcher/model/launcherContracts'
+
+/** Discovery-page fixtures for the dev launcher mock (search_launcher_catalog). */
+const MOCK_CATALOG_RESULTS: LauncherCatalogResult[] = (
+  [
+    ['Stardew Valley Expanded', 'A full-scale expansion with 50+ locations and 30+ NPCs.', 'FlashShifter', 'Expansions', 24_000, 4_900],
+    ['East Scarp', 'A coastal village expansion with new NPCs, fish, and festivals.', 'lemurkat', 'Expansions', 12_400, 2_300],
+    [
+      'Lookup Anything',
+      'View live data about any item, villager, building, or animal.',
+      'Pathoschild',
+      'Gameplay Mechanics',
+      18_900,
+      3_100,
+    ],
+    ['NPC Map Locations', 'See every NPC on the map in real time.', 'Bouhm', 'Gameplay Mechanics', 15_200, 2_700],
+    ['Ridgeside Village', 'A mountain village expansion with 40+ residents.', 'Rafseazz', 'Expansions', 9_800, 1_900],
+    ['Automate', 'Connect machines to chests with wires and let them work.', 'Pathoschild', 'Gameplay Mechanics', 21_100, 3_600],
+    ['Chests Anywhere', 'Access your chests from anywhere.', 'Pathoschild', 'Gameplay Mechanics', 8_700, 1_500],
+    ['Content Patcher', 'Loads content packs that change the game without code.', 'Pathoschild', 'Modding Tools', 26_400, 5_200],
+    ['Seasonal Outfits', 'Seasonal clothing and outfits for every villager.', 'NeroToxic', 'Characters', 4_300, 950],
+    ['Tractor Mod', 'A drivable tractor that tills, plants, and harvests.', 'Pathoschild', 'Gameplay Mechanics', 11_600, 2_050],
+  ] as const
+).map(([title, summary, author, category, downloads, endorsements], index) => ({
+  modId: 2400 + index,
+  title,
+  summary,
+  author,
+  uploader: author,
+  modUrl: `https://www.nexusmods.com/stardewvalley/mods/${2400 + index}`,
+  imageUrl: null,
+  category,
+  createdAt: '2025-03-02T00:00:00Z',
+  updatedAt: '2026-08-14T00:00:00Z',
+  downloads,
+  endorsements,
+  fileSize: 1_024 * 1_024 * (4 + index),
+  updateAvailable: index % 4 === 1,
+}))
 import type {
   AiProfileTestResult,
   AiSemanticIndexStatus,
@@ -1192,6 +1232,33 @@ export function createDevLauncherMockIpcHandler(
       case 'clear_ai_translation_cache':
         aiCache.clear()
         return { entryCount: 0, sizeBytes: 0 }
+      case 'search_launcher_catalog': {
+        const request = getMockRequest<{ query?: string; page?: number; pageSize?: number }>(payload) ?? {}
+        const page = Math.max(1, request.page ?? 1)
+        const pageSize = Math.min(40, Math.max(1, request.pageSize ?? 20))
+        const query = (request.query ?? '').trim().toLowerCase()
+        const matched = MOCK_CATALOG_RESULTS.filter(
+          (mod) => !query || mod.title.toLowerCase().includes(query) || (mod.summary ?? '').toLowerCase().includes(query),
+        )
+        const start = (page - 1) * pageSize
+        const slice = matched.slice(start, start + pageSize)
+        const categories = [...new Set(matched.map((mod) => mod.category).filter((category): category is string => category != null))]
+        return {
+          page,
+          pageSize,
+          totalCount: matched.length,
+          hasMore: start + pageSize < matched.length,
+          facets: {
+            categories: categories.slice(0, 8).map((name) => ({
+              name,
+              count: matched.filter((mod) => mod.category === name).length,
+            })),
+            languages: [{ name: 'English', count: matched.length }],
+            tags: [],
+          },
+          results: slice,
+        } satisfies LauncherCatalogPageResult
+      }
       case 'load_launcher_settings':
         return settings
       case 'save_launcher_settings':

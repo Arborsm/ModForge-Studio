@@ -765,7 +765,10 @@ function LauncherDiscoverPageContent({
   const copy = useEditorCopy().launcher
   const launcherPort = useLauncherPort()
   const discover = useLauncherDiscover(initialToolbarState)
-  const [filtersHidden, setFiltersHidden] = useState(initialToolbarState.filtersHidden)
+  // Phone widths start with the filter rail collapsed; users can still expand it.
+  const [filtersHidden, setFiltersHidden] = useState(
+    () => initialToolbarState.filtersHidden || window.matchMedia('(max-width: 640px)').matches,
+  )
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [openSection, setOpenSection] = useState<DiscoverAccordionSection>(DEFAULT_DISCOVER_OPEN_SECTION)
   const [blockedDetailsExpanded, setBlockedDetailsExpanded] = useState(false)
@@ -1201,7 +1204,7 @@ function LauncherDiscoverPageContent({
             <div className="launcher-discover-toolbar-group">
               <button
                 type="button"
-                className="launcher-discover-icon-button"
+                className="launcher-discover-icon-button launcher-discover-desktop-only"
                 aria-label={copy.discover.gridViewLabel}
                 title={copy.discover.gridViewLabel}
                 disabled={discoverBlocked}
@@ -1210,7 +1213,7 @@ function LauncherDiscoverPageContent({
               </button>
               <button
                 type="button"
-                className="launcher-discover-icon-button"
+                className="launcher-discover-icon-button launcher-discover-desktop-only"
                 onClick={discover.refresh}
                 aria-label={copy.actions.refresh}
                 title={copy.actions.refresh}
