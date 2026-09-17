@@ -57,10 +57,16 @@ vp run build        # 产物在 apps/desktop/dist/
 
 ### 2.2 安卓仓库（构建 APK）
 
-1. 环境前置（实施计划“环境前置”节）：.NET 9 SDK（9.0.318 band）+ android workload 装在 9.0 band（用 pin 9.0.318 的空目录 `global.json` 执行 `dotnet workload install android`）；上游 `docs/building.md` 的定制 `libmonosgen-2.0.so` 就位；Git Bash 下 `export PATH="$PATH:/c/Program Files/dotnet"`。
-2. `dotnet restore SMAPILoader.sln` — 四个工程应全部还原（新增 `Xamarin.AndroidX.WebKit 1.8.0.3`）。
-3. `dotnet build SMAPILoader.sln -c Release`（或 `dotnet publish SMAPIGameLoader -c Release`）。
-4. 产物 APK 安装到 arm64 真机（已装正版游戏 ≥ 1.6.15.3）：`adb install -r SMAPIGameLoader.apk`。
+> **2026-09-17 已实机构建通过**：以下步骤已在本机跑通并产出签名 APK：
+> `E:\Arbor\modforge-android\SMAPIGameLoaderin\Release
+et9.0-android\com.modforge.android-Signed.apk`（约 62MB，debug.keystore 签名，包名 `com.modforge.android`，minSdk 28 / target 35；已验证 APK 内含 `assets/www/` 前端产物与**定制反射补丁** `libmonosgen-2.0.so`（3,117,424 字节））。
+> 构建命令：`dotnet build SMAPIGameLoader/SMAPIGameLoader.csproj -c Release -p:AndroidSdkDirectory="E:\Android\Sdk"`（Git Bash 先 `export JAVA_HOME="C:/Program Files/Eclipse Adoptium/jdk-21.0.7.6-hotspot"`、`export PATH="$PATH:/c/Program Files/dotnet"`）。
+> 构建前已完成一次性环境准备：① 本机补装 Android SDK（commandline tools → `E:\Android\Sdk`，platform-35 + build-tools 35.0.0 + licenses）；② 定制 `libmonosgen-2.0.so` 覆盖进 `Microsoft.NETCore.App.Runtime.Mono.android-arm64/{9.0.16,9.0.20}`（原版备份为 `*.stock.bak`，需管理员权限）；③ 游戏 DLL 按上游 building.md 从本机游戏 APK（`D:\BaiduNetdiskDownload\星露谷物语安卓手机版1.6.15.apk`）用仓库自带 AssemblyStore 库提取到 `E:\Arbor\SMAPI-Android-1.6\src\DependenciesDll\`（csproj 硬引用路径，游戏文件不入任何 git 仓库；提取器脚本在 modforge-android `.tmp-extract/`，已 gitignore 其数据文件）。前端构建产物（`vp run build` 的 `dist/`）已整体拷入 `SMAPIGameLoader/Assets/www/` 并随仓库提交。
+
+1. 环境前置：.NET 9 SDK（9.0.318 band）+ android workload 9.0 band；Android SDK（本机 `E:\Android\Sdk`，需 JAVA_HOME 指向 JDK 17+，本机用 Temurin 21 验证通过）；定制 `libmonosgen-2.0.so` 就位（见上）；`E:\Arbor\SMAPI-Android-1.6` 检出（csproj 引用其 DependenciesDll 下三个游戏 DLL）。
+2. 前端产物更新：主仓库 `vp run build` → 拷贝 `apps/desktop/dist/` 内容到 `SMAPIGameLoader/Assets/www/`（覆盖）。
+3. `dotnet build SMAPIGameLoader/SMAPIGameLoader.csproj -c Release -p:AndroidSdkDirectory="E:\Android\Sdk"`。
+4. 产物 APK 安装到 arm64 真机（已装正版游戏 ≥ 1.6.15.3）：`adb install -r com.modforge.android-Signed.apk`。
 
 ### 2.3 真机走查路径
 
@@ -86,7 +92,7 @@ vp run --filter @modforge/desktop gen:android-bridge    # 重新生成 LauncherB
 ## 3. 未验证项清单（按计划范围，验收人执行）
 
 1. **前端**：`vp run lint`、`vp test run`、`vp run build` 未执行（实施计划明确不跑构建验证）。已执行：`tsc -p tsconfig.app.json` 无错误、`generate-host-commands` 生成器 node 测试 21/21 通过、改造后 `gen:host-commands` 生成物与现状零漂移。
-2. **C#**：`dotnet restore/build` 从未运行——所有 C#（含生成物）未经编译验证。重点核对：`Xamarin.AndroidX.WebKit` 绑定 API 形态（`WebViewAssetLoader.Builder`/`IPathHandler`/`Handle(Uri)`）、`ZipFileTool.Extract` 签名、`[Export("invokeCommand")]` 导出命名。
+2. **C# 已编译通过（Release，android-arm64）**：构建中修复了 6 处绑定差异——`WebViewAssetLoader.IPathHandler.Handle(string)`（非 Uri）、JavascriptInterface 导出用 `Java.Interop.Export`、`JsonTypeInfo<T>` 位于 `System.Text.Json.Serialization.Metadata` 命名空间、`Intent.CategoryOpenable` 常量名、`Android.App.LauncherActivity` 命名冲突（用 using alias）、服务命令返回 `Task<JsonElement?>` 需显式 `Task.Run<T>`。`ZipFileTool.Extract` 签名无误。
 3. **真机**：WebView 桥帧时序、SAF 各分支、游戏宿主链路（fork 原有行为，未回归验证）均未验证。
 4. **架构测试**：`frontendModuleArchitecture.test.ts` 是否接受新增 `platform/android` 与 `AppShell` 的 `@platform/android` import（app 层 import platform 是既有允许模式），验收时跑一次确认。
 
