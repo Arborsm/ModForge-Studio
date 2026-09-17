@@ -241,10 +241,20 @@
     }
   }
 
-  /* Phone widths: the three-column grid cannot fit the gooey tab row next to the
-     brand cluster, so the center column becomes its own horizontally scrollable
-     strip and every cluster tightens to touch-friendly sizes. */
+  /* Phone widths: the launcher tab row leaves the top bar and becomes a fixed
+     Material-style bottom navigation bar (icon above label). The top bar slims
+     to brand + tool icons; the mode segment only survives here on desktop
+     narrow windows (the Android host removes it in React). */
   @media (max-width: 640px) {
+    /* The titlebar's backdrop-filter would turn it into the containing block
+       for the fixed bottom bar below, pinning the bar under the header —
+       trade the blur for a solid top strip on phone widths. */
+    .top-menu-bar {
+      background: var(--bg-panel);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
     .top-menu-primary {
       @apply h-12 grid-cols-[auto_minmax(0,1fr)_auto] gap-1 px-1.5;
     }
@@ -257,34 +267,63 @@
       @apply h-7 w-7;
     }
 
-    .top-menu-mode-segment {
-      @apply h-8 p-0.5;
-    }
-
-    .top-menu-mode-option {
-      @apply h-6 min-w-7 px-1.5;
-    }
-
     .top-menu-center {
-      @apply min-w-0 justify-start;
-      overflow-x: auto;
-      scrollbar-width: none;
+      @apply static min-w-0 justify-start;
+      overflow: visible;
     }
 
-    .top-menu-center::-webkit-scrollbar {
+    /* The gooey tab row becomes the app bottom bar. The gooey particle/pill
+       effect layers are hover-choreographed and depend on rect sync — disabled
+       here in favor of the static li::after active pill (cheaper on phones). */
+    .top-menu-gooey-nav.gooey-nav-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: auto;
+      z-index: 240;
+      margin: 0;
+      padding: 0.375rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+      background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+      backdrop-filter: blur(1.25rem);
+      -webkit-backdrop-filter: blur(1.25rem);
+      border-top: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+      box-shadow: none;
+    }
+
+    .top-menu-gooey-nav .gooey-nav-svg-filter,
+    .top-menu-gooey-nav .effect {
       display: none;
     }
 
-    .top-menu-gooey-nav.gooey-nav-container {
-      @apply m-0 shrink-0 px-1 py-1.5;
-    }
-
     .top-menu-gooey-nav nav ul {
-      @apply gap-0.5 px-0.5 text-xs leading-4;
+      @apply w-full justify-around gap-0 px-0 text-xs leading-4;
     }
 
-    .top-menu-gooey-nav nav ul li a {
-      @apply px-2 py-1 whitespace-nowrap;
+    .top-menu-gooey-nav nav ul li {
+      @apply rounded-xl;
+    }
+
+    .top-menu-gooey-nav nav ul li a,
+    .top-menu-gooey-nav nav ul li button {
+      @apply min-h-12 flex-col gap-0.5 px-3 py-1.5;
+    }
+
+    .top-menu-gooey-nav .gooey-nav-item-icon {
+      @apply inline-flex;
+    }
+
+    .top-menu-gooey-nav .gooey-nav-item-icon svg {
+      @apply h-5.5 w-5.5;
+    }
+
+    .top-menu-gooey-nav .gooey-nav-item-label {
+      @apply text-[0.6875rem] font-semibold;
+    }
+
+    .top-menu-gooey-nav .gooey-nav-item-badge {
+      top: -0.25rem;
+      right: 0;
     }
   }
 }

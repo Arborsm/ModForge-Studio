@@ -55,6 +55,14 @@
     }
   }
 
+  /* Phone widths: leave room for the fixed bottom navigation bar that
+     top-menu.css turns the launcher tab row into (≤640px block). */
+  @media (max-width: 640px) {
+    .launcher-shell-routed {
+      padding-bottom: calc(5.125rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   .launcher-configuration-page {
     --config-bg: var(--bg-app);
     --config-surface: var(--bg-panel);
