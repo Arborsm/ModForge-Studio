@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   ArrowUpRight,
-  Check,
   ChevronRight,
   Database,
   Download,
@@ -56,11 +55,6 @@ import type {
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
-import {
-  isAndroidDownloadLocationToken,
-  normalizeAndroidDownloadLocation,
-  type AndroidDownloadLocationToken,
-} from '@features/launcher/model/androidDownloadLocation'
 import { LauncherLogDialog } from './LauncherLogDialog'
 import { useMobilePageStore } from './mobile/mobilePageStore'
 import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
@@ -491,52 +485,6 @@ function ConfigPanelHeader({ title, description, actions }: { title: string; des
   )
 }
 
-/** Android-host download location: a sandbox-folder choice stored as a token
- * the native side resolves (free-form directory picking is unusable there —
- * SAF returns content:// URIs the downloader cannot write). */
-function AndroidDownloadLocationField({
-  value,
-  copy,
-  onChange,
-}: {
-  value: string | null
-  copy: LauncherCopy
-  onChange: (token: AndroidDownloadLocationToken) => void
-}) {
-  const options = [
-    { token: '@downloads' as const, label: copy.settings.downloadLocationDownloadsLabel },
-    { token: '@picked' as const, label: copy.settings.downloadLocationPickedLabel },
-  ]
-
-  // A stored plain path that is not a known token (e.g. hand-edited settings)
-  // has no radio match — show it verbatim instead of the picker.
-  if (value != null && !isAndroidDownloadLocationToken(value)) {
-    return <span className="launcher-config-path-text">{value.trim() || copy.settings.pathNotConfigured}</span>
-  }
-
-  const selected = normalizeAndroidDownloadLocation(value)
-  return (
-    <div className="launcher-config-location-field">
-      <div className="launcher-config-location-options" role="radiogroup">
-        {options.map((option) => (
-          <button
-            key={option.token}
-            type="button"
-            role="radio"
-            aria-checked={option.token === selected}
-            className={cx('launcher-config-location-option', option.token === selected && 'launcher-config-location-option-active')}
-            onClick={() => onChange(option.token)}
-          >
-            <span className="launcher-config-location-option-label">{option.label}</span>
-            {option.token === selected ? <Check className="launcher-config-location-option-check" aria-hidden="true" /> : null}
-          </button>
-        ))}
-      </div>
-      <p className="launcher-config-location-note">{copy.settings.downloadLocationAndroidNote}</p>
-    </div>
-  )
-}
-
 function ConfigPathPanel({
   settingsState,
   copy,
@@ -562,17 +510,11 @@ function ConfigPathPanel({
             value: settingsState.settings.gamePath,
           },
         ]),
-    // On the Android host the sandbox Mods dir is app-managed, so the only
-    // path worth exposing there is the download location (token-based, below).
-    ...(androidHost
-      ? []
-      : [
-          {
-            field: 'modsPath' as const,
-            label: copy.fields.modsPath,
-            value: settingsState.settings.modsPath,
-          },
-        ]),
+    {
+      field: 'modsPath' as const,
+      label: copy.fields.modsPath,
+      value: settingsState.settings.modsPath,
+    },
     {
       field: 'downloadPath' as const,
       label: copy.fields.downloadPath,
@@ -586,51 +528,40 @@ function ConfigPathPanel({
       aria-label={copy.settings.pathsTitle}
       data-guide="launcher-config-game"
     >
-      <ConfigPanelHeader
-        title={copy.settings.pathsTitle}
-        description={androidHost ? copy.settings.pathsAndroidHint : copy.settings.pathsHint}
-      />
+      <ConfigPanelHeader title={copy.settings.pathsTitle} description={copy.settings.pathsHint} />
       <div className="launcher-config-path-list">
         {rows.map((row, index) => (
           <LoadingMotionRevealItem key={row.field} index={index} as="div" className="launcher-config-path-row">
             <div className="launcher-config-path-label">
               <strong>{row.label}</strong>
             </div>
-            {androidHost && row.field === 'downloadPath' ? (
-              <AndroidDownloadLocationField
-                value={row.value}
-                copy={copy}
-                onChange={(token) => settingsState.updateField('downloadPath', token)}
-              />
-            ) : (
-              <div className="launcher-config-path-field">
-                <span className="launcher-config-path-text" data-testid={`launcher-config-${row.field}-value`}>
-                  {row.value?.trim() || copy.settings.pathNotConfigured}
-                </span>
-                <div className="launcher-config-path-actions">
+            <div className="launcher-config-path-field">
+              <span className="launcher-config-path-text" data-testid={`launcher-config-${row.field}-value`}>
+                {row.value?.trim() || copy.settings.pathNotConfigured}
+              </span>
+              <div className="launcher-config-path-actions">
+                <button
+                  type="button"
+                  className="launcher-config-icon-button"
+                  aria-label={`${row.label} ${browseLabel}`}
+                  title={browseLabel}
+                  onClick={() => void settingsState.pickDirectory(row.field, row.label)}
+                >
+                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                </button>
+                {row.value ? (
                   <button
                     type="button"
                     className="launcher-config-icon-button"
-                    aria-label={`${row.label} ${browseLabel}`}
-                    title={browseLabel}
-                    onClick={() => void settingsState.pickDirectory(row.field, row.label)}
+                    aria-label={`${row.label} ${copy.actions.openFolder}`}
+                    title={copy.actions.openFolder}
+                    onClick={() => void launcherPort.openPath({ path: row.value! })}
                   >
-                    <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  {row.value ? (
-                    <button
-                      type="button"
-                      className="launcher-config-icon-button"
-                      aria-label={`${row.label} ${copy.actions.openFolder}`}
-                      title={copy.actions.openFolder}
-                      onClick={() => void launcherPort.openPath({ path: row.value! })}
-                    >
-                      <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
-            )}
+            </div>
           </LoadingMotionRevealItem>
         ))}
       </div>
@@ -1972,11 +1903,19 @@ export function LauncherConfigurationPage({
               />
             </LoadingMotionReveal>
 
-            {/* The Android host manages game/mods paths inside its own app data;
-               the panel there exposes only the sandbox download location. */}
-            <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
-            </LoadingMotionReveal>
+            {/* The Android host manages game/mods/download paths inside its own
+               app data, so the desktop Paths & Storage panel has nothing to
+               show there. */}
+            {androidHost ? null : (
+              <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
+                <ConfigPathPanel
+                  settingsState={settingsState}
+                  copy={copy}
+                  browseLabel={rootCopy.controls.browse}
+                  androidHost={androidHost}
+                />
+              </LoadingMotionReveal>
+            )}
 
             <LoadingMotionReveal itemId="launcher-config-network" index={3}>
               <ConfigNexusPanel

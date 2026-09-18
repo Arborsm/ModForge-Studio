@@ -604,56 +604,6 @@
     line-height: 1.5;
   }
 
-  /* Android download location: sandbox-folder choice rendered as two
-     selectable cards — free-form directory picking is unusable on the host
-     (SAF returns content:// URIs the downloader cannot write). */
-  .launcher-config-location-field {
-    display: grid;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-
-  .launcher-config-location-options {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-  }
-
-  .launcher-config-location-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    min-height: 2.75rem;
-    padding: 0.5rem 0.875rem;
-    border: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
-    border-radius: 0.75rem;
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .launcher-config-location-option-active {
-    border-color: color-mix(in srgb, var(--accent) 60%, var(--border-color));
-    background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated));
-  }
-
-  .launcher-config-location-option-check {
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-    color: var(--accent);
-  }
-
-  .launcher-config-location-note {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    line-height: 1.5;
-  }
-
   /* SMAPI update/install card: match the other card sections — compact head,
      full-width stacked actions with touch-sized targets. */
   .launcher-config-smapi-update .launcher-config-panel-head {
