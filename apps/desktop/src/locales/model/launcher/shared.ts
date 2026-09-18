@@ -89,6 +89,41 @@ export type LauncherSharedCopy = {
     autoCheckModUpdates: string
   }
   sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>
+  /** Android takeover-launch game-log error watch + self-contained AI analysis. */
+  logAnalysis: {
+    /** Sticky notification title; count is the number of new ERROR lines. */
+    notificationTitle: (count: number) => string
+    /** Notification body preview of the first error; source may be null. */
+    notificationFirstError: (source: string | null, message: string) => string
+    /** Notification action that opens the analysis sheet. */
+    analyzeAction: string
+    /** Analysis sheet title. */
+    sheetTitle: string
+    /** Header of the raw-error list inside the sheet. */
+    errorsSectionTitle: (count: number) => string
+    /** Note under the list when only the first errors are rendered. */
+    errorsTruncated: (count: number) => string
+    /** Fallback when an error line has no message text. */
+    emptyErrorMessage: string
+    /** Setup form labels/hints shown while no usable provider config exists. */
+    setupTitle: string
+    setupDescription: string
+    providerLabel: string
+    modelLabel: string
+    apiKeyLabel: string
+    apiKeyHint: string
+    saveConfigAction: string
+    /** Shown in place of the result while the request is in flight. */
+    runningLabel: string
+    /** Header of the AI result block. */
+    resultTitle: string
+    /** Shown when the analysis failed; carries the raw error detail. */
+    failedTitle: string
+    /** Retry button after a failed run. */
+    retryAction: string
+    /** Validation when the user saves an incomplete setup form. */
+    incompleteConfigMessage: string
+  }
   states: {
     loading: string
     noImage: string

@@ -184,6 +184,7 @@ const PLATFORM_IMPORT_ALLOWLIST = new Set([
   'src/features/compat-plugins/api/directoryPackApi.ts',
   'src/features/compat-plugins/runtime/codePluginLoader.ts',
   'src/features/launcher/api/launcherDesktopApi.ts',
+  'src/features/launcher/api/launcherAndroidAiApi.ts',
   'src/features/launcher/model/useLauncherDiscover.ts',
   'src/features/launcher/model/useLauncherLibrary.ts',
   'src/features/launcher/model/useLauncherSettings.ts',

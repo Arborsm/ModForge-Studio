@@ -527,4 +527,142 @@
     min-height: 2.75rem;
     justify-content: center;
   }
+
+  /* Game-log error analysis dialog: raw error list + setup form + result. */
+  .mobile-dialog.mobile-log-analysis-sheet {
+    max-height: calc(100dvh - 4rem);
+    overflow-y: auto;
+  }
+
+  .mobile-log-analysis-subtitle {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 750;
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-description {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .mobile-log-analysis-errors,
+  .mobile-log-analysis-setup,
+  .mobile-log-analysis-result {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-top: 0.75rem;
+  }
+
+  .mobile-log-analysis-error-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mobile-log-analysis-error-item {
+    border: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+    border-radius: 0.625rem;
+    background: color-mix(in srgb, var(--bg-panel) 70%, var(--bg-app));
+    padding: 0.5rem 0.625rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-error-source {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: inherit;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  .mobile-log-analysis-truncated,
+  .mobile-log-analysis-hint,
+  .mobile-log-analysis-running {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mobile-log-analysis-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-field input,
+  .mobile-log-analysis-field select {
+    min-height: 2.75rem;
+    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    border-radius: 0.625rem;
+    background: var(--bg-panel);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-error {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    color: var(--danger);
+  }
+
+  .mobile-log-analysis-text {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-primary,
+  .mobile-log-analysis-secondary,
+  .mobile-log-analysis-settings {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .mobile-log-analysis-primary {
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-contrast, var(--bg-panel));
+  }
+
+  .mobile-log-analysis-secondary {
+    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+  }
+
+  .mobile-log-analysis-settings {
+    align-self: flex-start;
+    min-height: 2.25rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
 }

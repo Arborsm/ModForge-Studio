@@ -24,6 +24,8 @@ const ANDROID_CREATE_DOCUMENT_COMMAND = 'android:create_document'
 const ANDROID_SET_SYSTEM_BARS_COMMAND = 'android:set_system_bars'
 /** Internal bridge command that opens the built-in in-app browser overlay at a URL. */
 const ANDROID_OPEN_IN_APP_BROWSER_COMMAND = 'android:open_in_app_browser'
+/** Internal bridge command that proxies a minimal authenticated HTTP request for self-contained AI calls. */
+const ANDROID_AI_REQUEST_COMMAND = 'android:ai_request'
 
 /**
  * Host event the in-app browser pushes when it captures a file download:
@@ -132,6 +134,28 @@ export function installAndroidSystemBarSync() {
 export async function openAndroidInAppBrowser(url: string): Promise<void> {
   assertAndroidHost()
   await invokeBridgeCommand(ANDROID_OPEN_IN_APP_BROWSER_COMMAND, { url })
+}
+
+export type AndroidAiResponse = {
+  statusCode: number
+  body: string
+}
+
+/**
+ * Pipes a minimal provider request through the native host's HTTP proxy. Used by
+ * the launcher's self-contained AI features (game-log error analysis): the workbench
+ * AI command surface is not bridged on Android, so the launcher builds the provider
+ * request itself and only the authenticated HTTP hop crosses the bridge. Rejected
+ * when the current runtime is not the Android WebView host.
+ */
+export async function androidAiRequest(request: {
+  url: string
+  method: 'GET' | 'POST'
+  headers?: Record<string, string>
+  body?: string
+}): Promise<AndroidAiResponse> {
+  assertAndroidHost()
+  return invokeBridgeCommand<AndroidAiResponse>(ANDROID_AI_REQUEST_COMMAND, { ...request })
 }
 
 /**

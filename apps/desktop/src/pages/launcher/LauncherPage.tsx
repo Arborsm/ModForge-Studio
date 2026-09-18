@@ -15,6 +15,8 @@ import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
+import { useGameLogErrorWatch } from '@features/launcher/model/useGameLogErrorWatch'
+import type { SmapiLogError } from '@features/launcher/model/gameLogErrors'
 import {
   clearNotifications,
   dismissNotification,
@@ -30,6 +32,7 @@ import { LauncherLogView } from './ui/LauncherLogDialog'
 import { MobilePageShell } from './ui/mobile/MobilePageShell'
 import { MobileBottomNav } from './ui/mobile/MobileBottomNav'
 import { useMobilePageStore } from './ui/mobile/mobilePageStore'
+import { LogAnalysisSheet } from './ui/mobile/LogAnalysisSheet'
 
 type LauncherPageProps = {
   page: LauncherPageId
@@ -164,6 +167,18 @@ export function LauncherPage({
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const [discoverSearchRequest, setDiscoverSearchRequest] = useState<LauncherDiscoverSearchRequest | null>(null)
+  const [logAnalysisErrors, setLogAnalysisErrors] = useState<SmapiLogError[] | null>(null)
+  const [logAnalysisSheetOpen, setLogAnalysisSheetOpen] = useState(false)
+  // Takeover launch finishes the launcher activity when the game starts, so a
+  // mount-time log diff sees exactly the session that just ended.
+  useGameLogErrorWatch({
+    androidHost,
+    onErrors: setLogAnalysisErrors,
+    onAnalyze: (errors) => {
+      setLogAnalysisErrors(errors)
+      setLogAnalysisSheetOpen(true)
+    },
+  })
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
@@ -396,6 +411,11 @@ export function LauncherPage({
               updatesBadgeCount={launcherRuntime.updatesBadgeCount}
             />
           ) : null}
+          <LogAnalysisSheet
+            open={androidHost && logAnalysisSheetOpen}
+            onClose={() => setLogAnalysisSheetOpen(false)}
+            errors={logAnalysisErrors}
+          />
         </div>
       </div>
     </div>
