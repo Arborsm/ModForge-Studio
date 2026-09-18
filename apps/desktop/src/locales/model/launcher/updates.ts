@@ -47,5 +47,8 @@ export type LauncherUpdatesCopy = {
   mobile: {
     updateSelectedCount: (count: number) => string
     statusLine: (count: number) => string
+    /** Plain-language empty state: no jargon about UpdateKeys or Nexus pages. */
+    emptyTitle: string
+    emptyDetail: string
   }
 }

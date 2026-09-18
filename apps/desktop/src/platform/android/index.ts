@@ -20,6 +20,8 @@ const ANDROID_PICK_FILE_COMMAND = 'android:pick_file'
 const ANDROID_PICK_DIRECTORY_COMMAND = 'android:pick_dir'
 /** Internal bridge command that opens the Android SAF document creator. */
 const ANDROID_CREATE_DOCUMENT_COMMAND = 'android:create_document'
+/** Internal bridge command that tints the native status/navigation bar strip to the app surface. */
+const ANDROID_SET_SYSTEM_BARS_COMMAND = 'android:set_system_bars'
 
 /** Minimal shape of the `modforgeBridge` object injected by the Android WebView host. */
 type ModForgeBridge = {
@@ -46,6 +48,64 @@ export function notifyAndroidBackHandled() {
   }
 
   window.modforgeBridge?.backHandled()
+}
+
+let systemBarSyncInstalled = false
+
+/** Reads the resolved app-window surface color and derives the native bar appearance from it. */
+function readAppSurfaceAppearance(): { hex: string; lightBars: boolean } | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const surface = document.querySelector('.app-window-frame') ?? document.body
+  const raw = getComputedStyle(surface).backgroundColor
+  const match = /rgba?\(\s*(\d+)[, ]+(\d+)[, ]+(\d+)/.exec(raw)
+  if (!match) {
+    return null
+  }
+
+  const channels = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const hex = `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+  // WCAG relative-luminance shortcut is enough to pick readable system-bar icons.
+  const luminance = (0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]) / 255
+  return { hex, lightBars: luminance > 0.5 }
+}
+
+/**
+ * Pushes the app surface color and system-bar icon appearance to the native
+ * host so the status-bar strip above the WebView reads as one continuous
+ * background. Hosts without the command keep their default light chrome.
+ */
+export function syncAndroidSystemBars() {
+  if (!isAndroidHost()) {
+    return
+  }
+
+  const appearance = readAppSurfaceAppearance()
+  if (!appearance) {
+    return
+  }
+
+  void invokeBridgeCommand(ANDROID_SET_SYSTEM_BARS_COMMAND, appearance).catch(() => {
+    // Cosmetic chrome: older hosts and the browser dev mock legitimately have no handler.
+  })
+}
+
+/**
+ * Installs the Android system-bar sync: one immediate push plus a MutationObserver
+ * that re-pushes whenever the theme (`data-theme`) or dark toggle (`class`) changes.
+ * No-op outside the Android host.
+ */
+export function installAndroidSystemBarSync() {
+  if (!isAndroidHost() || systemBarSyncInstalled || typeof document === 'undefined') {
+    return
+  }
+
+  systemBarSyncInstalled = true
+  syncAndroidSystemBars()
+  const observer = new MutationObserver(() => syncAndroidSystemBars())
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
 }
 
 function assertAndroidHost() {

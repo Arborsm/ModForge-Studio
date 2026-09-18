@@ -1,4 +1,4 @@
-import { CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
+import { CheckCircle2, CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
@@ -359,7 +359,15 @@ export function LauncherUpdatesPage({
 
           {emptyState ? (
             <div className="launcher-updates-content launcher-updates-content-empty">
-              <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
+              {androidHost ? (
+                <div className="launcher-updates-mobile-empty">
+                  <CheckCircle2 className="launcher-updates-mobile-empty-icon" aria-hidden="true" />
+                  <p className="launcher-updates-mobile-empty-title">{copy.updates.mobile.emptyTitle}</p>
+                  <p className="launcher-updates-mobile-empty-detail">{copy.updates.mobile.emptyDetail}</p>
+                </div>
+              ) : (
+                <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
+              )}
             </div>
           ) : null}
 

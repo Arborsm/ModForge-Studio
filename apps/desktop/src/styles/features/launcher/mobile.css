@@ -105,10 +105,11 @@
   }
 }
 
-/* Phone widths: pack the mod / discover grids denser — 2 columns of compact
+/* Phone widths: pack the mod / discover grids denser — 3 columns of compact
    cards so a screen shows several mods instead of one or two huge ones. */
 @media (max-width: 640px) {
   .launcher-library-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
   }
 
@@ -211,11 +212,12 @@
     display: none;
   }
 
-  /* Phone covers are ~180px wide: the desktop 30-44px word always clips.
-     Wrap the fallback word instead and shrink it to the card. */
+  /* Phone covers are ~120px wide in the 3-column grid: the desktop 30-44px
+     word always clips. Wrap the fallback word instead and shrink it to the
+     card so the 14-letter slice fits one line. */
   .launcher-mod-card-cover-word {
-    max-width: calc(100% - 1rem);
-    font-size: 1rem;
+    max-width: calc(100% - 0.5rem);
+    font-size: 0.625rem;
     line-height: 1.05;
     overflow-wrap: break-word;
   }
@@ -239,20 +241,22 @@
 
   /* Diagnostics route rows: the 720px single-column override loses to the
      base grid, leaving a 0px name track whose icon overflows the text.
-     Phone rows are [icon][description][status] on one line. */
+     Phone rows are [icon+name][status] on one line; the long route
+     description is desktop chrome and drops entirely. */
   .launcher-config-api-row {
     grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .launcher-config-api-desc {
+    display: none;
   }
 
   .launcher-config-api-name {
     width: auto;
   }
 
-  /* The mod detail panel owns the header while open — the library search
-     pill underneath reads as a second, broken header. */
-  body.launcher-mod-detail-open .mobile-top-search {
-    display: none;
-  }
+  /* The whole top chrome yields to the drawer's back header while the
+     portaled mod detail is open (see the fullscreen takeover block). */
 
   /* With no author the lone version number hugs the name instead of floating right. */
   .launcher-mod-card-meta {
@@ -339,23 +343,38 @@
 }
 
 @media (max-width: 640px) {
-  /* Compact detail hero: small cover beside the title, like the mock. */
+  /* Fullscreen takeover: while the portaled detail drawer is open the whole
+     top chrome (search slot AND the action-icon row) yields to the drawer's
+     own back header, and the drawer extends under the status-bar strip. */
+  body.launcher-mod-detail-open .top-menu-bar {
+    display: none;
+  }
+
+  body.launcher-mod-detail-open .launcher-library-drawer {
+    inset: 0;
+  }
+
+  .launcher-mod-detail-page-head {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Banner hero: the cover is the big header image, full-bleed edge to edge;
+     the title cluster sits below it instead of beside a thumbnail. */
   .launcher-mod-detail-hero {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    align-items: start;
-    gap: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
     min-height: 0;
     max-height: none;
-    padding: 0.875rem;
+    padding: 0;
   }
 
   .launcher-mod-detail-hero > .launcher-mod-detail-cover-frame {
-    width: 5.5rem;
-    align-self: start;
-    justify-self: start;
-    aspect-ratio: 1;
-    border-radius: 0.625rem;
+    width: 100%;
+    align-self: stretch;
+    justify-self: stretch;
+    aspect-ratio: 16 / 9;
+    border-radius: 0;
   }
 
   .launcher-mod-detail-hero .launcher-mod-detail-status-side {
@@ -363,17 +382,18 @@
     padding-left: 0;
   }
 
-  .launcher-mod-detail-hero .launcher-mod-detail-cover-frame {
-    width: 5.5rem;
+  .launcher-mod-detail-hero .launcher-mod-detail-cover {
+    aspect-ratio: auto;
+    border-radius: 0;
   }
 
-  .launcher-mod-detail-hero .launcher-mod-detail-cover {
-    aspect-ratio: 1;
-    border-radius: 0.625rem;
+  /* The banner cover fits the full word mark again. */
+  .launcher-mod-detail-hero .launcher-mod-card-cover-word {
+    font-size: 1.5rem;
   }
 
   .launcher-mod-detail-hero .launcher-mod-detail-status-title {
-    font-size: 1.125rem;
+    font-size: 1.25rem;
   }
 
   /* Key-value rows keep long values from pushing the page wide. */
@@ -969,6 +989,48 @@
   cursor: default;
 }
 
+@media (max-width: 640px) {
+  /* The desktop console is a floating card; on the phone the page itself is
+     the surface, so the shell flattens and rows keep their own cards. */
+  .launcher-updates-shell {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* Plain-language empty state: one icon + two lines, no nested cards and
+     no UpdateKeys/Nexus jargon. */
+  .launcher-updates-mobile-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+  }
+
+  .launcher-updates-mobile-empty-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 0.375rem;
+    color: var(--color-success);
+  }
+
+  .launcher-updates-mobile-empty-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .launcher-updates-mobile-empty-detail {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+}
+
 /* Pinned batch CTA above the bottom nav (mirrors the launch dock slot). */
 .mobile-bottom-cta {
   position: fixed;
@@ -1002,36 +1064,11 @@
   }
 }
 
-/* ===== P6: mod detail — compact hero, version bar below description, capsule footer ===== */
+/* ===== P6: mod detail — fullscreen page, flat tabs, flush footer ===== */
 
 @media (max-width: 640px) {
-  /* 88px cover beside the title cluster instead of the 220px banner row.
-     Cover width must match the track or it bleeds into the title column. */
-  .launcher-mod-detail-hero {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    grid-template-rows: auto;
-    gap: 0.75rem;
-    padding: 0.875rem 0.75rem 0.5rem;
-    align-items: start;
-  }
-
-  .launcher-mod-detail-hero > .launcher-mod-detail-cover-frame {
-    width: 5.5rem;
-  }
-
-  .launcher-mod-detail-cover-frame {
-    margin: 0;
-    border-radius: 0.75rem;
-    aspect-ratio: 1;
-    overflow: hidden;
-  }
-
-  .launcher-mod-detail-cover {
-    border-radius: 0;
-  }
-
   .launcher-mod-detail-hero-main {
-    padding: 0;
+    padding: 0.875rem 1rem 0.25rem;
     min-width: 0;
   }
 
@@ -1062,29 +1099,43 @@
     order: 3;
   }
 
+  /* The tabbed body stops being a card-in-a-card: the page background shows
+     through and only the tab underline row keeps its divider. */
+  .launcher-mod-detail-body {
+    padding: 0.5rem 0 0;
+    background: transparent;
+  }
+
+  .launcher-mod-detail-main {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
   /* Mock underline weight: 2.5px. */
   .launcher-mod-detail-tabs > button {
     border-bottom-width: 0.15625rem;
   }
 
-  /* Floating capsule action bar instead of the flush footer strip. */
+  /* Flush action bar: full-width strip with a top divider instead of the
+     floating rounded capsule, so the bottom of the page has one clean edge. */
   .launcher-mod-detail-footer {
-    margin: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
-    padding: 0.375rem 0.5rem;
-    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
-    border-radius: 62.4375rem;
+    margin: 0;
+    padding: 0.5rem 0.875rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 0;
     background: var(--bg-panel);
-    box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--text-primary) 18%, transparent);
+    box-shadow: none;
   }
 
-  /* 36px ghost tools inside the capsule. */
   .launcher-mod-detail-tool-button {
     width: 2.25rem;
     height: 2.25rem;
   }
 
   .launcher-mod-detail-primary-action {
-    border-radius: 62.4375rem;
+    border-radius: 0.5rem;
     min-height: 2.25rem;
   }
 }

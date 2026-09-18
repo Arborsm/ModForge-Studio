@@ -81,6 +81,9 @@ async function handleAndroidMockCommand(
       return DEV_ANDROID_PICK_DIRECTORY_RESULT
     case 'android:create_document':
       return DEV_ANDROID_CREATE_DOCUMENT_RESULT
+    case 'android:set_system_bars':
+      // Cosmetic native chrome has no browser equivalent; accept and ignore.
+      return null
     default:
       return handleLauncherCommand(command, args)
   }

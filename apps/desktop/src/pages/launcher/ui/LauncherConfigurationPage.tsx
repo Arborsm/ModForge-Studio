@@ -1471,12 +1471,17 @@ export function LauncherConfigurationPage({
   const gmcmProbeAvailable = !androidHost
   const hasGmcmProbeIssue = gmcmParsingEnabled && gmcmProbeAvailable && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
   const stepItems: ConfigStep[] = [
-    {
-      id: 'paths',
-      label: copy.settings.stepPaths,
-      detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
-      tone: configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger',
-    },
+    // Path setup is a desktop-launcher concern; the Android host owns its paths.
+    ...(androidHost
+      ? []
+      : [
+          {
+            id: 'paths',
+            label: copy.settings.stepPaths,
+            detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
+            tone: (configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger') as ConfigStep['tone'],
+          },
+        ]),
     {
       id: 'nexus',
       label: copy.settings.stepNexus,
@@ -1816,14 +1821,18 @@ export function LauncherConfigurationPage({
                   <p className="launcher-config-header-status">{headerStatusLine}</p>
                 </div>
                 <div className="launcher-config-header-actions">
-                  <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
-                    <span className="launcher-config-env-tag">
-                      {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                    <span className="launcher-config-env-tag">
-                      {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                  </div>
+                  {androidHost ? null : (
+                    <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
+                      <span className="launcher-config-env-tag">
+                        {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
+                      </span>
+                      <span className="launcher-config-env-tag">
+                        {smapiVersion
+                          ? copy.settings.configurationSmapiVersionTag(smapiVersion)
+                          : copy.settings.configurationVersionUnknown}
+                      </span>
+                    </div>
+                  )}
                   <div className="launcher-config-header-button-group">
                     <button
                       type="button"
@@ -1851,9 +1860,19 @@ export function LauncherConfigurationPage({
               </LoadingMotionReveal>
             ) : null}
 
-            <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
-            </LoadingMotionReveal>
+            {/* The Android host manages game/mods/download paths inside its own
+               app data, so the desktop Paths & Storage panel has nothing to
+               show there. */}
+            {androidHost ? null : (
+              <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
+                <ConfigPathPanel
+                  settingsState={settingsState}
+                  copy={copy}
+                  browseLabel={rootCopy.controls.browse}
+                  androidHost={androidHost}
+                />
+              </LoadingMotionReveal>
+            )}
 
             <LoadingMotionReveal itemId="launcher-config-network" index={3}>
               <ConfigNexusPanel
