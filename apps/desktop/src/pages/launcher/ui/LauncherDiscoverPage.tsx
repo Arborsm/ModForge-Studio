@@ -43,8 +43,6 @@ import {
 } from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { LauncherDiscoverFilterSheet } from './LauncherDiscoverFilterSheet'
-import { usePullToRefresh } from './mobile/usePullToRefresh'
-import { MobilePullToRefreshIndicator } from './mobile/MobilePullToRefreshIndicator'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 import {
@@ -682,6 +680,26 @@ function LauncherDiscoverDetailPanel({
   )
 }
 
+/**
+ * Placeholder card shown in place of real results while a page is in flight
+ * (Android host). Modern feed apps render card-shaped skeletons instead of a
+ * blocking overlay so the layout stays stable and the scroll position is kept.
+ */
+function DiscoverCardSkeleton() {
+  return (
+    <div className="launcher-discover-card-skeleton" aria-hidden="true">
+      <div className="launcher-discover-card-skeleton-cover" />
+      <div className="launcher-discover-card-skeleton-body">
+        <span className="launcher-discover-card-skeleton-line launcher-discover-card-skeleton-line-title" />
+        <span className="launcher-discover-card-skeleton-line launcher-discover-card-skeleton-line-meta" />
+      </div>
+    </div>
+  )
+}
+
+const DISCOVER_INITIAL_SKELETON_COUNT = 6
+const DISCOVER_APPEND_SKELETON_COUNT = 2
+
 export function LauncherDiscoverPage({
   settings,
   onQueueDownload,
@@ -1135,7 +1153,10 @@ function LauncherDiscoverPageContent({
 
   // Infinite scroll: when the sentinel under the wall approaches the viewport,
   // fetch the next page. goToNextPage guards its own concurrency (no-op while
-  // a request is in flight or the last page is reached).
+  // a request is in flight or the last page is reached). The generous
+  // rootMargin prefetches roughly two phone screens ahead so the feed rarely
+  // sits waiting at the bottom; while a page is in flight the wall shows
+  // skeleton cards at the feed tail instead of a bottom spinner.
   useEffect(() => {
     if (!androidHost) {
       return
@@ -1151,17 +1172,11 @@ function LauncherDiscoverPageContent({
           discover.goToNextPage()
         }
       },
-      { root: viewport, rootMargin: '800px 0px' },
+      { root: viewport, rootMargin: '1800px 0px' },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [androidHost, discover])
-  const pullToRefresh = usePullToRefresh({
-    hostRef: discoverScrollHostRef,
-    scrollSelector: '.launcher-discover-results-viewport',
-    onRefresh: () => discover.refresh(),
-    disabled: !androidHost || !routeActive,
-  })
 
   // The Android host pins the page size to the mock's fixed 20 per page.
   useEffect(() => {
@@ -1559,14 +1574,6 @@ function LauncherDiscoverPageContent({
           </aside>
         ) : null}
 
-        {androidHost && routeActive ? (
-          <MobilePullToRefreshIndicator
-            state={pullToRefresh}
-            hint={copy.library.mobile.pullHint}
-            release={copy.library.mobile.pullRelease}
-            refreshing={copy.library.mobile.pullRefreshing}
-          />
-        ) : null}
         <div
           ref={contentRef}
           className={cx(
@@ -1660,10 +1667,10 @@ function LauncherDiscoverPageContent({
                 ref={resultsViewportRef}
                 className={cx(
                   'launcher-discover-results-viewport',
-                  discover.state === 'loading' && 'launcher-discover-results-viewport-loading',
+                  !androidHost && discover.state === 'loading' && 'launcher-discover-results-viewport-loading',
                 )}
                 aria-busy={discover.state === 'loading' ? 'true' : undefined}
-                onWheelCapture={discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
+                onWheelCapture={!androidHost && discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
               >
                 <div className="launcher-discover-wall-shell">
                   <div key={resultsRevealKey} className="launcher-discover-wall">
@@ -1700,8 +1707,14 @@ function LauncherDiscoverPageContent({
                         />
                       </LoadingMotionRevealItem>
                     ))}
+                    {androidHost && discover.state === 'loading'
+                      ? Array.from(
+                          { length: feedItems.length > 0 ? DISCOVER_APPEND_SKELETON_COUNT : DISCOVER_INITIAL_SKELETON_COUNT },
+                          (_, index) => <DiscoverCardSkeleton key={`discover-skeleton:${index}`} />,
+                        )
+                      : null}
                   </div>
-                  {discover.state === 'loading' ? (
+                  {!androidHost && discover.state === 'loading' ? (
                     <div
                       className="launcher-discover-loading-overlay"
                       role="status"
@@ -1718,9 +1731,7 @@ function LauncherDiscoverPageContent({
                  viewport so the observer fires when it approaches the fold. */}
                 {androidHost ? (
                   <div ref={loadMoreRef} className="launcher-discover-load-more" data-guide="launcher-discover-load-more">
-                    {discover.state === 'loading' && discover.page > 1 ? (
-                      <span className="launcher-discover-load-more-spinner" role="status" aria-label={copy.discover.loadingResultsLabel} />
-                    ) : !discover.hasMore && feedItems.length > 0 ? (
+                    {!discover.hasMore && feedItems.length > 0 ? (
                       <span className="launcher-discover-load-more-end">{copy.discover.mobile.endOfResults}</span>
                     ) : null}
                   </div>

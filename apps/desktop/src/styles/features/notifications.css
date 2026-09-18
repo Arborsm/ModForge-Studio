@@ -651,16 +651,18 @@
 }
 
 /* ========================================================================== */
-/*  Phone widths: floating auto-dismiss toasts under the top bar; expired     */
-/*  ones stay in the notification center (the bell page reads the same log).  */
+/*  Phone widths: full-width banner toast pinned right under the status bar,  */
+/*  like mature mobile apps. It slides down into place, then slides back up  */
+/*  and away — every banner retires into the notification center, which is   */
+/*  the only place history lives.                                             */
 /* ========================================================================== */
 
 @media (max-width: 640px) {
   .notification-viewport {
-    top: calc(var(--app-titlebar-height, 3.5rem) + 0.5rem);
-    right: 0.75rem;
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
     bottom: auto;
-    left: 0.75rem;
+    left: 0;
     width: auto;
   }
 
@@ -676,14 +678,18 @@
   }
 
   .notification-stack-item[data-front='true'] .notification-toast {
-    /* Floating card like mature mobile apps. The desktop stack choreography
-       stamps measured inline widths; the phone card sizes itself within the
-       floating gutters, so those measurements must lose. */
+    /* Edge-to-edge banner under the status bar. The desktop stack
+       choreography stamps measured inline widths; the phone banner sizes
+       itself to the viewport, so those measurements must lose. */
     width: auto !important;
     max-width: none !important;
     min-width: 0 !important;
-    border-radius: 1rem;
-    box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--surface-inverse) 18%, transparent);
+    border-radius: 0;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-left-width: 0;
+    padding: 0.95rem 1rem 1rem;
+    box-shadow: 0 0.375rem 1.25rem color-mix(in srgb, var(--surface-inverse) 16%, transparent);
     animation-name: notification-toast-enter-top;
   }
 
@@ -701,23 +707,23 @@
 @keyframes notification-toast-enter-top {
   from {
     opacity: 0;
-    transform: translate3d(0, -0.75rem, 0) scale(0.97);
+    transform: translate3d(0, -100%, 0);
   }
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes notification-toast-exit-top {
   from {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0);
   }
 
   to {
     opacity: 0;
-    transform: translate3d(0, -0.5rem, 0) scale(0.98);
+    transform: translate3d(0, -100%, 0);
   }
 }

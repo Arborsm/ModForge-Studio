@@ -87,6 +87,12 @@ export type LauncherConfigurationCopy = {
     gamePathHint: string
     modsPathHint: string
     downloadPathHint: string
+    /** Android host: the Paths & Storage panel only carries the download location. */
+    pathsAndroidHint: string
+    /** Android host: sandbox download folder options (tokens resolved natively). */
+    downloadLocationDownloadsLabel: string
+    downloadLocationPickedLabel: string
+    downloadLocationAndroidNote: string
     pathNotConfigured: string
     nexusAccessTitle: string
     nexusAccessHint: string
