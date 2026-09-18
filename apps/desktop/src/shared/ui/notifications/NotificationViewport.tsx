@@ -202,11 +202,26 @@ function NotificationToast({
             ))}
           </div>
         ) : null}
-        {notification.variant !== 'diagnostic' && notification.action ? (
+        {notification.variant !== 'diagnostic' && notification.secondaryAction && notification.action ? (
+          <div className="notification-toast-action-row">
+            {[notification.secondaryAction, notification.action].map((action) => (
+              <button
+                key={`${notification.id}-${action.label}`}
+                type="button"
+                className={getNotificationActionButtonClassName(action.tone)}
+                onClick={() => handleActionClick(action)}
+                title={actionHint}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {notification.variant !== 'diagnostic' && !notification.secondaryAction && notification.action ? (
           <button
             type="button"
             className="notification-toast-action"
-            onClick={() => handleActionClick(notification.action)}
+            onClick={() => handleActionClick(notification.action!)}
             title={actionHint}
           >
             {notification.action.label}
