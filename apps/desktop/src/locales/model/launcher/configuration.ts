@@ -66,6 +66,18 @@ export type LauncherConfigurationCopy = {
     backgroundQueuedDetail: string
     manualDownloadOpenedTitle: string
     manualDownloadOpenedDetail: string
+    /** In-app browser: captured file finished downloading and installed into Mods. */
+    inAppDownloadInstalledTitle: string
+    inAppDownloadInstalledDetail: (fileName: string) => string
+    /** In-app browser: captured file finished downloading; auto-install disabled in settings. */
+    inAppDownloadSavedTitle: string
+    inAppDownloadSavedDetail: (fileName: string) => string
+    /** In-app browser: the captured file download failed. */
+    inAppDownloadFailedTitle: string
+    inAppDownloadFailedDetail: (message: string) => string
+    /** The in-app browser overlay could not be opened. */
+    inAppBrowserOpenFailedTitle: string
+    inAppBrowserOpenFailedDetail: (message: string) => string
   }
   settings: {
     title: string

@@ -22,6 +22,22 @@ const ANDROID_PICK_DIRECTORY_COMMAND = 'android:pick_dir'
 const ANDROID_CREATE_DOCUMENT_COMMAND = 'android:create_document'
 /** Internal bridge command that tints the native status/navigation bar strip to the app surface. */
 const ANDROID_SET_SYSTEM_BARS_COMMAND = 'android:set_system_bars'
+/** Internal bridge command that opens the built-in in-app browser overlay at a URL. */
+const ANDROID_OPEN_IN_APP_BROWSER_COMMAND = 'android:open_in_app_browser'
+
+/**
+ * Host event the in-app browser pushes when it captures a file download:
+ * the archive landed in the download directory and, when enabled, was
+ * installed into Mods by the native host.
+ */
+export const ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT = 'android:in-app-browser-download'
+
+export type AndroidInAppBrowserDownloadPayload = {
+  status: 'completed' | 'failed'
+  fileName: string
+  installed: boolean
+  message?: string | null
+}
 
 /** Minimal shape of the `modforgeBridge` object injected by the Android WebView host. */
 type ModForgeBridge = {
@@ -106,6 +122,38 @@ export function installAndroidSystemBarSync() {
   syncAndroidSystemBars()
   const observer = new MutationObserver(() => syncAndroidSystemBars())
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
+}
+
+/**
+ * Opens the built-in in-app browser overlay at an absolute http(s) URL.
+ * The overlay runs inside the launcher host; rejected when the current
+ * runtime is not the Android WebView host.
+ */
+export async function openAndroidInAppBrowser(url: string): Promise<void> {
+  assertAndroidHost()
+  await invokeBridgeCommand(ANDROID_OPEN_IN_APP_BROWSER_COMMAND, { url })
+}
+
+/**
+ * Subscribes to in-app browser download events. Fires when the native overlay
+ * captures a file download and finishes (or fails) fetching it into the app's
+ * download directory. Returns the unsubscribe callback.
+ */
+export function listenToAndroidInAppBrowserDownload(listener: (payload: AndroidInAppBrowserDownloadPayload) => void): () => void {
+  installDispatchSink()
+  const listeners = eventListeners.get(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT) ?? new Set<(payload: unknown) => void>()
+  listeners.add(listener as (payload: unknown) => void)
+  eventListeners.set(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT, listeners)
+  return () => {
+    const currentListeners = eventListeners.get(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT)
+    if (!currentListeners) {
+      return
+    }
+    currentListeners.delete(listener as (payload: unknown) => void)
+    if (!currentListeners.size) {
+      eventListeners.delete(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT)
+    }
+  }
 }
 
 function assertAndroidHost() {

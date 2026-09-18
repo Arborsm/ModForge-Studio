@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from 'react'
 import { appEvent, reportRecovered } from '@platform/observability'
+import { listenToAndroidInAppBrowserDownload } from '@platform/android'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
@@ -126,6 +127,40 @@ export function LauncherPage({
   const launcherRuntime = useLauncherRuntime()
   useLauncherImageFetchNotifications()
   useLauncherUpdateProgressNotifications()
+
+  // Android in-app browser: a file the user downloaded inside the overlay was
+  // fetched by the host — surface the outcome as a toast (which also lands in
+  // the notification center) on success or failure.
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+
+    return listenToAndroidInAppBrowserDownload((payload) => {
+      const noticeId = `android-in-app-download:${payload.fileName}`
+      if (payload.status === 'completed') {
+        appEvent(
+          'success',
+          payload.installed ? copy.launcher.downloads.inAppDownloadInstalledTitle : copy.launcher.downloads.inAppDownloadSavedTitle,
+        )
+          .description(
+            payload.installed
+              ? copy.launcher.downloads.inAppDownloadInstalledDetail(payload.fileName)
+              : copy.launcher.downloads.inAppDownloadSavedDetail(payload.fileName),
+          )
+          .noticeId(noticeId)
+          .context({ source: 'launcher-in-app-browser', operation: 'captured-download' })
+          .emit()
+        return
+      }
+
+      appEvent('error', copy.launcher.downloads.inAppDownloadFailedTitle)
+        .description(copy.launcher.downloads.inAppDownloadFailedDetail(payload.message ?? payload.fileName))
+        .noticeId(noticeId)
+        .context({ source: 'launcher-in-app-browser', operation: 'captured-download' })
+        .emit()
+    })
+  }, [androidHost, copy])
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const [discoverSearchRequest, setDiscoverSearchRequest] = useState<LauncherDiscoverSearchRequest | null>(null)
