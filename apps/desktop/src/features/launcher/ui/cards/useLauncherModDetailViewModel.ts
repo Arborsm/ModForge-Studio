@@ -49,7 +49,7 @@ export type LauncherModDetailViewModel = {
   }
   hero: {
     displayName: string
-    displayAuthor: string
+    displayAuthor: string | null
     displayVersion: string
     category: string | null
     subtitleText: string
@@ -167,7 +167,9 @@ export function useLauncherModDetailViewModel({
   const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
   const updateAvailable = isCombined && isUpdateAvailable(mod?.version, latestVersion)
   const displayName = mod?.name ?? remote?.title ?? launcherCopy.library.detailsTitle
-  const displayAuthor = mod?.author ?? remote?.author ?? launcherCopy.library.detailsSubtitle
+  // Author-less mods leave the "by …" segment out instead of borrowing the
+  // panel subtitle, which reads as a sentence in the author slot.
+  const displayAuthor = mod?.author ?? remote?.author ?? null
   const displayVersion = isCombined
     ? `${detailCopy.installedVersionShort} ${normalizeVersion(mod?.version, copy.common.none)} · ${detailCopy.nexusVersionShort} ${normalizeVersion(latestVersion, copy.common.none)}`
     : normalizeVersion(mod?.version ?? latestVersion, copy.common.none)

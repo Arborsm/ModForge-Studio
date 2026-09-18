@@ -2,8 +2,8 @@ import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay
 
 export const LAUNCHER_LIBRARY_GRID_GAP_PX = 16
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
-/** Phone-width viewports shrink the minimum card so the grid fits 3 columns. */
-export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 108
+/** Phone-width viewports shrink the minimum card so the grid fits 2 roomy columns. */
+export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 148
 export const LAUNCHER_LIBRARY_GRID_PHONE_MAX_VIEWPORT_PX = 480
 
 /** Picks the virtual-grid minimum card width for the measured viewport width. */
