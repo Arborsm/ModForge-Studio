@@ -2,9 +2,13 @@ import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay
 
 export const LAUNCHER_LIBRARY_GRID_GAP_PX = 16
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
-/** Phone-width viewports shrink the minimum card so the grid fits 2 roomy columns. */
-export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 148
+/** Phone-width viewports collapse the grid to a single-column feed; keeping the
+ * desktop minimum makes the virtual column math land on exactly one column. */
+export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 260
 export const LAUNCHER_LIBRARY_GRID_PHONE_MAX_VIEWPORT_PX = 480
+
+/** Estimated height of one single-column phone feed row (thumb + copy + padding). */
+export const LAUNCHER_LIBRARY_FEED_ROW_ESTIMATED_HEIGHT_PX = 76
 
 /** Picks the virtual-grid minimum card width for the measured viewport width. */
 export function getLauncherLibraryCardMinWidthPx(viewportWidth: number) {
@@ -20,12 +24,18 @@ export const LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO = 96 / 55
 export const LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT = 3
 export const LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX = 18
 
-export function estimateLauncherLibraryCardHeight(cardWidth: number, rootFontSize = 16) {
+export function estimateLauncherLibraryCardHeight(cardWidth: number, rootFontSize = 16, columnCount = 2) {
   if (!Number.isFinite(cardWidth) || cardWidth <= 0) {
     return LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX
   }
 
   const scale = rootFontSize / 16
+  // Single-column phone feed rows are fixed-height thumbs with a copy line,
+  // not cover-on-top cards, so the cover-based math does not apply.
+  if (columnCount === 1 && cardWidth > LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX) {
+    return Math.ceil(LAUNCHER_LIBRARY_FEED_ROW_ESTIMATED_HEIGHT_PX * scale)
+  }
+
   const horizontalPadding = LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * scale
   // Compact phone cards shrink the copy block along with their font sizes.
   const copyHeight = (cardWidth < 200 ? 44 : LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX) * scale

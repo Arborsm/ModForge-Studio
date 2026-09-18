@@ -489,7 +489,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
       const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * scaledGridGap) / nextColumnCount
-      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth, nextRootFontSize)
+      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth, nextRootFontSize, nextColumnCount)
       setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
 
@@ -617,7 +617,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
-                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
+                gridTemplateColumns:
+                  gridColumnCount === 1 ? 'minmax(0, 1fr)' : `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
                 gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight / rootFontSize}rem, auto))`,
               }}
             >

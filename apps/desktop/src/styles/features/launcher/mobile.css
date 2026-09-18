@@ -105,63 +105,240 @@
   }
 }
 
-/* Phone widths: pack the mod / discover grids denser — 2 roomy columns of
-   compact cards so titles breathe and the screen still shows several mods. */
+/* Phone widths: the library and discover surfaces become a single-column
+   feed — borderless rows, a small cover thumb on the left, hairline row
+   separators, even side gutters. No card containers. */
 @media (max-width: 640px) {
-  .launcher-library-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+  /* ----- library feed ----- */
+
+  /* Even side gutters on the absolutely positioned virtual rows, aligned
+     with the discover feed below. */
+  .launcher-library-virtual-row {
+    left: 0.6rem;
+    right: 0.6rem;
+    width: auto;
+  }
+
+  /* The viewport's desktop padding would double the feed gutter. */
+  .launcher-library-grid-viewport {
+    padding-inline: 0;
   }
 
   .launcher-library-grid-reveal {
+    margin: 0;
     padding: 0;
   }
 
+  /* Retire the card container: the row itself is the unit. */
   .launcher-mod-card {
+    height: auto;
     min-height: 0;
-    padding: 0.25rem;
-    border-radius: 0.625rem;
+    padding: 0.625rem 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
+  .launcher-mod-card:focus-within,
+  .launcher-mod-card-disabled,
+  .launcher-mod-card-disabled:hover,
+  .launcher-mod-card-disabled:focus-within {
+    border-color: color-mix(in srgb, var(--border-color) 55%, transparent);
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* Status badges and the child-mod chip join the row flow instead of
+     floating over the artwork. */
+  .launcher-mod-card-stack {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .launcher-mod-card-status-badges,
+  .launcher-mod-card-child-tools {
+    position: static;
+    top: auto;
+    right: auto;
+    left: auto;
+    transform: none;
+  }
+
+  .launcher-mod-card-child-tools {
+    margin-left: auto;
+  }
+
+  .launcher-mod-card-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    height: auto;
+    order: 3;
+  }
+
+  /* WebView clamps sub-8px fonts to its minimum size, so the fallback
+     wordmark renders at 8px: a 14-letter slice needs ~72px — the 5rem
+     thumb's content box is 69px and clips the last character. */
   .launcher-mod-card-cover {
+    flex: 0 0 5.5rem;
+    width: 5.5rem;
+    aspect-ratio: 16 / 10;
     border-radius: 0.5rem;
   }
 
-  .launcher-library-grid .launcher-mod-card-title {
+  .launcher-mod-card-cover-fallback {
+    padding: 0.2rem;
+  }
+
+  .launcher-mod-card-copy {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .launcher-mod-card-title {
+    font-size: 0.875rem;
+  }
+
+  .launcher-mod-card-meta {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    margin-top: 0.1875rem;
     font-size: 0.75rem;
   }
 
-  .launcher-library-grid .launcher-mod-card-meta {
+  /* Folder rows join the same feed shape. */
+  .launcher-library-folder-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 0;
+    padding: 0.625rem 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+  }
+
+  .launcher-library-folder-visual {
+    flex: 0 0 4.25rem;
+    width: 4.25rem;
+    aspect-ratio: 16 / 10;
+    border-radius: 0.5rem;
+  }
+
+  .launcher-library-folder-preview-shell {
+    --launcher-folder-preview-width: 72%;
+    --launcher-folder-preview-margin-bottom: 0;
+  }
+
+  .launcher-library-folder-preview {
+    gap: 0.1875rem;
+  }
+
+  .launcher-library-folder-card-copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ----- discover feed ----- */
+
+  .launcher-discover-wall {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    /* The shell/content chrome padding already provides the side gutter. */
+    padding-inline: 0;
+  }
+
+  .launcher-discover-wall-card {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.75rem;
+    height: auto;
+    padding: 0.75rem 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .launcher-discover-wall-media {
+    flex: 0 0 6.75rem;
+    width: 6.75rem;
+    margin-top: 0.125rem;
+    aspect-ratio: 16 / 10;
+    border-radius: 0.5rem;
+  }
+
+  .launcher-discover-card-image {
+    border-radius: 0;
+  }
+
+  /* The update badge sits on a small feed thumb — keep it to one line. */
+  .launcher-discover-wall-badge {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-size: 0.625rem;
   }
 
-  .launcher-discover-wall {
-    gap: 0.5rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .launcher-discover-wall-body {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
   }
 
-  /* Compact cards like the mock: shallow cover strip, no summary paragraph,
-     no separate category line — title + author + meta chips only. */
-  .launcher-discover-wall-media {
-    aspect-ratio: 8 / 3;
+  /* Titles wrap instead of marquee-clipping; two lines max keeps rows even. */
+  .launcher-discover-wall-title {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
-  .launcher-discover-wall-summary-slot,
-  .launcher-discover-wall-category {
-    display: none;
-  }
-
-  /* The desktop copy block reserves 8rem for the two-line summary; once the
-     summary is hidden the fixed basis leaves dead air inside the card. */
-  .launcher-discover-wall-copy {
-    flex: 0 0 auto;
+  .launcher-discover-wall-title-slot {
     min-height: 0;
   }
 
-  /* Drop the updated-date and file-size chips so downloads + quick action
-     share one row inside the narrow card. */
-  .launcher-discover-wall-meta-chip:first-child,
-  .launcher-discover-wall-meta-chip:last-child {
+  .launcher-discover-wall-copy {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: auto;
+  }
+
+  .launcher-discover-wall-summary {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .launcher-discover-wall-summary-slot {
+    margin-top: 0.25rem;
+  }
+
+  .launcher-discover-card-footer {
+    /* The shared ≤720px responsive rule stacks the footer; feed rows keep
+       chips + quick action on one line. */
+    flex-direction: row;
+    align-items: center;
+    margin: 0.375rem 0 0;
+    border-top: 0;
+    padding: 0;
+  }
+
+  /* The updated-date chip is the least glanceable and the row cannot fit all
+     three chips plus the quick action within the feed body width. */
+  .launcher-discover-wall-meta-chip:first-child {
     display: none;
   }
 
@@ -169,27 +346,10 @@
     flex: 0 0 auto;
   }
 
-  .launcher-discover-wall-meta-chip {
-    min-height: 1.25rem;
-    padding: 0 0.375rem;
-    font-size: 0.625rem;
-  }
-
-  .launcher-discover-card-footer {
-    /* The shared ≤720px responsive rule stacks the footer; phones keep the
-       chips + quick action on one row. */
-    flex-direction: row;
-    align-items: center;
-    margin: 0.5rem -0.75rem -0.625rem;
-    padding: 0.5rem 0.75rem 0.625rem;
-  }
-
-  .launcher-discover-wall-card {
-    border-radius: 0.625rem;
-  }
-
-  .launcher-discover-card-image {
-    border-radius: 0.5rem 0.5rem 0 0;
+  .launcher-discover-card-quick-action {
+    flex: 0 0 1.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
   }
 }
 
@@ -256,13 +416,12 @@
     display: none;
   }
 
-  /* Phone covers are ~180px wide in the 2-column grid: the desktop 30-44px
-     word always clips. Wrap the fallback word instead and shrink it to the
-     card so the 14-letter slice fits one line. */
+  /* Feed thumbs are 5rem wide: shrink the fallback wordmark so the
+     14-letter monogram slice wraps to at most two centered lines. */
   .launcher-mod-card-cover-word {
-    max-width: calc(100% - 1rem);
-    font-size: 1rem;
-    line-height: 1.05;
+    max-width: calc(100% - 0.25rem);
+    font-size: 0.45rem;
+    line-height: 1.1;
     overflow-wrap: break-word;
   }
 
@@ -272,11 +431,10 @@
   }
 
   /* Discover card titles: the desktop single-line marquee clips half the
-     title off a phone card — wrap like every other surface. The title slot
-     keeps a one-line desktop min-height, so let it grow with the wrap. */
+     title off a phone card — wrap like every other surface (the feed block
+     above adds the two-line clamp). */
   .launcher-discover-wall-title {
     white-space: normal;
-    overflow: visible;
   }
 
   .launcher-discover-wall-title-slot {
