@@ -96,6 +96,8 @@ export type VirtualizedLauncherGridProps = {
     routeEnterSequence?: number
     /** False while the library route is hidden (cached pages stay mounted). */
     routeActive?: boolean
+    /** Android host cards expose an inline enable/disable toggle; desktop cards keep the context-menu-only flow. */
+    androidHost?: boolean
   }
   editState: {
     editMode: boolean
@@ -126,6 +128,8 @@ export type VirtualizedLauncherGridProps = {
     openModFolder: (mod: LauncherLibraryItem) => void
     openLibraryFolder: (folderId: string) => void
     closeLibraryFolder?: (folderId: string) => void
+    /** Flips one mod's enabled state; only surfaced on the card when the Android host feature gate is on. */
+    toggleModEnabled?: (mod: LauncherLibraryItem) => void
   }
 }
 
@@ -138,7 +142,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   actions,
 }: VirtualizedLauncherGridProps) {
   const { items, blankDropId = LAUNCHER_LIBRARY_BLANK_DROP_ID, openFolderItemsById, latestVersionByModId = {} } = gridData
-  const { enableBoxSelection = true, enableRevealMotion = true, routeEnterSequence = 0, routeActive = true } = features
+  const { enableBoxSelection = true, enableRevealMotion = true, routeEnterSequence = 0, routeActive = true, androidHost = false } = features
   const { editMode, sortingActive = false, rootOrderContainerKey = 'view:all' } = editState
   const {
     editingSelectionIds,
@@ -158,6 +162,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     openModFolder: onOpenModFolder,
     openLibraryFolder: onOpenLibraryFolder,
     closeLibraryFolder: onCloseLibraryFolder,
+    toggleModEnabled: onToggleModEnabled,
   } = actions
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -489,7 +494,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const nextColumnCount = Math.max(1, Math.floor((viewportWidth + scaledGridGap) / (scaledCardMinWidth + scaledGridGap)))
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
       const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * scaledGridGap) / nextColumnCount
-      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth, nextRootFontSize, nextColumnCount)
+      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth, nextRootFontSize)
       setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
 
@@ -617,8 +622,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
-                gridTemplateColumns:
-                  gridColumnCount === 1 ? 'minmax(0, 1fr)' : `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
+                gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${cardMinWidth / 16}rem, 1fr))`,
                 gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight / rootFontSize}rem, auto))`,
               }}
             >
@@ -645,6 +649,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   estimatedRowHeight={estimatedRowHeight}
                   onToggleSelection={toggleCardSelection ?? onToggleSelection}
                   onToggleParentExpanded={handleToggleParentModulesPanel}
+                  onToggleModEnabled={androidHost ? onToggleModEnabled : undefined}
                   isParentExpanded={isParentExpanded}
                   onOpenModDetails={onOpenModDetails}
                   onOpenModFolder={onOpenModFolder}
@@ -709,6 +714,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   estimatedRowHeight,
   onToggleSelection,
   onToggleParentExpanded,
+  onToggleModEnabled,
   isParentExpanded,
   onOpenModDetails,
   onOpenModFolder,
@@ -740,6 +746,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   estimatedRowHeight: number
   onToggleSelection: (modId: string) => void
   onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
+  onToggleModEnabled?: (mod: LauncherLibraryItem) => void
   isParentExpanded: (modId: string) => boolean
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
@@ -873,6 +880,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             reorderContainerKey={sortingActive ? rootOrderContainerKey : undefined}
             onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
             onToggleSelection={editMode || childModSelectionMode ? onToggleSelection : undefined}
+            onToggleModEnabled={editMode || childModSelectionMode ? undefined : onToggleModEnabled}
             onOpenModDetails={editMode || childModSelectionMode ? undefined : onOpenModDetails}
             onOpenModFolder={editMode || childModSelectionMode ? undefined : onOpenModFolder}
             getContextActions={editMode || childModSelectionMode ? undefined : getContextActions}
@@ -929,6 +937,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   reorderContainerKey,
   onToggleParentExpanded,
   onToggleSelection,
+  onToggleModEnabled,
   onOpenModDetails,
   onOpenModFolder,
   getContextActions,
@@ -947,6 +956,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   reorderContainerKey?: string
   onToggleParentExpanded?: (modId: string, anchorElement?: HTMLElement | null) => void
   onToggleSelection?: (modId: string) => void
+  onToggleModEnabled?: (mod: LauncherLibraryItem) => void
   onOpenModDetails?: (modId: string) => void
   onOpenModFolder?: (mod: LauncherLibraryItem) => void
   getContextActions?: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
@@ -958,6 +968,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   const itemRef = useRef(item)
   const toggleParentExpandedRef = useRef(onToggleParentExpanded)
   const toggleSelectionRef = useRef(onToggleSelection)
+  const toggleModEnabledRef = useRef(onToggleModEnabled)
   const openModDetailsRef = useRef(onOpenModDetails)
   const openModFolderRef = useRef(onOpenModFolder)
   const getContextActionsRef = useRef(getContextActions)
@@ -965,15 +976,17 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
     itemRef.current = item
     toggleParentExpandedRef.current = onToggleParentExpanded
     toggleSelectionRef.current = onToggleSelection
+    toggleModEnabledRef.current = onToggleModEnabled
     openModDetailsRef.current = onOpenModDetails
     openModFolderRef.current = onOpenModFolder
     getContextActionsRef.current = getContextActions
-  }, [getContextActions, item, onOpenModDetails, onOpenModFolder, onToggleParentExpanded, onToggleSelection])
+  }, [getContextActions, item, onOpenModDetails, onOpenModFolder, onToggleModEnabled, onToggleParentExpanded, onToggleSelection])
   const handleToggleExpanded = useCallback((event?: MouseEvent<HTMLElement>) => {
     const anchorElement = event?.currentTarget ?? null
     toggleParentExpandedRef.current?.(itemRef.current.id, anchorElement)
   }, [])
   const handleSelect = () => toggleSelectionRef.current?.(itemRef.current.id)
+  const handleToggleModEnabled = () => toggleModEnabledRef.current?.(itemRef.current)
   const handleOpenDetails = () => openModDetailsRef.current?.(itemRef.current.id)
   const handleOpenDirectTarget = () => openModFolderRef.current?.(itemRef.current)
   const resolveContextActions = () => getContextActionsRef.current?.(itemRef.current)
@@ -1029,6 +1042,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         actions={{
           toggleExpanded: onToggleParentExpanded ? handleToggleExpanded : undefined,
           select: !selectionDisabled && onToggleSelection ? handleSelect : undefined,
+          toggleEnabled: onToggleModEnabled ? handleToggleModEnabled : undefined,
           openDetails: onOpenModDetails ? handleOpenDetails : undefined,
           openDirectTarget: onOpenModFolder ? handleOpenDirectTarget : undefined,
         }}

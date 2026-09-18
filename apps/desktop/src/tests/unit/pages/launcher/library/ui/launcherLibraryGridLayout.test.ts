@@ -9,7 +9,6 @@ import {
   LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX,
   LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX,
   LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX,
-  LAUNCHER_LIBRARY_FEED_ROW_ESTIMATED_HEIGHT_PX,
   LAUNCHER_LIBRARY_GRID_GAP_PX,
 } from '@pages/launcher/library/ui/launcherLibraryGridLayout'
 
@@ -194,26 +193,19 @@ describe('launcherLibraryGridLayout', () => {
     expect(closingPlaced).toMatchObject({ columnSpan: 1, rowSpan: 1 })
   })
 
-  it('keeps the phone viewport on a single feed column and desktop sizes multi-column', () => {
+  it('gives phone viewports the two-column card feed while desktop sizes stay multi-column', () => {
     expect(getLauncherLibraryCardMinWidthPx(412)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(480)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(481)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(1200)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(0)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
-    // Phone min width equals the desktop minimum so the column math lands on
-    // exactly one column for every phone-sized viewport.
-    const singleColumnCount = Math.max(
+    // The phone minimum floors to two columns at 320px and anything wider,
+    // so a phone viewport never collapses to a single column.
+    const phoneColumnCount = Math.max(
       1,
       Math.floor((412 + LAUNCHER_LIBRARY_GRID_GAP_PX) / (LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX + LAUNCHER_LIBRARY_GRID_GAP_PX)),
     )
-    expect(singleColumnCount).toBe(1)
-  })
-
-  it('estimates single-column phone rows as fixed-height feed rows', () => {
-    expect(estimateLauncherLibraryCardHeight(360, 16, 1)).toBe(LAUNCHER_LIBRARY_FEED_ROW_ESTIMATED_HEIGHT_PX)
-    expect(estimateLauncherLibraryCardHeight(360, 20, 1)).toBe(Math.ceil(LAUNCHER_LIBRARY_FEED_ROW_ESTIMATED_HEIGHT_PX * 1.25))
-    // Narrow single-column surfaces (tiny desktop windows) keep cover-based math.
-    expect(estimateLauncherLibraryCardHeight(200, 16, 1)).toBe(estimateLauncherLibraryCardHeight(200, 16, 2))
+    expect(phoneColumnCount).toBe(2)
   })
 
   it('estimates a shorter copy block for compact phone cards', () => {

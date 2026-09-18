@@ -436,7 +436,7 @@ export function LauncherLibraryPageContent({
                       latestVersionByModId: library.latestVersionByModId,
                       openFolderItemsById: openLibraryFolderItemsById,
                     }}
-                    features={{ routeEnterSequence, routeActive }}
+                    features={{ routeEnterSequence, routeActive, androidHost }}
                     editState={{
                       editMode,
                       sortingActive,
@@ -465,6 +465,7 @@ export function LauncherLibraryPageContent({
                       openModFolder: openGridModFolder,
                       openLibraryFolder: toggleLibraryFolderOpen,
                       closeLibraryFolder,
+                      toggleModEnabled: (mod) => void library.toggleEnabled(mod),
                       clearSelection: () => {
                         library.clearSelection()
                         updateBoxSelection([])
