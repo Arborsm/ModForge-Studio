@@ -755,7 +755,7 @@ export default function App() {
             className="app-window-frame"
             data-window-border-tone={windowBorderTone}
             data-window-border-weight={windowBorderWeight}
-            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized ? 'true' : undefined}
+            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized || androidHost ? 'true' : undefined}
           >
             {appMode === 'launcher' ? (
               <LauncherPageView

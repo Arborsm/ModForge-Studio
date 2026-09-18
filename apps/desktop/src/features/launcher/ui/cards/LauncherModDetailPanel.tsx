@@ -329,6 +329,14 @@ export function LauncherModDetailPanel({
     loadRemoteDependencyDetail(item.modId)
   }
 
+  // The panel portals to body, so the top bar cannot match it as a descendant;
+  // flag the body to let phone chrome hide the search slot while detail is open.
+  useEffect(() => {
+    if (!open) return
+    document.body.classList.add('launcher-mod-detail-open')
+    return () => document.body.classList.remove('launcher-mod-detail-open')
+  }, [open])
+
   if (!open) {
     return null
   }

@@ -211,6 +211,49 @@
     display: none;
   }
 
+  /* Phone covers are ~180px wide: the desktop 30-44px word always clips.
+     Wrap the fallback word instead and shrink it to the card. */
+  .launcher-mod-card-cover-word {
+    max-width: calc(100% - 1rem);
+    font-size: 1rem;
+    line-height: 1.05;
+    overflow-wrap: break-word;
+  }
+
+  /* The detail hero cover is only 88px, so its word needs a smaller cut. */
+  .launcher-mod-detail-hero .launcher-mod-card-cover-word {
+    font-size: 0.8125rem;
+  }
+
+  /* Discover card titles: the desktop single-line marquee clips half the
+     title off a phone card — wrap like every other surface. The title slot
+     keeps a one-line desktop min-height, so let it grow with the wrap. */
+  .launcher-discover-wall-title {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .launcher-discover-wall-title-slot {
+    min-height: 0;
+  }
+
+  /* Diagnostics route rows: the 720px single-column override loses to the
+     base grid, leaving a 0px name track whose icon overflows the text.
+     Phone rows are [icon][description][status] on one line. */
+  .launcher-config-api-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .launcher-config-api-name {
+    width: auto;
+  }
+
+  /* The mod detail panel owns the header while open — the library search
+     pill underneath reads as a second, broken header. */
+  body.launcher-mod-detail-open .mobile-top-search {
+    display: none;
+  }
+
   /* With no author the lone version number hugs the name instead of floating right. */
   .launcher-mod-card-meta {
     grid-template-columns: minmax(0, 1fr);
@@ -962,13 +1005,18 @@
 /* ===== P6: mod detail — compact hero, version bar below description, capsule footer ===== */
 
 @media (max-width: 640px) {
-  /* 72px cover beside the title cluster instead of the 220px banner row. */
+  /* 88px cover beside the title cluster instead of the 220px banner row.
+     Cover width must match the track or it bleeds into the title column. */
   .launcher-mod-detail-hero {
-    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-columns: 5.5rem minmax(0, 1fr);
     grid-template-rows: auto;
     gap: 0.75rem;
     padding: 0.875rem 0.75rem 0.5rem;
     align-items: start;
+  }
+
+  .launcher-mod-detail-hero > .launcher-mod-detail-cover-frame {
+    width: 5.5rem;
   }
 
   .launcher-mod-detail-cover-frame {

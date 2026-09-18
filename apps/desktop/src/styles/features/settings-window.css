@@ -792,6 +792,7 @@
   @media (max-width: 640px) {
     .settings-window-backdrop {
       inset: 0;
+      padding: 0;
     }
 
     .settings-window-panel {

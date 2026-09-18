@@ -1489,18 +1489,20 @@ export function LauncherConfigurationPage({
       detail: warningDiagnostics ? copy.settings.diagnosticsReview : copy.settings.diagnosticsHealthy,
       tone: warningDiagnostics ? 'warn' : 'ok',
     },
-    {
-      id: 'gmcm-probe',
-      label: copy.settings.stepGmcmProbe,
-      detail: !gmcmProbeAvailable
-        ? copy.configuration.gmcmProbeUnavailable
-        : !gmcmParsingEnabled
-          ? copy.configuration.gmcmParsingDisabled
-          : hasGmcmProbeIssue
-            ? copy.settings.gmcmProbeReview
-            : copy.settings.gmcmProbeReady,
-      tone: hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok',
-    },
+    ...(gmcmProbeAvailable
+      ? [
+          {
+            id: 'gmcm-probe',
+            label: copy.settings.stepGmcmProbe,
+            detail: !gmcmParsingEnabled
+              ? copy.configuration.gmcmParsingDisabled
+              : hasGmcmProbeIssue
+                ? copy.settings.gmcmProbeReview
+                : copy.settings.gmcmProbeReady,
+            tone: (hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok') as ConfigStep['tone'],
+          },
+        ]
+      : []),
   ]
   const readyStepCount = stepItems.filter((step) => step.tone === 'ok').length
   const issueStepCount = stepItems.length - readyStepCount

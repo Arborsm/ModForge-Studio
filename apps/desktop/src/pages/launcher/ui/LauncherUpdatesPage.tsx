@@ -205,8 +205,8 @@ export function LauncherUpdatesPage({
 
   return (
     <section className="launcher-updates-page">
-      <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console">
-        {androidHost ? null : (
+      {androidHost ? null : (
+        <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console">
           <header className="launcher-updates-console-top">
             <div className="launcher-updates-console-heading">
               <div className="launcher-updates-console-copy">
@@ -255,8 +255,8 @@ export function LauncherUpdatesPage({
               </div>
             ) : null}
           </header>
-        )}
-      </LoadingMotionReveal>
+        </LoadingMotionReveal>
+      )}
 
       {androidHost && !stateCardVisible ? (
         <div className="launcher-updates-mobile-status">
