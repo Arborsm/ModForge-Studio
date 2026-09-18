@@ -88,5 +88,9 @@ export type LauncherDiscoverCopy = {
     ascendingChip: string
     descendingChip: string
     recheckAction: string
+    /** Jump-to-page sheet: replaces the retired inline jump form on the phone. */
+    jumpSheetTitle: string
+    jumpConfirm: string
+    jumpCancel: string
   }
 }

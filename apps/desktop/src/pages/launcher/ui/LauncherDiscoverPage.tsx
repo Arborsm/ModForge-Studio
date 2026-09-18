@@ -45,6 +45,7 @@ import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { LauncherDiscoverFilterSheet } from './LauncherDiscoverFilterSheet'
 import { usePullToRefresh } from './mobile/usePullToRefresh'
 import { MobilePullToRefreshIndicator } from './mobile/MobilePullToRefreshIndicator'
+import { MobileSheet } from './mobile/MobileSheet'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 import {
@@ -1027,6 +1028,14 @@ function LauncherDiscoverPageContent({
     setJumpPageDraft('')
   }
 
+  // The phone jump sheet reuses the retired inline jump form's draft state.
+  const submitJumpPageFromSheet = () => {
+    if (jumpPageDirty) {
+      submitJumpPage()
+    }
+    setJumpSheetOpen(false)
+  }
+
   const handleBlockedRetry = async () => {
     if (blockedRetryPending) {
       return
@@ -1107,6 +1116,7 @@ function LauncherDiscoverPageContent({
   }, [routeActive])
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [jumpSheetOpen, setJumpSheetOpen] = useState(false)
   const discoverScrollHostRef = useRef<HTMLElement | null>(null)
   const pullToRefresh = usePullToRefresh({
     hostRef: discoverScrollHostRef,
@@ -1705,6 +1715,16 @@ function LauncherDiscoverPageContent({
                   </div>
 
                   <div className="launcher-discover-pagination-trailing">
+                    {androidHost ? (
+                      <button
+                        type="button"
+                        className="launcher-discover-pagination-jump-trigger"
+                        aria-label={copy.discover.jumpToPage}
+                        onClick={() => setJumpSheetOpen(true)}
+                      >
+                        {discover.page} / {discover.totalPages}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="launcher-discover-pagination-button"
@@ -1747,6 +1767,41 @@ function LauncherDiscoverPageContent({
 
           {androidHost && routeActive ? (
             <LauncherDiscoverFilterSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} discover={discover} />
+          ) : null}
+          {androidHost && routeActive ? (
+            <MobileSheet
+              open={jumpSheetOpen}
+              onClose={() => setJumpSheetOpen(false)}
+              title={copy.discover.mobile.jumpSheetTitle}
+              presentation="dialog"
+              className="mobile-jump-sheet"
+            >
+              <input
+                aria-label={copy.discover.jumpToPage}
+                className="control-input mobile-jump-input"
+                value={jumpPageValue}
+                autoFocus
+                onFocus={(event) => event.target.select()}
+                onChange={(event) => {
+                  setJumpPageDirty(true)
+                  setJumpPageDraft(event.target.value)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    submitJumpPageFromSheet()
+                  }
+                }}
+                inputMode="numeric"
+              />
+              <div className="mobile-jump-actions">
+                <button type="button" className="mobile-jump-cancel" onClick={() => setJumpSheetOpen(false)}>
+                  {copy.discover.mobile.jumpCancel}
+                </button>
+                <button type="button" className="mobile-jump-submit" onClick={submitJumpPageFromSheet}>
+                  {copy.discover.mobile.jumpConfirm}
+                </button>
+              </div>
+            </MobileSheet>
           ) : null}
           {detailModId != null ? (
             <LauncherDiscoverDetailPanel
