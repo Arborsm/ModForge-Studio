@@ -139,7 +139,7 @@
   position: fixed;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: calc(4.125rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   z-index: 14;
   display: flex;
   align-items: center;
@@ -163,7 +163,7 @@
 @media (max-width: 640px) {
   /* Room for the pinned CTA above the bottom nav. */
   .launcher-updates-list {
-    padding-bottom: 4.5rem;
+    padding-bottom: 3.875rem;
   }
 }
 
@@ -285,4 +285,42 @@
     height: 0.25rem;
     margin-top: 0.5rem;
   }
+}
+
+/* ===== Discover pagination — compact bar that clears the bottom nav ===== */
+
+@media (max-width: 640px) {
+  /* The fixed bottom nav overlays the shell's last grid row; lift the
+     pagination clear of it (nav is ~3.125rem + safe-area tall). */
+  .launcher-discover-results-shell {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .launcher-discover-pagination {
+    flex-wrap: nowrap;
+    gap: 0.375rem;
+    padding-top: 0;
+  }
+
+  /* Icon-only prev/next keeps the bar a single row. */
+  .launcher-discover-pagination-button span {
+    display: none;
+  }
+
+  .launcher-discover-pagination-pages {
+    gap: 0.25rem;
+  }
+
+  .launcher-discover-pagination-page,
+  .launcher-discover-pagination-button {
+    min-height: 2rem;
+    padding: 0 0.5rem;
+  }
+
+  .launcher-discover-pagination-trailing {
+    gap: 0.375rem;
+  }
+
+  /* The whole jump control stays retired on the phone (mobile.css); no
+     extra restyle needed here. */
 }
