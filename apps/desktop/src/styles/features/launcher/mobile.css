@@ -306,6 +306,33 @@
   }
 }
 
+/* Phone widths: native-app scrolling — a classic scrollbar eats ~10px on the
+   right and the WebView overlay bar draws over the feed's edge while
+   scrolling; mature mobile feeds hide it and rely on touch. */
+@media (max-width: 640px) {
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The feed viewports keep a stable scrollbar gutter and a thin-bar rule
+     from their desktop styles; with the bar hidden the empty gutter reads as
+     clipped space on the feed's right edge. */
+  .launcher-library-grid-viewport,
+  .launcher-discover-results-viewport {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+
+  /* Desktop scrollbar clearance next to the shell content. */
+  .launcher-shell-content {
+    padding-right: 0;
+  }
+}
+
 /* Phone widths: tighten the library console chrome toward the mock density. */
 @media (max-width: 640px) {
   .launcher-library-console {
