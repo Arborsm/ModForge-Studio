@@ -18,6 +18,7 @@ import { LauncherLibraryLaunchDock } from './ui/LauncherLibraryLaunchDock'
 import { LauncherLibraryArchiveDropOverlay } from './ui/LauncherLibraryArchiveDropOverlay'
 import { LauncherLibraryDndScope, VirtualizedLauncherGrid } from './ui/LauncherLibraryGrid'
 import { LauncherLibraryHeader } from './ui/LauncherLibraryHeader'
+import { LauncherLibraryPacksPage } from './ui/LauncherLibraryPacksPage'
 import { LauncherLibraryPackSidebar } from './ui/LauncherLibraryPackSidebar'
 import { LauncherLibraryDialogs } from './ui/LauncherLibraryDialogs'
 import { useLauncherLibraryController } from './hooks/useLauncherLibraryController'
@@ -191,9 +192,17 @@ export function LauncherLibraryPageContent({
   // Android host chrome state: the bottom filter sheet replaces the retired
   // toolbar round buttons; the updates/folders display filters are mobile-only.
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [packsPageOpen, setPacksPageOpen] = useState(false)
   const [updatesOnly, setUpdatesOnly] = useState(false)
   const [showFolders, setShowFolders] = useState(true)
   const mobileCopy = copy.library.mobile
+  // Cached launcher routes stay mounted while hidden; close the pack page
+  // as soon as the library route leaves the active page.
+  useEffect(() => {
+    if (routeActive === false) {
+      setPacksPageOpen(false)
+    }
+  }, [routeActive])
   const consoleVisible = !editMode && !childModSelection && !(sortingBannerOpen && sortMode === 'custom')
   const mobileFilter: LauncherLibraryMobileFilter = updatesOnly ? 'updates' : library.enabledOnly ? 'enabled' : 'all'
   const libraryScrollHostRef = useRef<HTMLDivElement | null>(null)
@@ -306,6 +315,7 @@ export function LauncherLibraryPageContent({
             launchState={{ launchGameDisabled, launchGameBusy }}
             actions={{
               toggleDrawer: () => setDrawerOpen((current) => !current),
+              openPacksPage: androidHost ? () => setPacksPageOpen(true) : undefined,
               toggleQuickSwitch: () => setQuickSwitchOpen((current) => !current),
               closeFloatingMenus: () => {
                 setQuickSwitchOpen(false)
@@ -371,6 +381,31 @@ export function LauncherLibraryPageContent({
               onEditPackInfo={openEditPackDialog}
               onDeletePack={openDeletePackDialog}
             />{' '}
+            {androidHost ? (
+              <LauncherLibraryPacksPage
+                open={packsPageOpen}
+                onClose={() => setPacksPageOpen(false)}
+                hiddenViewOpen={hiddenViewOpen}
+                currentPackId={library.currentPackId}
+                visibleLibraryModsCount={visibleLibraryModsCount}
+                hiddenModsCount={hiddenLibraryItemCount}
+                packPresets={library.packPresets}
+                packActionMenuId={packActionMenuId}
+                onCreatePack={openCreatePackDialog}
+                onSelectPack={(packId) => {
+                  setPacksPageOpen(false)
+                  void selectPack(packId)
+                }}
+                onSelectHiddenView={() => {
+                  setPacksPageOpen(false)
+                  selectHiddenView()
+                }}
+                onTogglePackActionMenu={(packId) => setPackActionMenuId((current) => (current === packId ? null : packId))}
+                onEditPack={startEditingPack}
+                onEditPackInfo={openEditPackDialog}
+                onDeletePack={openDeletePackDialog}
+              />
+            ) : null}
             <div className="launcher-library-content" ref={libraryScrollHostRef}>
               <div className="launcher-library-browser">
                 {androidHost && routeActive ? (

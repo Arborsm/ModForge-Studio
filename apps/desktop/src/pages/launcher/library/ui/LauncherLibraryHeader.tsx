@@ -78,6 +78,8 @@ type LauncherLibraryHeaderProps = {
   }
   actions: {
     toggleDrawer: () => void
+    /** Android host: opens the full-screen pack page instead of the desktop drawer. */
+    openPacksPage?: () => void
     toggleQuickSwitch: () => void
     closeFloatingMenus: () => void
     selectPack: (packId: string | null) => void
@@ -194,7 +196,7 @@ export function LauncherLibraryHeader({
             className="launcher-library-icon-button launcher-library-inline-menu-button"
             aria-label={copy.library.packTitle}
             title={copy.library.packTitle}
-            onClick={toggleDrawer}
+            onClick={androidHost && actions.openPacksPage ? actions.openPacksPage : toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -226,7 +228,7 @@ export function LauncherLibraryHeader({
             className="launcher-library-icon-button launcher-library-inline-menu-button"
             aria-label={copy.library.packTitle}
             title={copy.library.packTitle}
-            onClick={toggleDrawer}
+            onClick={androidHost && actions.openPacksPage ? actions.openPacksPage : toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -262,7 +264,7 @@ export function LauncherLibraryHeader({
             className="launcher-library-icon-button launcher-library-inline-menu-button"
             aria-label={copy.library.packTitle}
             title={copy.library.packTitle}
-            onClick={toggleDrawer}
+            onClick={androidHost && actions.openPacksPage ? actions.openPacksPage : toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -290,7 +292,7 @@ export function LauncherLibraryHeader({
             className="launcher-library-icon-button launcher-library-inline-menu-button"
             aria-label={copy.library.packTitle}
             title={copy.library.packTitle}
-            onClick={toggleDrawer}
+            onClick={androidHost && actions.openPacksPage ? actions.openPacksPage : toggleDrawer}
           >
             <Menu className="h-4 w-4" />
           </button>
