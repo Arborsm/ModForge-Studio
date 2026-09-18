@@ -848,6 +848,41 @@
     color: var(--text-primary);
   }
 
+  /* Centered dialog variant: same dim, card floats in the middle of the
+     screen (jump-to-page and other single-field prompts). */
+  .mobile-dialog {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(19rem, calc(100vw - 3rem));
+    padding: 1.125rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: 1.25rem;
+    background: var(--bg-panel);
+    box-shadow: 0 0.75rem 2.25rem color-mix(in srgb, var(--text-primary) 22%, transparent);
+    transform: translate(-50%, -50%);
+    animation: mobile-dialog-enter 200ms cubic-bezier(0.32, 0.72, 0.28, 1) both;
+  }
+
+  .mobile-dialog-title {
+    margin: 0 0 0.875rem;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text-primary);
+  }
+
+  @keyframes mobile-dialog-enter {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 0.75rem)) scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
   .mobile-sheet-group {
     margin-bottom: 0.75rem;
   }
