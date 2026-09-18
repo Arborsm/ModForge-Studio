@@ -528,7 +528,7 @@
     justify-content: center;
   }
 
-  /* Game-log error analysis dialog: raw error list + setup form + result. */
+  /* Game-log error analysis dialog: raw error list + AI result / setup hint. */
   .mobile-dialog.mobile-log-analysis-sheet {
     max-height: calc(100dvh - 4rem);
     overflow-y: auto;
@@ -587,31 +587,10 @@
   }
 
   .mobile-log-analysis-truncated,
-  .mobile-log-analysis-hint,
   .mobile-log-analysis-running {
     margin: 0;
     font-size: 0.75rem;
     color: var(--text-secondary);
-  }
-
-  .mobile-log-analysis-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.8125rem;
-    font-weight: 650;
-    color: var(--text-primary);
-  }
-
-  .mobile-log-analysis-field input,
-  .mobile-log-analysis-field select {
-    min-height: 2.75rem;
-    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
-    border-radius: 0.625rem;
-    background: var(--bg-panel);
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    color: var(--text-primary);
   }
 
   .mobile-log-analysis-error {
@@ -632,8 +611,7 @@
   }
 
   .mobile-log-analysis-primary,
-  .mobile-log-analysis-secondary,
-  .mobile-log-analysis-settings {
+  .mobile-log-analysis-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -654,15 +632,5 @@
     border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
     background: var(--bg-panel);
     color: var(--text-primary);
-  }
-
-  .mobile-log-analysis-settings {
-    align-self: flex-start;
-    min-height: 2.25rem;
-    border: 0;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-weight: 650;
   }
 }

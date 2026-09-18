@@ -1,63 +1,50 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { RefreshCw, Settings2, Sparkles } from 'lucide-react'
 import { useEditorCopy } from '@locales/provider'
 import type { SmapiLogError } from '@features/launcher/model/gameLogErrors'
-import { isLogAnalysisAiConfigReady, LOG_ANALYSIS_PROVIDERS, type LogAnalysisProvider } from '@features/launcher/model/logAnalysisAi'
 import { useLogAnalysis } from '@features/launcher/model/useLogAnalysis'
 import { MobileSheet } from './MobileSheet'
 
 /**
  * @file Analysis sheet for SMAPI errors caught by the Android game-log watch:
- * the raw error lines plus a self-contained AI analysis (provider setup when
- * no config exists yet, the running state, and the rendered result). Android
- * host only — the sheet is opened from the error notification's action.
+ * the raw error lines plus an AI analysis run through the existing workbench
+ * AI settings (default profile). When no usable workbench profile is set up,
+ * the sheet points at the AI settings page instead of carrying its own config.
+ * Android host only — the sheet is opened from the error notification's action.
  */
 
 const MAX_RENDERED_ERRORS = 20
 
-function providerModelPlaceholder(provider: LogAnalysisProvider) {
-  return provider.defaultModel
-}
-
-export function LogAnalysisSheet({ open, onClose, errors }: { open: boolean; onClose: () => void; errors: SmapiLogError[] | null }) {
+export function LogAnalysisSheet({
+  open,
+  onClose,
+  errors,
+  onOpenAiSettings,
+}: {
+  open: boolean
+  onClose: () => void
+  errors: SmapiLogError[] | null
+  onOpenAiSettings: () => void
+}) {
   const copy = useEditorCopy().launcher.logAnalysis
-  const { config, updateConfig, state, runAnalysis } = useLogAnalysis()
-  const ready = isLogAnalysisAiConfigReady(config)
-  const initialProvider = LOG_ANALYSIS_PROVIDERS.find((provider) => provider.id === config?.providerId) ?? LOG_ANALYSIS_PROVIDERS[0]
-  const [providerId, setProviderId] = useState(initialProvider.id)
-  const [model, setModel] = useState(config?.model || initialProvider.defaultModel)
-  const [apiKey, setApiKey] = useState(config?.apiKey ?? '')
-  const [showSetup, setShowSetup] = useState(!ready)
-  const [setupError, setSetupError] = useState<string | null>(null)
+  const { ready, profileLoaded, state, runAnalysis, reloadProfile } = useLogAnalysis()
 
-  // Fresh batch opened from the notification: start the analysis right away
-  // when the provider config is usable.
+  // Fresh batch opened from the notification: re-resolve the workbench profile
+  // (the player may have just finished setting it up) and start the analysis
+  // right away when a usable default profile exists.
   useEffect(() => {
-    if (!open || !errors?.length || !ready || showSetup) {
+    if (!open) {
+      return
+    }
+    void reloadProfile()
+  }, [open, reloadProfile])
+
+  useEffect(() => {
+    if (!open || !errors?.length || !profileLoaded || !ready) {
       return
     }
     void runAnalysis(errors)
-  }, [open, errors, ready, showSetup, runAnalysis])
-
-  const handleSaveAndRun = () => {
-    const selectedProvider = LOG_ANALYSIS_PROVIDERS.find((provider) => provider.id === providerId)
-    // An empty model means "the provider default suggested by the placeholder".
-    const next = {
-      providerId,
-      model: model.trim() || selectedProvider?.defaultModel || '',
-      apiKey: apiKey.trim(),
-    }
-    if (!isLogAnalysisAiConfigReady(next)) {
-      setSetupError(copy.incompleteConfigMessage)
-      return
-    }
-    setSetupError(null)
-    updateConfig(next)
-    setShowSetup(false)
-    if (errors?.length) {
-      void runAnalysis(errors)
-    }
-  }
+  }, [open, errors, profileLoaded, ready, runAnalysis])
 
   const renderedErrors = errors?.slice(0, MAX_RENDERED_ERRORS) ?? []
   const hiddenErrorCount = Math.max(0, (errors?.length ?? 0) - renderedErrors.length)
@@ -79,49 +66,20 @@ export function LogAnalysisSheet({ open, onClose, errors }: { open: boolean; onC
         </div>
       ) : null}
 
-      {showSetup || !ready ? (
+      {!ready && profileLoaded ? (
         <div className="mobile-log-analysis-setup">
-          <h4 className="mobile-log-analysis-subtitle">{copy.setupTitle}</h4>
-          <p className="mobile-log-analysis-description">{copy.setupDescription}</p>
-          <label className="mobile-log-analysis-field">
-            <span>{copy.providerLabel}</span>
-            <select
-              value={providerId}
-              onChange={(event) => {
-                const nextProvider = LOG_ANALYSIS_PROVIDERS.find((provider) => provider.id === event.target.value)
-                setProviderId(event.target.value)
-                if (nextProvider) {
-                  setModel(nextProvider.defaultModel)
-                }
-              }}
-            >
-              {LOG_ANALYSIS_PROVIDERS.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="mobile-log-analysis-field">
-            <span>{copy.modelLabel}</span>
-            <input
-              type="text"
-              value={model}
-              placeholder={providerModelPlaceholder(
-                LOG_ANALYSIS_PROVIDERS.find((provider) => provider.id === providerId) ?? LOG_ANALYSIS_PROVIDERS[0],
-              )}
-              onChange={(event) => setModel(event.target.value)}
-            />
-          </label>
-          <label className="mobile-log-analysis-field">
-            <span>{copy.apiKeyLabel}</span>
-            <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} />
-            <span className="mobile-log-analysis-hint">{copy.apiKeyHint}</span>
-          </label>
-          {setupError ? <p className="mobile-log-analysis-error">{setupError}</p> : null}
-          <button type="button" className="mobile-log-analysis-primary" onClick={handleSaveAndRun}>
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            <span>{copy.saveConfigAction}</span>
+          <h4 className="mobile-log-analysis-subtitle">{copy.notConfiguredTitle}</h4>
+          <p className="mobile-log-analysis-description">{copy.notConfiguredDescription}</p>
+          <button
+            type="button"
+            className="mobile-log-analysis-primary"
+            onClick={() => {
+              onClose()
+              onOpenAiSettings()
+            }}
+          >
+            <Settings2 className="h-4 w-4" aria-hidden="true" />
+            <span>{copy.openSettingsAction}</span>
           </button>
         </div>
       ) : (
@@ -133,7 +91,7 @@ export function LogAnalysisSheet({ open, onClose, errors }: { open: boolean; onC
               <p className="mobile-log-analysis-text">{state.text}</p>
             </>
           ) : null}
-          {state.kind === 'failed' ? (
+          {state.kind === 'failed' && state.message !== 'not-configured' ? (
             <>
               <h4 className="mobile-log-analysis-subtitle">{copy.failedTitle}</h4>
               <p className="mobile-log-analysis-error">{state.message}</p>
@@ -151,10 +109,20 @@ export function LogAnalysisSheet({ open, onClose, errors }: { open: boolean; onC
               </button>
             </>
           ) : null}
-          <button type="button" className="mobile-log-analysis-settings" onClick={() => setShowSetup(true)}>
-            <Settings2 className="h-4 w-4" aria-hidden="true" />
-            <span>{copy.setupTitle}</span>
-          </button>
+          {state.kind === 'idle' && ready ? (
+            <button
+              type="button"
+              className="mobile-log-analysis-primary"
+              onClick={() => {
+                if (errors?.length) {
+                  void runAnalysis(errors)
+                }
+              }}
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              <span>{copy.analyzeAction}</span>
+            </button>
+          ) : null}
         </div>
       )}
     </MobileSheet>

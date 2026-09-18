@@ -105,14 +105,13 @@ export type LauncherSharedCopy = {
     errorsTruncated: (count: number) => string
     /** Fallback when an error line has no message text. */
     emptyErrorMessage: string
-    /** Setup form labels/hints shown while no usable provider config exists. */
-    setupTitle: string
-    setupDescription: string
-    providerLabel: string
-    modelLabel: string
-    apiKeyLabel: string
-    apiKeyHint: string
-    saveConfigAction: string
+    /** Notification secondary action that opens the full log page. */
+    viewLogsAction: string
+    /** Shown when no usable workbench AI profile exists yet. */
+    notConfiguredTitle: string
+    notConfiguredDescription: string
+    /** Button that deep-links into the AI settings page. */
+    openSettingsAction: string
     /** Shown in place of the result while the request is in flight. */
     runningLabel: string
     /** Header of the AI result block. */
@@ -121,8 +120,6 @@ export type LauncherSharedCopy = {
     failedTitle: string
     /** Retry button after a failed run. */
     retryAction: string
-    /** Validation when the user saves an incomplete setup form. */
-    incompleteConfigMessage: string
   }
   states: {
     loading: string

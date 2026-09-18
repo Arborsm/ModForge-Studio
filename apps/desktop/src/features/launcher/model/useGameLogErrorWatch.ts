@@ -12,33 +12,37 @@ import { loadGameLogCursor, saveGameLogCursor } from '../api/launcherAndroidAiAp
  * session remounts the launcher — a mount-time read of the teed log covers
  * exactly the lines written during that session. A persisted line-count
  * cursor (platform key-value storage) diffs each mount against the previous
- * one; new ERROR lines publish a sticky notification whose action hands the
- * batch to the page-level AI analysis sheet.
+ * one; new ERROR lines publish a sticky notification whose actions open the
+ * AI analysis sheet or jump to the full log page. The read spans up to 12k
+ * lines so early-session errors (SMAPI usually reports real problems before
+ * the session tail) are not missed on long sessions.
  */
 
-const LOG_READ_MAX_LINES = 2000
+const LOG_READ_MAX_LINES = 12000
 const GAME_LOG_ERROR_NOTIFICATION_ID = 'android-game-log-errors'
 
 /**
  * Reads the launcher log once per mount and reports SMAPI errors written since
  * the previous mount. `onErrors` receives the batch (the page keeps it as the
  * analysis target); `onAnalyze` is invoked from the notification action when
- * the user asks to analyze the batch.
+ * the user asks to analyze the batch; `onViewLogs` opens the mobile log page.
  */
 export function useGameLogErrorWatch({
   androidHost,
   onErrors,
   onAnalyze,
+  onViewLogs,
 }: {
   androidHost: boolean
   onErrors: (errors: SmapiLogError[]) => void
   onAnalyze: (errors: SmapiLogError[]) => void
+  onViewLogs: () => void
 }) {
   const copy = useEditorCopy().launcher.logAnalysis
-  const callbacksRef = useRef({ onErrors, onAnalyze })
+  const callbacksRef = useRef({ onErrors, onAnalyze, onViewLogs })
   useEffect(() => {
-    callbacksRef.current = { onErrors, onAnalyze }
-  }, [onErrors, onAnalyze])
+    callbacksRef.current = { onErrors, onAnalyze, onViewLogs }
+  }, [onErrors, onAnalyze, onViewLogs])
 
   useEffect(() => {
     if (!androidHost) {
@@ -70,6 +74,14 @@ export function useGameLogErrorWatch({
             closeOnClick: true,
             callback: () => {
               callbacksRef.current.onAnalyze(errors)
+            },
+          },
+          secondaryAction: {
+            label: copy.viewLogsAction,
+            tone: 'default',
+            closeOnClick: true,
+            callback: () => {
+              callbacksRef.current.onViewLogs()
             },
           },
         })

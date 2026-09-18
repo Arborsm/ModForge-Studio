@@ -1,70 +1,15 @@
-import type { AiAuthentication, AiProtocol } from '@shared/contracts'
+import type { AiProviderProfile } from '@shared/contracts'
 import { truncateLogExcerpt, type SmapiLogError } from './gameLogErrors'
 
 /**
- * @file Self-contained AI provider access for the Android launcher's game-log
- * error analysis. The workbench AI settings (profiles, presets, keychain-backed
- * credentials) are desktop-backend commands that do not exist on the Android
- * bridge, so this module carries its own minimal provider list and builds the
- * provider request for the three wire protocols directly; only the authenticated
- * HTTP hop goes through the native `android:ai_request` proxy. Pure functions
- * only — no host calls — so request building and response extraction are
- * unit-testable. Note: the API key is stored in the app UI state file (plain
- * JSON), unlike the desktop keychain; acceptable for the mobile host but not
- * to be reused for the desktop flow.
+ * @file AI provider request building for the Android launcher's game-log error
+ * analysis on top of the existing workbench AI settings. The analysis consumes
+ * the workbench default profile (same profiles the translation editor and AI
+ * settings panel manage), so credentials never reach this layer — the native
+ * `android:ai_request` proxy resolves the stored key by profileId. Pure
+ * functions only — no host calls — so request building and response extraction
+ * are unit-testable.
  */
-
-/** Built-in provider choice offered by the log-analysis setup sheet. */
-export type LogAnalysisProvider = {
-  id: string
-  name: string
-  protocol: AiProtocol
-  baseUrl: string
-  authentication: AiAuthentication
-  defaultModel: string
-}
-
-export const LOG_ANALYSIS_PROVIDERS: LogAnalysisProvider[] = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    protocol: 'openai-responses',
-    baseUrl: 'https://api.openai.com/v1',
-    authentication: 'bearer',
-    defaultModel: 'gpt-4o-mini',
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    protocol: 'anthropic-messages',
-    baseUrl: 'https://api.anthropic.com/v1',
-    authentication: 'anthropic-api-key',
-    defaultModel: 'claude-sonnet-4-5',
-  },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    protocol: 'openai-chat-completions',
-    baseUrl: 'https://api.deepseek.com',
-    authentication: 'bearer',
-    defaultModel: 'deepseek-chat',
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    protocol: 'openai-chat-completions',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    authentication: 'bearer',
-    defaultModel: 'openai/gpt-4o-mini',
-  },
-]
-
-/** Persisted user configuration for log-analysis AI calls. */
-export type LogAnalysisAiConfig = {
-  providerId: string
-  model: string
-  apiKey: string
-}
 
 /** Serialized provider request handed to the native HTTP proxy. */
 export type LogAnalysisAiRequest = {
@@ -74,55 +19,53 @@ export type LogAnalysisAiRequest = {
   body: string
 }
 
-export function findLogAnalysisProvider(providerId: string): LogAnalysisProvider | null {
-  return LOG_ANALYSIS_PROVIDERS.find((provider) => provider.id === providerId) ?? null
-}
-
-/** True when the config can produce a request (provider known, model and key present). */
-export function isLogAnalysisAiConfigReady(config: LogAnalysisAiConfig | null): boolean {
-  if (!config) {
+/**
+ * True when a workbench profile can drive an analysis call: a model is set and
+ * either the credential is stored or the preset works keyless (local providers).
+ * `requiresApiKey` comes from the matching preset entry in the settings snapshot.
+ */
+export function isLogAnalysisProfileReady(profile: AiProviderProfile | null | undefined, requiresApiKey: boolean): boolean {
+  if (!profile) {
     return false
   }
-  const provider = findLogAnalysisProvider(config.providerId)
-  return Boolean(provider && config.model.trim() && config.apiKey.trim())
+  if (!profile.model.trim()) {
+    return false
+  }
+  return profile.keyConfigured || !requiresApiKey
 }
 
 /**
- * Builds the provider request for a single-user-message prompt. Returns null when
- * the config is incomplete; throws nothing (the UI gates on
- * {@link isLogAnalysisAiConfigReady} first).
+ * Builds the provider request for a single-user-message prompt from a workbench
+ * profile. Auth headers are intentionally absent — the native proxy attaches
+ * the stored credential via `profileId`. Returns null when the profile cannot
+ * produce a request (unknown protocol, empty model or base URL).
  */
-export function buildLogAnalysisAiRequest(config: LogAnalysisAiConfig, prompt: string): LogAnalysisAiRequest | null {
-  const provider = findLogAnalysisProvider(config.providerId)
-  const model = config.model.trim()
-  const apiKey = config.apiKey.trim()
-  if (!provider || !model || !apiKey) {
+export function buildLogAnalysisAiRequest(profile: AiProviderProfile, prompt: string): LogAnalysisAiRequest | null {
+  const model = profile.model.trim()
+  const baseUrl = profile.baseUrl.trim().replace(/\/+$/, '')
+  if (!model || !baseUrl) {
     return null
   }
 
   const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (provider.authentication === 'bearer') {
-    headers.authorization = `Bearer ${apiKey}`
-  } else if (provider.authentication === 'anthropic-api-key') {
-    headers['x-api-key'] = apiKey
-    headers['anthropic-version'] = '2023-06-01'
-  }
 
   let url: string
   let body: Record<string, unknown>
-  switch (provider.protocol) {
+  switch (profile.protocol) {
     case 'openai-chat-completions':
-      url = `${provider.baseUrl}/chat/completions`
+      url = `${baseUrl}/chat/completions`
       body = { model, messages: [{ role: 'user', content: prompt }] }
       break
     case 'openai-responses':
-      url = `${provider.baseUrl}/responses`
+      url = `${baseUrl}/responses`
       body = { model, input: prompt }
       break
     case 'anthropic-messages':
-      url = `${provider.baseUrl}/messages`
+      url = `${baseUrl}/messages`
       body = { model, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] }
       break
+    default:
+      return null
   }
 
   return { url, method: 'POST', headers, body: JSON.stringify(body) }
@@ -153,7 +96,7 @@ export function buildLogAnalysisPrompt(errors: SmapiLogError[], locale: string, 
  * the payload does not carry extractable text (callers surface the raw body
  * instead, never swallowing the failure).
  */
-export function extractLogAnalysisAiText(protocol: AiProtocol, responseBody: string): string | null {
+export function extractLogAnalysisAiText(protocol: AiProviderProfile['protocol'], responseBody: string): string | null {
   let parsed: unknown
   try {
     parsed = JSON.parse(responseBody)

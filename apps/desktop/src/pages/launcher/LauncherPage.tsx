@@ -178,6 +178,9 @@ export function LauncherPage({
       setLogAnalysisErrors(errors)
       setLogAnalysisSheetOpen(true)
     },
+    onViewLogs: () => {
+      useMobilePageStore.getState().openPage('logs')
+    },
   })
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
@@ -415,6 +418,9 @@ export function LauncherPage({
             open={androidHost && logAnalysisSheetOpen}
             onClose={() => setLogAnalysisSheetOpen(false)}
             errors={logAnalysisErrors}
+            onOpenAiSettings={() => {
+              onOpenSettings('ai')
+            }}
           />
         </div>
       </div>

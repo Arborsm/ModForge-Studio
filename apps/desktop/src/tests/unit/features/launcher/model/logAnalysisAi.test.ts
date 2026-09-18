@@ -1,65 +1,102 @@
 import { describe, expect, it } from 'vite-plus/test'
+import type { AiProviderProfile } from '@shared/contracts'
 import {
   buildLogAnalysisAiRequest,
   buildLogAnalysisPrompt,
   extractLogAnalysisAiText,
-  findLogAnalysisProvider,
-  isLogAnalysisAiConfigReady,
-  LOG_ANALYSIS_PROVIDERS,
+  isLogAnalysisProfileReady,
 } from '@features/launcher/model/logAnalysisAi'
 
-describe('logAnalysisAi config readiness', () => {
-  it('reports ready for a complete config', () => {
-    expect(isLogAnalysisAiConfigReady({ providerId: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-1' })).toBe(true)
+function profile(overrides: Partial<AiProviderProfile>): AiProviderProfile {
+  return {
+    id: 'p1',
+    name: 'Default',
+    presetId: 'openai',
+    protocol: 'openai-responses',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+    credentialEnvironment: 'OPENAI_API_KEY',
+    allowInsecureHttp: false,
+    contextWindowTokens: null,
+    maxOutputTokens: null,
+    temperature: null,
+    topP: null,
+    frequencyPenalty: null,
+    presencePenalty: null,
+    maxBatchBytes: null,
+    enableReasoning: false,
+    reasoningEffort: null,
+    streamTranslation: false,
+    keyConfigured: true,
+    resolvedCredentialSource: 'keychain',
+    ...overrides,
+  }
+}
+
+describe('isLogAnalysisProfileReady', () => {
+  it('reports ready for a profile with a model and a stored key', () => {
+    expect(isLogAnalysisProfileReady(profile({}), true)).toBe(true)
   })
 
-  it('reports not ready for missing key, model, or unknown provider', () => {
-    expect(isLogAnalysisAiConfigReady({ providerId: 'openai', model: 'gpt-4o-mini', apiKey: ' ' })).toBe(false)
-    expect(isLogAnalysisAiConfigReady({ providerId: 'openai', model: '', apiKey: 'sk-1' })).toBe(false)
-    expect(isLogAnalysisAiConfigReady({ providerId: 'nope', model: 'm', apiKey: 'sk-1' })).toBe(false)
-    expect(isLogAnalysisAiConfigReady(null)).toBe(false)
+  it('reports ready for a keyless local preset profile without a stored key', () => {
+    expect(isLogAnalysisProfileReady(profile({ presetId: 'ollama', keyConfigured: false }), false)).toBe(true)
   })
 
-  it('resolves providers by id', () => {
-    expect(findLogAnalysisProvider('anthropic')?.protocol).toBe('anthropic-messages')
-    expect(findLogAnalysisProvider('nope')).toBeNull()
-    expect(LOG_ANALYSIS_PROVIDERS.length).toBeGreaterThanOrEqual(3)
+  it('reports not ready when the key is missing on a key-backed preset', () => {
+    expect(isLogAnalysisProfileReady(profile({ keyConfigured: false }), true)).toBe(false)
+  })
+
+  it('reports not ready for a missing model or a missing profile', () => {
+    expect(isLogAnalysisProfileReady(profile({ model: ' ' }), true)).toBe(false)
+    expect(isLogAnalysisProfileReady(null, true)).toBe(false)
+    expect(isLogAnalysisProfileReady(undefined, false)).toBe(false)
   })
 })
 
 describe('buildLogAnalysisAiRequest', () => {
   const prompt = 'Explain this SMAPI error.'
 
-  it('builds an OpenAI Responses request', () => {
-    const request = buildLogAnalysisAiRequest({ providerId: 'openai', model: 'gpt-4o-mini', apiKey: 'sk-1' }, prompt)
+  it('builds an OpenAI Responses request without auth headers', () => {
+    const request = buildLogAnalysisAiRequest(profile({}), prompt)
     expect(request).not.toBeNull()
     expect(request!.url).toBe('https://api.openai.com/v1/responses')
     expect(request!.method).toBe('POST')
-    expect(request!.headers.authorization).toBe('Bearer sk-1')
+    expect(request!.headers).toEqual({ 'content-type': 'application/json' })
     const body = JSON.parse(request!.body)
     expect(body).toEqual({ model: 'gpt-4o-mini', input: prompt })
   })
 
   it('builds a chat-completions request with the messages payload', () => {
-    const request = buildLogAnalysisAiRequest({ providerId: 'deepseek', model: 'deepseek-chat', apiKey: 'sk-2' }, prompt)
+    const request = buildLogAnalysisAiRequest(
+      profile({ presetId: 'deepseek', protocol: 'openai-chat-completions', baseUrl: 'https://api.deepseek.com' }),
+      prompt,
+    )
     const body = JSON.parse(request!.body)
     expect(request!.url).toBe('https://api.deepseek.com/chat/completions')
     expect(body.messages).toEqual([{ role: 'user', content: prompt }])
   })
 
-  it('builds an Anthropic Messages request with x-api-key auth', () => {
-    const request = buildLogAnalysisAiRequest({ providerId: 'anthropic', model: 'claude-sonnet-4-5', apiKey: 'key-3' }, prompt)
+  it('builds an Anthropic Messages request with max_tokens and no x-api-key header', () => {
+    const request = buildLogAnalysisAiRequest(
+      profile({ presetId: 'anthropic', protocol: 'anthropic-messages', baseUrl: 'https://api.anthropic.com/v1' }),
+      prompt,
+    )
     expect(request!.url).toBe('https://api.anthropic.com/v1/messages')
-    expect(request!.headers['x-api-key']).toBe('key-3')
-    expect(request!.headers['anthropic-version']).toBe('2023-06-01')
+    expect(request!.headers['x-api-key']).toBeUndefined()
     expect(request!.headers.authorization).toBeUndefined()
     const body = JSON.parse(request!.body)
     expect(body.max_tokens).toBe(2048)
     expect(body.messages).toEqual([{ role: 'user', content: prompt }])
   })
 
-  it('returns null for an incomplete config', () => {
-    expect(buildLogAnalysisAiRequest({ providerId: 'openai', model: '', apiKey: 'sk-1' }, prompt)).toBeNull()
+  it('trims a trailing slash from the profile base URL', () => {
+    const request = buildLogAnalysisAiRequest(profile({ baseUrl: 'https://api.openai.com/v1/' }), prompt)
+    expect(request!.url).toBe('https://api.openai.com/v1/responses')
+  })
+
+  it('returns null for an empty model or base URL', () => {
+    expect(buildLogAnalysisAiRequest(profile({ model: '' }), prompt)).toBeNull()
+    expect(buildLogAnalysisAiRequest(profile({ baseUrl: ' ' }), prompt)).toBeNull()
   })
 })
 

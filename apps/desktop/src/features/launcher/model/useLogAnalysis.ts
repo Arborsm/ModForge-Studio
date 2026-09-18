@@ -1,24 +1,18 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale } from '@locales/provider'
 import { appEvent } from '@platform/observability'
+import type { AiProviderPreset, AiProviderProfile } from '@shared/contracts'
 import type { SmapiLogError } from './gameLogErrors'
-import { loadLogAnalysisAiConfig, requestLogAnalysisAi, saveLogAnalysisAiConfig } from '../api/launcherAndroidAiApi'
-import {
-  buildLogAnalysisAiRequest,
-  buildLogAnalysisPrompt,
-  extractLogAnalysisAiText,
-  findLogAnalysisProvider,
-  isLogAnalysisAiConfigReady,
-  type LogAnalysisAiConfig,
-} from './logAnalysisAi'
+import { loadLogAnalysisProfile, requestLogAnalysisAi } from '../api/launcherAndroidAiApi'
+import { buildLogAnalysisAiRequest, buildLogAnalysisPrompt, extractLogAnalysisAiText, isLogAnalysisProfileReady } from './logAnalysisAi'
 
 /**
- * @file Runner for the Android launcher's self-contained game-log AI analysis.
- * The minimal provider config (provider, model, API key) is Android-only state
- * persisted through the platform key-value storage — the desktop AI
- * profile/keychain system is not available on the bridge and must not be
- * affected. The runner builds the provider request, pipes it through the
- * native `android:ai_request` HTTP proxy, and surfaces the assistant text.
+ * @file Runner for the Android launcher's game-log AI analysis. The analysis
+ * consumes the existing workbench AI settings (the same default profile the
+ * translation editor uses) instead of a parallel config; credentials stay on
+ * the native side and are attached by profileId inside the `android:ai_request`
+ * proxy. The runner builds the provider request, pipes it through the proxy,
+ * and surfaces the assistant text.
  */
 
 /** Outcome of one analysis run, rendered by the analysis sheet. */
@@ -28,28 +22,45 @@ export type LogAnalysisState =
   | { kind: 'ready'; text: string }
   | { kind: 'failed'; message: string }
 
+/** Workbench profile resolved for analysis, with its preset (null preset = custom/unknown). */
+export type LogAnalysisTarget = { profile: AiProviderProfile; preset: AiProviderPreset | null }
+
 /** Drives one AI analysis run for a batch of parsed SMAPI errors. */
 export function useLogAnalysis() {
   const locale = useLocale()
-  const [config, setConfig] = useState<LogAnalysisAiConfig | null>(() => loadLogAnalysisAiConfig())
+  const [target, setTarget] = useState<LogAnalysisTarget | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [state, setState] = useState<LogAnalysisState>({ kind: 'idle' })
   const runIdRef = useRef(0)
 
-  const updateConfig = useCallback((next: LogAnalysisAiConfig) => {
-    saveLogAnalysisAiConfig(next)
-    setConfig(next)
+  const reloadProfile = useCallback(async () => {
+    try {
+      setTarget(await loadLogAnalysisProfile())
+    } catch (error) {
+      appEvent('error', 'Loading workbench AI profile for log analysis failed')
+        .error(error)
+        .context({ source: 'launcher-log-analysis', operation: 'load-profile' })
+        .emit({ notify: false })
+      setTarget(null)
+    } finally {
+      setProfileLoaded(true)
+    }
   }, [])
+
+  useEffect(() => {
+    void reloadProfile()
+  }, [reloadProfile])
+
+  const ready = isLogAnalysisProfileReady(target?.profile, target?.preset?.requiresApiKey ?? true)
 
   const runAnalysis = useCallback(
     async (errors: SmapiLogError[]): Promise<boolean> => {
-      const activeConfig = config
-      if (!activeConfig || !isLogAnalysisAiConfigReady(activeConfig)) {
+      if (!target || !ready) {
         setState({ kind: 'failed', message: 'not-configured' })
         return false
       }
-      const provider = findLogAnalysisProvider(activeConfig.providerId)
-      const request = buildLogAnalysisAiRequest(activeConfig, buildLogAnalysisPrompt(errors, locale))
-      if (!provider || !request) {
+      const request = buildLogAnalysisAiRequest(target.profile, buildLogAnalysisPrompt(errors, locale))
+      if (!request) {
         setState({ kind: 'failed', message: 'not-configured' })
         return false
       }
@@ -57,7 +68,7 @@ export function useLogAnalysis() {
       const runId = ++runIdRef.current
       setState({ kind: 'running' })
       try {
-        const response = await requestLogAnalysisAi(request)
+        const response = await requestLogAnalysisAi({ profileId: target.profile.id, ...request })
         if (runId !== runIdRef.current) {
           return false
         }
@@ -69,7 +80,7 @@ export function useLogAnalysis() {
           })
           return false
         }
-        const text = extractLogAnalysisAiText(provider.protocol, response.body)
+        const text = extractLogAnalysisAiText(target.profile.protocol, response.body)
         if (!text) {
           const snippet = response.body.trim().slice(0, 400)
           setState({ kind: 'failed', message: snippet || 'empty-response' })
@@ -92,8 +103,8 @@ export function useLogAnalysis() {
         return false
       }
     },
-    [config, locale],
+    [target, ready, locale],
   )
 
-  return { config, updateConfig, state, runAnalysis }
+  return { target, profileLoaded, ready, state, runAnalysis, reloadProfile }
 }

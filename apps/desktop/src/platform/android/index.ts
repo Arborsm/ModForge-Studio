@@ -143,12 +143,14 @@ export type AndroidAiResponse = {
 
 /**
  * Pipes a minimal provider request through the native host's HTTP proxy. Used by
- * the launcher's self-contained AI features (game-log error analysis): the workbench
- * AI command surface is not bridged on Android, so the launcher builds the provider
- * request itself and only the authenticated HTTP hop crosses the bridge. Rejected
- * when the current runtime is not the Android WebView host.
+ * the launcher's self-contained AI features (game-log error analysis): the launcher
+ * builds the provider request from the workbench AI profile and only the HTTP hop
+ * crosses the bridge; when `profileId` is set, the native side attaches the stored
+ * credential so API keys never reach JavaScript. Rejected when the current runtime
+ * is not the Android WebView host.
  */
 export async function androidAiRequest(request: {
+  profileId?: string
   url: string
   method: 'GET' | 'POST'
   headers?: Record<string, string>
