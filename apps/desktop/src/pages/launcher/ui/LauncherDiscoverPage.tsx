@@ -23,8 +23,15 @@ import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } f
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@platform/host'
 import { appEvent } from '@platform/observability'
+import { openAndroidInAppBrowser } from '@platform/android'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
-import { useLauncherDiscover, useLauncherPort, useLauncherRemoteModDetail, parseLauncherModIdQuery } from '@features/launcher'
+import {
+  hasLauncherCredentials,
+  useLauncherDiscover,
+  useLauncherPort,
+  useLauncherRemoteModDetail,
+  parseLauncherModIdQuery,
+} from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
 import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
 import {
@@ -107,6 +114,20 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 
 const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
 const LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID = 'launcher-discover-mod-id-not-found'
+
+/**
+ * Android in-app browser lands on the Files tab — the page that actually lists
+ * downloadable files — instead of the mod overview the external browser opens.
+ */
+function toLauncherModFilesPageUrl(modUrl: string) {
+  try {
+    const url = new URL(modUrl)
+    url.searchParams.set('tab', 'files')
+    return url.toString()
+  } catch {
+    return modUrl
+  }
+}
 
 function getDiscoverPaginationItems(page: number, totalPages: number, capacity: number) {
   if (totalPages <= 0) {
@@ -662,6 +683,7 @@ function LauncherDiscoverDetailPanel({
 }
 
 export function LauncherDiscoverPage({
+  settings,
   onQueueDownload,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
@@ -714,6 +736,7 @@ export function LauncherDiscoverPage({
       launcherUiStateReady={launcherUiStateReady}
       routeActive={routeActive}
       androidHost={androidHost}
+      downloadCredentialsReady={hasLauncherCredentials(settings)}
     />
   )
 }
@@ -727,6 +750,7 @@ function LauncherDiscoverPageContent({
   launcherUiStateReady,
   routeActive = true,
   androidHost = false,
+  downloadCredentialsReady = false,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToDiagnostics?: () => void
@@ -736,10 +760,23 @@ function LauncherDiscoverPageContent({
   launcherUiStateReady: boolean
   routeActive?: boolean
   androidHost?: boolean
+  /** True when a Nexus API key is set, so the quick action can auto-download. */
+  downloadCredentialsReady?: boolean
 }) {
   const copy = useEditorCopy().launcher
   const launcherPort = useLauncherPort()
   const discover = useLauncherDiscover(initialToolbarState)
+
+  // Android host: the mod-page action and the not-signed-in quick action open
+  // the built-in in-app browser at the Files tab instead of the external browser.
+  const openModDownloadPageInApp = (modUrl: string) => {
+    void openAndroidInAppBrowser(toLauncherModFilesPageUrl(modUrl)).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-discover', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
   // Phone widths start with the filter rail collapsed; users can still expand it.
   const [filtersHidden, setFiltersHidden] = useState(
     () => initialToolbarState.filtersHidden || window.matchMedia('(max-width: 640px)').matches,
@@ -813,6 +850,7 @@ function LauncherDiscoverPageContent({
     discover.filters.language,
     discover.filters.tagsInclude,
     discover.filters.tagsExclude,
+    androidHost ? 'feed' : discover.page,
     discover.filters.includeAdult ? 'adult' : 'standard',
     discover.filters.minFileSize,
     discover.filters.maxFileSize,
@@ -1070,7 +1108,54 @@ function LauncherDiscoverPageContent({
   }, [routeActive])
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  // Android host feeds the wall by appending each fetched page so the phone
+  // scrolls infinitely instead of paginating; desktop keeps page switches.
+  const [feedItems, setFeedItems] = useState<DiscoverItem[]>([])
+  const [feedPage, setFeedPage] = useState(1)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const discoverScrollHostRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    if (discover.page <= 1) {
+      setFeedItems(discover.items)
+      setFeedPage(1)
+      return
+    }
+    if (discover.page > feedPage) {
+      setFeedPage(discover.page)
+      setFeedItems((current) => {
+        const seen = new Set(current.map((item) => item.modId))
+        return [...current, ...discover.items.filter((item) => !seen.has(item.modId))]
+      })
+    }
+  }, [androidHost, discover.items, discover.page, feedPage])
+
+  // Infinite scroll: when the sentinel under the wall approaches the viewport,
+  // fetch the next page. goToNextPage guards its own concurrency (no-op while
+  // a request is in flight or the last page is reached).
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    const viewport = resultsViewportRef.current
+    const sentinel = loadMoreRef.current
+    if (!viewport || !sentinel) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && discover.state === 'ready' && discover.hasMore) {
+          discover.goToNextPage()
+        }
+      },
+      { root: viewport, rootMargin: '800px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [androidHost, discover])
   const pullToRefresh = usePullToRefresh({
     hostRef: discoverScrollHostRef,
     scrollSelector: '.launcher-discover-results-viewport',
@@ -1582,7 +1667,7 @@ function LauncherDiscoverPageContent({
               >
                 <div className="launcher-discover-wall-shell">
                   <div key={resultsRevealKey} className="launcher-discover-wall">
-                    {discover.items.map((item, index) => (
+                    {(androidHost ? feedItems : discover.items).map((item, index) => (
                       <LoadingMotionRevealItem
                         key={`${item.modId}:${item.modUrl}`}
                         index={Math.floor(index / 4) + 1}
@@ -1595,7 +1680,15 @@ function LauncherDiscoverPageContent({
                             setDetailModId(null)
                             setDetailItem(item)
                           }}
-                          onQueueDownload={() =>
+                          onOpenModPageInApp={androidHost ? () => openModDownloadPageInApp(item.modUrl) : undefined}
+                          onQueueDownload={() => {
+                            // Not signed in on the Android host: queueing would only create a
+                            // failed item, so the quick action opens the download page instead.
+                            if (androidHost && !downloadCredentialsReady) {
+                              openModDownloadPageInApp(item.modUrl)
+                              return
+                            }
+
                             onQueueDownload({
                               modId: item.modId,
                               title: item.title,
@@ -1603,7 +1696,7 @@ function LauncherDiscoverPageContent({
                               version: null,
                               source: 'discover',
                             })
-                          }
+                          }}
                         />
                       </LoadingMotionRevealItem>
                     ))}
@@ -1620,9 +1713,21 @@ function LauncherDiscoverPageContent({
                     </div>
                   ) : null}
                 </div>
+
+                {/* The infinite-scroll sentinel lives inside the scrolling
+                 viewport so the observer fires when it approaches the fold. */}
+                {androidHost ? (
+                  <div ref={loadMoreRef} className="launcher-discover-load-more" data-guide="launcher-discover-load-more">
+                    {discover.state === 'loading' && discover.page > 1 ? (
+                      <span className="launcher-discover-load-more-spinner" role="status" aria-label={copy.discover.loadingResultsLabel} />
+                    ) : !discover.hasMore && feedItems.length > 0 ? (
+                      <span className="launcher-discover-load-more-end">{copy.discover.mobile.endOfResults}</span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
-              {discover.items.length ? (
+              {!androidHost && discover.items.length ? (
                 <div ref={paginationRef} className="launcher-discover-pagination">
                   <button
                     type="button"

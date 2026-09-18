@@ -487,9 +487,9 @@ export default function SettingsWindow({
           onClick={(event) => event.stopPropagation()}
         >
           <header className="settings-window-header">
-            {androidHost && mobilePaneSelected ? (
+            {androidHost ? (
               <h1 className="settings-window-title" id="settings-window-title">
-                {categories[activeCategory]}
+                {mobilePaneSelected ? categories[activeCategory] : title}
               </h1>
             ) : (
               <div className="settings-window-header-brand">
@@ -533,18 +533,17 @@ export default function SettingsWindow({
               </nav>
             )}
 
-            {androidHost && mobilePaneSelected ? (
+            {androidHost ? (
               <button
                 type="button"
                 className="settings-window-back settings-window-close"
-                onClick={handleMobileBack}
-                title={settingsCopy.backLabel}
-                aria-label={settingsCopy.backLabel}
+                onClick={mobilePaneSelected ? handleMobileBack : requestClose}
+                title={mobilePaneSelected ? settingsCopy.backLabel : settingsCopy.closeDialogLabel}
+                aria-label={mobilePaneSelected ? settingsCopy.backLabel : settingsCopy.closeDialogLabel}
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-            ) : null}
-            {!androidHost ? (
+            ) : (
               <button
                 type="button"
                 className="settings-window-back settings-window-close"
@@ -554,16 +553,18 @@ export default function SettingsWindow({
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="settings-window-close"
-              onClick={requestClose}
-              title={settingsCopy.closeDialogLabel}
-              aria-label={settingsCopy.closeDialogLabel}
-            >
-              <X className="h-4 w-4" />
-            </button>
+            )}
+            {androidHost ? null : (
+              <button
+                type="button"
+                className="settings-window-close"
+                onClick={requestClose}
+                title={settingsCopy.closeDialogLabel}
+                aria-label={settingsCopy.closeDialogLabel}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </header>
 
           <div className="settings-window-body">

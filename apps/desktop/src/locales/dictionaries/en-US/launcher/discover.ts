@@ -136,6 +136,7 @@ const discover: LauncherDiscoverCopy = {
     ascendingChip: 'Ascending',
     descendingChip: 'Descending',
     recheckAction: 'Recheck',
+    endOfResults: 'End of results',
   },
 }
 

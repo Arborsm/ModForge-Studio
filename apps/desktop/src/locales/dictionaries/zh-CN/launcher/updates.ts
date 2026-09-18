@@ -53,6 +53,8 @@ const updates: LauncherUpdatesCopy = {
   mobile: {
     updateSelectedCount: (count) => `更新所选 ${count} 个`,
     statusLine: (count) => `${count} 个模组可更新`,
+    emptyTitle: '所有模组都已是最新',
+    emptyDetail: '模组有新版本时会出现在这里。',
   },
 }
 

@@ -88,5 +88,7 @@ export type LauncherDiscoverCopy = {
     ascendingChip: string
     descendingChip: string
     recheckAction: string
+    /** Infinite-scroll footer shown once the last discover page is reached. */
+    endOfResults: string
   }
 }

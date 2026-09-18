@@ -54,6 +54,8 @@ const updates: LauncherUpdatesCopy = {
   mobile: {
     updateSelectedCount: (count) => `Update Selected (${count})`,
     statusLine: (count) => `${count} update${count === 1 ? '' : 's'} available`,
+    emptyTitle: 'Everything is up to date',
+    emptyDetail: 'When a mod has a newer version, it will show up here.',
   },
 }
 

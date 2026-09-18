@@ -5,7 +5,7 @@ import { normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import { useEditorCopy } from '@locales/provider'
 import type { LauncherPackPreset } from '@features/launcher/model/types'
 
-type LauncherLibraryPackSidebarProps = {
+export type LauncherLibraryPackSidebarProps = {
   drawerOpen: boolean
   hiddenViewOpen: boolean
   currentPackId: string | null

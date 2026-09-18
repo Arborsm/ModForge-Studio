@@ -135,6 +135,7 @@ const discover: LauncherDiscoverCopy = {
     ascendingChip: '升序',
     descendingChip: '降序',
     recheckAction: '重新检查',
+    endOfResults: '已经到底啦',
   },
 }
 

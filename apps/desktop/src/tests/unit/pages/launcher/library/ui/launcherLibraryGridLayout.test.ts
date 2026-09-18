@@ -193,12 +193,19 @@ describe('launcherLibraryGridLayout', () => {
     expect(closingPlaced).toMatchObject({ columnSpan: 1, rowSpan: 1 })
   })
 
-  it('shrinks the minimum card width on phone viewports and keeps it for desktop sizes', () => {
+  it('gives phone viewports the two-column card feed while desktop sizes stay multi-column', () => {
     expect(getLauncherLibraryCardMinWidthPx(412)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(480)).toBe(LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(481)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(1200)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
     expect(getLauncherLibraryCardMinWidthPx(0)).toBe(LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX)
+    // The phone minimum floors to two columns at 320px and anything wider,
+    // so a phone viewport never collapses to a single column.
+    const phoneColumnCount = Math.max(
+      1,
+      Math.floor((412 + LAUNCHER_LIBRARY_GRID_GAP_PX) / (LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX + LAUNCHER_LIBRARY_GRID_GAP_PX)),
+    )
+    expect(phoneColumnCount).toBe(2)
   })
 
   it('estimates a shorter copy block for compact phone cards', () => {

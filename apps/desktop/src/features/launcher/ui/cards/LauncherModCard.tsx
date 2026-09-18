@@ -53,6 +53,8 @@ type LauncherModCardProps = {
     openDetails?: () => void
     openDirectTarget?: () => void
     toggleExpanded?: (event: MouseEvent<HTMLElement>) => void
+    /** Flips the mod's enabled state; only the Android host library grid provides this, surfacing an inline switch. */
+    toggleEnabled?: () => void
   }
 }
 
@@ -77,6 +79,7 @@ function LauncherModCardContent({ content, cover, state, contextMenu, actions }:
     openDetails: onOpenDetails,
     openDirectTarget: onOpenDirectTarget,
     toggleExpanded: onToggleExpanded,
+    toggleEnabled: onToggleEnabled,
   } = actions ?? {}
   const copy = useEditorCopy()
   const libraryCopy = copy.launcher.library
@@ -255,6 +258,23 @@ function LauncherModCardContent({ content, cover, state, contextMenu, actions }:
             ) : null}
           </div>
         </button>
+
+        {onToggleEnabled ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={enabled ? copy.launcher.actions.disable : copy.launcher.actions.enable}
+            title={enabled ? copy.launcher.actions.disable : copy.launcher.actions.enable}
+            className="launcher-mod-card-enable-toggle"
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleEnabled()
+            }}
+          >
+            <span className="launcher-mod-card-enable-toggle-knob" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </article>
   )

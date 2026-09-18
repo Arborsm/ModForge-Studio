@@ -1,8 +1,8 @@
 /**
  * @file Platform Provider: selects the Android, Electron or Tauri platform ports based on the runtime environment and injects them into PlatformContext.
  */
-import { useMemo, type ReactNode } from 'react'
-import { isAndroidHost, createAndroidPlatformPorts } from '@platform/android'
+import { useEffect, useMemo, type ReactNode } from 'react'
+import { isAndroidHost, createAndroidPlatformPorts, installAndroidSystemBarSync } from '@platform/android'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import type { PlatformPorts } from '@shared/contracts'
@@ -24,6 +24,13 @@ export function PlatformProvider({ children, ports }: PlatformProviderProps) {
     [ports],
   )
   configureDesktopPlatformPorts(defaultPorts)
+
+  // Android host: keep the native status/nav bar strip in sync with the app theme.
+  useEffect(() => {
+    if (isAndroidHost()) {
+      installAndroidSystemBarSync()
+    }
+  }, [])
 
   return <PlatformContext.Provider value={defaultPorts}>{children}</PlatformContext.Provider>
 }

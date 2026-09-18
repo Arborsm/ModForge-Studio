@@ -41,6 +41,11 @@ function baseFileName(filePath: string) {
 /** Options for {@link useSmapiUpdate}. */
 export type UseSmapiUpdateOptions = {
   gamePath: string | null
+  /**
+   * Android host manages the game path inside its own app data, so an empty
+   * configured game path must not gate the check/install flow there.
+   */
+  pathsManagedByHost?: boolean
   /** Called with fresh runtime info after a successful SMAPI install so env tags update. */
   onRuntimeInfoRefreshed?: (info: LauncherRuntimeInfo) => void
 }
@@ -53,9 +58,10 @@ export type UseSmapiUpdateOptions = {
  * scan run on mount and whenever the configured game path changes; the backend
  * disk-caches check results for 30 minutes.
  */
-export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpdateOptions) {
+export function useSmapiUpdate({ gamePath, pathsManagedByHost = false, onRuntimeInfoRefreshed }: UseSmapiUpdateOptions) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher.configuration.smapiUpdate
+  const gamePathConfigured = pathsManagedByHost || Boolean(gamePath?.trim())
   const runCheckTask = useLatestTask('launcher-smapi-update-check')
   const runScanTask = useLatestTask('launcher-smapi-installer-scan')
   const runInstallTask = useExclusiveMutationTask('LauncherSmapiUpdate')
@@ -302,7 +308,7 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
   }
 
   useEffect(() => {
-    if (!gamePath?.trim()) {
+    if (!gamePathConfigured) {
       checkResultRef.current = null
       setCheckResult(null)
       setCheckError(null)
@@ -319,11 +325,11 @@ export function useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed }: UseSmapiUpd
     setInstallerScanError(null)
     void runCheck()
     void scanInstallerDownloads()
-  }, [gamePath, runCheck, scanInstallerDownloads])
+  }, [gamePath, gamePathConfigured, runCheck, scanInstallerDownloads])
 
   return {
     status: deriveSmapiUpdateCardStatus({
-      gamePathConfigured: Boolean(gamePath?.trim()),
+      gamePathConfigured,
       checkResult,
       checking,
       checkError,

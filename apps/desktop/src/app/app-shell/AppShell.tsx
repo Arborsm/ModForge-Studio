@@ -651,10 +651,11 @@ export default function App() {
 
     void ignoreError(
       listenToAndroidBackRequest(() => {
-        // Overlay priority: settings window > bottom sheet > mod detail drawer.
-        // Each layer owns an Escape handler, so synthesize the keydown on the
-        // React root and let the topmost layer consume it.
-        const overlayRoot = ['.settings-window-backdrop', '.mobile-sheet-root', '.launcher-library-drawer-open']
+        // Overlay priority: settings window > bottom sheet/dialog > pack page
+        // > mod detail drawer. Each layer owns an Escape handler, so
+        // synthesize the keydown on the React root and let the topmost layer
+        // consume it.
+        const overlayRoot = ['.settings-window-backdrop', '.mobile-sheet-root', '.mobile-packs-page-root', '.launcher-library-drawer-open']
           .map((selector) => document.querySelector(selector))
           .find((node): node is Element => Boolean(node))
         if (overlayRoot) {
@@ -755,7 +756,7 @@ export default function App() {
             className="app-window-frame"
             data-window-border-tone={windowBorderTone}
             data-window-border-weight={windowBorderWeight}
-            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized ? 'true' : undefined}
+            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized || androidHost ? 'true' : undefined}
           >
             {appMode === 'launcher' ? (
               <LauncherPageView

@@ -2,8 +2,10 @@ import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay
 
 export const LAUNCHER_LIBRARY_GRID_GAP_PX = 16
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
-/** Phone-width viewports shrink the minimum card so the grid fits 2 columns. */
-export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 148
+/** Phone-width viewports get the two-column card feed: with the 16px grid
+ * gap, 150px floors to two columns at 320px and anything wider. The desktop
+ * minimum (260px) would collapse a phone viewport to a single column. */
+export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 150
 export const LAUNCHER_LIBRARY_GRID_PHONE_MAX_VIEWPORT_PX = 480
 
 /** Picks the virtual-grid minimum card width for the measured viewport width. */

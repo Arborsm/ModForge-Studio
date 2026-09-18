@@ -1,4 +1,4 @@
-import { CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
+import { CheckCircle2, CheckSquare, Download, ExternalLink, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
@@ -205,8 +205,8 @@ export function LauncherUpdatesPage({
 
   return (
     <section className="launcher-updates-page">
-      <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console">
-        {androidHost ? null : (
+      {androidHost ? null : (
+        <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console">
           <header className="launcher-updates-console-top">
             <div className="launcher-updates-console-heading">
               <div className="launcher-updates-console-copy">
@@ -255,8 +255,8 @@ export function LauncherUpdatesPage({
               </div>
             ) : null}
           </header>
-        )}
-      </LoadingMotionReveal>
+        </LoadingMotionReveal>
+      )}
 
       {androidHost && !stateCardVisible ? (
         <div className="launcher-updates-mobile-status">
@@ -359,7 +359,15 @@ export function LauncherUpdatesPage({
 
           {emptyState ? (
             <div className="launcher-updates-content launcher-updates-content-empty">
-              <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
+              {androidHost ? (
+                <div className="launcher-updates-mobile-empty">
+                  <CheckCircle2 className="launcher-updates-mobile-empty-icon" aria-hidden="true" />
+                  <p className="launcher-updates-mobile-empty-title">{copy.updates.mobile.emptyTitle}</p>
+                  <p className="launcher-updates-mobile-empty-detail">{copy.updates.mobile.emptyDetail}</p>
+                </div>
+              ) : (
+                <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
+              )}
             </div>
           ) : null}
 

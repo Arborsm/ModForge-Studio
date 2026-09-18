@@ -473,12 +473,12 @@ function getRouteIcon(routeId: string) {
   return <Network className="h-4 w-4" />
 }
 
-function ConfigPanelHeader({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
+function ConfigPanelHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
     <div className="launcher-config-panel-head">
       <div>
         <h2>{title}</h2>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       {actions ? <div className="launcher-config-panel-actions">{actions}</div> : null}
     </div>
@@ -855,6 +855,7 @@ function ConfigNexusPanel({
   account,
   copy,
   routes,
+  androidHost = false,
   diagnosticsRefreshing,
   onRefreshDiagnostics,
 }: {
@@ -862,6 +863,7 @@ function ConfigNexusPanel({
   account: NexusApiAccountStatus
   copy: LauncherCopy
   routes: LauncherNexusRouteSnapshot[]
+  androidHost?: boolean
   diagnosticsRefreshing: boolean
   onRefreshDiagnostics: () => void
 }) {
@@ -882,6 +884,108 @@ function ConfigNexusPanel({
     copy,
   )
   const displayedRoutes = getDisplayedConfigRoutes(routes, copy)
+
+  const routeList = (
+    <div className="launcher-config-api-list">
+      {displayedRoutes.map((route, index) => {
+        const tone = getRouteRowTone(route, account, isAuthorized)
+        return (
+          <ConfigApiRow
+            key={route.routeId}
+            index={index}
+            routeId={route.routeId as ConfigRouteId}
+            name={getRouteDisplayName(route, copy)}
+            description={getRouteDescription(route, copy)}
+            tone={tone}
+            statusLabel={getRouteStatusLabel(route, tone, copy)}
+            resolved={route.status !== 'loading'}
+          >
+            {getRouteIcon(route.routeId)}
+          </ConfigApiRow>
+        )
+      })}
+    </div>
+  )
+
+  const accountSlot = (
+    <div className="launcher-config-account-slot">
+      {isAuthorized ? (
+        <div className="launcher-config-dashboard">
+          <div className="launcher-config-dash-metrics">
+            <ConfigMetric
+              title={copy.settings.nexusQuotaDaily}
+              value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
+              percent={dailyPercent}
+              limit={dailyLimit}
+            />
+            <ConfigMetric
+              title={copy.settings.nexusQuotaHourly}
+              value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
+              percent={hourlyPercent}
+              limit={hourlyLimit}
+              warn
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="launcher-config-guest-hero">
+          <div>
+            <h3>{copy.settings.nexusGuestTitle}</h3>
+            <p>{copy.settings.nexusGuestSubtitle}</p>
+          </div>
+          <div className="launcher-config-actions">
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              disabled={account.ssoStarting}
+              aria-busy={account.ssoStarting}
+              onClick={() => void account.startSso()}
+            >
+              {account.ssoStarting ? <RefreshCw className={cx('h-3.5 w-3.5 animate-spin')} aria-hidden="true" /> : null}
+              {copy.settings.nexusSignInAction}
+            </button>
+            <button
+              type="button"
+              className="launcher-config-button"
+              onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
+            >
+              {copy.settings.nexusPasteApiKeyAction}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const apiError = account.apiKeyError ? <p className="launcher-config-api-error">{`Log: ${account.apiKeyError}`}</p> : null
+
+  // Android host: one combined card reads as a desktop panel squeezed onto a
+  // phone, so the route probes and the account section become two plain cards
+  // with small titles — the same visual language as the preferences card.
+  if (androidHost) {
+    return (
+      <>
+        <section
+          className="launcher-config-panel launcher-config-network-mobile"
+          aria-label={copy.configuration.nexusDiagnosticsTitle}
+          data-testid="launcher-config-network-mobile"
+        >
+          <div className="launcher-config-rail-title">{copy.configuration.nexusDiagnosticsTitle}</div>
+          {routeList}
+          {apiError}
+        </section>
+        <section
+          className="launcher-config-panel launcher-config-nexus"
+          aria-label={copy.settings.nexusAccessTitle}
+          data-testid="launcher-config-nexus"
+          data-guide="launcher-config-nexus"
+        >
+          <ConfigPanelHeader title={copy.settings.nexusAccessTitle} />
+          {accountSlot}
+        </section>
+      </>
+    )
+  }
 
   return (
     <section
@@ -919,76 +1023,9 @@ function ConfigNexusPanel({
           </div>
         }
       />
-
-      <div className="launcher-config-account-slot">
-        {isAuthorized ? (
-          <div className="launcher-config-dashboard">
-            <div className="launcher-config-dash-metrics">
-              <ConfigMetric
-                title={copy.settings.nexusQuotaDaily}
-                value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
-                percent={dailyPercent}
-                limit={dailyLimit}
-              />
-              <ConfigMetric
-                title={copy.settings.nexusQuotaHourly}
-                value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
-                percent={hourlyPercent}
-                limit={hourlyLimit}
-                warn
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="launcher-config-guest-hero">
-            <div>
-              <h3>{copy.settings.nexusGuestTitle}</h3>
-              <p>{copy.settings.nexusGuestSubtitle}</p>
-            </div>
-            <div className="launcher-config-actions">
-              <button
-                type="button"
-                className="launcher-config-button launcher-config-button-primary"
-                disabled={account.ssoStarting}
-                aria-busy={account.ssoStarting}
-                onClick={() => void account.startSso()}
-              >
-                {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-                {copy.settings.nexusSignInAction}
-              </button>
-              <button
-                type="button"
-                className="launcher-config-button"
-                onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
-              >
-                {copy.settings.nexusPasteApiKeyAction}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="launcher-config-api-list">
-        {displayedRoutes.map((route, index) => {
-          const tone = getRouteRowTone(route, account, isAuthorized)
-          return (
-            <ConfigApiRow
-              key={route.routeId}
-              index={index}
-              routeId={route.routeId as ConfigRouteId}
-              name={getRouteDisplayName(route, copy)}
-              description={getRouteDescription(route, copy)}
-              tone={tone}
-              statusLabel={getRouteStatusLabel(route, tone, copy)}
-              resolved={route.status !== 'loading'}
-            >
-              {getRouteIcon(route.routeId)}
-            </ConfigApiRow>
-          )
-        })}
-      </div>
-
-      {account.apiKeyError ? <p className="launcher-config-api-error">{`Log: ${account.apiKeyError}`}</p> : null}
+      {accountSlot}
+      {routeList}
+      {apiError}
     </section>
   )
 }
@@ -1251,17 +1288,22 @@ function getSmapiUpdateStatusLabel(status: SmapiUpdateCardStatus, copy: SmapiUpd
 function ConfigSmapiUpdateCard({
   copy,
   gamePath,
+  androidHost = false,
   onRuntimeInfoRefreshed,
 }: {
   copy: LauncherCopy
   gamePath: string | null
+  androidHost?: boolean
   onRuntimeInfoRefreshed?: (info: LauncherRuntimeInfo) => void
 }) {
-  const smapiUpdate = useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed })
+  const smapiUpdate = useSmapiUpdate({ gamePath, pathsManagedByHost: androidHost, onRuntimeInfoRefreshed })
   const status = smapiUpdate.status
   const smapiCopy = copy.configuration.smapiUpdate
   const tone = getSmapiUpdateStatusTone(status)
-  const statusLabel = getSmapiUpdateStatusLabel(status, smapiCopy)
+  // The Android host reports a missing SMAPI as installedVersion "0.0.0" with an
+  // update available; surface that as a fresh-install state instead of an update.
+  const freshInstall = status.kind === 'update-available' && status.installedVersion === '0.0.0'
+  const statusLabel = freshInstall ? smapiCopy.statusNotInstalled : getSmapiUpdateStatusLabel(status, smapiCopy)
   const requiredByModsTooltip =
     status.kind === 'update-available' && status.requiredByMods.length
       ? status.requiredByMods.map((mod) => smapiCopy.requiredByModsTooltip(mod.modName, mod.minimumApiVersion)).join('\n')
@@ -1309,7 +1351,9 @@ function ConfigSmapiUpdateCard({
         ) : null}
         {status.kind === 'update-available' ? (
           <div className="launcher-config-smapi-update-detail">
-            <p className="launcher-config-smapi-detail">{smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}</p>
+            <p className="launcher-config-smapi-detail">
+              {freshInstall ? smapiCopy.notInstalledDetail : smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}
+            </p>
             <p className="launcher-config-smapi-hint">{smapiCopy.latestStableHint(status.latestStableVersion)}</p>
             {status.versionSource === 'nexus' ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusSourceHint}</p> : null}
             {status.requiredByMods.length ? (
@@ -1387,7 +1431,7 @@ function ConfigSmapiUpdateCard({
               onClick={() => void smapiUpdate.startInstall()}
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{smapiCopy.updateAction}</span>
+              <span>{freshInstall ? smapiCopy.installAction : smapiCopy.updateAction}</span>
             </button>
           ) : null}
           {status.kind === 'update-available' && actionMode === 'nexus' ? (
@@ -1406,7 +1450,7 @@ function ConfigSmapiUpdateCard({
               <span>{smapiCopy.rescanAction}</span>
             </button>
           ) : null}
-          {status.kind === 'update-available' ? (
+          {status.kind === 'update-available' && !androidHost ? (
             <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.pickLocalInstaller()}>
               <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{smapiCopy.pickLocalAction}</span>
@@ -1440,7 +1484,7 @@ export function LauncherConfigurationPage({
 }: LauncherConfigurationPageProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
-  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.settings.configurationGameTitle}</h1>, androidHost && routeActive)
+  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.pages.configuration}</h1>, androidHost && routeActive)
   const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const [bbcodePreviewExpanded, setBbcodePreviewExpanded] = useState(false)
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
@@ -1471,12 +1515,17 @@ export function LauncherConfigurationPage({
   const gmcmProbeAvailable = !androidHost
   const hasGmcmProbeIssue = gmcmParsingEnabled && gmcmProbeAvailable && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
   const stepItems: ConfigStep[] = [
-    {
-      id: 'paths',
-      label: copy.settings.stepPaths,
-      detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
-      tone: configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger',
-    },
+    // Path setup is a desktop-launcher concern; the Android host owns its paths.
+    ...(androidHost
+      ? []
+      : [
+          {
+            id: 'paths',
+            label: copy.settings.stepPaths,
+            detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
+            tone: (configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger') as ConfigStep['tone'],
+          },
+        ]),
     {
       id: 'nexus',
       label: copy.settings.stepNexus,
@@ -1489,18 +1538,20 @@ export function LauncherConfigurationPage({
       detail: warningDiagnostics ? copy.settings.diagnosticsReview : copy.settings.diagnosticsHealthy,
       tone: warningDiagnostics ? 'warn' : 'ok',
     },
-    {
-      id: 'gmcm-probe',
-      label: copy.settings.stepGmcmProbe,
-      detail: !gmcmProbeAvailable
-        ? copy.configuration.gmcmProbeUnavailable
-        : !gmcmParsingEnabled
-          ? copy.configuration.gmcmParsingDisabled
-          : hasGmcmProbeIssue
-            ? copy.settings.gmcmProbeReview
-            : copy.settings.gmcmProbeReady,
-      tone: hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok',
-    },
+    ...(gmcmProbeAvailable
+      ? [
+          {
+            id: 'gmcm-probe',
+            label: copy.settings.stepGmcmProbe,
+            detail: !gmcmParsingEnabled
+              ? copy.configuration.gmcmParsingDisabled
+              : hasGmcmProbeIssue
+                ? copy.settings.gmcmProbeReview
+                : copy.settings.gmcmProbeReady,
+            tone: (hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok') as ConfigStep['tone'],
+          },
+        ]
+      : []),
   ]
   const readyStepCount = stepItems.filter((step) => step.tone === 'ok').length
   const issueStepCount = stepItems.length - readyStepCount
@@ -1814,14 +1865,18 @@ export function LauncherConfigurationPage({
                   <p className="launcher-config-header-status">{headerStatusLine}</p>
                 </div>
                 <div className="launcher-config-header-actions">
-                  <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
-                    <span className="launcher-config-env-tag">
-                      {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                    <span className="launcher-config-env-tag">
-                      {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                  </div>
+                  {androidHost ? null : (
+                    <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
+                      <span className="launcher-config-env-tag">
+                        {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
+                      </span>
+                      <span className="launcher-config-env-tag">
+                        {smapiVersion
+                          ? copy.settings.configurationSmapiVersionTag(smapiVersion)
+                          : copy.settings.configurationVersionUnknown}
+                      </span>
+                    </div>
+                  )}
                   <div className="launcher-config-header-button-group">
                     <button
                       type="button"
@@ -1839,19 +1894,28 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            {!androidHost ? (
-              <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
-                <ConfigSmapiUpdateCard
+            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+              <ConfigSmapiUpdateCard
+                copy={copy}
+                gamePath={settingsState.settings.gamePath}
+                androidHost={androidHost}
+                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+              />
+            </LoadingMotionReveal>
+
+            {/* The Android host manages game/mods/download paths inside its own
+               app data, so the desktop Paths & Storage panel has nothing to
+               show there. */}
+            {androidHost ? null : (
+              <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
+                <ConfigPathPanel
+                  settingsState={settingsState}
                   copy={copy}
-                  gamePath={settingsState.settings.gamePath}
-                  onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+                  browseLabel={rootCopy.controls.browse}
+                  androidHost={androidHost}
                 />
               </LoadingMotionReveal>
-            ) : null}
-
-            <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} androidHost={androidHost} />
-            </LoadingMotionReveal>
+            )}
 
             <LoadingMotionReveal itemId="launcher-config-network" index={3}>
               <ConfigNexusPanel
@@ -1859,6 +1923,7 @@ export function LauncherConfigurationPage({
                 account={account}
                 copy={copy}
                 routes={diagnosticRoutes}
+                androidHost={androidHost}
                 diagnosticsRefreshing={diagnosticsRefreshing}
                 onRefreshDiagnostics={handleRefreshDiagnostics}
               />
@@ -1866,8 +1931,13 @@ export function LauncherConfigurationPage({
           </main>
 
           <aside className="launcher-config-rail">
-            <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
-            <ConfigAccountCard account={account} onRefresh={() => void account.refreshApiKeyStatus({ force: true })} />
+            {/* Android host: the completion rail duplicates the page banner and
+               the account card duplicates the Nexus panel's connect section;
+               only the download defaults stay. */}
+            {androidHost ? null : <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />}
+            {androidHost ? null : (
+              <ConfigAccountCard account={account} onRefresh={() => void account.refreshApiKeyStatus({ force: true })} />
+            )}
             <ConfigDownloadDefaults settingsState={settingsState} />
           </aside>
 
@@ -1886,25 +1956,27 @@ export function LauncherConfigurationPage({
               />
             </LoadingMotionReveal>
           )}
-          <div className="launcher-config-wide-panel">
-            <LauncherConfigurationMoreTools
-              debugEnabled={debugEnabled}
-              debugToolsExpanded={debugToolsExpanded}
-              forceNonPremium={forceNonPremium}
-              forceNonPremiumBusy={forceNonPremiumBusy}
-              forceOffline={forceOffline}
-              forceOfflineBusy={forceOfflineBusy}
-              bbcodePreviewExpanded={bbcodePreviewExpanded}
-              debugSimulationActive={debugSimulationActive}
-              onToggleDebugMode={onToggleDebugMode}
-              onToggleForceNonPremium={handleToggleForceNonPremium}
-              onToggleForceOffline={handleToggleForceOffline}
-              onClearLauncherImageCache={handleClearLauncherImageCache}
-              onStartDebugSimulation={downloads.startDebugSimulation}
-              setDebugToolsExpanded={setDebugToolsExpanded}
-              setBbcodePreviewExpanded={setBbcodePreviewExpanded}
-            />
-          </div>
+          {!androidHost ? (
+            <div className="launcher-config-wide-panel">
+              <LauncherConfigurationMoreTools
+                debugEnabled={debugEnabled}
+                debugToolsExpanded={debugToolsExpanded}
+                forceNonPremium={forceNonPremium}
+                forceNonPremiumBusy={forceNonPremiumBusy}
+                forceOffline={forceOffline}
+                forceOfflineBusy={forceOfflineBusy}
+                bbcodePreviewExpanded={bbcodePreviewExpanded}
+                debugSimulationActive={debugSimulationActive}
+                onToggleDebugMode={onToggleDebugMode}
+                onToggleForceNonPremium={handleToggleForceNonPremium}
+                onToggleForceOffline={handleToggleForceOffline}
+                onClearLauncherImageCache={handleClearLauncherImageCache}
+                onStartDebugSimulation={downloads.startDebugSimulation}
+                setDebugToolsExpanded={setDebugToolsExpanded}
+                setBbcodePreviewExpanded={setBbcodePreviewExpanded}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

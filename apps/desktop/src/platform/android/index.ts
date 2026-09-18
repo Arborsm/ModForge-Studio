@@ -20,6 +20,26 @@ const ANDROID_PICK_FILE_COMMAND = 'android:pick_file'
 const ANDROID_PICK_DIRECTORY_COMMAND = 'android:pick_dir'
 /** Internal bridge command that opens the Android SAF document creator. */
 const ANDROID_CREATE_DOCUMENT_COMMAND = 'android:create_document'
+/** Internal bridge command that tints the native status/navigation bar strip to the app surface. */
+const ANDROID_SET_SYSTEM_BARS_COMMAND = 'android:set_system_bars'
+/** Internal bridge command that opens the built-in in-app browser overlay at a URL. */
+const ANDROID_OPEN_IN_APP_BROWSER_COMMAND = 'android:open_in_app_browser'
+/** Internal bridge command that proxies a minimal authenticated HTTP request for self-contained AI calls. */
+const ANDROID_AI_REQUEST_COMMAND = 'android:ai_request'
+
+/**
+ * Host event the in-app browser pushes when it captures a file download:
+ * the archive landed in the download directory and, when enabled, was
+ * installed into Mods by the native host.
+ */
+export const ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT = 'android:in-app-browser-download'
+
+export type AndroidInAppBrowserDownloadPayload = {
+  status: 'completed' | 'failed'
+  fileName: string
+  installed: boolean
+  message?: string | null
+}
 
 /** Minimal shape of the `modforgeBridge` object injected by the Android WebView host. */
 type ModForgeBridge = {
@@ -46,6 +66,120 @@ export function notifyAndroidBackHandled() {
   }
 
   window.modforgeBridge?.backHandled()
+}
+
+let systemBarSyncInstalled = false
+
+/** Reads the resolved app-window surface color and derives the native bar appearance from it. */
+function readAppSurfaceAppearance(): { hex: string; lightBars: boolean } | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const surface = document.querySelector('.app-window-frame') ?? document.body
+  const raw = getComputedStyle(surface).backgroundColor
+  const match = /rgba?\(\s*(\d+)[, ]+(\d+)[, ]+(\d+)/.exec(raw)
+  if (!match) {
+    return null
+  }
+
+  const channels = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const hex = `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+  // WCAG relative-luminance shortcut is enough to pick readable system-bar icons.
+  const luminance = (0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]) / 255
+  return { hex, lightBars: luminance > 0.5 }
+}
+
+/**
+ * Pushes the app surface color and system-bar icon appearance to the native
+ * host so the status-bar strip above the WebView reads as one continuous
+ * background. Hosts without the command keep their default light chrome.
+ */
+export function syncAndroidSystemBars() {
+  if (!isAndroidHost()) {
+    return
+  }
+
+  const appearance = readAppSurfaceAppearance()
+  if (!appearance) {
+    return
+  }
+
+  void invokeBridgeCommand(ANDROID_SET_SYSTEM_BARS_COMMAND, appearance).catch(() => {
+    // Cosmetic chrome: older hosts and the browser dev mock legitimately have no handler.
+  })
+}
+
+/**
+ * Installs the Android system-bar sync: one immediate push plus a MutationObserver
+ * that re-pushes whenever the theme (`data-theme`) or dark toggle (`class`) changes.
+ * No-op outside the Android host.
+ */
+export function installAndroidSystemBarSync() {
+  if (!isAndroidHost() || systemBarSyncInstalled || typeof document === 'undefined') {
+    return
+  }
+
+  systemBarSyncInstalled = true
+  syncAndroidSystemBars()
+  const observer = new MutationObserver(() => syncAndroidSystemBars())
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
+}
+
+/**
+ * Opens the built-in in-app browser overlay at an absolute http(s) URL.
+ * The overlay runs inside the launcher host; rejected when the current
+ * runtime is not the Android WebView host.
+ */
+export async function openAndroidInAppBrowser(url: string): Promise<void> {
+  assertAndroidHost()
+  await invokeBridgeCommand(ANDROID_OPEN_IN_APP_BROWSER_COMMAND, { url })
+}
+
+export type AndroidAiResponse = {
+  statusCode: number
+  body: string
+}
+
+/**
+ * Pipes a minimal provider request through the native host's HTTP proxy. Used by
+ * the launcher's self-contained AI features (game-log error analysis): the launcher
+ * builds the provider request from the workbench AI profile and only the HTTP hop
+ * crosses the bridge; when `profileId` is set, the native side attaches the stored
+ * credential so API keys never reach JavaScript. Rejected when the current runtime
+ * is not the Android WebView host.
+ */
+export async function androidAiRequest(request: {
+  profileId?: string
+  url: string
+  method: 'GET' | 'POST'
+  headers?: Record<string, string>
+  body?: string
+}): Promise<AndroidAiResponse> {
+  assertAndroidHost()
+  return invokeBridgeCommand<AndroidAiResponse>(ANDROID_AI_REQUEST_COMMAND, { ...request })
+}
+
+/**
+ * Subscribes to in-app browser download events. Fires when the native overlay
+ * captures a file download and finishes (or fails) fetching it into the app's
+ * download directory. Returns the unsubscribe callback.
+ */
+export function listenToAndroidInAppBrowserDownload(listener: (payload: AndroidInAppBrowserDownloadPayload) => void): () => void {
+  installDispatchSink()
+  const listeners = eventListeners.get(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT) ?? new Set<(payload: unknown) => void>()
+  listeners.add(listener as (payload: unknown) => void)
+  eventListeners.set(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT, listeners)
+  return () => {
+    const currentListeners = eventListeners.get(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT)
+    if (!currentListeners) {
+      return
+    }
+    currentListeners.delete(listener as (payload: unknown) => void)
+    if (!currentListeners.size) {
+      eventListeners.delete(ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT)
+    }
+  }
 }
 
 function assertAndroidHost() {
