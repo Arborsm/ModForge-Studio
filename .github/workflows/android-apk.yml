@@ -148,7 +148,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.LIBS_TOKEN }}
         run: |
-          target="$GITHUB_WORKSPACE/../SMAPI-Android-1.6/src/DependenciesDll"
+          # The csproj resolves the DLLs via ..\..\SMAPI-Android-1.6 relative to
+          # modforge-android, i.e. as a sibling of the Studio checkout.
+          target="$GITHUB_WORKSPACE/SMAPI-Android-1.6/src/DependenciesDll"
           mkdir -p "$target"
           gh release download dependencies-dll \
             --repo Arborsm/modforge-private-libs \
