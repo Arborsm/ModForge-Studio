@@ -45,7 +45,6 @@ import { LauncherDiscoverCard } from './LauncherDiscoverCard'
 import { LauncherDiscoverFilterSheet } from './LauncherDiscoverFilterSheet'
 import { usePullToRefresh } from './mobile/usePullToRefresh'
 import { MobilePullToRefreshIndicator } from './mobile/MobilePullToRefreshIndicator'
-import { MobileSheet } from './mobile/MobileSheet'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 import {
@@ -851,6 +850,7 @@ function LauncherDiscoverPageContent({
     discover.filters.language,
     discover.filters.tagsInclude,
     discover.filters.tagsExclude,
+    androidHost ? 'feed' : discover.page,
     discover.filters.includeAdult ? 'adult' : 'standard',
     discover.filters.minFileSize,
     discover.filters.maxFileSize,
@@ -1028,14 +1028,6 @@ function LauncherDiscoverPageContent({
     setJumpPageDraft('')
   }
 
-  // The phone jump sheet reuses the retired inline jump form's draft state.
-  const submitJumpPageFromSheet = () => {
-    if (jumpPageDirty) {
-      submitJumpPage()
-    }
-    setJumpSheetOpen(false)
-  }
-
   const handleBlockedRetry = async () => {
     if (blockedRetryPending) {
       return
@@ -1116,8 +1108,54 @@ function LauncherDiscoverPageContent({
   }, [routeActive])
 
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
-  const [jumpSheetOpen, setJumpSheetOpen] = useState(false)
+  // Android host feeds the wall by appending each fetched page so the phone
+  // scrolls infinitely instead of paginating; desktop keeps page switches.
+  const [feedItems, setFeedItems] = useState<DiscoverItem[]>([])
+  const [feedPage, setFeedPage] = useState(1)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const discoverScrollHostRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    if (discover.page <= 1) {
+      setFeedItems(discover.items)
+      setFeedPage(1)
+      return
+    }
+    if (discover.page > feedPage) {
+      setFeedPage(discover.page)
+      setFeedItems((current) => {
+        const seen = new Set(current.map((item) => item.modId))
+        return [...current, ...discover.items.filter((item) => !seen.has(item.modId))]
+      })
+    }
+  }, [androidHost, discover.items, discover.page, feedPage])
+
+  // Infinite scroll: when the sentinel under the wall approaches the viewport,
+  // fetch the next page. goToNextPage guards its own concurrency (no-op while
+  // a request is in flight or the last page is reached).
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    const viewport = resultsViewportRef.current
+    const sentinel = loadMoreRef.current
+    if (!viewport || !sentinel) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && discover.state === 'ready' && discover.hasMore) {
+          discover.goToNextPage()
+        }
+      },
+      { root: viewport, rootMargin: '800px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [androidHost, discover])
   const pullToRefresh = usePullToRefresh({
     hostRef: discoverScrollHostRef,
     scrollSelector: '.launcher-discover-results-viewport',
@@ -1629,7 +1667,7 @@ function LauncherDiscoverPageContent({
               >
                 <div className="launcher-discover-wall-shell">
                   <div key={resultsRevealKey} className="launcher-discover-wall">
-                    {discover.items.map((item, index) => (
+                    {(androidHost ? feedItems : discover.items).map((item, index) => (
                       <LoadingMotionRevealItem
                         key={`${item.modId}:${item.modUrl}`}
                         index={Math.floor(index / 4) + 1}
@@ -1675,9 +1713,21 @@ function LauncherDiscoverPageContent({
                     </div>
                   ) : null}
                 </div>
+
+                {/* The infinite-scroll sentinel lives inside the scrolling
+                 viewport so the observer fires when it approaches the fold. */}
+                {androidHost ? (
+                  <div ref={loadMoreRef} className="launcher-discover-load-more" data-guide="launcher-discover-load-more">
+                    {discover.state === 'loading' && discover.page > 1 ? (
+                      <span className="launcher-discover-load-more-spinner" role="status" aria-label={copy.discover.loadingResultsLabel} />
+                    ) : !discover.hasMore && feedItems.length > 0 ? (
+                      <span className="launcher-discover-load-more-end">{copy.discover.mobile.endOfResults}</span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
-              {discover.items.length ? (
+              {!androidHost && discover.items.length ? (
                 <div ref={paginationRef} className="launcher-discover-pagination">
                   <button
                     type="button"
@@ -1715,16 +1765,6 @@ function LauncherDiscoverPageContent({
                   </div>
 
                   <div className="launcher-discover-pagination-trailing">
-                    {androidHost ? (
-                      <button
-                        type="button"
-                        className="launcher-discover-pagination-jump-trigger"
-                        aria-label={copy.discover.jumpToPage}
-                        onClick={() => setJumpSheetOpen(true)}
-                      >
-                        {discover.page} / {discover.totalPages}
-                      </button>
-                    ) : null}
                     <button
                       type="button"
                       className="launcher-discover-pagination-button"
@@ -1767,41 +1807,6 @@ function LauncherDiscoverPageContent({
 
           {androidHost && routeActive ? (
             <LauncherDiscoverFilterSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} discover={discover} />
-          ) : null}
-          {androidHost && routeActive ? (
-            <MobileSheet
-              open={jumpSheetOpen}
-              onClose={() => setJumpSheetOpen(false)}
-              title={copy.discover.mobile.jumpSheetTitle}
-              presentation="dialog"
-              className="mobile-jump-sheet"
-            >
-              <input
-                aria-label={copy.discover.jumpToPage}
-                className="control-input mobile-jump-input"
-                value={jumpPageValue}
-                autoFocus
-                onFocus={(event) => event.target.select()}
-                onChange={(event) => {
-                  setJumpPageDirty(true)
-                  setJumpPageDraft(event.target.value)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    submitJumpPageFromSheet()
-                  }
-                }}
-                inputMode="numeric"
-              />
-              <div className="mobile-jump-actions">
-                <button type="button" className="mobile-jump-cancel" onClick={() => setJumpSheetOpen(false)}>
-                  {copy.discover.mobile.jumpCancel}
-                </button>
-                <button type="button" className="mobile-jump-submit" onClick={submitJumpPageFromSheet}>
-                  {copy.discover.mobile.jumpConfirm}
-                </button>
-              </div>
-            </MobileSheet>
           ) : null}
           {detailModId != null ? (
             <LauncherDiscoverDetailPanel
