@@ -125,9 +125,12 @@
     width: auto;
   }
 
-  /* The viewport's desktop padding would double the feed gutter. */
+  /* The viewport's desktop padding would double the feed gutter; the phone
+     keeps only a 4px bleed so the outermost card's border and shadow never
+     sit flush on the overflow clip boundary (a fractional edge there crops
+     the outermost sliver). The JS column math subtracts this padding. */
   .launcher-library-grid-viewport {
-    padding-inline: 0;
+    padding-inline: 0.25rem;
   }
 
   .launcher-library-grid-reveal {
@@ -511,7 +514,10 @@
 
   .launcher-discover-results-viewport {
     overflow-x: hidden;
-    padding-right: 0;
+    /* Same 4px clip bleed as the library grid: the feed's last card column
+       would otherwise sit flush on the overflow clip boundary and lose the
+       outermost border/shadow sliver on fractional widths. */
+    padding-inline: 0.25rem;
   }
 
   .launcher-discover-console-actions {
