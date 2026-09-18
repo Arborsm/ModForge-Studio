@@ -1288,17 +1288,22 @@ function getSmapiUpdateStatusLabel(status: SmapiUpdateCardStatus, copy: SmapiUpd
 function ConfigSmapiUpdateCard({
   copy,
   gamePath,
+  androidHost = false,
   onRuntimeInfoRefreshed,
 }: {
   copy: LauncherCopy
   gamePath: string | null
+  androidHost?: boolean
   onRuntimeInfoRefreshed?: (info: LauncherRuntimeInfo) => void
 }) {
-  const smapiUpdate = useSmapiUpdate({ gamePath, onRuntimeInfoRefreshed })
+  const smapiUpdate = useSmapiUpdate({ gamePath, pathsManagedByHost: androidHost, onRuntimeInfoRefreshed })
   const status = smapiUpdate.status
   const smapiCopy = copy.configuration.smapiUpdate
   const tone = getSmapiUpdateStatusTone(status)
-  const statusLabel = getSmapiUpdateStatusLabel(status, smapiCopy)
+  // The Android host reports a missing SMAPI as installedVersion "0.0.0" with an
+  // update available; surface that as a fresh-install state instead of an update.
+  const freshInstall = status.kind === 'update-available' && status.installedVersion === '0.0.0'
+  const statusLabel = freshInstall ? smapiCopy.statusNotInstalled : getSmapiUpdateStatusLabel(status, smapiCopy)
   const requiredByModsTooltip =
     status.kind === 'update-available' && status.requiredByMods.length
       ? status.requiredByMods.map((mod) => smapiCopy.requiredByModsTooltip(mod.modName, mod.minimumApiVersion)).join('\n')
@@ -1346,7 +1351,9 @@ function ConfigSmapiUpdateCard({
         ) : null}
         {status.kind === 'update-available' ? (
           <div className="launcher-config-smapi-update-detail">
-            <p className="launcher-config-smapi-detail">{smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}</p>
+            <p className="launcher-config-smapi-detail">
+              {freshInstall ? smapiCopy.notInstalledDetail : smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}
+            </p>
             <p className="launcher-config-smapi-hint">{smapiCopy.latestStableHint(status.latestStableVersion)}</p>
             {status.versionSource === 'nexus' ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusSourceHint}</p> : null}
             {status.requiredByMods.length ? (
@@ -1424,7 +1431,7 @@ function ConfigSmapiUpdateCard({
               onClick={() => void smapiUpdate.startInstall()}
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{smapiCopy.updateAction}</span>
+              <span>{freshInstall ? smapiCopy.installAction : smapiCopy.updateAction}</span>
             </button>
           ) : null}
           {status.kind === 'update-available' && actionMode === 'nexus' ? (
@@ -1443,7 +1450,7 @@ function ConfigSmapiUpdateCard({
               <span>{smapiCopy.rescanAction}</span>
             </button>
           ) : null}
-          {status.kind === 'update-available' ? (
+          {status.kind === 'update-available' && !androidHost ? (
             <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.pickLocalInstaller()}>
               <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{smapiCopy.pickLocalAction}</span>
@@ -1887,15 +1894,14 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            {!androidHost ? (
-              <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
-                <ConfigSmapiUpdateCard
-                  copy={copy}
-                  gamePath={settingsState.settings.gamePath}
-                  onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
-                />
-              </LoadingMotionReveal>
-            ) : null}
+            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+              <ConfigSmapiUpdateCard
+                copy={copy}
+                gamePath={settingsState.settings.gamePath}
+                androidHost={androidHost}
+                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+              />
+            </LoadingMotionReveal>
 
             {/* The Android host manages game/mods/download paths inside its own
                app data, so the desktop Paths & Storage panel has nothing to

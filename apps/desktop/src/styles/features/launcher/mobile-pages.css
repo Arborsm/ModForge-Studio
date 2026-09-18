@@ -500,4 +500,31 @@
     font-size: 0.8125rem;
     line-height: 1.5;
   }
+
+  /* SMAPI update/install card: match the other card sections — compact head,
+     full-width stacked actions with touch-sized targets. */
+  .launcher-config-smapi-update .launcher-config-panel-head {
+    padding: 0.875rem 1.125rem 0.625rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
+  }
+
+  .launcher-config-smapi-update .launcher-config-panel-head h2 {
+    font-size: 0.9375rem;
+    font-weight: 800;
+  }
+
+  .launcher-config-smapi-update .launcher-config-smapi-body {
+    padding: 0.75rem 1.125rem 1rem;
+  }
+
+  .launcher-config-smapi-update .launcher-config-smapi-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .launcher-config-smapi-update .launcher-config-smapi-actions .launcher-config-button {
+    min-height: 2.75rem;
+    justify-content: center;
+  }
 }

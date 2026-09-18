@@ -328,6 +328,7 @@ const configuration: LauncherConfigurationCopy = {
       title: 'SMAPI Update',
       subtitle: 'Check the installed SMAPI version and update the mod loader when a newer version is required.',
       statusNotConfigured: 'Not configured',
+      statusNotInstalled: 'Not installed',
       statusChecking: 'Checking…',
       statusUpToDate: 'Up to date',
       statusUpdateAvailable: 'Update available',
@@ -336,6 +337,7 @@ const configuration: LauncherConfigurationCopy = {
       statusCheckFailed: 'Check failed',
       statusInstallFailed: 'Install failed',
       notConfiguredDetail: 'Configure the Stardew Valley game path above to detect the installed SMAPI version.',
+      notInstalledDetail: 'SMAPI is not installed yet. Install it below to enable mods — download and setup are fully automatic.',
       checkingDetail: 'Checking the installed SMAPI version...',
       upToDateDetail: (installedVersion, gameVersion) =>
         `SMAPI ${installedVersion} is installed and matches the version required by game ${gameVersion}.`,
@@ -345,6 +347,7 @@ const configuration: LauncherConfigurationCopy = {
       requiredByModsSummary: (count) => `${count} installed mod${count === 1 ? '' : 's'} require${count === 1 ? 's' : ''} a newer SMAPI`,
       requiredByModsTooltip: (modName, minimumApiVersion) => `${modName} (requires SMAPI ${minimumApiVersion})`,
       updateAction: 'Update SMAPI',
+      installAction: 'Install SMAPI',
       retryAction: 'Retry check',
       cancelAction: 'Cancel download',
       checkFailedFallback: 'Failed to check the SMAPI version.',

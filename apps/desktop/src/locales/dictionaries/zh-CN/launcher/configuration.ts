@@ -322,6 +322,7 @@ const configuration: LauncherConfigurationCopy = {
       title: 'SMAPI 更新',
       subtitle: '检测已安装的 SMAPI 版本，并在需要更高版本时更新模组加载器。',
       statusNotConfigured: '未配置',
+      statusNotInstalled: '未安装',
       statusChecking: '检测中…',
       statusUpToDate: '已是最新',
       statusUpdateAvailable: '有可用更新',
@@ -330,6 +331,7 @@ const configuration: LauncherConfigurationCopy = {
       statusCheckFailed: '检测失败',
       statusInstallFailed: '安装失败',
       notConfiguredDetail: '请先在上方配置 Stardew Valley 游戏路径，才能检测已安装的 SMAPI 版本。',
+      notInstalledDetail: '尚未安装 SMAPI。请在下方一键下载安装，即可启用模组。',
       checkingDetail: '正在检测已安装的 SMAPI 版本...',
       upToDateDetail: (installedVersion, gameVersion) => `已安装 SMAPI ${installedVersion}，满足游戏 ${gameVersion} 所需的版本要求。`,
       updateAvailableDetail: (installedVersion, targetVersion) =>
@@ -338,6 +340,7 @@ const configuration: LauncherConfigurationCopy = {
       requiredByModsSummary: (count) => `${count} 个已安装模组需要更新的 SMAPI`,
       requiredByModsTooltip: (modName, minimumApiVersion) => `${modName}（需要 SMAPI ${minimumApiVersion}）`,
       updateAction: '更新 SMAPI',
+      installAction: '安装 SMAPI',
       retryAction: '重新检测',
       cancelAction: '取消下载',
       checkFailedFallback: 'SMAPI 版本检测失败。',

@@ -279,6 +279,8 @@ export type LauncherConfigurationCopy = {
       title: string
       subtitle: string
       statusNotConfigured: string
+      /** Android fresh-install state: the host reports installedVersion "0.0.0". */
+      statusNotInstalled: string
       statusChecking: string
       statusUpToDate: string
       statusUpdateAvailable: string
@@ -287,6 +289,8 @@ export type LauncherConfigurationCopy = {
       statusCheckFailed: string
       statusInstallFailed: string
       notConfiguredDetail: string
+      /** Fresh-install guidance shown when the host reports SMAPI as not installed. */
+      notInstalledDetail: string
       checkingDetail: string
       upToDateDetail: (installedVersion: string, gameVersion: string) => string
       updateAvailableDetail: (installedVersion: string, targetVersion: string) => string
@@ -294,6 +298,8 @@ export type LauncherConfigurationCopy = {
       requiredByModsSummary: (count: number) => string
       requiredByModsTooltip: (modName: string, minimumApiVersion: string) => string
       updateAction: string
+      /** Primary action label for the Android fresh-install flow. */
+      installAction: string
       retryAction: string
       cancelAction: string
       checkFailedFallback: string
