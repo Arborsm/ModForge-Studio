@@ -1,0 +1,216 @@
+name: Android APK Build
+
+on:
+  push:
+    branches:
+      - master
+      - feat/android-host
+  workflow_dispatch:
+    inputs:
+      android_ref:
+        description: modforge-android branch/ref supplying the C# host
+        default: feat/modforge-shell
+
+permissions:
+  # The rolling ci-latest pre-release step uploads the built APK as a release
+  # asset so downloads are the APK itself instead of an artifact zip.
+  contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+# The compile step needs three game-derived reference DLLs that cannot be
+# committed (ModForge NOTICE: zero game files). They are downloaded from the
+# PRIVATE Arborsm/modforge-private-libs release `dependencies-dll` using a
+# fine-grained PAT stored as the LIBS_TOKEN secret (read-only Contents on
+# that repository). Without LIBS_TOKEN the job fails fast with setup
+# instructions instead of a confusing compile error.
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ANDROID_REF: ${{ github.event.inputs.android_ref || 'feat/modforge-shell' }}
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  apk:
+    name: Build APK
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check LIBS_TOKEN
+        id: libs
+        env:
+          LIBS_TOKEN: ${{ secrets.LIBS_TOKEN }}
+        run: |
+          if [ -z "$LIBS_TOKEN" ]; then
+            echo "::error::Secret LIBS_TOKEN is not set on ModForge-Studio. Create a fine-grained PAT (read-only Contents on Arborsm/modforge-private-libs) and add it as a repository secret here. The compile step needs the game-derived DependenciesDll from that private release."
+            exit 1
+          fi
+          echo "token=ok" >> "$GITHUB_OUTPUT"
+
+      # The front-end being built IS this repository, so the checked-out ref
+      # is the studio ref; the C# host comes from the android repo.
+      - name: Checkout ModForge Studio (front-end)
+        uses: actions/checkout@v4
+
+      - name: Checkout modforge-android (C# host)
+        uses: actions/checkout@v4
+        with:
+          repository: Arborsm/modforge-android
+          ref: ${{ env.ANDROID_REF }}
+          path: modforge-android
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Build web front-end
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # Assets/www is a build product and is NOT tracked (see modforge-android
+      # .gitignore); create it before copying the fresh dist in.
+      - name: Embed front-end into APK assets
+        run: |
+          mkdir -p modforge-android/SMAPIGameLoader/Assets/www
+          rm -rf modforge-android/SMAPIGameLoader/Assets/www/*
+          cp -r apps/desktop/dist/. modforge-android/SMAPIGameLoader/Assets/www/
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install Android workload (9.0 band via repo global.json)
+        working-directory: modforge-android
+        run: dotnet workload install android
+
+      - name: Ensure Android SDK platform 35
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" >/dev/null
+
+      # -r android-arm64 forces the Mono runtime pack (incl. libmonosgen-2.0.so)
+      # into the local dotnet pack store so the reflection-unlock patch that
+      # follows can overwrite it before the APK build embeds it.
+      - name: Restore .NET dependencies (downloads the Mono runtime pack)
+        working-directory: modforge-android
+        run: dotnet restore SMAPIGameLoader/SMAPIGameLoader.csproj -r android-arm64
+
+      - name: Patch Mono runtime with reflection unlock (SharedLibs custom libmonosgen)
+        working-directory: modforge-android
+        run: |
+          # Runtime packs land under the active dotnet root (setup-dotnet uses
+          # /usr/share/dotnet); $HOME/.dotnet is only for portable user installs.
+          pack_dir=""
+          for root in "${DOTNET_ROOT:-/usr/share/dotnet}" "$HOME/.dotnet"; do
+            if [ -d "$root/packs/Microsoft.NETCore.App.Runtime.Mono.android-arm64" ]; then
+              pack_dir="$root/packs/Microsoft.NETCore.App.Runtime.Mono.android-arm64"
+              break
+            fi
+          done
+          if [ -z "$pack_dir" ]; then
+            echo "::error::Mono android-arm64 runtime pack was not restored. dotnet restore -r android-arm64 must run before this step."
+            exit 1
+          fi
+          shopt -s nullglob
+          for so in "$pack_dir"/*/runtimes/android-arm64/native/libmonosgen-2.0.so; do
+            if ! cmp -s "$so" SharedLibs/native/arm64-v8a/libmonosgen-2.0.so; then
+              cp "$so" "$so.stock.bak"
+              cp SharedLibs/native/arm64-v8a/libmonosgen-2.0.so "$so"
+              echo "patched $so"
+            fi
+          done
+          shopt -u nullglob
+          count=$(find "$pack_dir" -name 'libmonosgen-2.0.so' ! -name '*.bak' -size +3115000c | wc -l)
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No runtime pack libmonosgen was patched; the APK would embed the stock Mono runtime and SMAPI reflection would fail on device."
+            exit 1
+          fi
+
+      - name: Download DependenciesDll (private release asset)
+        env:
+          GH_TOKEN: ${{ secrets.LIBS_TOKEN }}
+        run: |
+          target="$GITHUB_WORKSPACE/../SMAPI-Android-1.6/src/DependenciesDll"
+          mkdir -p "$target"
+          gh release download dependencies-dll \
+            --repo Arborsm/modforge-private-libs \
+            --pattern "DependenciesDll.zip" \
+            --dir "$target" \
+            --clobber
+          cd "$target"
+          unzip -o DependenciesDll.zip
+          ls -la
+
+      - name: Build APK (Release)
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        working-directory: modforge-android
+        run: dotnet build SMAPIGameLoader/SMAPIGameLoader.csproj -c Release -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      - name: Stamp this run
+        run: echo "APK_STAMP=$(date -u +%Y%m%d-%H%M%S)" >> "$GITHUB_ENV"
+
+      - name: Verify embedded Mono runtime is the reflection-unlocked build
+        working-directory: modforge-android
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          apk = zipfile.ZipFile(next(iter(__import__('glob').glob('SMAPIGameLoader/bin/Release/net9.0-android/*-Signed.apk'))))
+          info = apk.getinfo('lib/arm64-v8a/libmonosgen-2.0.so')
+          print('embedded libmonosgen size:', info.file_size)
+          assert info.file_size != 3110072, 'stock Mono runtime embedded - the pack patch did not apply'
+          PY
+
+      # upload-artifact always wraps files in a zip, so the direct APK download
+      # lives on a rolling ci-latest pre-release with a timestamped asset name;
+      # each successful run adds one asset and prunes down to the newest five.
+      # The APK is renamed on disk first because gh's file#name syntax is not
+      # reliable across runner gh versions.
+      - name: Publish APK to the rolling ci-latest pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: modforge-android
+        run: |
+          set -euo pipefail
+          built="$(ls SMAPIGameLoader/bin/Release/net9.0-android/*-Signed.apk)"
+          asset="modforge-android-${APK_STAMP}-run${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.apk"
+          cp "$built" "$asset"
+          if ! gh release view ci-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create ci-latest --repo "$GITHUB_REPOSITORY" \
+              --title "CI latest APK" \
+              --notes "Rolling CI build. The newest APK asset reflects the latest successful run (front-end from ${GITHUB_REF_NAME}, host from ${ANDROID_REF}); older assets are pruned to the last five." \
+              --prerelease
+          fi
+          gh release upload ci-latest "$asset" --repo "$GITHUB_REPOSITORY"
+          rm -f "$asset"
+          gh release view ci-latest --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets | sort_by(.createdAt) | reverse | .[5:] | .[].name' \
+            | while read -r old_asset; do
+                gh release delete-asset ci-latest "$old_asset" --repo "$GITHUB_REPOSITORY" --yes
+              done
+          echo "published APK asset: $asset"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modforge-android-apk-${{ github.run_number }}-${{ env.APK_STAMP }}
+          path: modforge-android/SMAPIGameLoader/bin/Release/net9.0-android/*-Signed.apk
+          if-no-files-found: error
