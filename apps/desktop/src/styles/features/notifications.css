@@ -689,7 +689,10 @@
     min-width: 0 !important;
     border-radius: 1.25rem;
     border-color: color-mix(in srgb, var(--border-color) 82%, transparent);
-    background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+    /* Near-opaque material: at 78% the page content bled through and washed
+       out the message text; 94% keeps the frosted feel while staying readable
+       over any page. */
+    background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
     -webkit-backdrop-filter: blur(1.5rem) saturate(1.6);
     backdrop-filter: blur(1.5rem) saturate(1.6);
     padding: 0.7rem 0.95rem;
