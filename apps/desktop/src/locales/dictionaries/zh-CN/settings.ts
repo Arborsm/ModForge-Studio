@@ -573,6 +573,7 @@ const settings: SettingsMenuCopy = {
     interaction: '通知与操作反馈。',
     launcher: '游戏路径、下载默认值和 Nexus 凭据。',
     ai: '默认引擎、档案、语义索引与用量。未保存变更会锁定测试与刷新。',
+    aiAndroid: '翻译引擎档案。未保存变更会锁定测试与刷新。',
     debug: '诊断覆盖层、调试通知与日志。',
   },
 }

@@ -519,6 +519,8 @@ export type SettingsMenuCopy = {
     interaction: string
     launcher: string
     ai: string
+    /** Android host copy: the launcher ships machine translation only, so the description must not mention hidden surfaces. */
+    aiAndroid: string
     debug: string
   }
 }

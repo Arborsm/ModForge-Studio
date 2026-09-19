@@ -587,7 +587,9 @@ export default function SettingsWindow({
                         </span>
                         <span className="settings-mobile-category-copy">
                           <span className="settings-mobile-category-name">{categories[categoryId]}</span>
-                          <span className="settings-mobile-category-desc">{categoryDescriptions[categoryId]}</span>
+                          <span className="settings-mobile-category-desc">
+                            {categoryId === 'ai' && androidHost ? categoryDescriptions.aiAndroid : categoryDescriptions[categoryId]}
+                          </span>
                         </span>
                         <ChevronRight className="settings-mobile-category-chevron" aria-hidden="true" />
                       </button>

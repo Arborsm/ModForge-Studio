@@ -596,6 +596,7 @@ const settings: SettingsMenuCopy = {
     interaction: 'Notifications and interaction feedback.',
     launcher: 'Game paths, download defaults, and Nexus credentials.',
     ai: 'Default engine, profiles, semantic index, and usage. Unsaved changes lock tests and refresh.',
+    aiAndroid: 'Translation engine profiles. Unsaved changes lock tests and refresh.',
     debug: 'Diagnostics overlays, debug notifications, and logs.',
   },
 }
