@@ -626,7 +626,7 @@ export function AiSettingsPanel({
         <div className="settings-ai-chrome">
           <header className="settings-window-page-head settings-ai-page-head">
             <div>
-              <h2>{settingsCategories.ai}</h2>
+              <h2>{isAndroidHost() ? copy.tabs.machineTranslation : settingsCategories.ai}</h2>
               <p>{isAndroidHost() ? categoryDescriptions.aiAndroid : categoryDescriptions.ai}</p>
             </div>
           </header>

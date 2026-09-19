@@ -193,6 +193,10 @@ export default function SettingsWindow({
   const title = settingsCopy.title
   const categories = settingsCopy.categories
   const categoryDescriptions = settingsCopy.categoryDescriptions
+  // Android host ships machine translation only — an "AI" category label
+  // promises generative AI, so the label follows the actual content.
+  const categoryLabel = (categoryId: SettingsWindowCategory) =>
+    androidHost && categoryId === 'ai' ? settingsCopy.ai.tabs.machineTranslation : categories[categoryId]
   const themeLabel = settingsCopy.themeLabel
   const resetThemeLabel = settingsCopy.resetThemeLabel
   const groups = settingsCopy.groups
@@ -489,7 +493,7 @@ export default function SettingsWindow({
           <header className="settings-window-header">
             {androidHost ? (
               <h1 className="settings-window-title" id="settings-window-title">
-                {mobilePaneSelected ? categories[activeCategory] : title}
+                {mobilePaneSelected ? categoryLabel(activeCategory) : title}
               </h1>
             ) : (
               <div className="settings-window-header-brand">
@@ -586,7 +590,7 @@ export default function SettingsWindow({
                           <CategoryIcon className="h-5 w-5" />
                         </span>
                         <span className="settings-mobile-category-copy">
-                          <span className="settings-mobile-category-name">{categories[categoryId]}</span>
+                          <span className="settings-mobile-category-name">{categoryLabel(categoryId)}</span>
                           <span className="settings-mobile-category-desc">
                             {categoryId === 'ai' && androidHost ? categoryDescriptions.aiAndroid : categoryDescriptions[categoryId]}
                           </span>
