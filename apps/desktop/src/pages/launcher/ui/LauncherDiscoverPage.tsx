@@ -921,6 +921,12 @@ function LauncherDiscoverPageContent({
   }, [discover.items.length])
 
   useEffect(() => {
+    // Android host: the infinite feed shows skeleton cards at the tail while a
+    // page appends, so the progress banner is redundant — on a phone it drops
+    // over the content on every single scroll fetch.
+    if (androidHost) {
+      return
+    }
     if (discover.state === 'loading') {
       appEvent('info', copy.discover.title)
         .description(loadingDescription)
@@ -933,6 +939,7 @@ function LauncherDiscoverPageContent({
 
     dismissNotification(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
   }, [
+    androidHost,
     copy.discover.loadingPage,
     copy.discover.loadingResults,
     copy.discover.title,

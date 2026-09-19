@@ -3,6 +3,7 @@ import { getStageMetadataCacheStats } from '@entities/event'
 import { getGameAssetCacheStats } from '@entities/game/api'
 import { getModApiCacheStats } from '@entities/mod/api'
 import { clearFileCache, canUseDesktopHost, getFileCacheStats, printHostRuntimeDiagnostics, type FileCacheStats } from '@platform/host'
+import { isAndroidHost } from '@platform/android'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import { formatBytes } from '@shared/lib/formatting'
 import { useEditorCopy } from '@locales/provider'
@@ -43,6 +44,14 @@ function getMinDevDebugOverlayY() {
 }
 
 function createInitialDevDebugOverlayPosition() {
+  if (isAndroidHost()) {
+    // Park the pill above the bottom nav; the default top slot covers the
+    // page header card on a phone.
+    return {
+      x: 20,
+      y: Math.max(80, window.innerHeight - 260),
+    }
+  }
   return {
     x: 20,
     y: Math.max(fallbackInitialDevDebugOverlayTopPx, getMinDevDebugOverlayY()),
@@ -122,7 +131,9 @@ export function DevDebugOverlay({
   contextMetrics: externalContextMetrics,
 }: DevDebugOverlayProps) {
   const contextSectionLabel = useEditorCopy().shell.modeLabel
-  const [collapsed, setCollapsed] = useState(false)
+  // On the Android host the expanded overlay covers the whole phone screen —
+  // start collapsed there and let the user expand it deliberately.
+  const [collapsed, setCollapsed] = useState(() => isAndroidHost())
   const [position, setPosition] = useState(createInitialDevDebugOverlayPosition)
   const [clearing, setClearing] = useState(false)
   const [refreshingFileCache, setRefreshingFileCache] = useState(false)
@@ -134,7 +145,9 @@ export function DevDebugOverlay({
   const dragPointerIdRef = useRef<number | null>(null)
   const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const { fps, frameTimeMs } = useFps()
-  const desktopHost = canUseDesktopHost()
+  // canUseHost is true for the Android bridge too, but the cache/runtime probes below
+  // are desktop-only commands — calling them there raises "not available" errors.
+  const desktopHost = canUseDesktopHost() && !isAndroidHost()
 
   useEffect(() => {
     let disposed = false

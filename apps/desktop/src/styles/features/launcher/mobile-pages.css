@@ -148,7 +148,7 @@
   position: fixed;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(4.375rem + var(--android-system-inset-bottom));
   z-index: 14;
   display: flex;
   align-items: center;
@@ -170,9 +170,10 @@
 }
 
 @media (max-width: 640px) {
-  /* Room for the pinned CTA above the bottom nav. */
+  /* Room for the pinned CTA above the bottom nav (same stack as the
+     library's launch dock). */
   .launcher-updates-list {
-    padding-bottom: 3.875rem;
+    padding-bottom: calc(8rem + var(--android-system-inset-bottom));
   }
 }
 
@@ -229,11 +230,39 @@
     border-bottom-width: 0.15625rem;
   }
 
+  /* One-row tab bar: the tab strip scrolls sideways when it outgrows the
+     viewport while the AI tools (translate) pin to the row's right edge —
+     the ≤1100px wrap that drops them onto a second line is a desktop
+     tablet rule and must not split the phone tab bar. */
+  .launcher-mod-detail-tabs-shell {
+    flex-wrap: nowrap;
+    gap: 0;
+    padding-block: 0;
+  }
+
+  .launcher-mod-detail-tabs {
+    min-width: 0;
+    overflow-x: auto;
+    gap: 0.875rem;
+    scrollbar-width: none;
+  }
+
+  .launcher-mod-detail-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .launcher-mod-detail-ai-tools {
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    padding-left: 0.5rem;
+  }
+
   /* Flush action bar: full-width strip with a top divider instead of the
      floating rounded capsule, so the bottom of the page has one clean edge. */
   .launcher-mod-detail-footer {
     margin: 0;
-    padding: 0.5rem 0.875rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.5rem 0.875rem calc(0.5rem + var(--android-system-inset-bottom));
     border: 0;
     border-top: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 0;
@@ -303,7 +332,7 @@
      an infinite scroll feed instead of this bar. */
   .launcher-discover-results-shell {
     gap: 0.5rem;
-    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(4.375rem + var(--android-system-inset-bottom));
   }
 
   .launcher-discover-pagination {
@@ -347,7 +376,7 @@
   align-items: center;
   justify-content: center;
   min-height: 3.5rem;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--android-system-inset-bottom);
 }
 
 .launcher-discover-load-more-spinner {
@@ -495,7 +524,9 @@
      the two action buttons split the row evenly, and the page pads itself
      clear of the nav and the system gesture bar. */
   .launcher-configuration-page {
-    padding: 0.75rem 0.875rem calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    /* The nav measures ~4.1rem tall with labels; 3.5rem left the last card
+       flush against it. */
+    padding: 0.75rem 0.875rem calc(4.75rem + var(--android-system-inset-bottom));
   }
 
   .launcher-configuration-page-header {
@@ -629,6 +660,30 @@
   .launcher-config-smapi-update .launcher-config-smapi-actions .launcher-config-button {
     min-height: 2.75rem;
     justify-content: center;
+  }
+
+  /* One card language across the page: the desktop accent-bar panel head
+     mixes with the plain small titles of the route/preferences cards and
+     reads as visual noise on a phone, so every section head collapses to
+     the same compact style. */
+  .launcher-configuration-page .launcher-config-panel-head {
+    min-height: 0;
+    padding: 0.875rem 1.125rem 0.625rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
+  }
+
+  .launcher-configuration-page .launcher-config-panel-head::before {
+    display: none;
+  }
+
+  .launcher-configuration-page .launcher-config-panel-head h2 {
+    font-size: 0.9375rem;
+    font-weight: 800;
+  }
+
+  /* Status pills never wrap mid-word on narrow rows. */
+  .launcher-configuration-page .launcher-config-status-tag {
+    white-space: nowrap;
   }
 
   /* Game-log error analysis dialog: raw error list + AI result / setup hint. */

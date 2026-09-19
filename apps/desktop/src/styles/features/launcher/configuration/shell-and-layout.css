@@ -59,7 +59,7 @@
      top-menu.css turns the launcher tab row into (≤640px block). */
   @media (max-width: 640px) {
     .launcher-shell-routed {
-      padding-bottom: calc(5.125rem + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(5.125rem + var(--android-system-inset-bottom));
     }
   }
 
