@@ -1,4 +1,4 @@
-import { androidAiRequest } from '@platform/android'
+import { ANDROID_ACTIVITY_RESUME_EVENT, androidAiRequest } from '@platform/android'
 import type { AndroidAiResponse } from '@platform/android'
 import { loadAiSettings } from '@platform/host/ai'
 import { getPlatformPorts } from '@platform/host/runtime'
@@ -48,6 +48,17 @@ export function loadGameLogCursor(): number | null {
 
 export function saveGameLogCursor(cursor: number) {
   getPlatformPorts().storage.setItem(CURSOR_STORAGE_KEY, String(cursor))
+}
+
+/**
+ * Subscribes to launcher-activity resume boundaries (returning from the game
+ * activity or another paused surface). The game task never finishes the
+ * launcher activity, so the web app does not remount on return; this event is
+ * the session boundary the mount-time log watch cannot see. Resolves to the
+ * unsubscribe callback once the platform listener is attached.
+ */
+export async function listenLauncherResume(callback: () => void): Promise<() => void> {
+  return getPlatformPorts().hostEvents.listen(ANDROID_ACTIVITY_RESUME_EVENT, callback)
 }
 
 /** Pipes one provider request through the native HTTP proxy; the stored credential is attached by profileId. */
