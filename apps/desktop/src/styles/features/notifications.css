@@ -651,9 +651,10 @@
 }
 
 /* ========================================================================== */
-/*  Phone: floating capsule below the status bar, like mature mobile apps. It  */
-/*  drops down into place, then slides back up and away — every toast retires  */
-/*  into the notification center, which is the only place history lives.       */
+/*  Phone: iOS-style banner below the status bar. A translucent material card  */
+/*  (rounded, blurred, desaturated) drops into place, then slides back up and  */
+/*  away — every toast retires into the notification center, the only place    */
+/*  history lives.                                                             */
 /* ========================================================================== */
 
 @media (max-width: 640px) {
@@ -677,20 +678,32 @@
   }
 
   .notification-stack-item[data-front='true'] .notification-toast {
-    /* Floating capsule: the desktop toast is a small rounded card anchored to
-       a corner; on the phone it becomes a pill that floats below the status
-       bar with side margins. The desktop stack choreography stamps measured
-       inline widths; the phone capsule sizes itself to the viewport, so those
-       measurements must lose. */
+    /* iOS banner: a translucent material card that drops from below the
+       status bar — rounded 20px, blurred, desaturated — instead of a tinted
+       capsule. The level color survives on the icon and title; the chrome
+       itself stays neutral like system banners. The desktop stack
+       choreography stamps measured inline widths; the phone banner sizes
+       itself to the viewport, so those measurements must lose. */
     width: auto !important;
     max-width: none !important;
     min-width: 0 !important;
-    border-radius: 999px;
-    padding: 0.8rem 1.15rem 0.9rem;
+    border-radius: 1.25rem;
+    border-color: color-mix(in srgb, var(--border-color) 82%, transparent);
+    background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+    -webkit-backdrop-filter: blur(1.5rem) saturate(1.6);
+    backdrop-filter: blur(1.5rem) saturate(1.6);
+    padding: 0.7rem 0.95rem;
     box-shadow:
-      0 0.375rem 1.5rem color-mix(in srgb, var(--surface-inverse) 24%, transparent),
-      0 0.125rem 0.375rem color-mix(in srgb, var(--surface-inverse) 12%, transparent);
+      0 0.5rem 1.75rem color-mix(in srgb, var(--surface-inverse) 22%, transparent),
+      0 0.0625rem 0.25rem color-mix(in srgb, var(--surface-inverse) 10%, transparent);
     animation-name: notification-toast-enter-top;
+  }
+
+  /* The desktop countdown bar and accent ring read as foreign chrome on a
+     system-style banner; the accent icon/title already carry the level. */
+  .notification-stack-item[data-front='true'] .notification-toast::before,
+  .notification-stack-item[data-front='true'] .notification-toast-progress-track {
+    display: none;
   }
 
   .notification-stack-item[data-front='true'] .notification-toast.is-closing {
