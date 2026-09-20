@@ -945,11 +945,15 @@
   }
 
   .settings-mobile-category-desc {
+    /* Two lines max: a one-line nowrap ellipsis cuts descriptions mid-word
+       ("Light/dark can b…") which reads as a rendering bug on a phone. */
+    display: -webkit-box;
     overflow: hidden;
     color: var(--text-secondary);
     font-size: 0.8125rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .settings-mobile-category-chevron {
