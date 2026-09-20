@@ -10,6 +10,8 @@ export type SettingsMenuCopy = {
     interaction: string
     launcher: string
     ai: string
+    /** Android host translation category label (AI + machine translation). */
+    aiAndroid: string
     debug: string
   }
   closeDialogLabel: string

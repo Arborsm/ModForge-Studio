@@ -193,10 +193,10 @@ export default function SettingsWindow({
   const title = settingsCopy.title
   const categories = settingsCopy.categories
   const categoryDescriptions = settingsCopy.categoryDescriptions
-  // Android host ships machine translation only — an "AI" category label
-  // promises generative AI, so the label follows the actual content.
+  // Android host labels the AI category "Translation": the pane holds the
+  // default-engine picker (AI vs machine translation) and both profile kinds.
   const categoryLabel = (categoryId: SettingsWindowCategory) =>
-    androidHost && categoryId === 'ai' ? settingsCopy.ai.tabs.machineTranslation : categories[categoryId]
+    androidHost && categoryId === 'ai' ? categories.aiAndroid : categories[categoryId]
   const themeLabel = settingsCopy.themeLabel
   const resetThemeLabel = settingsCopy.resetThemeLabel
   const groups = settingsCopy.groups

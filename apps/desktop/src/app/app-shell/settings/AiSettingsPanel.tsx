@@ -55,9 +55,11 @@ const AI_SETTINGS_TEST_NOTIFICATION_ID = 'ai-settings-connection-test'
 const AI_SETTINGS_MODELS_NOTIFICATION_ID = 'ai-settings-load-models'
 const AI_TABS = ['engine', 'generative', 'machine-translation', 'semantic', 'usage'] as const satisfies readonly AiSettingsTab[]
 
-/** Android host: the launcher ships machine translation only — generative AI,
- * semantic search, and usage are desktop workbench surfaces. */
-const ANDROID_HOST_TABS = ['machine-translation'] as const satisfies readonly AiSettingsTab[]
+/** Android host: the launcher ships translation settings — the default-engine
+ * picker (AI vs machine translation), generative AI profiles and machine
+ * translation profiles. Semantic search and usage stay desktop workbench
+ * surfaces. */
+const ANDROID_HOST_TABS = ['engine', 'generative', 'machine-translation'] as const satisfies readonly AiSettingsTab[]
 
 function profileNotificationId(profileId: string) {
   return `ai-settings-profile-${profileId}`
@@ -155,6 +157,14 @@ export function AiSettingsPanel({
         )
       })
       .catch(() => active && setError(copy.loadError))
+    // The Android AI request path has no translation-cache layer — probing its
+    // stats would raise an unimplemented-command banner for a feature that does
+    // not exist there.
+    if (isAndroidHost()) {
+      return () => {
+        active = false
+      }
+    }
     void ai
       .getCacheStats()
       .then((stats) => {
@@ -626,7 +636,7 @@ export function AiSettingsPanel({
         <div className="settings-ai-chrome">
           <header className="settings-window-page-head settings-ai-page-head">
             <div>
-              <h2>{isAndroidHost() ? copy.tabs.machineTranslation : settingsCategories.ai}</h2>
+              <h2>{isAndroidHost() ? settingsCategories.aiAndroid : settingsCategories.ai}</h2>
               <p>{isAndroidHost() ? categoryDescriptions.aiAndroid : categoryDescriptions.ai}</p>
             </div>
           </header>
@@ -828,21 +838,23 @@ export function AiSettingsPanel({
                 )}
               </div>
 
-              <div className="settings-window-group" style={{ marginTop: '1rem' }}>
-                <p className="settings-window-group-label">{copy.cacheTitle}</p>
-                <div className="settings-ai-cache-row">
-                  <div>
-                    <p className="row-title">{copy.cacheTitle}</p>
-                    <p className="row-desc">
-                      {copy.cacheStats(cacheStats.entryCount, formatBytes(Math.max(cacheStats.sizeBytes, 1)))}
-                      {cacheError ? ` · ${cacheError}` : null}
-                    </p>
+              {isAndroidHost() ? null : (
+                <div className="settings-window-group" style={{ marginTop: '1rem' }}>
+                  <p className="settings-window-group-label">{copy.cacheTitle}</p>
+                  <div className="settings-ai-cache-row">
+                    <div>
+                      <p className="row-title">{copy.cacheTitle}</p>
+                      <p className="row-desc">
+                        {copy.cacheStats(cacheStats.entryCount, formatBytes(Math.max(cacheStats.sizeBytes, 1)))}
+                        {cacheError ? ` · ${cacheError}` : null}
+                      </p>
+                    </div>
+                    <button type="button" className="settings-window-btn settings-window-btn-danger" onClick={() => void clearCache()}>
+                      {copy.clearCache}
+                    </button>
                   </div>
-                  <button type="button" className="settings-window-btn settings-window-btn-danger" onClick={() => void clearCache()}>
-                    {copy.clearCache}
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             <footer className="settings-ai-dock">

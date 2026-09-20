@@ -9,6 +9,7 @@ const settings: SettingsMenuCopy = {
     interaction: 'Interaction',
     launcher: 'Launcher',
     ai: 'AI',
+    aiAndroid: 'Translation',
     debug: 'Debug',
   },
   closeDialogLabel: 'Close dialog',
@@ -596,7 +597,7 @@ const settings: SettingsMenuCopy = {
     interaction: 'Notifications and interaction feedback.',
     launcher: 'Game paths, download defaults, and Nexus credentials.',
     ai: 'Default engine, profiles, semantic index, and usage. Unsaved changes lock tests and refresh.',
-    aiAndroid: 'Translation engine profiles. Unsaved changes lock tests and refresh.',
+    aiAndroid: 'Default engine, AI and machine translation profiles. Unsaved changes lock tests and refresh.',
     debug: 'Diagnostics overlays, debug notifications, and logs.',
   },
 }
