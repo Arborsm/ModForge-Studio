@@ -17,6 +17,7 @@ import { CompactSelect } from '@shared/ui/CompactSelect'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 import { dismissNotification } from '@shared/ui/notifications'
 import { appEvent } from '@platform/observability'
+import { isAndroidHost } from '@platform/android'
 
 const MT_TEST_NOTIFICATION = 'machine-translation-connection-test'
 const MT_LANG_NOTIFICATION = 'machine-translation-load-languages'
@@ -294,339 +295,360 @@ export function MachineTranslationProfilesSection({
     <section className="settings-mt-section">
       <div className="settings-ai-tab-body">
         {error ? <p className="settings-ai-error">{error}</p> : null}
-        <div className="settings-mt-workspace">
-          <aside className="settings-ai-profile-list settings-mt-profile-list" aria-label={copy.profileList}>
-            <header>
-              <strong>{copy.profileList}</strong>
+        {isAndroidHost() && !profiles.length ? (
+          /* Android host: with zero profiles the desktop workspace renders a huge
+             empty list card plus a pinned dock — collapse both into one compact
+             empty card with the create action. */
+          <div className="settings-window-group settings-ai-empty-state">
+            <p>{copy.noProfiles}</p>
+            <div className="settings-window-actions">
               <button type="button" className="settings-window-btn settings-window-btn-primary" onClick={add} disabled={!presets.length}>
                 {copy.addProfile}
               </button>
-            </header>
-            <div className="settings-ai-profile-list-body">
-              {profiles.map((profile) => {
-                const preset = presets.find((value) => value.id === profile.presetId)
-                const sources = Object.keys(profile.credentialSources).length
-                return (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    className={cx('settings-ai-profile-list-item', selectedId === profile.id && 'is-active')}
-                    aria-current={selectedId === profile.id ? 'true' : undefined}
-                    onClick={() => selectProfile(profile.id)}
-                  >
-                    <div className="settings-ai-pitem-name">
-                      <strong>{profile.name || rootCopy.untitledProfile}</strong>
-                      {defaultId === profile.id ? <span className="settings-ai-tag is-ok">{rootCopy.defaultProfile}</span> : null}
-                    </div>
-                    <div className="settings-ai-pitem-meta">
-                      <span className={cx('settings-ai-tag', sources > 0 && 'is-ok')}>
-                        {sources ? copy.credentialsConfigured(sources) : rootCopy.credentialMissing}
-                      </span>
-                    </div>
-                    <div className="settings-ai-pitem-sub">
-                      {preset?.name ?? profile.presetId}
-                      {profile.region ? ` · ${profile.region}` : ''}
-                    </div>
-                  </button>
-                )
-              })}
             </div>
-          </aside>
-          <div className="settings-ai-profiles">
-            {profiles
-              .filter((profile) => profile.id === selectedId)
-              .map((profile) => {
-                const preset = presets.find((value) => value.id === profile.presetId)
-                const isDefault = defaultId === profile.id
-                return (
-                  <article key={profile.id} className={cx('settings-ai-profile-detail', isDefault && 'is-default')}>
-                    <header className="settings-ai-profile-detail-head">
-                      <div>
-                        <h3>{profile.name || rootCopy.untitledProfile}</h3>
-                        <span className="saved-at">{dirty ? rootCopy.unsavedChanges : rootCopy.savedState}</span>
+          </div>
+        ) : (
+          <div className="settings-mt-workspace">
+            <aside className="settings-ai-profile-list settings-mt-profile-list" aria-label={copy.profileList}>
+              <header>
+                <strong>{copy.profileList}</strong>
+                <button type="button" className="settings-window-btn settings-window-btn-primary" onClick={add} disabled={!presets.length}>
+                  {copy.addProfile}
+                </button>
+              </header>
+              <div className="settings-ai-profile-list-body">
+                {profiles.map((profile) => {
+                  const preset = presets.find((value) => value.id === profile.presetId)
+                  const sources = Object.keys(profile.credentialSources).length
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      className={cx('settings-ai-profile-list-item', selectedId === profile.id && 'is-active')}
+                      aria-current={selectedId === profile.id ? 'true' : undefined}
+                      onClick={() => selectProfile(profile.id)}
+                    >
+                      <div className="settings-ai-pitem-name">
+                        <strong>{profile.name || rootCopy.untitledProfile}</strong>
+                        {defaultId === profile.id ? <span className="settings-ai-tag is-ok">{rootCopy.defaultProfile}</span> : null}
                       </div>
-                      <div className="settings-window-actions">
-                        <button type="button" className="settings-window-btn" onClick={() => setDefaultId(profile.id)} disabled={isDefault}>
-                          {isDefault ? rootCopy.defaultProfile : rootCopy.setDefault}
-                        </button>
-                        <button
-                          type="button"
-                          className="settings-window-btn settings-window-btn-danger"
-                          title={rootCopy.delete}
-                          aria-label={rootCopy.delete}
-                          onClick={() => {
-                            setProfiles((values) => values.filter((value) => value.id !== profile.id))
-                            setSelectedId(profiles.find((value) => value.id !== profile.id)?.id ?? null)
-                            if (isDefault) setDefaultId(null)
-                          }}
-                        >
-                          {rootCopy.delete}
-                        </button>
+                      <div className="settings-ai-pitem-meta">
+                        <span className={cx('settings-ai-tag', sources > 0 && 'is-ok')}>
+                          {sources ? copy.credentialsConfigured(sources) : rootCopy.credentialMissing}
+                        </span>
                       </div>
-                    </header>
-                    <div className="settings-ai-grid">
-                      <label>
-                        <span>{rootCopy.profileName}</span>
-                        <input
-                          className="control-input"
-                          value={profile.name}
-                          onChange={(event) => update(profile.id, { name: event.target.value })}
-                        />
-                        {fieldErrors[profile.id]?.name ? (
-                          <small role="alert" className="settings-ai-error">
-                            {fieldErrors[profile.id].name}
-                          </small>
-                        ) : null}
-                      </label>
-                      <label>
-                        <span>{rootCopy.provider}</span>
-                        <CompactSelect
-                          value={profile.presetId}
-                          options={presets.map((value) => ({ value: value.id, label: value.name }))}
-                          onChange={(next) => {
-                            const preset = presets.find((item) => item.id === next)
-                            if (preset) selectPreset(profile, preset)
-                          }}
-                          ariaLabel={rootCopy.provider}
-                          placement="bottom-start"
-                          className="settings-ai-grid-select"
-                          triggerClassName="settings-ai-grid-select-trigger"
-                          menuClassName="settings-ai-grid-select-menu"
-                        />
-                      </label>
-                      <label className="settings-ai-wide">
-                        <span>{rootCopy.baseUrl}</span>
-                        <input
-                          className="control-input"
-                          value={profile.baseUrl}
-                          onChange={(event) => update(profile.id, { baseUrl: event.target.value })}
-                        />
-                        {fieldErrors[profile.id]?.baseUrl ? (
-                          <small role="alert" className="settings-ai-error">
-                            {fieldErrors[profile.id].baseUrl}
-                          </small>
-                        ) : null}
-                      </label>
-                      {profile.protocol === 'tencent-tmt' || profile.protocol === 'microsoft-v3' ? (
+                      <div className="settings-ai-pitem-sub">
+                        {preset?.name ?? profile.presetId}
+                        {profile.region ? ` · ${profile.region}` : ''}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+            <div className="settings-ai-profiles">
+              {profiles
+                .filter((profile) => profile.id === selectedId)
+                .map((profile) => {
+                  const preset = presets.find((value) => value.id === profile.presetId)
+                  const isDefault = defaultId === profile.id
+                  return (
+                    <article key={profile.id} className={cx('settings-ai-profile-detail', isDefault && 'is-default')}>
+                      <header className="settings-ai-profile-detail-head">
+                        <div>
+                          <h3>{profile.name || rootCopy.untitledProfile}</h3>
+                          <span className="saved-at">{dirty ? rootCopy.unsavedChanges : rootCopy.savedState}</span>
+                        </div>
+                        <div className="settings-window-actions">
+                          <button
+                            type="button"
+                            className="settings-window-btn"
+                            onClick={() => setDefaultId(profile.id)}
+                            disabled={isDefault}
+                          >
+                            {isDefault ? rootCopy.defaultProfile : rootCopy.setDefault}
+                          </button>
+                          <button
+                            type="button"
+                            className="settings-window-btn settings-window-btn-danger"
+                            title={rootCopy.delete}
+                            aria-label={rootCopy.delete}
+                            onClick={() => {
+                              setProfiles((values) => values.filter((value) => value.id !== profile.id))
+                              setSelectedId(profiles.find((value) => value.id !== profile.id)?.id ?? null)
+                              if (isDefault) setDefaultId(null)
+                            }}
+                          >
+                            {rootCopy.delete}
+                          </button>
+                        </div>
+                      </header>
+                      <div className="settings-ai-grid">
                         <label>
-                          <span>{copy.region}</span>
+                          <span>{rootCopy.profileName}</span>
                           <input
                             className="control-input"
-                            value={profile.region ?? ''}
-                            onChange={(event) => update(profile.id, { region: event.target.value || null })}
+                            value={profile.name}
+                            onChange={(event) => update(profile.id, { name: event.target.value })}
                           />
-                          {fieldErrors[profile.id]?.region ? (
+                          {fieldErrors[profile.id]?.name ? (
                             <small role="alert" className="settings-ai-error">
-                              {fieldErrors[profile.id].region}
+                              {fieldErrors[profile.id].name}
                             </small>
                           ) : null}
                         </label>
-                      ) : null}
-                      <div className="settings-mt-enabled settings-ai-wide">
-                        <span>{copy.enabled}</span>
-                        <button
-                          type="button"
-                          className={cx('settings-switch', profile.enabled && 'settings-switch-active')}
-                          role="switch"
-                          aria-checked={profile.enabled}
-                          onClick={() => update(profile.id, { enabled: !profile.enabled })}
-                        >
-                          <span className="settings-switch-copy">{profile.enabled ? copy.enabledStatus : copy.disabledStatus}</span>
-                          <span className="settings-switch-track" aria-hidden="true">
-                            <span className="settings-switch-thumb" />
-                          </span>
-                        </button>
+                        <label>
+                          <span>{rootCopy.provider}</span>
+                          <CompactSelect
+                            value={profile.presetId}
+                            options={presets.map((value) => ({ value: value.id, label: value.name }))}
+                            onChange={(next) => {
+                              const preset = presets.find((item) => item.id === next)
+                              if (preset) selectPreset(profile, preset)
+                            }}
+                            ariaLabel={rootCopy.provider}
+                            placement="bottom-start"
+                            className="settings-ai-grid-select"
+                            triggerClassName="settings-ai-grid-select-trigger"
+                            menuClassName="settings-ai-grid-select-menu"
+                          />
+                        </label>
+                        <label className="settings-ai-wide">
+                          <span>{rootCopy.baseUrl}</span>
+                          <input
+                            className="control-input"
+                            value={profile.baseUrl}
+                            onChange={(event) => update(profile.id, { baseUrl: event.target.value })}
+                          />
+                          {fieldErrors[profile.id]?.baseUrl ? (
+                            <small role="alert" className="settings-ai-error">
+                              {fieldErrors[profile.id].baseUrl}
+                            </small>
+                          ) : null}
+                        </label>
+                        {profile.protocol === 'tencent-tmt' || profile.protocol === 'microsoft-v3' ? (
+                          <label>
+                            <span>{copy.region}</span>
+                            <input
+                              className="control-input"
+                              value={profile.region ?? ''}
+                              onChange={(event) => update(profile.id, { region: event.target.value || null })}
+                            />
+                            {fieldErrors[profile.id]?.region ? (
+                              <small role="alert" className="settings-ai-error">
+                                {fieldErrors[profile.id].region}
+                              </small>
+                            ) : null}
+                          </label>
+                        ) : null}
+                        <div className="settings-mt-enabled settings-ai-wide">
+                          <span>{copy.enabled}</span>
+                          <button
+                            type="button"
+                            className={cx('settings-switch', profile.enabled && 'settings-switch-active')}
+                            role="switch"
+                            aria-checked={profile.enabled}
+                            onClick={() => update(profile.id, { enabled: !profile.enabled })}
+                          >
+                            <span className="settings-switch-copy">{profile.enabled ? copy.enabledStatus : copy.disabledStatus}</span>
+                            <span className="settings-switch-track" aria-hidden="true">
+                              <span className="settings-switch-thumb" />
+                            </span>
+                          </button>
+                        </div>
+                        <label>
+                          <span>{copy.defaultSource}</span>
+                          <input
+                            className="control-input"
+                            list={`mt-languages-${profile.id}`}
+                            value={profile.defaultSourceLocale ?? ''}
+                            onChange={(event) => update(profile.id, { defaultSourceLocale: event.target.value || null })}
+                          />
+                          {fieldErrors[profile.id]?.defaultSourceLocale ? (
+                            <small role="alert" className="settings-ai-error">
+                              {fieldErrors[profile.id].defaultSourceLocale}
+                            </small>
+                          ) : null}
+                        </label>
+                        <label>
+                          <span>{copy.defaultTarget}</span>
+                          <input
+                            className="control-input"
+                            list={`mt-languages-${profile.id}`}
+                            value={profile.defaultTargetLocale ?? ''}
+                            onChange={(event) => update(profile.id, { defaultTargetLocale: event.target.value || null })}
+                          />
+                          {fieldErrors[profile.id]?.defaultTargetLocale ? (
+                            <small role="alert" className="settings-ai-error">
+                              {fieldErrors[profile.id].defaultTargetLocale}
+                            </small>
+                          ) : null}
+                          <datalist id={`mt-languages-${profile.id}`}>
+                            {(languages[profile.id] ?? []).map((language) => (
+                              <option key={language.code} value={language.code}>
+                                {language.name}
+                              </option>
+                            ))}
+                          </datalist>
+                        </label>
                       </div>
-                      <label>
-                        <span>{copy.defaultSource}</span>
-                        <input
-                          className="control-input"
-                          list={`mt-languages-${profile.id}`}
-                          value={profile.defaultSourceLocale ?? ''}
-                          onChange={(event) => update(profile.id, { defaultSourceLocale: event.target.value || null })}
-                        />
-                        {fieldErrors[profile.id]?.defaultSourceLocale ? (
-                          <small role="alert" className="settings-ai-error">
-                            {fieldErrors[profile.id].defaultSourceLocale}
-                          </small>
-                        ) : null}
-                      </label>
-                      <label>
-                        <span>{copy.defaultTarget}</span>
-                        <input
-                          className="control-input"
-                          list={`mt-languages-${profile.id}`}
-                          value={profile.defaultTargetLocale ?? ''}
-                          onChange={(event) => update(profile.id, { defaultTargetLocale: event.target.value || null })}
-                        />
-                        {fieldErrors[profile.id]?.defaultTargetLocale ? (
-                          <small role="alert" className="settings-ai-error">
-                            {fieldErrors[profile.id].defaultTargetLocale}
-                          </small>
-                        ) : null}
-                        <datalist id={`mt-languages-${profile.id}`}>
-                          {(languages[profile.id] ?? []).map((language) => (
-                            <option key={language.code} value={language.code}>
-                              {language.name}
-                            </option>
-                          ))}
-                        </datalist>
-                      </label>
-                    </div>
-                    <div className="settings-mt-credentials">
-                      <strong>{copy.credentials}</strong>
-                      {preset?.credentialFields.map((field) => {
-                        const source = profile.credentialSources[field]
-                        const label = copy.credentialLabels[field as keyof typeof copy.credentialLabels] ?? field
-                        return (
-                          <div key={field} className="settings-mt-credential">
-                            <label>
-                              <span>
-                                {label} ·{' '}
-                                {source === 'keychain'
-                                  ? rootCopy.credentialKeychain
-                                  : source === 'environment'
-                                    ? rootCopy.credentialEnvironment
-                                    : rootCopy.credentialMissing}
-                              </span>
-                              <div className="settings-ai-secret-field">
+                      <div className="settings-mt-credentials">
+                        <strong>{copy.credentials}</strong>
+                        {preset?.credentialFields.map((field) => {
+                          const source = profile.credentialSources[field]
+                          const label = copy.credentialLabels[field as keyof typeof copy.credentialLabels] ?? field
+                          return (
+                            <div key={field} className="settings-mt-credential">
+                              <label>
+                                <span>
+                                  {label} ·{' '}
+                                  {source === 'keychain'
+                                    ? rootCopy.credentialKeychain
+                                    : source === 'environment'
+                                      ? rootCopy.credentialEnvironment
+                                      : rootCopy.credentialMissing}
+                                </span>
+                                <div className="settings-ai-secret-field">
+                                  <input
+                                    type="password"
+                                    className="control-input"
+                                    value={profile.credentials[field] ?? ''}
+                                    placeholder={rootCopy.apiKeyPlaceholder}
+                                    onChange={(event) =>
+                                      update(profile.id, {
+                                        credentials: { ...profile.credentials, [field]: event.target.value },
+                                        clearCredentials: profile.clearCredentials.filter((value) => value !== field),
+                                      })
+                                    }
+                                  />
+                                  <div className="settings-ai-secret-meta">
+                                    <span className={cx('settings-ai-tag', source && 'is-ok')}>
+                                      {source === 'keychain'
+                                        ? rootCopy.credentialKeychain
+                                        : source === 'environment'
+                                          ? rootCopy.credentialEnvironment
+                                          : rootCopy.credentialMissing}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="settings-window-btn settings-window-btn-ghost"
+                                      disabled={!source && !profile.credentials[field]}
+                                      onClick={() =>
+                                        update(profile.id, {
+                                          credentials: Object.fromEntries(
+                                            Object.entries(profile.credentials).filter(([key]) => key !== field),
+                                          ),
+                                          clearCredentials: [...new Set([...profile.clearCredentials, field])],
+                                          credentialSources: Object.fromEntries(
+                                            Object.entries(profile.credentialSources).filter(([key]) => key !== field),
+                                          ),
+                                        })
+                                      }
+                                    >
+                                      {rootCopy.clearApiKey}
+                                    </button>
+                                  </div>
+                                </div>
+                              </label>
+                              <label>
+                                <span>{rootCopy.environment}</span>
                                 <input
-                                  type="password"
                                   className="control-input"
-                                  value={profile.credentials[field] ?? ''}
-                                  placeholder={rootCopy.apiKeyPlaceholder}
+                                  value={profile.credentialEnvironments[field] ?? ''}
                                   onChange={(event) =>
                                     update(profile.id, {
-                                      credentials: { ...profile.credentials, [field]: event.target.value },
-                                      clearCredentials: profile.clearCredentials.filter((value) => value !== field),
+                                      credentialEnvironments: { ...profile.credentialEnvironments, [field]: event.target.value },
                                     })
                                   }
                                 />
-                                <div className="settings-ai-secret-meta">
-                                  <span className={cx('settings-ai-tag', source && 'is-ok')}>
-                                    {source === 'keychain'
-                                      ? rootCopy.credentialKeychain
-                                      : source === 'environment'
-                                        ? rootCopy.credentialEnvironment
-                                        : rootCopy.credentialMissing}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="settings-window-btn settings-window-btn-ghost"
-                                    disabled={!source && !profile.credentials[field]}
-                                    onClick={() =>
-                                      update(profile.id, {
-                                        credentials: Object.fromEntries(
-                                          Object.entries(profile.credentials).filter(([key]) => key !== field),
-                                        ),
-                                        clearCredentials: [...new Set([...profile.clearCredentials, field])],
-                                        credentialSources: Object.fromEntries(
-                                          Object.entries(profile.credentialSources).filter(([key]) => key !== field),
-                                        ),
-                                      })
-                                    }
-                                  >
-                                    {rootCopy.clearApiKey}
-                                  </button>
-                                </div>
-                              </div>
-                            </label>
-                            <label>
-                              <span>{rootCopy.environment}</span>
-                              <input
-                                className="control-input"
-                                value={profile.credentialEnvironments[field] ?? ''}
-                                onChange={(event) =>
-                                  update(profile.id, {
-                                    credentialEnvironments: { ...profile.credentialEnvironments, [field]: event.target.value },
-                                  })
-                                }
-                              />
-                            </label>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {preset ? (
-                      <div className="settings-mt-capabilities">
-                        <strong>{copy.capability}</strong>
-                        <span>{preset.capability.languagesDynamic ? copy.dynamicLanguages : copy.staticLanguages}</span>
-                        <span>{copy.itemLimit(preset.capability.maxItemCharacters)}</span>
-                        <span>{copy.batchLimit(preset.capability.maxBatchCharacters)}</span>
-                        {preset.capability.supportsHtml ? <span>{copy.htmlSupported}</span> : null}
-                        {preset.capability.supportsGlossary ? <span>{copy.glossarySupported}</span> : null}
-                        <p>{copy.exactKnowledgeOnly}</p>
+                              </label>
+                            </div>
+                          )
+                        })}
                       </div>
-                    ) : null}
-                    {preset ? (
-                      <div className="settings-ai-pitem-meta" style={{ marginTop: '0.75rem' }}>
-                        {preset.capability.supportsHtml ? <span className="settings-ai-tag is-ok">{copy.htmlSupported}</span> : null}
-                        {preset.capability.supportsGlossary ? (
-                          <span className="settings-ai-tag is-ok">{copy.glossarySupported}</span>
-                        ) : null}
-                        <span className="settings-ai-tag">
-                          {preset.capability.languagesDynamic ? copy.dynamicLanguages : copy.staticLanguages}
-                        </span>
-                      </div>
-                    ) : null}
-                    {languages[profile.id]?.length ? (
-                      <div className="settings-mt-languages" aria-label={copy.languageCount(languages[profile.id].length)}>
-                        {languages[profile.id].map((language) => (
-                          <span key={language.code} title={language.name}>
-                            {language.code}
+                      {preset ? (
+                        <div className="settings-mt-capabilities">
+                          <strong>{copy.capability}</strong>
+                          <span>{preset.capability.languagesDynamic ? copy.dynamicLanguages : copy.staticLanguages}</span>
+                          <span>{copy.itemLimit(preset.capability.maxItemCharacters)}</span>
+                          <span>{copy.batchLimit(preset.capability.maxBatchCharacters)}</span>
+                          {preset.capability.supportsHtml ? <span>{copy.htmlSupported}</span> : null}
+                          {preset.capability.supportsGlossary ? <span>{copy.glossarySupported}</span> : null}
+                          <p>{copy.exactKnowledgeOnly}</p>
+                        </div>
+                      ) : null}
+                      {preset ? (
+                        <div className="settings-ai-pitem-meta" style={{ marginTop: '0.75rem' }}>
+                          {preset.capability.supportsHtml ? <span className="settings-ai-tag is-ok">{copy.htmlSupported}</span> : null}
+                          {preset.capability.supportsGlossary ? (
+                            <span className="settings-ai-tag is-ok">{copy.glossarySupported}</span>
+                          ) : null}
+                          <span className="settings-ai-tag">
+                            {preset.capability.languagesDynamic ? copy.dynamicLanguages : copy.staticLanguages}
                           </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                )
-              })}
-            {!profiles.some((profile) => profile.id === selectedId) ? (
-              <div className="settings-ai-profile-empty">
-                <p>{copy.noProfiles}</p>
-              </div>
-            ) : null}
+                        </div>
+                      ) : null}
+                      {languages[profile.id]?.length ? (
+                        <div className="settings-mt-languages" aria-label={copy.languageCount(languages[profile.id].length)}>
+                          {languages[profile.id].map((language) => (
+                            <span key={language.code} title={language.name}>
+                              {language.code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              {!profiles.some((profile) => profile.id === selectedId) ? (
+                <div className="settings-ai-profile-empty">
+                  <p>{copy.noProfiles}</p>
+                </div>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-      <footer className="settings-ai-dock">
-        <div className="settings-ai-dock-meta">
-          <span>{dirty ? copy.dockUnsavedRemoteActions : copy.dockReadyRemoteActions}</span>
-          {dirty ? <span className="settings-ai-tag is-dirty">{rootCopy.dirtyTag}</span> : null}
-        </div>
-        <div className="settings-window-actions">
-          {selectedId ? (
+      {isAndroidHost() && !profiles.length ? null : (
+        <footer className="settings-ai-dock">
+          <div className="settings-ai-dock-meta">
+            <span>{dirty ? copy.dockUnsavedRemoteActions : copy.dockReadyRemoteActions}</span>
+            {dirty ? <span className="settings-ai-tag is-dirty">{rootCopy.dirtyTag}</span> : null}
+          </div>
+          <div className="settings-window-actions">
+            {selectedId ? (
+              <button
+                type="button"
+                className="settings-window-btn"
+                disabled={!remoteReady(profiles.find((p) => p.id === selectedId)!) || loadingLanguagesId === selectedId}
+                title={!remoteReady(profiles.find((p) => p.id === selectedId)!) ? rootCopy.saveBeforeRemoteActions : undefined}
+                onClick={() => void loadLanguages(selectedId)}
+              >
+                {loadingLanguagesId === selectedId ? copy.loadLanguagesRunning : copy.loadLanguages}
+              </button>
+            ) : null}
+            {selectedId ? (
+              <button
+                type="button"
+                className="settings-window-btn"
+                disabled={!remoteReady(profiles.find((p) => p.id === selectedId)!) || testingId === selectedId}
+                title={!remoteReady(profiles.find((p) => p.id === selectedId)!) ? rootCopy.saveBeforeRemoteActions : undefined}
+                onClick={() => void test(selectedId)}
+              >
+                {testingId === selectedId ? rootCopy.testing : rootCopy.testConnection}
+              </button>
+            ) : null}
             <button
               type="button"
-              className="settings-window-btn"
-              disabled={!remoteReady(profiles.find((p) => p.id === selectedId)!) || loadingLanguagesId === selectedId}
-              title={!remoteReady(profiles.find((p) => p.id === selectedId)!) ? rootCopy.saveBeforeRemoteActions : undefined}
-              onClick={() => void loadLanguages(selectedId)}
+              className="settings-window-btn settings-window-btn-primary"
+              disabled={saving || !profiles.length}
+              onClick={() => void save()}
             >
-              {loadingLanguagesId === selectedId ? copy.loadLanguagesRunning : copy.loadLanguages}
+              {saving ? rootCopy.saving : rootCopy.save}
             </button>
-          ) : null}
-          {selectedId ? (
-            <button
-              type="button"
-              className="settings-window-btn"
-              disabled={!remoteReady(profiles.find((p) => p.id === selectedId)!) || testingId === selectedId}
-              title={!remoteReady(profiles.find((p) => p.id === selectedId)!) ? rootCopy.saveBeforeRemoteActions : undefined}
-              onClick={() => void test(selectedId)}
-            >
-              {testingId === selectedId ? rootCopy.testing : rootCopy.testConnection}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="settings-window-btn settings-window-btn-primary"
-            disabled={saving || !profiles.length}
-            onClick={() => void save()}
-          >
-            {saving ? rootCopy.saving : rootCopy.save}
-          </button>
-        </div>
-      </footer>
+          </div>
+        </footer>
+      )}
       <Dialog open={Boolean(testResult)} onClose={() => setTestResult(null)} labelledBy={testDialogTitleId} stack size="sm">
         <DialogHeader
           id={testDialogTitleId}

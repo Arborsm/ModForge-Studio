@@ -680,6 +680,27 @@
     text-wrap: pretty;
   }
 
+  /* Android host zero-profile empty state: one compact card instead of the
+     desktop workspace's giant empty list card plus pinned dock. */
+  .settings-ai-empty-state {
+    @apply text-text-secondary grid;
+    justify-items: center;
+    gap: 0.875rem;
+    margin-top: 0.75rem;
+    padding: 1.75rem 1.25rem;
+    text-align: center;
+  }
+
+  .settings-ai-empty-state p {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .settings-ai-empty-state .settings-window-actions {
+    justify-content: center;
+  }
+
   .settings-ai-profile-detail-head > div {
     @apply flex items-center;
     gap: 0.5rem;
@@ -1220,10 +1241,14 @@
       border-bottom: 1px solid var(--border-color);
     }
 
-    .settings-mt-profile-list .settings-ai-profile-list-body {
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(11rem, 1fr);
-      overflow-x: auto;
+    /* Profile lists become compact vertical rows — a sideways card scroller
+       reads as a broken carousel on a phone. */
+    .settings-mt-profile-list .settings-ai-profile-list-body,
+    .settings-ai-profile-list-body {
+      grid-auto-flow: row;
+      grid-auto-columns: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .settings-mt-capabilities > strong,
@@ -1255,16 +1280,58 @@
       border-bottom: 1px solid var(--border-color);
     }
 
-    .settings-ai-profile-list-body {
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(11rem, 1fr);
-      overflow-x: auto;
+    /* Profile editor header: title and actions share one row on phones —
+       stacking them stretched the default/delete buttons into full-width
+       slabs that wrapped onto their own lines. */
+    .settings-ai-profile-detail-head {
+      align-items: center;
+      flex-wrap: nowrap;
     }
 
-    .settings-ai-profile-detail-head,
+    .settings-ai-profile-detail-head > div:first-child {
+      min-width: 0;
+    }
+
     .settings-ai-profile-detail-head > div:last-child {
-      align-items: stretch;
+      align-items: center;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Form rows go single-column; three squeezed fields per row is unreadable
+       at phone widths. */
+    .settings-ai-grid-identity {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-ai-grid {
+      grid-template-columns: 1fr;
+    }
+
+    /* Dock: meta line on top, action row below with the primary action
+       filling the remaining width instead of clipping off-screen. */
+    .settings-ai-dock {
       flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    .settings-ai-dock-meta {
+      flex: 0 0 auto;
+    }
+
+    .settings-ai-dock .settings-window-actions {
+      display: flex;
+      width: 100%;
+      flex-shrink: 1;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .settings-ai-dock .settings-window-actions .settings-window-btn-primary:last-child {
+      flex: 1 1 auto;
+      justify-content: center;
     }
 
     .settings-ai-semantic-strip {

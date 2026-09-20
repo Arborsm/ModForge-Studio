@@ -858,7 +858,10 @@ function LauncherDiscoverPageContent({
     discover.sort,
     discover.ascending ? 'asc' : 'desc',
     discover.timeRange,
-    discover.page,
+    // Desktop pagination remounts the wall per page so the reveal replays; the
+    // Android infinite feed appends into the same wall — a page- or items-keyed
+    // remount would re-animate every card on each fetch (the visible "flash").
+    ...(androidHost ? [] : [discover.page]),
     discover.pageSize,
     discover.filters.titleQuery,
     discover.filters.descriptionQuery,
@@ -876,7 +879,7 @@ function LauncherDiscoverPageContent({
     discover.filters.maxDownloads,
     discover.filters.minEndorsements,
     discover.filters.maxEndorsements,
-    discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|'),
+    ...(androidHost ? [] : [discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|')]),
   ].join('\u0000')
 
   //Measure the pagination pages container and a single page button to compute

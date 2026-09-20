@@ -1529,6 +1529,20 @@ export function createDevLauncherMockIpcHandler(
         return null
       case 'get_launcher_backup_directory':
         return 'E:\\ModForge Dev\\Backups'
+      case 'read_launcher_log': {
+        const sample = [
+          '[12:00:01 INFO  launcher] ModForge dev mock boot',
+          '[12:00:02 INFO  SMAPI] SMAPI v4.3.2.5 with Stardew Valley 1.6.15',
+          '[12:00:03 TRACE SMAPI] Loading mod metadata...',
+          '[12:00:04 DEBUG SMAPI] Found 48 mods (39 enabled)',
+          '[12:00:05 WARN  SMAPI] Mock Mod 27 requires SMAPI 4.1.0 or later',
+          '[12:00:06 ERROR SMAPI] Sample error line for the log viewer',
+        ]
+        const maxLines =
+          payload && typeof payload === 'object' && 'maxLines' in payload && typeof payload.maxLines === 'number' ? payload.maxLines : 400
+        const lines = sample.slice(-maxLines)
+        return { lines, totalLines: sample.length, truncated: false }
+      }
       case 'validate_nexus_api_key':
         return {
           userName: 'Dev User',

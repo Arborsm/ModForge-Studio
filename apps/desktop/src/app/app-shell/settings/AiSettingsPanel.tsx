@@ -739,104 +739,128 @@ export function AiSettingsPanel({
               ) : null}
 
               {error ? <p className="settings-ai-error">{error}</p> : null}
-              <div className="settings-ai-profile-workspace">
-                <aside className="settings-ai-profile-list" aria-label={copy.profileList}>
-                  <header>
-                    <strong>{copy.profileList}</strong>
-                    <div className="settings-window-actions">
-                      <button type="button" className="settings-window-btn" onClick={() => void chooseImport()}>
-                        {copy.importProfiles}
-                      </button>
-                      <button
-                        type="button"
-                        className="settings-window-btn settings-window-btn-primary"
-                        onClick={addProfile}
-                        disabled={!presets.length}
-                      >
-                        {copy.addProfile}
-                      </button>
-                    </div>
-                  </header>
-                  <div className="settings-ai-profile-list-body">
-                    {profiles.map((profile) => {
-                      const preset = presets.find((item) => item.id === profile.presetId)
-                      const selected = profile.id === selectedProfile?.id
-                      const tested = Boolean(testedProfileIds[profile.id])
-                      const noKey = preset?.requiresApiKey === false
-                      const credTag = noKey
-                        ? copy.requiresNoKey
-                        : profile.keyStatus === 'keychain'
-                          ? copy.credentialKeychain
-                          : profile.keyStatus === 'environment'
-                            ? copy.credentialEnvironment
-                            : copy.credentialMissing
-                      return (
-                        <button
-                          type="button"
-                          key={profile.id}
-                          className={cx('settings-ai-profile-list-item', selected && 'is-active')}
-                          aria-current={selected ? 'true' : undefined}
-                          onClick={() => {
-                            if (!selected) navigate(() => setSelectedProfileId(profile.id))
-                          }}
-                        >
-                          <div className="settings-ai-pitem-name">
-                            <strong>{profile.name || copy.untitledProfile}</strong>
-                            {profile.id === defaultProfileId ? <span className="settings-ai-tag is-ok">{copy.defaultProfile}</span> : null}
-                          </div>
-                          <div className="settings-ai-pitem-meta">
-                            <span className={cx('settings-ai-tag', (profile.keyStatus || noKey) && 'is-ok')}>{credTag}</span>
-                            {tested ? <span className="settings-ai-tag is-ok">{copy.testConnection}</span> : null}
-                          </div>
-                          <div className="settings-ai-pitem-sub">
-                            {profile.protocol} · {profile.model || copy.modelNotSet}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <footer>
+              {isAndroidHost() && !profiles.length ? (
+                /* Android host: with zero profiles the desktop workspace renders a
+                   huge empty list card plus a pinned dock — collapse both into one
+                   compact empty card with the create/import actions. */
+                <div className="settings-window-group settings-ai-empty-state">
+                  <p>{copy.noProfiles}</p>
+                  <div className="settings-window-actions">
+                    <button type="button" className="settings-window-btn" onClick={() => void chooseImport()}>
+                      {copy.importProfiles}
+                    </button>
                     <button
                       type="button"
-                      className="settings-window-btn"
-                      style={{ width: '100%' }}
-                      onClick={() => void exportProfiles()}
-                      disabled={!profiles.length}
+                      className="settings-window-btn settings-window-btn-primary"
+                      onClick={addProfile}
+                      disabled={!presets.length}
                     >
-                      {copy.exportProfilesSafe}
+                      {copy.addProfile}
                     </button>
-                  </footer>
-                </aside>
-
-                {selectedProfile ? (
-                  <AiProfileEditor
-                    profile={selectedProfile}
-                    presets={presets}
-                    isDefault={selectedProfile.id === defaultProfileId}
-                    isDirty={generativeDirty}
-                    models={models[selectedProfile.id] ?? []}
-                    modelsDevCatalog={modelsDevCatalog}
-                    remoteActionsReady={remoteActionsReady}
-                    loadingModels={loadingModelsId === selectedProfile.id}
-                    paramStrings={draftStringsFor(selectedProfile)}
-                    paramErrors={paramErrors[selectedProfile.id] ?? {}}
-                    advancedExpanded={Boolean(advancedExpanded[selectedProfile.id])}
-                    onUpdate={(patch) => updateProfile(selectedProfile.id, patch)}
-                    onSetDefault={() => setDefaultProfileId(selectedProfile.id)}
-                    onDelete={() => deleteProfile(selectedProfile.id)}
-                    onParamStringChange={(field, value) => updateParamString(selectedProfile.id, field, value)}
-                    onToggleAdvanced={() =>
-                      setAdvancedExpanded((current) => ({ ...current, [selectedProfile.id]: !current[selectedProfile.id] }))
-                    }
-                    onLoadModels={() => void loadModels(selectedProfile.id)}
-                    onOpenModelsDev={() => void openModelsDevDialog()}
-                  />
-                ) : (
-                  <div className="settings-ai-profile-empty">
-                    <p>{copy.noProfiles}</p>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="settings-ai-profile-workspace">
+                  <aside className="settings-ai-profile-list" aria-label={copy.profileList}>
+                    <header>
+                      <strong>{copy.profileList}</strong>
+                      <div className="settings-window-actions">
+                        <button type="button" className="settings-window-btn" onClick={() => void chooseImport()}>
+                          {copy.importProfiles}
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-window-btn settings-window-btn-primary"
+                          onClick={addProfile}
+                          disabled={!presets.length}
+                        >
+                          {copy.addProfile}
+                        </button>
+                      </div>
+                    </header>
+                    <div className="settings-ai-profile-list-body">
+                      {profiles.map((profile) => {
+                        const preset = presets.find((item) => item.id === profile.presetId)
+                        const selected = profile.id === selectedProfile?.id
+                        const tested = Boolean(testedProfileIds[profile.id])
+                        const noKey = preset?.requiresApiKey === false
+                        const credTag = noKey
+                          ? copy.requiresNoKey
+                          : profile.keyStatus === 'keychain'
+                            ? copy.credentialKeychain
+                            : profile.keyStatus === 'environment'
+                              ? copy.credentialEnvironment
+                              : copy.credentialMissing
+                        return (
+                          <button
+                            type="button"
+                            key={profile.id}
+                            className={cx('settings-ai-profile-list-item', selected && 'is-active')}
+                            aria-current={selected ? 'true' : undefined}
+                            onClick={() => {
+                              if (!selected) navigate(() => setSelectedProfileId(profile.id))
+                            }}
+                          >
+                            <div className="settings-ai-pitem-name">
+                              <strong>{profile.name || copy.untitledProfile}</strong>
+                              {profile.id === defaultProfileId ? (
+                                <span className="settings-ai-tag is-ok">{copy.defaultProfile}</span>
+                              ) : null}
+                            </div>
+                            <div className="settings-ai-pitem-meta">
+                              <span className={cx('settings-ai-tag', (profile.keyStatus || noKey) && 'is-ok')}>{credTag}</span>
+                              {tested ? <span className="settings-ai-tag is-ok">{copy.testConnection}</span> : null}
+                            </div>
+                            <div className="settings-ai-pitem-sub">
+                              {profile.protocol} · {profile.model || copy.modelNotSet}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <footer>
+                      <button
+                        type="button"
+                        className="settings-window-btn"
+                        style={{ width: '100%' }}
+                        onClick={() => void exportProfiles()}
+                        disabled={!profiles.length}
+                      >
+                        {copy.exportProfilesSafe}
+                      </button>
+                    </footer>
+                  </aside>
+
+                  {selectedProfile ? (
+                    <AiProfileEditor
+                      profile={selectedProfile}
+                      presets={presets}
+                      isDefault={selectedProfile.id === defaultProfileId}
+                      isDirty={generativeDirty}
+                      models={models[selectedProfile.id] ?? []}
+                      modelsDevCatalog={modelsDevCatalog}
+                      remoteActionsReady={remoteActionsReady}
+                      loadingModels={loadingModelsId === selectedProfile.id}
+                      paramStrings={draftStringsFor(selectedProfile)}
+                      paramErrors={paramErrors[selectedProfile.id] ?? {}}
+                      advancedExpanded={Boolean(advancedExpanded[selectedProfile.id])}
+                      onUpdate={(patch) => updateProfile(selectedProfile.id, patch)}
+                      onSetDefault={() => setDefaultProfileId(selectedProfile.id)}
+                      onDelete={() => deleteProfile(selectedProfile.id)}
+                      onParamStringChange={(field, value) => updateParamString(selectedProfile.id, field, value)}
+                      onToggleAdvanced={() =>
+                        setAdvancedExpanded((current) => ({ ...current, [selectedProfile.id]: !current[selectedProfile.id] }))
+                      }
+                      onLoadModels={() => void loadModels(selectedProfile.id)}
+                      onOpenModelsDev={() => void openModelsDevDialog()}
+                    />
+                  ) : (
+                    <div className="settings-ai-profile-empty">
+                      <p>{copy.noProfiles}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isAndroidHost() ? null : (
                 <div className="settings-window-group" style={{ marginTop: '1rem' }}>
@@ -857,45 +881,47 @@ export function AiSettingsPanel({
               )}
             </div>
 
-            <footer className="settings-ai-dock">
-              <div className="settings-ai-dock-meta">
-                <span>{generativeDirty ? copy.dockUnsavedRemoteActions : copy.dockReadyRemoteActions}</span>
-                {generativeDirty ? <span className="settings-ai-tag is-dirty">{copy.dirtyTag}</span> : null}
-              </div>
-              <div className="settings-window-actions">
-                {selectedProfile ? (
+            {isAndroidHost() && !profiles.length ? null : (
+              <footer className="settings-ai-dock">
+                <div className="settings-ai-dock-meta">
+                  <span>{generativeDirty ? copy.dockUnsavedRemoteActions : copy.dockReadyRemoteActions}</span>
+                  {generativeDirty ? <span className="settings-ai-tag is-dirty">{copy.dirtyTag}</span> : null}
+                </div>
+                <div className="settings-window-actions">
+                  {selectedProfile ? (
+                    <button
+                      type="button"
+                      className="settings-ai-icon-btn"
+                      title={copy.clearApiKey}
+                      aria-label={copy.clearApiKey}
+                      disabled={!selectedProfile.keyStatus && !selectedProfile.apiKey}
+                      onClick={() => updateProfile(selectedProfile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
+                    >
+                      <Eraser aria-hidden="true" />
+                    </button>
+                  ) : null}
+                  {selectedProfile ? (
+                    <button
+                      type="button"
+                      className="settings-window-btn"
+                      title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
+                      disabled={!remoteActionsReady || testingProfileId === selectedProfile.id}
+                      onClick={() => void testProfile(selectedProfile.id)}
+                    >
+                      {testingProfileId === selectedProfile.id ? copy.testing : copy.testConnection}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className="settings-ai-icon-btn"
-                    title={copy.clearApiKey}
-                    aria-label={copy.clearApiKey}
-                    disabled={!selectedProfile.keyStatus && !selectedProfile.apiKey}
-                    onClick={() => updateProfile(selectedProfile.id, { apiKey: '', clearApiKey: true, keyStatus: null })}
+                    className="settings-window-btn settings-window-btn-primary"
+                    disabled={saving || !profiles.length}
+                    onClick={() => void save()}
                   >
-                    <Eraser aria-hidden="true" />
+                    {saving ? copy.saving : copy.save}
                   </button>
-                ) : null}
-                {selectedProfile ? (
-                  <button
-                    type="button"
-                    className="settings-window-btn"
-                    title={!remoteActionsReady ? copy.saveBeforeRemoteActions : undefined}
-                    disabled={!remoteActionsReady || testingProfileId === selectedProfile.id}
-                    onClick={() => void testProfile(selectedProfile.id)}
-                  >
-                    {testingProfileId === selectedProfile.id ? copy.testing : copy.testConnection}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="settings-window-btn settings-window-btn-primary"
-                  disabled={saving || !profiles.length}
-                  onClick={() => void save()}
-                >
-                  {saving ? copy.saving : copy.save}
-                </button>
-              </div>
-            </footer>
+                </div>
+              </footer>
+            )}
           </section>
           <section
             role="tabpanel"

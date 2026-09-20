@@ -563,6 +563,13 @@
     color: var(--text-primary);
   }
 
+  /* The routes card and the account card are siblings inside one reveal
+     wrapper (ConfigNexusPanel's Android branch), so the column's 1.125rem
+     grid gap never applies between them — space them explicitly. */
+  .launcher-config-network-mobile + .launcher-config-nexus {
+    margin-top: 1.125rem;
+  }
+
   /* Each route probe reads as its own card inside the diagnostics card —
      separated by gaps, name + status on one line and the description
      wrapped below, instead of the desktop flush divider list. */
