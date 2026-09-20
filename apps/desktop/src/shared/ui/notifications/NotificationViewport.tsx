@@ -24,6 +24,29 @@ const STACK_HOVER_REGION_MIN_HEIGHT_PX = 88
 const STACK_OPACITY_STEP = 0.14
 const MIN_STACK_OPACITY = 0.38
 
+const MOBILE_BANNER_MEDIA_QUERY = '(max-width: 640px)'
+/** Sticky (warning/error) toasts retire after this long on phone widths, where
+ * the toast is a transient status-bar banner — the notification center keeps
+ * the record. */
+const MOBILE_BANNER_PERSISTENT_DISMISS_MS = 8000
+
+function useMobileBannerViewport() {
+  const [matches, setMatches] = useState(() => window.matchMedia(MOBILE_BANNER_MEDIA_QUERY).matches)
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_BANNER_MEDIA_QUERY)
+    const handleChange = () => {
+      setMatches(media.matches)
+    }
+    media.addEventListener('change', handleChange)
+    return () => {
+      media.removeEventListener('change', handleChange)
+    }
+  }, [])
+
+  return matches
+}
+
 /** Level glyph shared by the toast stack and the notification center. */
 export function NotificationIcon({ level, loading }: Pick<PublishedNotification, 'level' | 'loading'>) {
   if (loading) {
@@ -81,19 +104,21 @@ function NotificationToast({
   const [hovering, setHovering] = useState(false)
   const [closeReason, setCloseReason] = useState<'dismiss' | 'expire' | null>(null)
   const timeoutRef = useRef<number | null>(null)
+  const mobileBannerViewport = useMobileBannerViewport()
+  const autoDismissMs = notification.autoDismissMs ?? (mobileBannerViewport ? MOBILE_BANNER_PERSISTENT_DISMISS_MS : null)
 
   const requestClose = (reason: 'dismiss' | 'expire') => {
     setCloseReason((current) => current ?? reason)
   }
 
   useEffect(() => {
-    if (notification.autoDismissMs === null || closeReason !== null) {
+    if (autoDismissMs === null || closeReason !== null) {
       return
     }
 
     timeoutRef.current = window.setTimeout(() => {
       requestClose('expire')
-    }, notification.autoDismissMs)
+    }, autoDismissMs)
 
     return () => {
       if (timeoutRef.current) {
@@ -101,7 +126,7 @@ function NotificationToast({
         timeoutRef.current = null
       }
     }
-  }, [closeReason, notification.autoDismissMs])
+  }, [closeReason, autoDismissMs])
 
   useEffect(() => {
     if (closeReason === null) {
@@ -154,7 +179,7 @@ function NotificationToast({
     (action): action is NonNullable<PublishedNotification['action']> => action != null,
   )
   const explicitProgress = notification.progress
-  const showProgress = explicitProgress !== null || notification.autoDismissMs !== null
+  const showProgress = explicitProgress !== null || autoDismissMs !== null
 
   return (
     <article
@@ -250,7 +275,7 @@ function NotificationToast({
                     animation: 'none',
                   }
                 : {
-                    animationDuration: `${notification.autoDismissMs}ms`,
+                    animationDuration: `${autoDismissMs}ms`,
                     animationPlayState: hovering ? 'paused' : 'running',
                   }
             }

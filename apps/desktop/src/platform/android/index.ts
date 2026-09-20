@@ -34,6 +34,15 @@ const ANDROID_AI_REQUEST_COMMAND = 'android:ai_request'
  */
 export const ANDROID_IN_APP_BROWSER_DOWNLOAD_EVENT = 'android:in-app-browser-download'
 
+/**
+ * Host event the launcher activity pushes from `OnResume`: the user returned
+ * from a paused surface (most importantly the game activity, which runs in its
+ * own task without finishing the launcher), so no web-app remount happens even
+ * though a launcher session boundary was crossed. The boot-time resume fires
+ * before the SPA attaches listeners and is expected to be missed.
+ */
+export const ANDROID_ACTIVITY_RESUME_EVENT = 'android:resume'
+
 export type AndroidInAppBrowserDownloadPayload = {
   status: 'completed' | 'failed'
   fileName: string

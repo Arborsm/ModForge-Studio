@@ -17,6 +17,7 @@ import type {
   ModelsDevCatalog,
   ModelsDevModelEntry,
 } from '@shared/contracts'
+import { isAndroidHost } from '@platform/android'
 import { appEvent, reportRecovered } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
@@ -53,6 +54,12 @@ const AI_SETTINGS_CACHE_NOTIFICATION_ID = 'ai-settings-cache-error'
 const AI_SETTINGS_TEST_NOTIFICATION_ID = 'ai-settings-connection-test'
 const AI_SETTINGS_MODELS_NOTIFICATION_ID = 'ai-settings-load-models'
 const AI_TABS = ['engine', 'generative', 'machine-translation', 'semantic', 'usage'] as const satisfies readonly AiSettingsTab[]
+
+/** Android host: the launcher ships translation settings — the default-engine
+ * picker (AI vs machine translation), generative AI profiles and machine
+ * translation profiles. Semantic search and usage stay desktop workbench
+ * surfaces. */
+const ANDROID_HOST_TABS = ['engine', 'generative', 'machine-translation'] as const satisfies readonly AiSettingsTab[]
 
 function profileNotificationId(profileId: string) {
   return `ai-settings-profile-${profileId}`
@@ -111,6 +118,8 @@ export function AiSettingsPanel({
   const [error, setError] = useState<string | null>(null)
   const [cacheError, setCacheError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<AiSettingsTab>(initialTab)
+  const visibleTabs: readonly AiSettingsTab[] = isAndroidHost() ? ANDROID_HOST_TABS : AI_TABS
+  const effectiveActiveTab = visibleTabs.includes(activeTab) ? activeTab : visibleTabs[0]
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [defaultEngineDirty, setDefaultEngineDirty] = useState(false)
   const [machineTranslationDirty, setMachineTranslationDirty] = useState(false)
@@ -148,6 +157,14 @@ export function AiSettingsPanel({
         )
       })
       .catch(() => active && setError(copy.loadError))
+    // The Android AI request path has no translation-cache layer — probing its
+    // stats would raise an unimplemented-command banner for a feature that does
+    // not exist there.
+    if (isAndroidHost()) {
+      return () => {
+        active = false
+      }
+    }
     void ai
       .getCacheStats()
       .then((stats) => {
@@ -573,7 +590,7 @@ export function AiSettingsPanel({
   actionsRef.current = { save, loadModels, testProfile, clearCache }
 
   const focusTab = (tab: AiSettingsTab) => {
-    if (tab === activeTab) return
+    if (tab === activeTab || !visibleTabs.includes(tab)) return
     navigate(() => {
       if (snapshot && generativeDirty) {
         const restoredProfiles = toDrafts(snapshot)
@@ -597,19 +614,19 @@ export function AiSettingsPanel({
   }
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tab: AiSettingsTab) => {
-    const index = AI_TABS.indexOf(tab)
+    const index = visibleTabs.indexOf(tab)
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      focusTab(AI_TABS[(index + 1) % AI_TABS.length])
+      focusTab(visibleTabs[(index + 1) % visibleTabs.length])
     } else if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      focusTab(AI_TABS[(index - 1 + AI_TABS.length) % AI_TABS.length])
+      focusTab(visibleTabs[(index - 1 + visibleTabs.length) % visibleTabs.length])
     } else if (event.key === 'Home') {
       event.preventDefault()
-      focusTab(AI_TABS[0])
+      focusTab(visibleTabs[0])
     } else if (event.key === 'End') {
       event.preventDefault()
-      focusTab(AI_TABS[AI_TABS.length - 1])
+      focusTab(visibleTabs[visibleTabs.length - 1])
     }
   }
 
@@ -619,32 +636,36 @@ export function AiSettingsPanel({
         <div className="settings-ai-chrome">
           <header className="settings-window-page-head settings-ai-page-head">
             <div>
-              <h2>{settingsCategories.ai}</h2>
-              <p>{categoryDescriptions.ai}</p>
+              <h2>{isAndroidHost() ? settingsCategories.aiAndroid : settingsCategories.ai}</h2>
+              <p>{isAndroidHost() ? categoryDescriptions.aiAndroid : categoryDescriptions.ai}</p>
             </div>
           </header>
-          <div className="settings-ai-tabs" role="tablist" aria-label={copy.title}>
-            {AI_TABS.map((tab) => (
-              <button
-                type="button"
-                role="tab"
-                id={`ai-settings-tab-${tab}`}
-                aria-selected={activeTab === tab}
-                aria-controls={`ai-settings-panel-${tab}`}
-                tabIndex={activeTab === tab ? 0 : -1}
-                className={activeTab === tab ? 'is-active' : ''}
-                onClick={() => focusTab(tab)}
-                onKeyDown={(event) => handleTabKeyDown(event, tab)}
-                key={tab}
-              >
-                {tab === 'machine-translation' ? copy.tabs.machineTranslation : copy.tabs[tab]}
-              </button>
-            ))}
-          </div>
-          <SemanticStatusStrip active={activeTab === 'semantic'} onConfigure={() => focusTab('semantic')} />
+          {visibleTabs.length > 1 ? (
+            <div className="settings-ai-tabs" role="tablist" aria-label={copy.title}>
+              {visibleTabs.map((tab) => (
+                <button
+                  type="button"
+                  role="tab"
+                  id={`ai-settings-tab-${tab}`}
+                  aria-selected={effectiveActiveTab === tab}
+                  aria-controls={`ai-settings-panel-${tab}`}
+                  tabIndex={effectiveActiveTab === tab ? 0 : -1}
+                  className={effectiveActiveTab === tab ? 'is-active' : ''}
+                  onClick={() => focusTab(tab)}
+                  onKeyDown={(event) => handleTabKeyDown(event, tab)}
+                  key={tab}
+                >
+                  {tab === 'machine-translation' ? copy.tabs.machineTranslation : copy.tabs[tab]}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {isAndroidHost() ? null : (
+            <SemanticStatusStrip active={effectiveActiveTab === 'semantic'} onConfigure={() => focusTab('semantic')} />
+          )}
         </div>
 
-        {activeTab === 'engine' ? (
+        {effectiveActiveTab === 'engine' ? (
           <section
             role="tabpanel"
             id="ai-settings-panel-engine"
@@ -657,12 +678,12 @@ export function AiSettingsPanel({
           </section>
         ) : null}
 
-        <div className="settings-ai-scroll" hidden={activeTab === 'engine'}>
+        <div className="settings-ai-scroll" hidden={effectiveActiveTab === 'engine'}>
           <section
             role="tabpanel"
             id="ai-settings-panel-generative"
             aria-labelledby="ai-settings-tab-generative"
-            hidden={activeTab !== 'generative'}
+            hidden={effectiveActiveTab !== 'generative'}
           >
             <div className="settings-ai-tab-body">
               {exchangeStatus ? (
@@ -817,21 +838,23 @@ export function AiSettingsPanel({
                 )}
               </div>
 
-              <div className="settings-window-group" style={{ marginTop: '1rem' }}>
-                <p className="settings-window-group-label">{copy.cacheTitle}</p>
-                <div className="settings-ai-cache-row">
-                  <div>
-                    <p className="row-title">{copy.cacheTitle}</p>
-                    <p className="row-desc">
-                      {copy.cacheStats(cacheStats.entryCount, formatBytes(Math.max(cacheStats.sizeBytes, 1)))}
-                      {cacheError ? ` · ${cacheError}` : null}
-                    </p>
+              {isAndroidHost() ? null : (
+                <div className="settings-window-group" style={{ marginTop: '1rem' }}>
+                  <p className="settings-window-group-label">{copy.cacheTitle}</p>
+                  <div className="settings-ai-cache-row">
+                    <div>
+                      <p className="row-title">{copy.cacheTitle}</p>
+                      <p className="row-desc">
+                        {copy.cacheStats(cacheStats.entryCount, formatBytes(Math.max(cacheStats.sizeBytes, 1)))}
+                        {cacheError ? ` · ${cacheError}` : null}
+                      </p>
+                    </div>
+                    <button type="button" className="settings-window-btn settings-window-btn-danger" onClick={() => void clearCache()}>
+                      {copy.clearCache}
+                    </button>
                   </div>
-                  <button type="button" className="settings-window-btn settings-window-btn-danger" onClick={() => void clearCache()}>
-                    {copy.clearCache}
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             <footer className="settings-ai-dock">
@@ -878,9 +901,9 @@ export function AiSettingsPanel({
             role="tabpanel"
             id="ai-settings-panel-machine-translation"
             aria-labelledby="ai-settings-tab-machine-translation"
-            hidden={activeTab !== 'machine-translation'}
+            hidden={effectiveActiveTab !== 'machine-translation'}
           >
-            {activeTab === 'machine-translation' ? (
+            {effectiveActiveTab === 'machine-translation' ? (
               <Suspense fallback={<LoadingMotionFallback />}>
                 <MachineTranslationProfilesSection onDirtyChange={setMachineTranslationDirty} requestLeave={requestLeave} />
               </Suspense>
@@ -890,16 +913,21 @@ export function AiSettingsPanel({
             role="tabpanel"
             id="ai-settings-panel-semantic"
             aria-labelledby="ai-settings-tab-semantic"
-            hidden={activeTab !== 'semantic'}
+            hidden={effectiveActiveTab !== 'semantic'}
           >
-            {activeTab === 'semantic' ? (
+            {effectiveActiveTab === 'semantic' ? (
               <Suspense fallback={<LoadingMotionFallback />}>
                 <SemanticSearchSection onDirtyChange={setSemanticDirty} />
               </Suspense>
             ) : null}
           </section>
-          <section role="tabpanel" id="ai-settings-panel-usage" aria-labelledby="ai-settings-tab-usage" hidden={activeTab !== 'usage'}>
-            {activeTab === 'usage' ? (
+          <section
+            role="tabpanel"
+            id="ai-settings-panel-usage"
+            aria-labelledby="ai-settings-tab-usage"
+            hidden={effectiveActiveTab !== 'usage'}
+          >
+            {effectiveActiveTab === 'usage' ? (
               <Suspense fallback={<LoadingMotionFallback />}>
                 <AiUsageSection />
               </Suspense>

@@ -1938,7 +1938,7 @@ export function LauncherConfigurationPage({
             {androidHost ? null : (
               <ConfigAccountCard account={account} onRefresh={() => void account.refreshApiKeyStatus({ force: true })} />
             )}
-            <ConfigDownloadDefaults settingsState={settingsState} />
+            <ConfigDownloadDefaults settingsState={settingsState} androidHost={androidHost} />
           </aside>
 
           {!gmcmProbeAvailable ? null : (

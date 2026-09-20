@@ -9,6 +9,10 @@
     --text-inverse: #f8fbff;
     --surface-inverse: #0f172a;
     --app-window-radius: 0.75rem;
+    /* Android host: the WebView never reports env(safe-area-inset-bottom);
+       the native host pushes the gesture/nav-bar inset onto this variable at
+       runtime, and bottom-anchored chrome reads it everywhere. */
+    --android-system-inset-bottom: env(safe-area-inset-bottom, 0px);
     --cp-logic: #22c55e;
     --cp-file: #3b82f6;
     --cp-data: #f97316;

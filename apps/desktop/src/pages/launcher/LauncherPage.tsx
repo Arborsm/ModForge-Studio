@@ -291,7 +291,10 @@ export function LauncherPage({
       return
     }
 
-    if (!launcherRuntime.settingsState.settings.gamePath?.trim()) {
+    // The Android host discovers the game from its installed package, so the
+    // desktop game-path requirement does not apply there; native launch guards
+    // (game installed, version supported, SMAPI present) surface as command errors.
+    if (!androidHost && !launcherRuntime.settingsState.settings.gamePath?.trim()) {
       onOpenSettings('launcher')
       return
     }

@@ -73,7 +73,13 @@ export function ConfigCompletionRail({ title, steps }: { title: string; steps: C
   )
 }
 
-export function ConfigDownloadDefaults({ settingsState }: { settingsState: ReturnType<typeof useLauncherSettings> }) {
+export function ConfigDownloadDefaults({
+  settingsState,
+  androidHost = false,
+}: {
+  settingsState: ReturnType<typeof useLauncherSettings>
+  androidHost?: boolean
+}) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const { settings } = settingsState
@@ -93,17 +99,22 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       label: copy.toggles.keepDownloadedArchives,
       checked: settings.keepDownloadedArchives,
     },
-    {
-      field: 'gmcmParsingEnabled' as const,
-      label: copy.toggles.gmcmParsingEnabled,
-      checked: settings.gmcmParsingEnabled !== false,
-    },
-    {
-      field: 'showConsoleWindow' as const,
-      label: copy.toggles.showConsoleWindow,
-      description: copy.toggles.showConsoleWindowDescription,
-      checked: settings.showConsoleWindow === true,
-    },
+    // GMCM parsing and the SMAPI console window only exist on desktop hosts.
+    ...(androidHost
+      ? []
+      : [
+          {
+            field: 'gmcmParsingEnabled' as const,
+            label: copy.toggles.gmcmParsingEnabled,
+            checked: settings.gmcmParsingEnabled !== false,
+          },
+          {
+            field: 'showConsoleWindow' as const,
+            label: copy.toggles.showConsoleWindow,
+            description: copy.toggles.showConsoleWindowDescription,
+            checked: settings.showConsoleWindow === true,
+          },
+        ]),
   ]
 
   return (

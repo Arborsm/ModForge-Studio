@@ -48,8 +48,10 @@ export function MobileBottomNav({ pages, activePage, onPageChange, updatesBadgeC
             aria-current={active ? 'page' : undefined}
             onClick={() => onPageChange(page)}
           >
-            <span className="mobile-bottom-nav-pill" aria-hidden="true" />
-            <Icon className="mobile-bottom-nav-icon" aria-hidden="true" />
+            <span className="mobile-bottom-nav-icon-wrap" aria-hidden="true">
+              <span className="mobile-bottom-nav-pill" />
+              <Icon className="mobile-bottom-nav-icon" />
+            </span>
             <span className="mobile-bottom-nav-label">{copy.pages[page]}</span>
             {badge ? <span className="mobile-bottom-nav-badge">{badge}</span> : null}
           </button>
