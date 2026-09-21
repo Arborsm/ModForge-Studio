@@ -329,10 +329,13 @@
 
 @media (max-width: 640px) {
   /* Slimmer control row for narrow desktop windows; the Android host renders
-     an infinite scroll feed instead of this bar. */
+     an infinite scroll feed instead of this bar. The shell keeps no bottom
+     padding of its own: the clearance belongs INSIDE the scroll content
+     (after the sentinel), otherwise the viewport shrinks short of the nav
+     and leaves a dead band where cards hard-clip mid-row. */
   .launcher-discover-results-shell {
     gap: 0.5rem;
-    padding-bottom: calc(4.375rem + var(--android-system-inset-bottom));
+    padding-bottom: 0;
   }
 
   .launcher-discover-pagination {
@@ -376,7 +379,9 @@
   align-items: center;
   justify-content: center;
   min-height: 3.5rem;
-  padding-bottom: var(--android-system-inset-bottom);
+  /* Clearance lives here, after the sentinel: the last content scrolls clear
+     of the nav while the feed viewport itself extends to the page bottom. */
+  padding-bottom: 4.25rem;
 }
 
 .launcher-discover-load-more-spinner {
@@ -812,5 +817,50 @@
     border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
     background: var(--bg-panel);
     color: var(--text-primary);
+  }
+}
+
+/* ===== Archive install preview: stacked single column on phones ===== */
+
+@media (max-width: 640px) {
+  /* The desktop rail+detail grid keeps two tracks because the base rule
+     imports after the old ≤1100px override; on a phone the 17.5rem rail
+     eats the whole dialog and the detail column clips off-screen. */
+  .launcher-install-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .launcher-install-preview-rail-hint {
+    display: none;
+  }
+
+  .launcher-install-archive-list {
+    max-height: 11rem;
+  }
+}
+
+/* ===== Archive install preview & mod detail polish (Android host) ===== */
+
+@media (max-width: 640px) {
+  /* The mod detail is a fullscreen page on phones — give it the clean panel
+     background instead of the app's gray wash, which reads as dirty white
+     around the hero. */
+  .launcher-mod-detail {
+    background: var(--bg-panel);
+  }
+
+  /* Install preview detail column: keep long monospace paths and the metrics
+     inside the card width. */
+  .launcher-install-preview-detail {
+    min-width: 0;
+  }
+
+  .launcher-install-preview-path {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .launcher-install-metric-row {
+    flex-wrap: wrap;
   }
 }
