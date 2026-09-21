@@ -40,6 +40,9 @@ type LauncherModDetailPanelProps = {
   packName?: string | null
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   onSearchDependency?: (query: string) => void
+  /** Hosts with an in-app browser pass their opener here so outbound Nexus
+   * links stay inside the launcher; falls back to the port's external URL. */
+  onOpenExternalPage?: (url: string) => void
   remoteLoading?: boolean
   remoteFilesDeferred?: boolean
   libraryMods?: LauncherLibraryItem[]
@@ -57,6 +60,7 @@ export function LauncherModDetailPanel({
   packName,
   onQueueDownload,
   onSearchDependency,
+  onOpenExternalPage,
   remoteLoading = false,
   remoteFilesDeferred = false,
   libraryMods = [],
@@ -267,7 +271,11 @@ export function LauncherModDetailPanel({
   const openRemotePage = () => {
     const url = remote?.modUrl ?? mod?.modUrl
     if (url) {
-      void launcherPort.openUrl({ url })
+      if (onOpenExternalPage) {
+        onOpenExternalPage(url)
+      } else {
+        void launcherPort.openUrl({ url })
+      }
     }
   }
 
@@ -300,7 +308,11 @@ export function LauncherModDetailPanel({
   const handleOpenDependencyPage = (item: DependencyTreeNode) => {
     const url = item.url ?? (item.modId ? `https://www.nexusmods.com/stardewvalley/mods/${item.modId}` : null)
     if (url) {
-      void launcherPort.openUrl({ url })
+      if (onOpenExternalPage) {
+        onOpenExternalPage(url)
+      } else {
+        void launcherPort.openUrl({ url })
+      }
     }
   }
 
