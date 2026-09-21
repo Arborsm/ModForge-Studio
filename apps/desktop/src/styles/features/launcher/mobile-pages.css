@@ -645,6 +645,8 @@
   /* SMAPI update/install card: match the other card sections — compact head,
      full-width stacked actions with touch-sized targets. */
   .launcher-config-smapi-update .launcher-config-panel-head {
+    align-items: center;
+    flex-wrap: nowrap;
     padding: 0.875rem 1.125rem 0.625rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
   }
@@ -652,6 +654,18 @@
   .launcher-config-smapi-update .launcher-config-panel-head h2 {
     font-size: 0.9375rem;
     font-weight: 800;
+  }
+
+  /* The generic card description wraps three lines around the floating
+     refresh button on phones and says nothing the version detail below
+     doesn't — collapse the head to title + status pill + refresh, one row. */
+  .launcher-config-smapi-update .launcher-config-panel-head p {
+    display: none;
+  }
+
+  .launcher-config-smapi-update .launcher-config-panel-actions {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
 
   .launcher-config-smapi-update .launcher-config-smapi-body {
