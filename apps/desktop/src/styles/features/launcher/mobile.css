@@ -580,6 +580,13 @@
     border-radius: 0;
   }
 
+  /* Banner hero crops tall art to fill the strip — letterboxing portrait
+     covers leaves a muddy blank block (reads as a broken page header). */
+  .launcher-mod-detail-hero .launcher-mod-card-cover-image {
+    object-fit: cover;
+    object-position: center 22%;
+  }
+
   /* The banner cover fits the full word mark again. */
   .launcher-mod-detail-hero .launcher-mod-card-cover-word {
     font-size: 1.5rem;
