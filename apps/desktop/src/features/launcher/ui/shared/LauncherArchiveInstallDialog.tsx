@@ -101,7 +101,15 @@ export function LauncherArchiveInstallDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} size="full" labelledBy={titleId} closeOnBackdrop={!installing} closeOnEscape={!installing}>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      size="full"
+      labelledBy={titleId}
+      closeOnBackdrop={!installing}
+      closeOnEscape={!installing}
+      className="launcher-archive-install-dialog"
+    >
       <DialogHeader
         icon={<PackageOpen className="h-4 w-4" />}
         title={copy.library.previewTitle}

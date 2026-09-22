@@ -867,6 +867,31 @@
   }
 }
 
+/* ===== Archive install dialog: full-screen page on phones ===== */
+
+@media (max-width: 640px) {
+  /* A floating centered card can shrink to half the screen height on a phone;
+     the archive workspace gets the whole viewport like the other mobile pages. */
+  .app-dialog-overlay:has(.launcher-archive-install-dialog) {
+    padding: 0;
+  }
+
+  .app-dialog.launcher-archive-install-dialog {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* The footer actions sit at the screen's bottom edge now; clear the gesture
+     navigation strip like the bottom nav does. */
+  .launcher-archive-install-dialog .app-dialog-footer {
+    padding-bottom: calc(0.875rem + var(--android-system-inset-bottom));
+  }
+}
+
 /* ===== Archive install preview: stacked single column on phones ===== */
 
 @media (max-width: 640px) {
