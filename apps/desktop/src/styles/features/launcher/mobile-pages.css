@@ -291,6 +291,15 @@
     padding: 0.5rem 0.75rem 1rem;
   }
 
+  /* The desktop float caps the list shell at 26rem (~half a phone screen) and
+     scrolls it internally; in the full-page manager the page body already
+     scrolls, so the shell must grow with its content instead. */
+  .mobile-page .launcher-downloads-popover-list-shell {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
   /* Linear rows become self-contained cards (thumb / title+progress / status). */
   .mobile-page .launcher-download-row {
     grid-template-columns: 2.125rem minmax(0, 1fr) auto;
