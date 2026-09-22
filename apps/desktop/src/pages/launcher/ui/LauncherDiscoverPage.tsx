@@ -633,12 +633,14 @@ function LauncherDiscoverDetailPanel({
   modId,
   onClose,
   onQueueDownload,
+  onOpenExternalPage,
   onModIdNotFound,
 }: {
   item: DiscoverItem | null
   modId: number | null
   onClose: () => void
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onOpenExternalPage?: (url: string) => void
   onModIdNotFound: (modId: number) => void
 }) {
   const remoteDetail = useLauncherRemoteModDetail(item?.modId ?? modId, { includeFiles: false })
@@ -676,6 +678,7 @@ function LauncherDiscoverDetailPanel({
       onSetCover={() => undefined}
       onClearCover={() => undefined}
       onQueueDownload={onQueueDownload}
+      onOpenExternalPage={onOpenExternalPage}
     />
   )
 }
@@ -789,6 +792,17 @@ function LauncherDiscoverPageContent({
   // the built-in in-app browser at the Files tab instead of the external browser.
   const openModDownloadPageInApp = (modUrl: string) => {
     void openAndroidInAppBrowser(toLauncherModFilesPageUrl(modUrl)).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-discover', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
+
+  // Detail-panel outbound links (footer page button, dependency rows) keep the
+  // plain mod page URL — only download-intent actions jump to the Files tab.
+  const openModPageInApp = (modUrl: string) => {
+    void openAndroidInAppBrowser(modUrl).catch((error: unknown) => {
       appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
         .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
         .context({ source: 'launcher-discover', operation: 'open-in-app-browser' })
@@ -1835,6 +1849,7 @@ function LauncherDiscoverPageContent({
               modId={detailModId}
               onClose={() => setDetailModId(null)}
               onQueueDownload={onQueueDownload}
+              onOpenExternalPage={androidHost ? openModPageInApp : undefined}
               onModIdNotFound={handleModIdDetailNotFound}
             />
           ) : detailItem ? (
@@ -1843,6 +1858,7 @@ function LauncherDiscoverPageContent({
               modId={null}
               onClose={() => setDetailItem(null)}
               onQueueDownload={onQueueDownload}
+              onOpenExternalPage={androidHost ? openModPageInApp : undefined}
               onModIdNotFound={handleModIdDetailNotFound}
             />
           ) : null}

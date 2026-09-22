@@ -1025,9 +1025,13 @@ export default function SettingsWindow({
                           </div>
                         </div>
                       </section>
-                      <Suspense fallback={<LoadingMotionFallback />}>
-                        <SettingsGuidesSection />
-                      </Suspense>
+                      {androidHost ? null : (
+                        /* The guide tours only exist for the desktop workbench;
+                           the Android launcher has no guided tours to replay. */
+                        <Suspense fallback={<LoadingMotionFallback />}>
+                          <SettingsGuidesSection />
+                        </Suspense>
+                      )}
                     </div>
                   </div>
                 ) : null}

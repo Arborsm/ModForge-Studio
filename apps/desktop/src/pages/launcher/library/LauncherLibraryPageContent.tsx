@@ -11,6 +11,8 @@ import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@feature
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { LauncherEmptyState } from '@features/launcher/ui/shared/LauncherEmptyState'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
+import { openAndroidInAppBrowser } from '@platform/android'
+import { appEvent } from '@platform/observability'
 import { usePullToRefresh } from '../ui/mobile/usePullToRefresh'
 import { MobilePullToRefreshIndicator } from '../ui/mobile/MobilePullToRefreshIndicator'
 import { LauncherLibraryFilterSheet, type LauncherLibraryMobileFilter } from './ui/LauncherLibraryFilterSheet'
@@ -64,6 +66,17 @@ export function LauncherLibraryPageContent({
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
+
+  // Android host: outbound Nexus links stay inside the built-in in-app browser
+  // instead of bouncing to the external browser app.
+  const openModPageInApp = (url: string) => {
+    void openAndroidInAppBrowser(url).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-library', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
   const { refresh } = library
 
   const controller = useLauncherLibraryController({
@@ -555,6 +568,7 @@ export function LauncherLibraryPageContent({
               }
             }}
             onQueueDownload={onQueueDownload}
+            onOpenExternalPage={androidHost ? openModPageInApp : undefined}
             remoteFilesDeferred={Boolean(onQueueDownload)}
             onOpenFolder={() => {
               if (detailMod) {

@@ -10,6 +10,8 @@ import { openLauncherPath } from '@features/launcher/api'
 import { useLauncherImage } from '@features/launcher'
 import { useLauncherUpdates } from '@features/launcher'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
+import { openAndroidInAppBrowser } from '@platform/android'
+import { appEvent } from '@platform/observability'
 import type { LauncherDetailMod } from '@features/launcher/ui/cards/dependency-tree/dependencyTreeTypes'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'
 import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } from '@features/launcher'
@@ -71,6 +73,16 @@ export function LauncherUpdatesPage({
   androidHost = false,
 }: LauncherUpdatesPageProps) {
   const copy = useEditorCopy().launcher
+
+  // Android host: outbound Nexus links stay inside the built-in in-app browser.
+  const openModPageInApp = (url: string) => {
+    void openAndroidInAppBrowser(url).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-updates', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
   const settingsMenuCopy = useSettingsMenuCopy()
   const updates = useLauncherUpdates(settings)
   const [detailMod, setDetailMod] = useState<LauncherDetailMod | null>(null)
@@ -471,6 +483,7 @@ export function LauncherUpdatesPage({
         onSetCover={() => {}}
         onClearCover={() => {}}
         onQueueDownload={onQueueDownload}
+        onOpenExternalPage={androidHost ? openModPageInApp : undefined}
       />
     </section>
   )

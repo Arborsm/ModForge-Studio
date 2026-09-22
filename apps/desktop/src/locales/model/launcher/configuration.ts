@@ -100,8 +100,8 @@ export type LauncherConfigurationCopy = {
     nexusClearApiKeyAction: string
     nexusQuotaDaily: string
     nexusQuotaHourly: string
-    nexusQuotaDailyLimit: string
-    nexusQuotaHourlyLimit: string
+    nexusQuotaDailyLimit: (limit: string) => string
+    nexusQuotaHourlyLimit: (limit: string) => string
     nexusQuotaPercent: (percent: number) => string
     nexusQuotaResetIn: (duration: string) => string
     nexusQuotaDurationHoursMinutes: (hours: number, minutes: number) => string
