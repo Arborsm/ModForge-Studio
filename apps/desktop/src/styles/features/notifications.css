@@ -659,7 +659,9 @@
 
 @media (max-width: 640px) {
   .notification-viewport {
-    top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+    /* Drop below the app toolbar (3.5rem) instead of overlapping it — the
+       banner used to cover the search bar and bleed it through the blur. */
+    top: calc(env(safe-area-inset-top, 0px) + 4.25rem);
     right: 0.75rem;
     bottom: auto;
     left: 0.75rem;
@@ -707,6 +709,12 @@
   .notification-stack-item[data-front='true'] .notification-toast::before,
   .notification-stack-item[data-front='true'] .notification-toast-progress-track {
     display: none;
+  }
+
+  /* The quote-style accent rail belongs to desktop cards, not the system banner. */
+  .notification-stack-item[data-front='true'] .notification-toast-summary {
+    padding-left: 0;
+    border-left: 0;
   }
 
   .notification-stack-item[data-front='true'] .notification-toast.is-closing {

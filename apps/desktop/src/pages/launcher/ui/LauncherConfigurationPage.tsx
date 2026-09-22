@@ -869,16 +869,22 @@ function ConfigNexusPanel({
 }) {
   const hasApiKey = Boolean(settingsState.settings.nexusApiKey?.trim())
   const isAuthorized = Boolean(account.apiKeyStatus || account.ssoAuthorized || hasApiKey)
-  const dailyPercent = getPercent(account.apiKeyStatus?.dailyRemaining, 20_000)
-  const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, 500)
+  // Nexus rate limits scale with the account tier: premium keys get 20k/day and
+  // 2.5k/hour, free keys a fraction of that. A single hardcoded cap made premium
+  // quotas read as "1,989 / 500 · 100%" — a full red bar on a healthy key.
+  const isPremium = Boolean(account.apiKeyStatus?.isPremium)
+  const dailyCap = isPremium ? 20_000 : 2_500
+  const hourlyCap = isPremium ? 2_500 : 500
+  const dailyPercent = getPercent(account.apiKeyStatus?.dailyRemaining, dailyCap)
+  const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, hourlyCap)
   const dailyLimit = getQuotaDetail(
-    copy.settings.nexusQuotaDailyLimit,
+    copy.settings.nexusQuotaDailyLimit(formatNumber(dailyCap)),
     account.apiKeyStatus?.dailyResetAt,
     getNextUtcMidnightTimestampSeconds,
     copy,
   )
   const hourlyLimit = getQuotaDetail(
-    copy.settings.nexusQuotaHourlyLimit,
+    copy.settings.nexusQuotaHourlyLimit(formatNumber(hourlyCap)),
     account.apiKeyStatus?.hourlyResetAt,
     getNextHourTimestampSeconds,
     copy,

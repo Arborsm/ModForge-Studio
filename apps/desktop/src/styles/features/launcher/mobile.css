@@ -152,6 +152,9 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-clamp: 2;
+    /* Reserve both lines even for one-line titles: without the fixed slot a
+       short title made its card visibly shorter than its grid neighbor. */
+    min-height: calc(1.35em * 2);
   }
 
   /* The toggle's corner stays reserved so the version line never slides
@@ -548,6 +551,10 @@
 
   .launcher-mod-detail-page-head {
     padding-top: env(safe-area-inset-top, 0px);
+    /* Match the utility-page header (.mobile-page-head): without its own
+       background the detail page head picked up whatever sat behind it, so the
+       same page family showed two different header colors. */
+    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
   }
 
   /* Banner hero: the cover is the header image, full-bleed edge to edge but
@@ -564,6 +571,10 @@
 
   .launcher-mod-detail-hero > .launcher-mod-detail-cover-frame {
     width: 100%;
+    /* Full-bleed banner: the narrow-viewport fallback in mod-detail/responsive.css
+       insets the frame with margin: 14px, which combined with width: 100% pushes
+       the banner 28px past the viewport and lets the page rubber-band sideways. */
+    margin: 0;
     align-self: stretch;
     justify-self: stretch;
     aspect-ratio: 21 / 9;
