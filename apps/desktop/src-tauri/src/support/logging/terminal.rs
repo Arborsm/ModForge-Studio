@@ -1,7 +1,11 @@
+//! Terminal log formatting: column-aligned layout, colorized level badges,
+//! target abbreviation, message wrapping, and color detection from env/terminal.
+
 use std::io::IsTerminal;
 
 use owo_colors::OwoColorize;
 
+use super::env_flag_is_enabled;
 use super::event::{is_event_name, is_field_key};
 
 const LOG_COLOR_ENV: &str = "MODFORGE_LOG_COLOR";
@@ -529,14 +533,10 @@ fn terminal_wrap_width() -> Option<usize> {
     Some((width as usize).saturating_sub(1))
 }
 
+/// Returns the current wall-clock timestamp as `HH:MM:SS`.
 pub fn current_log_timestamp() -> String {
     let now = time::OffsetDateTime::now_local().unwrap_or_else(|_| time::OffsetDateTime::now_utc());
     format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second())
-}
-
-fn env_flag_is_enabled(value: &str) -> bool {
-    let normalized = value.trim().to_ascii_lowercase();
-    !normalized.is_empty() && !matches!(normalized.as_str(), "0" | "false" | "no" | "off")
 }
 
 fn env_flag_is_disabled(value: &str) -> bool {
@@ -546,6 +546,8 @@ fn env_flag_is_disabled(value: &str) -> bool {
     )
 }
 
+/// Decides whether terminal output should be colorized based on env vars and
+/// whether the stream is a TTY.
 pub fn should_colorize_terminal_output(is_terminal: bool) -> bool {
     if let Ok(value) = std::env::var(LOG_COLOR_ENV) {
         return match value.trim().to_ascii_lowercase().as_str() {
@@ -574,10 +576,12 @@ pub fn should_colorize_terminal_output(is_terminal: bool) -> bool {
     is_terminal
 }
 
+/// Returns whether stdout should be colorized.
 pub fn stdout_colorize() -> bool {
     should_colorize_terminal_output(std::io::stdout().is_terminal())
 }
 
+/// Returns whether stderr should be colorized.
 pub fn stderr_colorize() -> bool {
     should_colorize_terminal_output(std::io::stderr().is_terminal())
 }

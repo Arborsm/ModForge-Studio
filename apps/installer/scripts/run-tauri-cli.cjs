@@ -1,5 +1,5 @@
 // Thin wrapper that resolves the Tauri CLI from this package's node_modules
-// and forwards all arguments (mirrors apps/desktop/scripts/run-tauri-cli.cjs).
+// and forwards all arguments (mirrors apps/desktop/scripts/dev/run-tauri-cli.cjs).
 const { spawnSync } = require('node:child_process')
 const path = require('node:path')
 

@@ -1,0 +1,2039 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ModForge 移动端 UX Mock</title>
+    <style>
+      :root {
+        --accent: #5b54d6;
+        --accent-soft: rgba(91, 84, 214, 0.13);
+        --accent-strong: #4a44b8;
+        --bg: #f4f4f8;
+        --panel: #ffffff;
+        --panel-muted: #fafafc;
+        --text: #232134;
+        --text-2: #6f6c85;
+        --text-3: #9c99b0;
+        --border: #e7e6ef;
+        --success: #2e9e5b;
+        --success-soft: rgba(46, 158, 91, 0.12);
+        --warning: #c47f00;
+        --warning-soft: rgba(196, 127, 0, 0.12);
+        --danger: #d64545;
+        --danger-soft: rgba(214, 69, 69, 0.12);
+        --radius: 14px;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        background: linear-gradient(135deg, #eceaf6 0%, #e3e1f0 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 48px;
+        padding: 32px 24px;
+        color: var(--text);
+      }
+
+      /* ============ 左侧说明/控制面板 ============ */
+      .side {
+        width: 300px;
+        flex-shrink: 0;
+      }
+      .side h1 {
+        font-size: 20px;
+        margin-bottom: 6px;
+      }
+      .side .sub {
+        font-size: 12.5px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-bottom: 18px;
+      }
+      .side .group {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      .side .group h3 {
+        font-size: 12px;
+        color: var(--text-3);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        margin-bottom: 10px;
+      }
+      .side .btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .side button.mock-btn {
+        font: inherit;
+        font-size: 12.5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-muted);
+        color: var(--text-2);
+        cursor: pointer;
+      }
+      .side button.mock-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .side .hint {
+        font-size: 12px;
+        color: var(--text-3);
+        line-height: 1.7;
+      }
+      .side .hint b {
+        color: var(--text-2);
+      }
+
+      /* ============ 手机框 ============ */
+      .phone {
+        width: 392px;
+        height: 830px;
+        flex-shrink: 0;
+        background: #0d0d14;
+        border-radius: 46px;
+        padding: 10px;
+        box-shadow:
+          0 30px 80px rgba(35, 33, 82, 0.35),
+          0 4px 16px rgba(35, 33, 82, 0.2);
+        position: relative;
+      }
+      .phone-inner {
+        width: 100%;
+        height: 100%;
+        border-radius: 37px;
+        overflow: hidden;
+        background: var(--bg);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .statusbar {
+        height: 34px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 26px;
+        font-size: 12.5px;
+        font-weight: 600;
+        background: transparent;
+        position: relative;
+        z-index: 5;
+      }
+      .statusbar .right {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .notch {
+        position: absolute;
+        left: 50%;
+        top: 9px;
+        transform: translateX(-50%);
+        width: 110px;
+        height: 24px;
+        background: #0d0d14;
+        border-radius: 999px;
+        z-index: 6;
+      }
+
+      /* ============ 顶栏 ============ */
+      .topbar {
+        height: 52px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        background: var(--bg);
+        position: relative;
+        z-index: 4;
+      }
+      .topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: auto;
+        min-width: 0;
+      }
+      .brand-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #6c64e8, #4a44b8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .brand-name {
+        font-weight: 700;
+        font-size: 15.5px;
+        letter-spacing: 0.01em;
+      }
+      .icon-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        position: relative;
+        flex-shrink: 0;
+      }
+      .icon-btn:active {
+        background: rgba(35, 33, 82, 0.07);
+      }
+      .icon-btn.has-badge::after {
+        content: attr(data-badge);
+        position: absolute;
+        top: 5px;
+        right: 4px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: var(--danger);
+        color: #fff;
+        font-size: 9.5px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid var(--bg);
+      }
+      .icon-btn svg {
+        width: 21px;
+        height: 21px;
+      }
+      .icon-btn.accent {
+        color: var(--accent);
+      }
+
+      /* ============ 内容区 ============ */
+      .content {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+      }
+      .tab-screen {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        padding: 4px 14px calc(76px + env(safe-area-inset-bottom, 0px));
+        display: none;
+        scrollbar-width: none;
+      }
+      .tab-screen::-webkit-scrollbar {
+        display: none;
+      }
+      .tab-screen.active {
+        display: block;
+      }
+
+      /* 搜索条 */
+      .searchbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        color: var(--text-3);
+        font-size: 13.5px;
+      }
+      .searchbar svg {
+        width: 16px;
+        height: 16px;
+      }
+      .searchbar input {
+        border: none;
+        outline: none;
+        background: transparent;
+        font: inherit;
+        color: var(--text);
+        width: 100%;
+      }
+      .searchbar input::placeholder {
+        color: var(--text-3);
+      }
+
+      /* 顶部横幅 toast（Phase 3 样式） */
+      .toast-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--warning);
+        border-radius: 12px;
+        padding: 11px 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 14px rgba(35, 33, 82, 0.07);
+      }
+      .toast-banner .t-icon {
+        color: var(--warning);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .toast-banner .t-icon svg {
+        width: 17px;
+        height: 17px;
+      }
+      .toast-banner .t-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .toast-banner .t-title {
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .toast-banner .t-desc {
+        font-size: 12px;
+        color: var(--text-2);
+        margin-top: 2px;
+        line-height: 1.5;
+      }
+      .toast-banner .t-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .toast-banner .t-close {
+        border: none;
+        background: none;
+        color: var(--text-3);
+        cursor: pointer;
+        padding: 2px;
+        flex-shrink: 0;
+      }
+      .toast-banner .t-close svg {
+        width: 15px;
+        height: 15px;
+      }
+      .chip-btn {
+        font: inherit;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        background: var(--panel-muted);
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+      .chip-btn.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      /* 模组卡片网格 */
+      .mod-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 11px;
+      }
+      .mod-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 0.12s;
+      }
+      .mod-card:active {
+        transform: scale(0.97);
+      }
+      .mod-card .cover {
+        height: 88px;
+        position: relative;
+      }
+      .mod-card .cover .ver {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(13, 13, 20, 0.62);
+        color: #fff;
+        padding: 2.5px 7px;
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+      }
+      .mod-card .cover .st {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        backdrop-filter: blur(4px);
+      }
+      .mod-card .cover .st svg {
+        width: 12px;
+        height: 12px;
+      }
+      .st.ok {
+        background: rgba(46, 158, 91, 0.85);
+      }
+      .st.warn {
+        background: rgba(196, 127, 0, 0.85);
+      }
+      .st.off {
+        background: rgba(108, 106, 130, 0.7);
+      }
+      .mod-card .info {
+        padding: 9px 11px 11px;
+      }
+      .mod-card .name {
+        font-size: 12.5px;
+        font-weight: 700;
+        line-height: 1.35;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .mod-card .meta {
+        font-size: 10.5px;
+        color: var(--text-3);
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      /* 区块标题 */
+      .sec-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin: 16px 2px 9px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .sec-title .more {
+        font-size: 11.5px;
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* 发现页 chips */
+      .chips {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        margin-bottom: 12px;
+        scrollbar-width: none;
+      }
+      .chips::-webkit-scrollbar {
+        display: none;
+      }
+      .chips .chip {
+        flex-shrink: 0;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 7px 13px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        color: var(--text-2);
+      }
+      .chips .chip.on {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* 更新页 */
+      .update-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        margin-bottom: 9px;
+      }
+      .update-row .art {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+      .update-row .u-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .update-row .u-name {
+        font-size: 12.5px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .update-row .u-ver {
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .update-row .u-ver .next {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .btn-sm {
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .btn-sm.ghost {
+        background: var(--panel-muted);
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+
+      /* 配置页 */
+      .cfg-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 11px;
+        overflow: hidden;
+      }
+      .cfg-card .cfg-head {
+        padding: 13px 14px 4px;
+        font-size: 12px;
+        color: var(--text-3);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      .cfg-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-top: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .cfg-row:first-of-type {
+        border-top: none;
+      }
+      .cfg-row .c-label {
+        flex: 1;
+      }
+      .cfg-row .c-value {
+        color: var(--text-3);
+        font-size: 12px;
+        max-width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .cfg-row .c-chev {
+        color: var(--text-3);
+      }
+      .cfg-row svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+      .dot-ok {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--success);
+        box-shadow: 0 0 0 3px var(--success-soft);
+      }
+
+      /* ============ 底部导航 ============ */
+      .bottom-nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        display: flex;
+        justify-content: space-around;
+        align-items: stretch;
+        padding: 7px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: color-mix(in srgb, var(--panel) 92%, transparent);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-top: 1px solid var(--border);
+        transition:
+          transform 0.28s cubic-bezier(0.3, 0.9, 0.3, 1),
+          opacity 0.22s;
+      }
+      .bottom-nav.hidden {
+        transform: translateY(110%);
+        opacity: 0;
+        pointer-events: none;
+      }
+      .nav-item {
+        flex: 1;
+        max-width: 88px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 5px 0 3px;
+        color: var(--text-3);
+        position: relative;
+        border-radius: 12px;
+      }
+      .nav-item svg {
+        width: 22px;
+        height: 22px;
+      }
+      .nav-item .n-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      .nav-item.active {
+        color: var(--accent);
+      }
+      .nav-item.active .n-pill {
+        position: absolute;
+        top: 0;
+        width: 44px;
+        height: 30px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        z-index: -1;
+      }
+      .nav-item .n-badge {
+        position: absolute;
+        top: 2px;
+        left: calc(50% + 6px);
+        min-width: 15px;
+        height: 15px;
+        border-radius: 999px;
+        background: var(--danger);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid var(--panel);
+      }
+
+      /* ============ 全屏页面（移动端页面化） ============ */
+      .page {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        transform: translateX(103%);
+        transition: transform 0.3s cubic-bezier(0.32, 0.72, 0.28, 1);
+        visibility: hidden;
+      }
+      .page.open {
+        transform: translateX(0);
+        visibility: visible;
+      }
+      .page-head {
+        height: 54px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        backdrop-filter: blur(14px);
+        position: relative;
+        z-index: 3;
+      }
+      .page-head .p-title {
+        font-size: 16px;
+        font-weight: 700;
+        flex: 1;
+        text-align: left;
+        padding-left: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .page-head .p-action {
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--accent);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 6px 8px;
+      }
+      .page-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 13px 14px 26px;
+        scrollbar-width: none;
+      }
+      .page-body::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* 通知中心 */
+      .notif {
+        display: flex;
+        gap: 11px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 13px;
+        margin-bottom: 9px;
+        position: relative;
+      }
+      .notif.unread {
+        border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+        background: color-mix(in srgb, var(--accent) 3%, var(--panel));
+      }
+      .notif .n-ic {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .notif .n-ic svg {
+        width: 16px;
+        height: 16px;
+      }
+      .notif .n-ic.warn {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+      .notif .n-ic.ok {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .notif .n-ic.info {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .notif .n-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .notif .n-title {
+        font-size: 13px;
+        font-weight: 700;
+        padding-right: 6px;
+      }
+      .notif .n-desc {
+        font-size: 12px;
+        color: var(--text-2);
+        line-height: 1.55;
+        margin-top: 3px;
+      }
+      .notif .n-time {
+        font-size: 10.5px;
+        color: var(--text-3);
+        margin-top: 6px;
+      }
+      .notif .n-dot {
+        position: absolute;
+        right: 13px;
+        top: 15px;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .notif .n-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 9px;
+      }
+
+      /* 下载中心 */
+      .dl-row {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 13px;
+        margin-bottom: 9px;
+      }
+      .dl-row .d-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .dl-row .art {
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+        flex-shrink: 0;
+      }
+      .dl-row .d-name {
+        font-size: 12.5px;
+        font-weight: 700;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dl-row .d-status {
+        font-size: 11px;
+        color: var(--text-3);
+        flex-shrink: 0;
+      }
+      .dl-row .d-bar {
+        height: 5px;
+        border-radius: 999px;
+        background: var(--panel-muted);
+        margin-top: 11px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .dl-row .d-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .dl-row .d-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .dl-row.done .d-fill {
+        background: var(--success);
+      }
+      .dl-row.fail .d-fill {
+        background: var(--danger);
+      }
+
+      /* Mod 详情页 */
+      .detail-hero {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .detail-hero .d-cover {
+        width: 86px;
+        height: 86px;
+        border-radius: 14px;
+        flex-shrink: 0;
+        box-shadow: 0 6px 18px rgba(35, 33, 82, 0.18);
+      }
+      .detail-hero .d-info {
+        flex: 1;
+        min-width: 0;
+        padding-top: 2px;
+      }
+      .detail-hero .d-name {
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.3;
+      }
+      .detail-hero .d-author {
+        font-size: 12px;
+        color: var(--text-2);
+        margin-top: 4px;
+      }
+      .detail-hero .d-tags {
+        display: flex;
+        gap: 6px;
+        margin-top: 9px;
+        flex-wrap: wrap;
+      }
+      .tag {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--accent);
+        background: var(--accent-soft);
+        padding: 3px 9px;
+        border-radius: 999px;
+      }
+      .tag.plain {
+        color: var(--text-2);
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+      }
+      .detail-tabs {
+        display: flex;
+        gap: 2px;
+        margin: 15px -14px 0;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 2;
+      }
+      .detail-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .detail-tabs .dt {
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-3);
+        background: none;
+        border: none;
+        padding: 10px 12px;
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .detail-tabs .dt.on {
+        color: var(--accent);
+      }
+      .detail-tabs .dt.on::after {
+        content: '';
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: -1px;
+        height: 2.5px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .detail-sec {
+        font-size: 13px;
+        line-height: 1.75;
+        color: var(--text-2);
+        margin-top: 13px;
+      }
+      .detail-sec h4 {
+        font-size: 13px;
+        color: var(--text);
+        margin: 15px 0 6px;
+      }
+      .kv-list {
+        margin-top: 13px;
+      }
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        padding: 11px 2px;
+        border-bottom: 1px solid var(--border);
+        font-size: 12.5px;
+      }
+      .kv .k {
+        color: var(--text-3);
+      }
+      .kv .v {
+        font-weight: 600;
+        text-align: right;
+      }
+      .page-foot {
+        flex-shrink: 0;
+        display: flex;
+        gap: 10px;
+        padding: 11px 14px calc(13px + env(safe-area-inset-bottom, 0px));
+        background: color-mix(in srgb, var(--panel) 94%, transparent);
+        backdrop-filter: blur(16px);
+        border-top: 1px solid var(--border);
+      }
+      .btn-primary {
+        flex: 1;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 13px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:active {
+        background: var(--accent-strong);
+      }
+      .btn-ghost-lg {
+        flex: 1;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 13px;
+        border-radius: 999px;
+        cursor: pointer;
+        background: var(--panel);
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+
+      /* 设置页 */
+      .set-group {
+        margin-bottom: 16px;
+      }
+      .set-group .g-label {
+        font-size: 11.5px;
+        color: var(--text-3);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        margin: 0 4px 7px;
+      }
+      .set-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .set-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 13.5px 14px;
+        border-top: 1px solid var(--border);
+        font-size: 13.5px;
+        cursor: pointer;
+      }
+      .set-row:first-child {
+        border-top: none;
+      }
+      .set-row:active {
+        background: var(--panel-muted);
+      }
+      .set-row .s-ic {
+        color: var(--accent);
+        flex-shrink: 0;
+        display: flex;
+      }
+      .set-row .s-ic svg {
+        width: 17px;
+        height: 17px;
+      }
+      .set-row .s-label {
+        flex: 1;
+      }
+      .set-row .s-value {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .set-row .s-chev {
+        color: var(--text-3);
+        display: flex;
+      }
+      .set-row .s-chev svg {
+        width: 15px;
+        height: 15px;
+      }
+      .switch {
+        width: 42px;
+        height: 25px;
+        border-radius: 999px;
+        background: #d9d8e4;
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.18s;
+      }
+      .switch::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 19px;
+        height: 19px;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+        transition: transform 0.18s;
+      }
+      .switch.on {
+        background: var(--accent);
+      }
+      .switch.on::after {
+        transform: translateX(17px);
+      }
+
+      .c1 {
+        background: linear-gradient(135deg, #7f76e8, #4a44b8);
+      }
+      .c2 {
+        background: linear-gradient(135deg, #e8a06c, #c96a3b);
+      }
+      .c3 {
+        background: linear-gradient(135deg, #5cbf8a, #2e8f60);
+      }
+      .c4 {
+        background: linear-gradient(135deg, #6cb7e8, #3b7fc9);
+      }
+      .c5 {
+        background: linear-gradient(135deg, #e87ca8, #c93b74);
+      }
+      .c6 {
+        background: linear-gradient(135deg, #b9a06c, #8f7538);
+      }
+
+      @media (max-width: 860px) {
+        body {
+          flex-direction: column;
+          gap: 24px;
+        }
+        .phone {
+          transform-origin: top center;
+        }
+        .side {
+          width: 100%;
+          max-width: 392px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="side">
+      <h1>ModForge 移动端 Mock</h1>
+      <p class="sub">
+        Phase 1–4 交互预览：底部导航、抽屉页面化（通知 / 下载 / 设置 / Mod 详情都是全屏页面）、顶部横幅通知。纯静态假数据，配色取自
+        tokens.css（#5b54d6）。
+      </p>
+      <div class="group">
+        <h3>直达页面</h3>
+        <div class="btns">
+          <button class="mock-btn" onclick="openPage('page-notifications')">通知中心</button>
+          <button class="mock-btn" onclick="openPage('page-downloads')">下载中心</button>
+          <button class="mock-btn" onclick="openPage('page-settings')">设置</button>
+          <button class="mock-btn" onclick="openPage('page-detail')">Mod 详情</button>
+        </div>
+      </div>
+      <div class="group">
+        <h3>可交互</h3>
+        <p class="hint">
+          · 底部导航切换 4 个标签页<br />
+          · 顶栏铃铛 / 下载 / 齿轮打开对应页面<br />
+          · 点模组卡片 → 全屏详情页<br />
+          · 每个页面左上角返回箭头可退<br />
+          · 库页顶部横幅可关闭（Phase 3 toast 样式）
+        </p>
+      </div>
+      <div class="group">
+        <h3>说明</h3>
+        <p class="hint">
+          <b>桌面端不受影响</b>：这些页面化行为仅 androidHost 生效，桌面仍是浮层抽屉（Phase 3 的铃铛控制中心）。<br />实施计划：<b
+            >docs/android-mobile-ux-overhaul.md</b
+          >
+        </p>
+      </div>
+    </aside>
+
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="notch"></div>
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="right">
+            <svg width="15" height="11" viewBox="0 0 24 18" fill="currentColor">
+              <path d="M2 6a15 15 0 0 1 20 0l-2.5 3a11 11 0 0 0-15 0Zm5 5.5a8 8 0 0 1 10 0L12 18Z" />
+            </svg>
+            <svg width="15" height="11" viewBox="0 0 24 18" fill="currentColor">
+              <path d="M2 6a15 15 0 0 1 20 0l-2.5 3a11 11 0 0 0-15 0Zm5 5.5a8 8 0 0 1 10 0L12 18Z" />
+            </svg>
+            <svg width="22" height="11" viewBox="0 0 30 14">
+              <rect x="1" y="1" width="24" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4" />
+              <rect x="3" y="3" width="17" height="8" rx="2" fill="currentColor" />
+              <rect x="26.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor" fill-opacity=".4" />
+            </svg>
+          </span>
+        </div>
+
+        <!-- 顶栏 -->
+        <div class="topbar">
+          <div class="brand">
+            <div class="brand-logo">M</div>
+            <span class="brand-name">ModForge</span>
+          </div>
+          <button class="icon-btn has-badge" data-badge="2" title="通知中心" onclick="openPage('page-notifications')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+          </button>
+          <button class="icon-btn has-badge" data-badge="3" title="下载中心" onclick="openPage('page-downloads')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="设置" onclick="openPage('page-settings')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 7h-9" />
+              <path d="M14 17H5" />
+              <circle cx="17" cy="17" r="3" />
+              <circle cx="7" cy="7" r="3" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="content">
+          <!-- ========= 模组库 ========= -->
+          <div class="tab-screen active" id="tab-library">
+            <div class="toast-banner" id="toast-demo">
+              <span class="t-icon"
+                ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" /></svg
+              ></span>
+              <div class="t-body">
+                <div class="t-title">Nexus 诊断异常</div>
+                <div class="t-desc">2 条 API 路由失败，浏览与更新检查可能受影响。</div>
+                <div class="t-actions">
+                  <button class="chip-btn primary">重试</button>
+                  <button class="chip-btn">查看详情</button>
+                </div>
+              </div>
+              <button class="t-close" onclick="document.getElementById('toast-demo').remove()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="searchbar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input placeholder="搜索已安装的模组" />
+            </div>
+
+            <div class="mod-grid">
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c1">
+                  <span class="ver">v1.14.1</span
+                  ><span class="st ok"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M20 6 9 17l-5-5" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">Stardew Valley Expanded</div>
+                  <div class="meta">FlashShifter · 已启用</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c2">
+                  <span class="ver">v6.9.2</span
+                  ><span class="st warn"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 8v4" />
+                      <path d="M12 16h.01" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">East Scarp</div>
+                  <div class="meta">lemurkat · 需更新</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c3">
+                  <span class="ver">v2.3.0</span
+                  ><span class="st ok"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M20 6 9 17l-5-5" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">Lookup Anything</div>
+                  <div class="meta">Pathoschild · 已启用</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c4">
+                  <span class="ver">v1.2.8</span
+                  ><span class="st off"
+                    ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">NPC Map Locations</div>
+                  <div class="meta">Bouhm · 已停用</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c5">
+                  <span class="ver">v3.1.4</span
+                  ><span class="st ok"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M20 6 9 17l-5-5" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">Ridgeside Village</div>
+                  <div class="meta">Rafseazz · 已启用</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c6">
+                  <span class="ver">v1.0.7</span
+                  ><span class="st ok"
+                    ><svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M20 6 9 17l-5-5" /></svg
+                  ></span>
+                </div>
+                <div class="info">
+                  <div class="name">Seasonal Outfits</div>
+                  <div class="meta">NeroToxic · 已启用</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========= 发现 ========= -->
+          <div class="tab-screen" id="tab-discover">
+            <div class="searchbar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <input placeholder="搜索 Nexus 模组" />
+            </div>
+            <div class="chips">
+              <span class="chip on">热门</span><span class="chip">本周热门</span><span class="chip">最高赞</span
+              ><span class="chip">新发布</span><span class="chip">筛选 ⚙</span>
+            </div>
+            <div class="mod-grid">
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c4"><span class="ver">★ 4.9k</span></div>
+                <div class="info">
+                  <div class="name">SVE 大扩展</div>
+                  <div class="meta">FlashShifter · 2.1M 订阅</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c2"><span class="ver">★ 2.3k</span></div>
+                <div class="info">
+                  <div class="name">美化包合集</div>
+                  <div class="meta">Celorr · 890k 订阅</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c3"><span class="ver">★ 1.8k</span></div>
+                <div class="info">
+                  <div class="name">自动化工具</div>
+                  <div class="meta">Pathoschild · 1.2M 订阅</div>
+                </div>
+              </div>
+              <div class="mod-card" onclick="openPage('page-detail')">
+                <div class="cover c5"><span class="ver">★ 956</span></div>
+                <div class="info">
+                  <div class="name">服装扩展</div>
+                  <div class="meta">NeroToxic · 340k 订阅</div>
+                </div>
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                margin-top: 16px;
+                align-items: center;
+                font-size: 12.5px;
+                color: var(--text-3);
+              "
+            >
+              <button class="chip-btn">‹</button><span>第 2 / 41 页</span><button class="chip-btn">›</button>
+            </div>
+          </div>
+
+          <!-- ========= 更新 ========= -->
+          <div class="tab-screen" id="tab-updates">
+            <div class="sec-title" style="margin-top: 6px">3 个模组可更新 <span class="more">全选</span></div>
+            <div class="update-row">
+              <div class="art c2"></div>
+              <div class="u-body">
+                <div class="u-name">East Scarp</div>
+                <div class="u-ver">v6.8.0 → <span class="next">v6.9.2</span></div>
+              </div>
+              <button class="btn-sm">更新</button>
+            </div>
+            <div class="update-row">
+              <div class="art c1"></div>
+              <div class="u-body">
+                <div class="u-name">Stardew Valley Expanded</div>
+                <div class="u-ver">v1.14.0 → <span class="next">v1.14.1</span></div>
+              </div>
+              <button class="btn-sm">更新</button>
+            </div>
+            <div class="update-row">
+              <div class="art c5"></div>
+              <div class="u-body">
+                <div class="u-name">Ridgeside Village</div>
+                <div class="u-ver">v3.1.2 → <span class="next">v3.1.4</span></div>
+              </div>
+              <button class="btn-sm">更新</button>
+            </div>
+            <div class="sec-title">已忽略</div>
+            <div class="update-row" style="opacity: 0.6">
+              <div class="art c4"></div>
+              <div class="u-body">
+                <div class="u-name">NPC Map Locations</div>
+                <div class="u-ver">已是最新 v1.2.8</div>
+              </div>
+              <button class="btn-sm ghost">详情</button>
+            </div>
+          </div>
+
+          <!-- ========= 诊断/配置 ========= -->
+          <div class="tab-screen" id="tab-configuration">
+            <div class="sec-title" style="margin-top: 6px">诊断 <span class="more" onclick="openPage('page-logs')">查看日志 ›</span></div>
+            <div class="cfg-card">
+              <div class="cfg-head">游戏</div>
+              <div class="cfg-row">
+                <span class="c-label">游戏安装</span>
+                <span class="c-value" style="color: var(--success)">已检测 · 1.6.15</span>
+              </div>
+              <div class="cfg-row">
+                <span class="c-label">Mods 目录</span>
+                <span class="c-value">/Android/data/…/Mods</span>
+                <span class="c-chev"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="m9 18 6-6-6-6" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="cfg-card">
+              <div class="cfg-head">SMAPI</div>
+              <div class="cfg-row">
+                <span class="c-label">当前版本</span>
+                <span class="c-value">4.1.10-android</span>
+              </div>
+              <div class="cfg-row">
+                <span class="c-label">安装 / 更新 SMAPI</span>
+                <button class="btn-sm ghost" style="font-size: 11.5px; padding: 6px 12px">选择 zip</button>
+              </div>
+            </div>
+            <div class="cfg-card">
+              <div class="cfg-head">Nexus 账户</div>
+              <div class="cfg-row">
+                <span class="dot-ok"></span>
+                <span class="c-label">已登录 · Premium</span>
+                <span class="c-value">Arbor</span>
+                <span class="c-chev"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="m9 18 6-6-6-6" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="cfg-card">
+              <div class="cfg-head">诊断</div>
+              <div class="cfg-row">
+                <span class="c-label">运行诊断</span><button class="btn-sm ghost" style="font-size: 11.5px; padding: 6px 12px">开始</button>
+              </div>
+              <div class="cfg-row">
+                <span class="c-label">强制离线模式</span><span class="switch" onclick="this.classList.toggle('on')"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========= 日志页（Phase 5 预览） ========= -->
+          <div class="page" id="page-logs">
+            <div class="page-head">
+              <button class="icon-btn" onclick="closePage('page-logs')">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </button>
+              <span class="p-title">日志</span>
+              <button class="p-action">刷新</button>
+            </div>
+            <div
+              class="page-body"
+              style="
+                background: #14131f;
+                border-radius: 0;
+                margin: -13px -14px -26px;
+                padding: 13px 14px 26px;
+                font:
+                  11px/1.7 ui-monospace,
+                  Consolas,
+                  monospace;
+                color: #b9b7d0;
+              "
+            >
+              <div style="color: #7f7c9a">[09:41:02] SMAPI 4.1.10-android 启动…</div>
+              <div style="color: #7f7c9a">[09:41:02] 游戏目录 /storage/emulated/0/Stardew</div>
+              <div>[09:41:03] 加载模组 Stardew Valley Expanded 1.14.1</div>
+              <div>[09:41:03] 加载模组 East Scarp 6.9.2</div>
+              <div>[09:41:03] 加载模组 Lookup Anything 2.3.0</div>
+              <div style="color: #8fd8a8">[09:41:04] 已加载 3 个模组，0 个失败</div>
+              <div style="color: #8fd8a8">[09:41:04] 游戏启动完成</div>
+            </div>
+          </div>
+
+          <!-- ========= 通知中心页 ========= -->
+          <div class="page" id="page-notifications">
+            <div class="page-head">
+              <button class="icon-btn" onclick="closePage('page-notifications')">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </button>
+              <span class="p-title">通知</span>
+              <button class="p-action">全部清除</button>
+            </div>
+            <div class="page-body">
+              <div class="notif unread">
+                <div class="n-ic warn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                </div>
+                <div class="n-body">
+                  <div class="n-title">Nexus 诊断异常</div>
+                  <div class="n-desc">2 条 API 路由失败（mods、files）。浏览与更新检查可能受影响。</div>
+                  <div class="n-actions"><button class="chip-btn primary">重试</button><button class="chip-btn">查看详情</button></div>
+                  <div class="n-time">2 分钟前</div>
+                </div>
+                <span class="n-dot"></span>
+              </div>
+              <div class="notif unread">
+                <div class="n-ic ok">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <path d="m22 4-10 10-3-3" />
+                  </svg>
+                </div>
+                <div class="n-body">
+                  <div class="n-title">已安装 3 个模组</div>
+                  <div class="n-desc">从下载中心安装完成，重启游戏后生效。</div>
+                  <div class="n-time">14 分钟前</div>
+                </div>
+                <span class="n-dot"></span>
+              </div>
+              <div class="notif">
+                <div class="n-ic info">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4" />
+                    <path d="M12 8h.01" />
+                  </svg>
+                </div>
+                <div class="n-body">
+                  <div class="n-title">检测到 SMAPI 4.1.10-android</div>
+                  <div class="n-desc">与当前游戏版本 1.6.15 兼容。</div>
+                  <div class="n-time">1 小时前</div>
+                </div>
+              </div>
+              <div class="notif">
+                <div class="n-ic warn">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                </div>
+                <div class="n-body">
+                  <div class="n-title">图片缓存即将清理</div>
+                  <div class="n-desc">已占用 412MB，可在设置中清理。</div>
+                  <div class="n-time">昨天</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========= 下载中心页 ========= -->
+          <div class="page" id="page-downloads">
+            <div class="page-head">
+              <button class="icon-btn" onclick="closePage('page-downloads')">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </button>
+              <span class="p-title">下载中心</span>
+              <button class="p-action">清除已完成</button>
+            </div>
+            <div class="page-body">
+              <div class="dl-row">
+                <div class="d-top">
+                  <div class="art c2"></div>
+                  <div class="d-name">East Scarp 6.9.2</div>
+                  <div class="d-status">68%</div>
+                </div>
+                <div class="d-bar"><div class="d-fill" style="width: 68%"></div></div>
+                <div class="d-foot"><span>4.2 MB/s · 剩余 12 秒</span><span>⏸ 暂停</span></div>
+              </div>
+              <div class="dl-row">
+                <div class="d-top">
+                  <div class="art c5"></div>
+                  <div class="d-name">Ridgeside Village 3.1.4</div>
+                  <div class="d-status">23%</div>
+                </div>
+                <div class="d-bar"><div class="d-fill" style="width: 23%"></div></div>
+                <div class="d-foot"><span>2.8 MB/s · 剩余 40 秒</span><span>⏸ 暂停</span></div>
+              </div>
+              <div class="dl-row done">
+                <div class="d-top">
+                  <div class="art c1"></div>
+                  <div class="d-name">Stardew Valley Expanded 1.14.1</div>
+                  <div class="d-status" style="color: var(--success)">已完成</div>
+                </div>
+                <div class="d-bar"><div class="d-fill" style="width: 100%"></div></div>
+                <div class="d-foot">
+                  <span>18.4 MB</span
+                  ><span class="chip-btn primary" style="font-size: 11px; padding: 4px 12px" onclick="openPage('page-detail')">安装</span>
+                </div>
+              </div>
+              <div class="dl-row fail">
+                <div class="d-top">
+                  <div class="art c4"></div>
+                  <div class="d-name">Automate 2.3.0</div>
+                  <div class="d-status" style="color: var(--danger)">失败</div>
+                </div>
+                <div class="d-bar"><div class="d-fill" style="width: 41%"></div></div>
+                <div class="d-foot"><span>网络中断</span><span>↻ 重试</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========= 设置页 ========= -->
+          <div class="page" id="page-settings">
+            <div class="page-head">
+              <button class="icon-btn" onclick="closePage('page-settings')">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </button>
+              <span class="p-title">设置</span>
+            </div>
+            <div class="page-body">
+              <div class="set-group">
+                <div class="g-label">通用</div>
+                <div class="set-card">
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M2 12h20" />
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg></span
+                    ><span class="s-label">语言</span><span class="s-value">简体中文</span
+                    ><span class="s-chev"
+                      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="m9 18 6-6-6-6" /></svg
+                    ></span>
+                  </div>
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg></span
+                    ><span class="s-label">主题</span><span class="s-value">跟随系统</span
+                    ><span class="s-chev"
+                      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="m9 18 6-6-6-6" /></svg
+                    ></span>
+                  </div>
+                </div>
+              </div>
+              <div class="set-group">
+                <div class="g-label">启动器</div>
+                <div class="set-card">
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M5 8h14M5 8a2 2 0 1 0 0-4h14a2 2 0 1 1 0 4M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8m-9 4h4" /></svg></span
+                    ><span class="s-label">游戏安装</span><span class="s-value">已检测 · 1.6.15</span>
+                  </div>
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" /></svg></span
+                    ><span class="s-label">安装 SMAPI</span><span class="s-value">4.1.10</span
+                    ><span class="s-chev"
+                      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="m9 18 6-6-6-6" /></svg
+                    ></span>
+                  </div>
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                        /></svg></span
+                    ><span class="s-label">Nexus 账户</span><span class="s-value">Arbor</span
+                    ><span class="s-chev"
+                      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="m9 18 6-6-6-6" /></svg
+                    ></span>
+                  </div>
+                </div>
+              </div>
+              <div class="set-group">
+                <div class="g-label">高级</div>
+                <div class="set-card">
+                  <div class="set-row">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m18 16 4-4-4-4" />
+                        <path d="m6 8-4 4 4 4" />
+                        <path d="m14.5 4-5 16" /></svg></span
+                    ><span class="s-label">开发者模式</span
+                    ><span
+                      class="switch"
+                      onclick="
+                        event.stopPropagation()
+                        this.classList.toggle('on')
+                      "
+                    ></span>
+                  </div>
+                  <div class="set-row" onclick="openPage('page-logs')">
+                    <span class="s-ic"
+                      ><svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 2v6h6" />
+                        <path d="M16 13H8" />
+                        <path d="M16 17H8" /></svg></span
+                    ><span class="s-label">查看日志</span
+                    ><span class="s-chev"
+                      ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="m9 18 6-6-6-6" /></svg
+                    ></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========= Mod 详情页 ========= -->
+          <div class="page" id="page-detail">
+            <div class="page-head">
+              <button class="icon-btn" onclick="closePage('page-detail')">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 19-7-7 7-7" />
+                  <path d="M19 12H5" />
+                </svg>
+              </button>
+              <span class="p-title">模组详情</span>
+              <button class="icon-btn" style="width: 38px; height: 38px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="5" r="1.6" />
+                  <circle cx="12" cy="12" r="1.6" />
+                  <circle cx="12" cy="19" r="1.6" />
+                </svg>
+              </button>
+            </div>
+            <div class="page-body" style="padding-bottom: 8px">
+              <div class="detail-hero">
+                <div class="d-cover c1"></div>
+                <div class="d-info">
+                  <div class="d-name">Stardew Valley Expanded</div>
+                  <div class="d-author">FlashShifter · Nexus Mods</div>
+                  <div class="d-tags">
+                    <span class="tag">v1.14.1</span><span class="tag plain">地图扩展</span><span class="tag plain">中文可用</span>
+                  </div>
+                </div>
+              </div>
+              <div class="detail-tabs">
+                <button class="dt on">描述</button><button class="dt">更新日志</button><button class="dt">详情</button
+                ><button class="dt">依赖</button><button class="dt">文件</button>
+              </div>
+              <div class="detail-sec">
+                <h4>简介</h4>
+                Stardew Valley Expanded 是目前最大的内容扩展之一，新增 50+ 地点、30+ NPC 与大量剧情内容，全部素材按原版风格绘制。
+                <h4>本次更新（v1.1.14.1）</h4>
+                · 新增 Highlands 深海钓点<br />
+                · 修复 Grampleton Fields 地图穿模<br />
+                · 适配游戏 1.6.15
+                <div class="kv-list">
+                  <div class="kv"><span class="k">文件大小</span><span class="v">18.4 MB</span></div>
+                  <div class="kv"><span class="k">最后更新</span><span class="v">2026-09-10</span></div>
+                  <div class="kv"><span class="k">依赖</span><span class="v">SMAPI 4.0+、Content Patcher</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="page-foot">
+              <button class="btn-ghost-lg">Nexus 页面</button>
+              <button class="btn-primary">更新到 v1.14.1</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部导航 -->
+        <div class="bottom-nav" id="bottomNav">
+          <button class="nav-item active" data-tab="tab-library" onclick="switchTab(this)">
+            <span class="n-pill"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            </svg>
+            <span class="n-label">模组库</span>
+          </button>
+          <button class="nav-item" data-tab="tab-discover" onclick="switchTab(this)">
+            <span class="n-pill"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+            </svg>
+            <span class="n-label">发现</span>
+          </button>
+          <button class="nav-item" data-tab="tab-updates" onclick="switchTab(this)">
+            <span class="n-badge">3</span>
+            <span class="n-pill"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            <span class="n-label">更新</span>
+          </button>
+          <button class="nav-item" data-tab="tab-configuration" onclick="switchTab(this)">
+            <span class="n-pill"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
+              <path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4" />
+              <circle cx="20" cy="10" r="2" />
+            </svg>
+            <span class="n-label">诊断</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function switchTab(btn) {
+        document.querySelectorAll('.nav-item').forEach((el) => el.classList.remove('active'))
+        btn.classList.add('active')
+        document.querySelectorAll('.tab-screen').forEach((el) => el.classList.remove('active'))
+        document.getElementById(btn.dataset.tab).classList.add('active')
+      }
+
+      const openPages = new Set()
+      function openPage(id) {
+        const page = document.getElementById(id)
+        if (!page || openPages.has(id)) return
+        openPages.add(id)
+        page.classList.add('open')
+        document.getElementById('bottomNav').classList.add('hidden')
+      }
+      function closePage(id) {
+        const page = document.getElementById(id)
+        if (!page) return
+        openPages.delete(id)
+        page.classList.remove('open')
+        if (openPages.size === 0) document.getElementById('bottomNav').classList.remove('hidden')
+      }
+      // 关闭时等滑动动画结束再藏 visibility（CSS visibility 由 .open 控制，这里处理动画期间的层叠）
+      document.querySelectorAll('.page').forEach((page) => {
+        page.addEventListener('transitionend', () => {
+          if (!page.classList.contains('open')) page.style.zIndex = ''
+        })
+        const observer = new MutationObserver(() => {
+          page.style.zIndex = page.classList.contains('open') ? String(40 + openPages.size) : page.style.zIndex
+        })
+        observer.observe(page, { attributes: true, attributeFilter: ['class'] })
+      })
+    </script>
+  </body>
+</html>

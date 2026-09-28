@@ -2,6 +2,18 @@ import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay
 
 export const LAUNCHER_LIBRARY_GRID_GAP_PX = 16
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
+/** Phone-width viewports get the two-column card feed: with the 16px grid
+ * gap, 150px floors to two columns at 320px and anything wider. The desktop
+ * minimum (260px) would collapse a phone viewport to a single column. */
+export const LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX = 150
+export const LAUNCHER_LIBRARY_GRID_PHONE_MAX_VIEWPORT_PX = 480
+
+/** Picks the virtual-grid minimum card width for the measured viewport width. */
+export function getLauncherLibraryCardMinWidthPx(viewportWidth: number) {
+  return viewportWidth > 0 && viewportWidth <= LAUNCHER_LIBRARY_GRID_PHONE_MAX_VIEWPORT_PX
+    ? LAUNCHER_LIBRARY_CARD_PHONE_MIN_WIDTH_PX
+    : LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
+}
 export const LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX = 260
 // Total horizontal padding around the card cover: reveal wrapper padding + card padding.
 export const LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX = 12
@@ -17,7 +29,8 @@ export function estimateLauncherLibraryCardHeight(cardWidth: number, rootFontSiz
 
   const scale = rootFontSize / 16
   const horizontalPadding = LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * scale
-  const copyHeight = LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX * scale
+  // Compact phone cards shrink the copy block along with their font sizes.
+  const copyHeight = (cardWidth < 200 ? 44 : LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX) * scale
   const contentWidth = Math.max(0, cardWidth - horizontalPadding * 2)
   const coverHeight = contentWidth / LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO
   return Math.ceil(horizontalPadding * 2 + coverHeight + copyHeight)

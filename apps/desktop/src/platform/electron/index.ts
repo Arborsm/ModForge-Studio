@@ -1,5 +1,12 @@
-import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
+/**
+ * @file Electron platform adapter — wires the preload-exposed `modforgeElectron` API into the `PlatformPorts` contract.
+ * @module platform/electron
+ */
 
+import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
+import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
+
+/** Reports whether the current runtime is inside the Electron desktop host. */
 export function isElectronHost() {
   return typeof window !== 'undefined' && Boolean(window.modforgeElectron)
 }
@@ -12,28 +19,11 @@ function getElectronApi() {
   return api
 }
 
-function createBrowserStorage() {
-  return {
-    getItem(key: string) {
-      return typeof window === 'undefined' ? null : window.localStorage.getItem(key)
-    },
-    setItem(key: string, value: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, value)
-      }
-    },
-    removeItem(key: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(key)
-      }
-    },
-  }
-}
-
 async function openDialog(options?: OpenDialogOptions) {
   return getElectronApi().openDialog(options)
 }
 
+/** Builds the `PlatformPorts` instance backed by the Electron preload bridge. */
 export function createElectronPlatformPorts(): PlatformPorts {
   return {
     fileSystem: {
@@ -42,6 +32,16 @@ export function createElectronPlatformPorts(): PlatformPorts {
       },
       toAssetUrl(filePath: string) {
         return getElectronApi().toAssetUrl(filePath)
+      },
+      resolvePluginUrl(pluginId: string, relativePath: string, epoch?: number) {
+        // Electron registers a real privileged `plugin` scheme; the main-side
+        // handler accepts the plugin id in the URL authority. When `epoch` is
+        // set, a `__v<N>/` segment is inserted after the plugin id so
+        // hot-reload bypasses the webview module cache; the main-side handler
+        // strips the prefix before resolving the on-disk path.
+        const pathSegments = relativePath.split('/').filter(Boolean)
+        const segments = [...(epoch !== undefined ? [`__v${epoch}`] : []), ...pathSegments].map(encodeURIComponent).join('/')
+        return `plugin://${encodeURIComponent(pluginId)}/${segments}`
       },
     },
     desktopWindow: {
@@ -62,14 +62,7 @@ export function createElectronPlatformPorts(): PlatformPorts {
       saveFile(options?: SaveDialogOptions) {
         return getElectronApi().saveFileDialog(options)
       },
-      async chooseDirectory(title?: string) {
-        const selected = await openDialog({ title, directory: true, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
-      async chooseFile(options?: OpenDialogOptions) {
-        const selected = await openDialog({ ...options, directory: false, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
+      ...createDialogChoosers(openDialog),
     },
     hostEvents: {
       canUseHost: isElectronHost,

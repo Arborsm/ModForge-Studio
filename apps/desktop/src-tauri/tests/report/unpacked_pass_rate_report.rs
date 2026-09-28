@@ -1,5 +1,3 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
@@ -8,8 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use image::ImageFormat;
-use infrastructure::game_formats::tbin;
-use infrastructure::game_formats::xnb;
+use modforge_studio_desktop_lib::validation::{tbin, xnb};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum AssetKind {

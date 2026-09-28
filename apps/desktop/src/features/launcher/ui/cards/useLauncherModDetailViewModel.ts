@@ -1,3 +1,7 @@
+/**
+ * @file useLauncherModDetailViewModel hook: builds the pure render model for
+ * the launcher mod detail panel from local + remote data.
+ */
 import type { CSSProperties } from 'react'
 import type { useEditorCopy } from '@locales/provider'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '../../model/types'
@@ -9,7 +13,6 @@ import {
   compactNumber,
   formatDate,
   formatSize,
-  hasUpdate,
   normalizeVersion,
   resolveFileGroup,
   truncatePath,
@@ -18,9 +21,11 @@ import {
   type FileListItem,
   type LauncherDetailTab,
 } from './launcherModDetailData'
+import { isUpdateAvailable } from '../../model/versionCompare'
 
 type EditorCopy = ReturnType<typeof useEditorCopy>
 
+/** Input shape for {@link useLauncherModDetailViewModel}. */
 export type LauncherModDetailViewModelInput = {
   copy: EditorCopy
   activeTab: LauncherDetailTab
@@ -34,6 +39,7 @@ export type LauncherModDetailViewModelInput = {
   canQueueDownload: boolean
 }
 
+/** Pure render model for the launcher mod detail panel: hero, tabs, details, files, changelog, and dependency tree. */
 export type LauncherModDetailViewModel = {
   statusFlags: {
     isLocal: boolean
@@ -43,7 +49,7 @@ export type LauncherModDetailViewModel = {
   }
   hero: {
     displayName: string
-    displayAuthor: string
+    displayAuthor: string | null
     displayVersion: string
     category: string | null
     subtitleText: string
@@ -159,9 +165,11 @@ export function useLauncherModDetailViewModel({
   const isNexus = Boolean(remote)
   const isCombined = isLocal && isNexus
   const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
-  const updateAvailable = isCombined && hasUpdate(mod?.version, latestVersion)
+  const updateAvailable = isCombined && isUpdateAvailable(mod?.version, latestVersion)
   const displayName = mod?.name ?? remote?.title ?? launcherCopy.library.detailsTitle
-  const displayAuthor = mod?.author ?? remote?.author ?? launcherCopy.library.detailsSubtitle
+  // Author-less mods leave the "by …" segment out instead of borrowing the
+  // panel subtitle, which reads as a sentence in the author slot.
+  const displayAuthor = mod?.author ?? remote?.author ?? null
   const displayVersion = isCombined
     ? `${detailCopy.installedVersionShort} ${normalizeVersion(mod?.version, copy.common.none)} · ${detailCopy.nexusVersionShort} ${normalizeVersion(latestVersion, copy.common.none)}`
     : normalizeVersion(mod?.version ?? latestVersion, copy.common.none)

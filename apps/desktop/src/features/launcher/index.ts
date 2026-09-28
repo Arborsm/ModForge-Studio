@@ -11,6 +11,7 @@ export { LauncherStateBlock } from './ui/shared/LauncherStateBlock'
 export { orderLauncherDownloadItems } from './ui/shared/orderLauncherDownloadItems'
 export { getLauncherCoverKey } from './model/coverKey'
 export { useLauncherImage } from './model/imageLoader'
+export { parseLauncherModIdQuery } from './model/launcherModIdQuery'
 export {
   DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE,
   LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY,
@@ -39,7 +40,7 @@ export { useLauncherDiscover } from './model/useLauncherDiscover'
 export { useLauncherDownloads } from './model/useLauncherDownloads'
 export { useLauncherLibrary } from './model/useLauncherLibrary'
 export { useLauncherRemoteModDetail } from './model/useLauncherRemoteModDetail'
-export { getLauncherWarningState, useLauncherRuntime } from './model/useLauncherRuntime'
+export { getLauncherWarningState, hasLauncherCredentials, useLauncherRuntime } from './model/useLauncherRuntime'
 export { useLauncherSettings } from './model/useLauncherSettings'
 export { useLauncherUpdateProgressNotifications } from './model/useLauncherUpdateProgressNotifications'
 export { useLauncherUpdates } from './model/useLauncherUpdates'

@@ -36,6 +36,7 @@ const mods: ModWorkspaceCopy = {
   manifestPathLabel: 'Manifest',
   contentPathLabel: 'Content',
   selectProjectFolder: 'Select mod folder',
+  selectProjectAction: 'Select project',
   missingRequiredDependencies: (dependencies) => `Missing required: ${dependencies}`,
   unsavedChangesTitle: 'Unsaved translations',
   unsavedChangesMessage: 'Save or discard the current translation edits before continuing.',

@@ -3,13 +3,10 @@ export type StudioDeskCopy = {
   heading: string
   subtitle: string
   heroSubtitle: string
-  designTagsLabel: string
-  designTags: string[]
   projectLobby: string
   projectLobbyControl: string
   projectGrid: string
   projectCount: (count: number) => string
-  projectMoreActions: (name: string) => string
   projectManagerEyebrow: string
   projectManagerSubtitle: string
   projectList: string
@@ -19,7 +16,6 @@ export type StudioDeskCopy = {
   lastExportedLabel: string
   metadataIncomplete: string
   editProjectProperties: string
-  editProjectPropertiesHint: string
   overview: string
   totalProjects: string
   waitingExport: string
@@ -27,14 +23,13 @@ export type StudioDeskCopy = {
   returnCurrentDesk: string
   currentActive: string
   pendingExport: string
-  hasConflict: string
+  hasErrors: string
   archived: string
   openProject: string
   selectProject: (name: string) => string
   copyProject: string
   deleteProject: string
   selectedProjects: (count: number) => string
-  clearSelection: string
   bulkDelete: string
   deleteProjectTitle: string
   deleteProjectMessage: (name: string) => string
@@ -96,28 +91,11 @@ export type StudioDeskCopy = {
   locationCount: (count: number) => string
   assetCount: (count: number) => string
   castCount: (count: number) => string
-  avatarInitials: string[]
-  avatarOverflow: (count: number) => string
-  scriptPreview: {
-    firstSpeakerInitial: string
-    firstSpeakerName: string
-    firstLine: string
-    secondSpeakerInitial: string
-    secondSpeakerName: string
-    choicesLine: string
-  }
   edited: {
     justNow: string
     recently: string
     minutesAgo: (minutes: number) => string
     hoursAgo: (hours: number) => string
-  }
-  stats: {
-    events: string
-    maps: string
-    festivals: string
-    assets: string
-    conflicts: string
   }
   createDialog: {
     title: string
@@ -128,6 +106,31 @@ export type StudioDeskCopy = {
     description: string
     cancel: string
     create: string
+    templateLabel: string
+    templates: Record<'blank' | 'npc' | 'item' | 'building' | 'map' | 'event' | 'mail', { label: string; description: string }>
+  }
+  manifestForm: {
+    projectName: string
+    uniqueId: string
+    uniqueIdHint: string
+    author: string
+    version: string
+    description: string
+    advancedTitle: string
+    advancedSubtitle: string
+    contentPackFor: string
+    contentPackForHint: string
+    contentPackForMinimumVersion: string
+    minimumApiVersion: string
+    updateKeys: string
+    updateKeysHint: string
+    dependencies: string
+    dependenciesHint: string
+    dependencyUniqueIdPlaceholder: string
+    dependencyMinimumVersionPlaceholder: string
+    dependencyRequired: string
+    addDependency: string
+    removeDependency: string
   }
   exportDialog: {
     title: string
@@ -139,30 +142,82 @@ export type StudioDeskCopy = {
     export: string
     exporting: string
     selectDirectory: string
+    preflightTitle: string
+    preflightOk: string
+    preflightBlocked: (count: number) => string
+    preflightWarnings: (count: number) => string
   }
   addPatchDialog: {
-    selectActionTitle: string
-    includeFileTitle: string
     selectTargetTitle: string
     closeLabel: string
-    back: string
-    fromFile: string
-    includeFromFilePlaceholder: string
-    fromFileDescription: string
+    filterPlaceholder: string
+    noSuggestedTargets: string
     customTarget: string
     customTargetPlaceholder: string
     cancel: string
     addPatch: string
     actionLabels: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
-    actionDescriptions: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
+  }
+  editDataOps: {
+    title: string
+    subtitle: string
+    fieldsTitle: string
+    fieldsHint: string
+    fieldEntryPlaceholder: string
+    fieldNamePlaceholder: string
+    fieldValuePlaceholder: string
+    addField: string
+    moveTitle: string
+    moveHint: string
+    moveIdPlaceholder: string
+    moveTargetPlaceholder: string
+    moveModes: Record<'before' | 'after' | 'position', string>
+    addMove: string
+    textOpsTitle: string
+    textOpsHint: string
+    textOpTargetPlaceholder: string
+    textOpValuePlaceholder: string
+    textOpDelimiterPlaceholder: string
+    textOpSearchPlaceholder: string
+    replaceModeLabel: string
+    addTextOp: string
+    removeRow: string
+  }
+  projectSettings: {
+    title: string
+    subtitle: string
+    basicsTitle: string
+    basicsSubtitle: string
+    configTitle: string
+    configSubtitle: string
+    dynamicTokensTitle: string
+    dynamicTokensSubtitle: string
+    dynamicTokenWhenLabel: string
+    addDynamicToken: string
+    removeRow: string
+    customLocationsTitle: string
+    customLocationsSubtitle: string
+    locationNamePlaceholder: string
+    fromMapFilePlaceholder: string
+    migrateNamesLabel: string
+    migrateNamesPlaceholder: string
+    addLocation: string
+    aliasTitle: string
+    aliasSubtitle: string
+    aliasPlaceholder: string
+    aliasTargetPlaceholder: string
+    addAlias: string
+    formatTitle: string
+    formatVersionLabel: string
+    formatDescription: string
   }
   editorPage: {
     patchNotFound: string
     noEditorRegistered: (workspaceId: string) => string
     patchName: string
     enabled: string
-    editorStateJson: string
-    invalidJson: string
+    unsupportedAssetTitle: string
+    unsupportedAssetHint: (target: string) => string
   }
   imagePatchEditor: {
     replacementImage: string
@@ -171,8 +226,10 @@ export type StudioDeskCopy = {
     removeImage: string
     dropTitle: string
     dropHint: string
-    loadAction: string
-    loadDescription: string
+    targetLoading: string
+    targetLoadFailed: string
+    manualAreasTitle: string
+    manualAreasSubtitle: string
     patchMode: string
     modeLabels: Record<'Replace' | 'Overlay' | 'Mask', string>
     modeDescription: string
@@ -184,7 +241,11 @@ export type StudioDeskCopy = {
     uploadFile: string
   }
   mapPatchEditor: {
-    tabs: Record<'properties' | 'warps' | 'tiles' | 'file', string>
+    tabs: Record<'properties' | 'warps' | 'tiles' | 'file' | 'advanced', string>
+    /** Header mode badge: patch editing (modifies the game map via a Content Patcher patch). */
+    modeBadgePatch: string
+    /** Header mode badge tooltip: explains this editor edits a Content Patcher patch, not the map file. */
+    modeBadgePatchHint: string
     playerWarps: string
     playerWarpsDescription: string
     npcWarps: string
@@ -205,27 +266,215 @@ export type StudioDeskCopy = {
     addProperty: string
     removeProperty: string
     addWarp: string
+    /** Context menu: select a warp entry from the list. */
+    selectWarpAction: string
     removeWarp: string
+    noWarps: string
+    warpSource: string
+    warpDestination: string
+    pickWarpSource: string
     noGameRoot: string
     noGameRootDescription: string
     loadingMap: string
     unableToLoadMap: string
     unsupportedFormat: (format: string) => string
     unableToLoadTarget: (target: string) => string
-    tilePosition: (x: number, y: number) => string
-    tileLayer: (layer: string) => string
+    hoverHint: string
+    canvasTools: Record<'inspect' | 'brush' | 'stamp' | 'fill' | 'erase' | 'rectangle' | 'eyedropper' | 'warp', string>
+    activeLayer: string
+    selectBrushHint: string
+    tilesetPalette: string
+    tilesetView: string
+    tilesetGridView: string
+    tilesetSheetView: string
+    loadingTileset: string
+    noTilesets: string
+    tilesetImageMissing: string
+    tilesetImageError: (path: string) => string
+    tilesetSelection: (index: number, width: number, height: number) => string
     tileTileset: (tileset: string) => string
     tileId: (id: number) => string
-    hoverHint: string
-    addTileEdit: string
+    searchTilesets: string
+    recentTilesets: string
+    /** Palette favorites strip: section label for starred selections. */
+    favoritesSection: string
+    /** Palette favorites strip: context menu item to star a selection. */
+    favoriteAdd: string
+    /** Palette favorites strip: context menu item to unstar a selection. */
+    favoriteRemove: string
+    /** Palette favorites strip: export favorites to JSON file. */
+    favoritesExport: string
+    /** Palette favorites strip: import favorites from JSON file. */
+    favoritesImport: string
+    /** Palette favorites tab: count label showing number of favorites. */
+    favoritesCount: (count: number) => string
+    /** Palette favorites tab: empty state hint. */
+    favoritesEmpty: string
+    /** Sheet picker: group listing the sheets already attached to the map. */
+    sheetPickerAttachedGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/Maps` sheets. */
+    sheetPickerGameMapsGroup: string
+    /** Sheet picker: group listing the predefined vanilla `Content/TileSheets` sheets. */
+    sheetPickerGameTilesheetsGroup: string
+    /** Sheet picker: group listing project image assets. */
+    sheetPickerProjectGroup: string
+    /** Sheet picker: empty state when the search filter matches nothing. */
+    sheetPickerEmpty: string
+    /** Sheet gallery: back button to return to the palette view. */
+    sheetGalleryBack: string
+    /** Sheet gallery: card that opens the project image importer. */
+    sheetGalleryImport: string
+    /** Sheet picker: badge marking a catalog sheet the map already references. */
+    sheetPickerAttachedBadge: string
+    /** Sheet picker: badge marking an attached sheet that references a vanilla game sheet. */
+    sheetPickerGameBadge: string
+    /** Sheet picker: attached-row metadata with the sheet's tile count. */
+    sheetPickerTileCount: (tileCount: number) => string
+    /** Sheet picker: catalog-row metadata combining pixel size and tile split. */
+    sheetPickerSheetMeta: (imageWidth: number, imageHeight: number, columns: number, rows: number) => string
+    /** Sheet picker: tooltip for catalog sheets that do not divide evenly into 16px tiles. */
+    sheetPickerUnevenSplit: string
+    /** Sheet picker: tooltip for catalog rows while no game directory is connected. */
+    sheetPickerNoGameRoot: string
+    /** Sheet picker: trigger tooltip in the palette (switch between or attach sheets). */
+    sheetPickerSwitch: string
+    /** Palette sheet tab bar: tooltip for a tab (switch to this sheet). */
+    sheetTabSwitch: string
+    /** Palette sheet tab bar: add button tooltip (attach a new sheet). */
+    sheetTabAdd: string
+    /** Palette sheet tab bar: context menu item to replace the sheet image. */
+    sheetTabReplaceImage: string
+    /** Palette sheet tab bar: context menu item to remove the sheet. */
+    sheetTabRemove: string
+    /** Palette sheet tab bar: context menu item to edit the sheet in the Inspector. */
+    sheetTabEditInInspector: string
+    /** Palette sheet tab bar: confirmation prompt when removing a sheet. */
+    sheetTabRemoveConfirm: (name: string) => string
+    /** Palette hover magnifier: accessible label for the magnifier element. */
+    tilesetMagnifier: string
+    /** Palette recent strip: context menu item to remove a recent selection. */
+    recentRemove: string
+    noTileSelection: string
+    tileTooltip: (index: number, tileset: string) => string
+    quickProperty: string
+    chooseQuickProperty: string
+    mapPropertyCategories: Record<'map' | 'warps' | 'lighting' | 'music' | 'spawning' | 'buildings' | 'other', string>
+    mapPropertyLabel: (key: string) => string
+    textOperationsTitle: string
+    textOperationsDescription: string
+    noTextOperations: string
+    addTextOperation: string
+    removeTextOperation: string
+    preservedTextOperationFields: (fields: string) => string
+    textOperationFields: Record<'operation' | 'target' | 'value' | 'delimiter' | 'search' | 'replaceMode', string>
     buildAsset: string
     mapTileEdits: (count: number) => string
-    tilePlaceholders: Record<'layer' | 'x' | 'y' | 'tilesheet' | 'index' | 'properties', string>
-    removeTile: string
-    removeTileEdit: string
+    returnToLibrary: string
+    previewTitle: string
+    previewModes: Record<'before' | 'result' | 'diff', string>
+    previewSummary: string
+    previewEmpty: string
+    mapTarget: string
+    mapSize: string
+    layers: string
+    tilesets: string
+    buildStatus: string
+    buildStatuses: Record<'notBuilt' | 'built' | 'source', string>
+    selectDestination: string
+    destinationPlaceholder: string
+    pickWarpDestination: string
+    pickWarpDestinationHint: string
+    destinationPreview: (target: string) => string
+    runtimeTargetUnavailable: (target: string) => string
+    /** Opens the current tiles change card in the full map editor session. */
+    editInMapEditor: string
+    /** Clears every tile edit on the card, resetting the summary to zero. */
+    clearTiles: string
+    tabStatuses: Record<'complete' | 'attention' | 'optional', string>
+    saveChanges: string
+    addChange: string
+    duplicateChange: string
+    deleteChange: string
+    changeTarget: string
+    projectLocations: string
+    projectMapAssets: string
+    importMapAction: string
+    importingMap: string
+    importFromGame: string
+    openMapAsset: string
+    importMapFailed: string
+    openMapAssetFailed: string
+    noProjectLocations: string
+    noProjectMapAssets: string
+    mapChanges: string
+    diagnostics: string
+    readyToSave: string
+    scopeSummary: (conditionCount: number) => string
+    textOperationPresets: Record<
+      | 'light'
+      | 'warp'
+      | 'npcWarp'
+      | 'dayTiles'
+      | 'nightTiles'
+      | 'doors'
+      | 'sounds'
+      | 'lightEntrance'
+      | 'lightSingle'
+      | 'lightRoad'
+      | 'warpForest'
+      | 'warpFarm'
+      | 'warpTown'
+      | 'npcWarpOrchard'
+      | 'npcWarpBus'
+      | 'dayTilesEntrance'
+      | 'dayTilesBuilding'
+      | 'nightTilesEntrance'
+      | 'nightTilesBuilding'
+      | 'doorsGarden'
+      | 'doorsOrchard'
+      | 'soundsEntrance'
+      | 'soundsWarp',
+      string
+    >
+    textOperationApplyMode: string
+    textOperationApplyModes: Record<'append' | 'replace' | 'remove', string>
+    textOperationCustomKind: string
+    textOperationCustomValue: string
+    changeCards: {
+      addChange: string
+      changeCount: (n: number) => string
+      selectType: string
+    }
+    changeCardFileExists: string
+    changeCardTypes: Record<'file' | 'tiles' | 'properties' | 'warps' | 'text', string>
+    changeCardTypeDescriptions: Record<'file' | 'tiles' | 'properties' | 'warps' | 'text', string>
+    changeCardStatuses: Record<'configured' | 'optional' | 'empty', string>
+    changeCardActions: Record<'duplicate' | 'delete' | 'expand' | 'collapse', string>
+    copyMode: Record<'replaceByLayer' | 'overlay' | 'replace', string>
+    copyModeDescriptions: Record<'replaceByLayer' | 'overlay' | 'replace', string>
+    advancedSettings: {
+      title: string
+      whenCondition: string
+      whenConditionHint: string
+      priority: string
+      enabled: string
+      disabled: string
+      enabledByExpression: string
+      enabledByExpressionHint: (token: string) => string
+      setAlwaysEnabled: string
+      setAlwaysDisabled: string
+    }
+    sourceMapFile: string
+    sourceMapHint: string
+    pastePosition: string
+    copyRange: string
+    editInAssetEditor: string
+    manageInAssetLibrary: string
+    toAreaPickHint: string
+    fromAreaPickHint: string
   }
   referencePreview: {
-    workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items', string>
+    workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail', string>
     noGameDirectoryTitle: string
     noGameDirectorySubtitle: string
     title: (workspaceLabel: string) => string
@@ -253,11 +502,17 @@ export type StudioDeskCopy = {
     noPreview: string
   }
   configSchemaDialog: {
-    propertiesTab: string
-    configTab: string
     closeLabel: string
     patchPropertiesTitle: (name: string) => string
     noPatchSelected: string
+    logName: string
+    advancedTitle: string
+    advancedSubtitle: string
+    targetField: string
+    targetFieldPlaceholder: string
+    targetFieldHint: string
+    tokenInputPlaceholder: string
+    unknownTokenHint: (token: string) => string
     priority: string
     priorityLoadPlaceholder: string
     priorityPatchPlaceholder: string
@@ -275,11 +530,24 @@ export type StudioDeskCopy = {
     whenKeyPlaceholder: string
     whenValuePlaceholder: string
     addCondition: string
+    whenPresetsLabel: string
+    whenPresetSeason: string
+    whenPresetWeather: string
+    whenPresetDayOfWeek: string
+    whenPresetHasMod: string
+    whenPresetConfig: string
+    whenPresetMore: string
+    whenPresetGroups: Record<
+      'dateWeather' | 'player' | 'relationship' | 'world' | 'number' | 'string' | 'metadata' | 'fieldReference' | 'specialized' | 'random',
+      string
+    >
+    whenCustomValuePlaceholder: string
+    whenCustomValueAdd: string
+    whenHasModValuePlaceholder: string
     localTokens: string
     tokenNamePlaceholder: string
     valuePlaceholder: string
     addToken: string
-    configDescription: string
     keyPlaceholder: string
     defaultPlaceholder: string
     allowValuesLabel: string
@@ -297,12 +565,15 @@ export type StudioDeskCopy = {
   toolbar: {
     back: string
     forward: string
+    undo: string
+    redo: string
     editView: string
     unsaved: string
     saved: string
     project: string
     add: string
-    config: string
+    patchSettings: string
+    projectSettings: string
     reload: string
     save: string
     saveDirty: string
@@ -320,7 +591,6 @@ export type StudioDeskCopy = {
     actionFilterLabel: string
     allActions: string
     shown: (count: number) => string
-    addPatch: string
     emptyTitle: string
     emptySubtitle: string
     selectedPatch: string
@@ -343,6 +613,43 @@ export type StudioDeskCopy = {
     deleteMessage: (name: string) => string
     deleteAction: string
   }
+  patchList: {
+    regionLabel: string
+    openPatch: (name: string) => string
+    movePatch: (name: string) => string
+    moveUp: string
+    moveDown: string
+    duplicate: string
+    delete: string
+    deleteTitle: string
+    deleteMessage: (name: string) => string
+    cancel: string
+    confirmDelete: string
+    toggleEnable: (name: string) => string
+    toggleDisable: (name: string) => string
+    enabledByExpression: string
+    setAlwaysEnabled: string
+    setAlwaysDisabled: string
+    when: string
+    priority: string
+    fromFile: string
+    emptyTitle: string
+    emptyHint: string
+    noMatches: string
+  }
+  entryList: {
+    regionLabel: string
+    openEntry: (name: string) => string
+    delete: string
+    deleteTitle: string
+    deleteMessage: (name: string) => string
+    cancel: string
+    confirmDelete: string
+    toggleEnable: (name: string) => string
+    toggleDisable: (name: string) => string
+    emptyTitle: string
+    emptyHint: string
+  }
   eventPatchHub: {
     navigationLabel: string
     eventTreeLabel: string
@@ -350,20 +657,37 @@ export type StudioDeskCopy = {
     filtersTitle: string
     filters: Record<'all' | 'withTriggers' | 'withoutTriggers' | 'disabled', string>
     hubLabel: string
-    breadcrumbLabel: string
-    backLabel: string
-    forwardLabel: string
-    projectFallback: string
-    eventsLabel: string
     savedLabel: string
     unsavedLabel: string
-    patchSettingsLabel: string
     multiSelectLabel: string
     selectedCountLabel: (count: number) => string
     addEventLabel: string
+    /** Loading state shown while the event editor pre-warms its caches on entry. */
+    preparingEditor: string
+    createPatch: {
+      /** Sidebar + empty-state entry that opens the create-event-patch dialog. */
+      action: string
+      loading: string
+      loadError: string
+      alreadyAdded: string
+      invalidTarget: string
+    }
+    importVanilla: {
+      /** Hub action that opens the vanilla-event import picker. */
+      action: string
+      closeLabel: string
+      searchPlaceholder: string
+      loadingLabel: string
+      loadErrorLabel: string
+      emptyLabel: string
+      alreadyInDraft: string
+      confirm: (count: number) => string
+      /** Create-dialog checkbox: parse the picked vanilla file into the fresh draft. */
+      importAllLabel: string
+    }
+    /** Alias given to a freshly created event scene, e.g. "Untitled Town event 3". */
+    untitledEventAlias: (location: string, index: number) => string
     contextMenuLabel: string
-    configurePatchAction: string
-    duplicatePatchAction: string
     duplicatedPatchName: (name: string) => string
     deletePatchAction: string
     openEditorAction: string
@@ -560,6 +884,12 @@ export type StudioDeskCopy = {
     preconditionWeatherName: (weather: string) => string
     preconditionDayName: (day: string) => string
     preconditionGenderName: (gender: string) => string
+    /** Formats a single friendship pair as a localized "X friendship at least Y" label. */
+    friendshipAtLeast: (name: string, points: string) => string
+    /** Formats a single shipped-item pair as a localized "X shipped at least Y" label. */
+    shippedAtLeast: (item: string, count: string) => string
+    /** Compact heart unit symbol used in friendship chip labels (e.g. "心" / "h"). */
+    heartUnit: string
     preconditions: {
       gameStateQuery: (query: string) => string
       activeDialogueEvent: (id: string) => string
@@ -642,15 +972,12 @@ export type StudioDeskCopy = {
     involvedActorsLabel: string
     commandMetricLabel: string
     patchConfigTitle: string
-    exportReadyLabel: string
     exportBlockedLabel: string
     eventCountLabel: string
     selectedEventLabel: string
     targetFieldPlaceholder: string
     noPatchTitle: string
     noPatchSubtitle: string
-    noPatchAction: string
-    breadcrumbNoPatch: string
     selectEventAriaLabel: (eventKey: string) => string
     defaultEventTitle: string
   }

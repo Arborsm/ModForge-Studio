@@ -3,7 +3,7 @@ import { Settings2 } from 'lucide-react'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
 import type { AiSemanticIndexStatus, AiSemanticSearchMode } from '@shared/contracts'
-import { requestAppSettings } from '@shared/lib/app-settings-events'
+import { appCommands } from '@shared/lib/app-runtime/appCommands'
 
 export function SemanticSearchStatus({ scopeId, showConfigure = true }: { scopeId?: string; showConfigure?: boolean }) {
   const localization = useLocalization()
@@ -43,7 +43,11 @@ export function SemanticSearchStatus({ scopeId, showConfigure = true }: { scopeI
       ) : null}
       {configuredMode === 'lexical' ? <span>{copy.lexicalIndexNotRequired}</span> : null}
       {showConfigure ? (
-        <button type="button" className="control-button" onClick={() => requestAppSettings({ category: 'ai', aiTab: 'semantic' })}>
+        <button
+          type="button"
+          className="control-button"
+          onClick={() => appCommands.dispatch({ type: 'navigation/open-settings', target: { category: 'ai', aiTab: 'semantic' } })}
+        >
           <Settings2 className="h-4 w-4" />
           {copy.configure}
         </button>

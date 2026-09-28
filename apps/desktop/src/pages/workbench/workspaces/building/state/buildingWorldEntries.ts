@@ -6,16 +6,13 @@ import {
   isExteriorWarp,
   parseWarpEntries,
   getActionTargetMap,
+  collectCellActions,
+  parsePortalTargetMapFromAction,
 } from '@entities/map'
-import {
-  BUILDING_LOCATION_SEED_GROUP_LABELS,
-  BUILDING_LOCATION_SEED_GROUP_ORDER,
-  BUILDING_LOCATION_SEEDS,
-  type BuildingLocationSeedGroup,
-} from './buildingLocationSeeds'
-import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '../entities/building'
+import { BUILDING_LOCATION_SEED_GROUP_ORDER, BUILDING_LOCATION_SEEDS, type BuildingLocationSeedGroup } from './buildingLocationSeeds'
+import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '@entities/building'
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// Types
 
 type LocationCreateOnLoadEntry = {
   MapPath?: string | null
@@ -39,7 +36,6 @@ type WorldLocationSeed = {
   name: string
   label: string | null
   group: BuildingLocationSeedGroup | null
-  groupLabel: string | null
   locationName: string | null
   mapAssetName: string | null
   typeName: string | null
@@ -66,7 +62,7 @@ type WorldEntranceAggregate = {
   primaryExteriorEntryTile: { X: number; Y: number } | null
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// Helpers
 
 function isTruthyProperty(value: MapPropertyValue | undefined) {
   if (typeof value === 'boolean') {
@@ -182,12 +178,10 @@ function createWorldBuildingEntry({
   const locationType = locationSeed?.typeName ?? null
   const formerNames = locationSeed?.formerNames ?? []
   const sortedEntrances = sortWorldEntrances(entrances)
-  const groupLabel = locationSeed?.groupLabel ?? displayName
   const metadata: Record<string, string> = {}
 
   if (locationSeed?.group) {
     metadata.worldSeedGroupKey = locationSeed.group
-    metadata.worldSeedGroupLabel = groupLabel
     metadata.worldSeedGroupOrder = String(BUILDING_LOCATION_SEED_GROUP_ORDER[locationSeed.group])
   }
   if (locationSeed?.label) {
@@ -211,8 +205,11 @@ function createWorldBuildingEntry({
   return {
     sourceKind: 'world',
     key,
+    // World buildings are derived from map warps, not from a `Data/Buildings`
+    // record, so there is nothing for the read-only schema view to render.
+    rawEntry: {},
     groupKey: key,
-    groupDisplayName: groupLabel,
+    groupDisplayName: displayName,
     rawDisplayName: displayName,
     displayName,
     rawGeneralTypeDisplayName: locationType ?? (primaryExteriorMapName ? `Exterior ${primaryExteriorMapName}` : null),
@@ -227,7 +224,6 @@ function createWorldBuildingEntry({
     searchText: [
       displayName,
       internalName,
-      groupLabel,
       locationSeed?.label,
       locationSeed?.locationName,
       targetDocument?.name,
@@ -307,7 +303,7 @@ function createWorldBuildingEntry({
   } satisfies BuildingWorkspaceEntry
 }
 
-// ── Location data index ───────────────────────────────────────────────────
+// Location data index
 
 export function buildLocationDataIndex(locationsContent: string | null) {
   const locationDataIndex = new Map<string, LocationDataSeed>()
@@ -339,7 +335,7 @@ export function buildLocationDataIndex(locationsContent: string | null) {
   return locationDataIndex
 }
 
-// ── Location seeds ────────────────────────────────────────────────────────
+// Location seeds
 
 export function buildLocationSeeds(locationsContent: string | null) {
   const locationDataIndex = buildLocationDataIndex(locationsContent)
@@ -355,7 +351,6 @@ export function buildLocationSeeds(locationsContent: string | null) {
       name: seed.name,
       label: trimString(seed.label),
       group: seed.group,
-      groupLabel: BUILDING_LOCATION_SEED_GROUP_LABELS[seed.group],
       locationName: trimString(seed.locationName) ?? locationData?.locationName ?? null,
       mapAssetName: locationData?.mapAssetName ?? normalizeMapAssetName(seed.mapAssetName),
       typeName: locationData?.typeName ?? trimString(seed.typeName),
@@ -367,7 +362,7 @@ export function buildLocationSeeds(locationsContent: string | null) {
   })
 }
 
-// ── World building entries ────────────────────────────────────────────────
+// World building entries
 
 export function buildWorldBuildingEntries(loadedMapDocuments: MapDocument[], locationSeeds: WorldLocationSeed[]): BuildingWorkspaceEntry[] {
   const outdoorDocuments: MapDocument[] = []
@@ -492,6 +487,22 @@ export function buildWorldBuildingEntries(loadedMapDocuments: MapDocument[], loc
         const tileX = index % layer.width
         const tileY = Math.floor(index / layer.width)
         addWorldEntrance(sourceDocument, targetMap, tileX, tileY, 0, 0, 'tile-action')
+      }
+
+      // Per-cell tbin action properties (TouchAction/Action) name their target
+      // map too. TileData-object rules are already sampled from the object
+      // scan above, so only the cellProperties carrier is read here.
+      if (layer.cellProperties) {
+        for (const action of collectCellActions(sourceDocument, layer.name, ['TouchAction', 'Action'])) {
+          if (action.source === 'tileDataObject') {
+            continue
+          }
+          const targetMap = parsePortalTargetMapFromAction(action.value)
+          if (!targetMap) {
+            continue
+          }
+          addWorldEntrance(sourceDocument, targetMap, action.x, action.y, 0, 0, 'tile-action')
+        }
       }
     }
   }

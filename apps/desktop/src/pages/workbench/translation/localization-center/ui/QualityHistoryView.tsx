@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy, useTranslationEditorCopy } from '@locales/provider'
 import type { AiReviewResult, AiReviewRun, LocalizationScopeSettings } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { cx } from '@shared/lib/helper'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { ResizableColumnHeader, useAiLocalizationColumnWidths } from '../model/useAiLocalizationColumnWidths'
+import { errorDetail } from '../model/errorDetail'
 
 const NOTICE = 'ai-localization-quality-error'
 const PAGE_SIZE = 20
@@ -15,12 +17,10 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
   const reviewCopy = useTranslationEditorCopy()
-  const publish = useNotificationPublisher()
   const [runs, setRuns] = useState<AiReviewRun[]>([])
   const [runOffset, setRunOffset] = useState(0)
   const [runTotal, setRunTotal] = useState(0)
   const [selected, setSelected] = useState<AiReviewResult | null>(null)
-  const [error, setError] = useState(false)
   const [view, setView] = useState<'rules' | 'history'>('rules')
   const [settings, setSettings] = useState<LocalizationScopeSettings | null>(null)
   const historyColumns = useAiLocalizationColumnWidths('quality-history', {
@@ -35,15 +35,18 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   })
   const retryRef = useRef<() => void>(() => undefined)
   const runHistoryLoad = useLatestTask('ai-localization-quality-history')
-  const fail = () => {
-    setError(true)
-    publish({
-      id: NOTICE,
-      level: 'error',
-      title: copy.knowledgeError,
-      description: copy.knowledgeError,
-      action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
-    })
+  const fail = (error: unknown) => {
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization-quality', operation: 'manage' })
+      .emit({ notify: false })
+    appEvent('error', copy.knowledgeError)
+      .description(errorDetail(error))
+      .noticeId(NOTICE)
+      .action({ label: copy.retry, callback: () => retryRef.current(), tone: 'primary' })
+      .error(error)
+      .context({ source: 'ai-localization-quality', operation: 'load-history' })
+      .emit()
   }
   useEffect(() => () => dismissNotification(NOTICE), [])
   useEffect(() => {
@@ -64,9 +67,12 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
         }
         const id = page.records[0]?.id
         const value = id ? await localization.loadReviewRun(id) : null
-        if (task.isCurrent()) setSelected(value)
+        if (task.isCurrent()) {
+          setSelected(value)
+          dismissNotification(NOTICE)
+        }
       }).catch((error) => {
-        if (!(error instanceof TaskCancelledError)) fail()
+        if (!(error instanceof TaskCancelledError)) fail(error)
       })
     }
     retryRef.current = reload
@@ -76,9 +82,9 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
   const load = async (run: AiReviewRun) => {
     try {
       setSelected(await localization.loadReviewRun(run.id))
-      setError(false)
-    } catch {
-      fail()
+      dismissNotification(NOTICE)
+    } catch (error) {
+      fail(error)
     }
   }
   const saveRules = async () => {
@@ -86,9 +92,9 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
     try {
       const value = await localization.saveScopeSettings(settings)
       setSettings(value.settings)
-      setError(false)
-    } catch {
-      fail()
+      dismissNotification(NOTICE)
+    } catch (error) {
+      fail(error)
     }
   }
   return (
@@ -238,7 +244,7 @@ export function QualityHistoryView({ scopeId }: { scopeId: string }) {
                   ))}
                 </tbody>
               </table>
-              {!runs.length ? <p className="ai-localization-empty">{error ? copy.knowledgeError : copy.noReviewRuns}</p> : null}
+              {!runs.length ? <p className="ai-localization-empty">{copy.noReviewRuns}</p> : null}
               {runTotal > 0 ? (
                 <nav
                   className="ai-localization-pagination"

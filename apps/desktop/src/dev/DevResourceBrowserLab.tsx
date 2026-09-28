@@ -1,10 +1,17 @@
+/**
+ * @file Dev lab for the resource browser: loads game assets, item/map/building
+ * catalogs, and renders ResourcePicker cards for each resource kind.
+ * @module dev
+ */
 import { useEffect, useMemo, useReducer, useState } from 'react'
-import { Music, Package, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
+import { Building2, Image as ImageIcon, Map, Music, Package, UserRound, Volume2, Waypoints, type LucideIcon } from 'lucide-react'
 import type { LocaleCode } from '@locales'
 import type { EventWorkflowCopy } from '@locales/api'
-import { useEventStageCopy } from '@locales/provider'
+import { useEventStageCopy, useResourceBrowserCopy } from '@locales/provider'
+import { buildDefaultEventResourceRegistry } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'
+import { loadBuildingWorkspaceEntries } from '@entities/building'
 import type { GameDirectoryInfo } from '@entities/game/api'
-import { loadImageDataUrl, loadResourceRegistry } from '@entities/game/api'
+import { loadImageDataUrl, loadResourceRegistry, scanMaps } from '@entities/game/api'
 import type { ResourceRegistry, ResourceRegistryEntry } from '@entities/game/api'
 import { detectDefaultGameDirectoryFromDevBridge } from '@entities/game/api/devAssetBridge'
 import {
@@ -13,21 +20,14 @@ import {
   loadItemWorkspaceEntries,
   type ItemTextureAssetState,
   type ItemWorkspaceEntry,
-} from '@pages/workbench/workspaces/item/entities/item'
+} from '@entities/item'
 import { cx } from '@shared/lib/helper'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
+
 import { configureDesktopPlatformPorts } from '@platform/host'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
-import {
-  EventResourcePicker,
-  type EventResourceKind,
-  type EventResourceOption,
-} from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker'
-import {
-  buildDefaultEventResourceRegistry,
-  type EventResourceRegistry,
-} from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/eventResourceRegistry'
+import { ResourcePicker, type ResourceBrowserKind, type ResourceBrowserOption } from '@features/resource-browser'
 
 type DevResourceBrowserLabProps = {
   locale?: LocaleCode
@@ -46,14 +46,16 @@ async function loadDesktopResourceRegistry(rootPath: string, locale: LocaleCode)
 type ResourceLoadState = 'fallback' | 'loading' | 'loaded' | 'partial'
 
 type BrowserRegistryState = {
-  registry: EventResourceRegistry | null
+  registry: BrowserResourceRegistry | null
   loadState: ResourceLoadState
 }
 
 type BrowserRegistryAction =
   | { type: 'fallback' }
   | { type: 'loading' }
-  | { type: 'loaded'; registry: EventResourceRegistry; loadState: 'loaded' | 'partial' }
+  | { type: 'loaded'; registry: BrowserResourceRegistry; loadState: 'loaded' | 'partial' }
+
+type BrowserResourceRegistry = Record<ResourceBrowserKind, ResourceBrowserOption[]>
 
 function browserRegistryReducer(_state: BrowserRegistryState, action: BrowserRegistryAction): BrowserRegistryState {
   switch (action.type) {
@@ -76,7 +78,7 @@ function browserRegistryReducer(_state: BrowserRegistryState, action: BrowserReg
 }
 
 const RESOURCE_KINDS: Array<{
-  kind: EventResourceKind
+  kind: ResourceBrowserKind
   icon: LucideIcon
   tone: string
 }> = [
@@ -105,14 +107,32 @@ const RESOURCE_KINDS: Array<{
     icon: Volume2,
     tone: '#8b5cf6',
   },
+  {
+    kind: 'texture',
+    icon: ImageIcon,
+    tone: '#0ea5e9',
+  },
+  {
+    kind: 'map',
+    icon: Map,
+    tone: '#10b981',
+  },
+  {
+    kind: 'building',
+    icon: Building2,
+    tone: '#f59e0b',
+  },
 ]
 
-const DEFAULT_SELECTIONS: Record<EventResourceKind, string> = {
+const DEFAULT_SELECTIONS: Record<ResourceBrowserKind, string> = {
   actor: 'Abigail',
   item: '(O)24',
   location: 'Town',
   music: 'spring2',
   sound: 'coin',
+  texture: 'Maps/springobjects',
+  map: 'Maps/Town',
+  building: 'Barn',
 }
 
 function sourceLabelForEntry(entry: ResourceRegistryEntry, locale: LocaleCode) {
@@ -122,11 +142,11 @@ function sourceLabelForEntry(entry: ResourceRegistryEntry, locale: LocaleCode) {
   return entry.source
 }
 
-function makeRegistryOption(entry: ResourceRegistryEntry, locale: LocaleCode): EventResourceOption | null {
-  if (!['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)) {
+function makeRegistryOption(entry: ResourceRegistryEntry, locale: LocaleCode): ResourceBrowserOption | null {
+  if (!['actor', 'item', 'location', 'music', 'sound', 'texture'].includes(entry.kind)) {
     return null
   }
-  const kind = entry.kind as EventResourceKind
+  const kind = (entry.kind === 'location' ? 'map' : entry.kind) as ResourceBrowserKind
   const source = sourceLabelForEntry(entry, locale)
   return {
     id: entry.id,
@@ -138,10 +158,12 @@ function makeRegistryOption(entry: ResourceRegistryEntry, locale: LocaleCode): E
     category: entry.category ?? source,
     meta: entry.metadata?.qualifiedId ?? entry.metadata?.id ?? entry.value,
     sourcePath: entry.relativePath ?? undefined,
+    sourceKind: entry.sourceKind === 'project' || entry.sourceKind === 'mod' ? 'project' : 'game',
+    audio: (kind === 'music' || kind === 'sound') && entry.absolutePath ? { absolutePath: entry.absolutePath, kind } : undefined,
   }
 }
 
-function pushUniqueResource(registry: EventResourceRegistry, option: EventResourceOption) {
+function pushUniqueResource(registry: BrowserResourceRegistry, option: ResourceBrowserOption) {
   const target = registry[option.kind]
   if (target.some((candidate) => candidate.value === option.value)) {
     return
@@ -149,12 +171,21 @@ function pushUniqueResource(registry: EventResourceRegistry, option: EventResour
   target.push(option)
 }
 
+function buildDefaultBrowserRegistry(sourceLabels: EventWorkflowCopy['resourceSources']): BrowserResourceRegistry {
+  return {
+    ...buildDefaultEventResourceRegistry(sourceLabels),
+    texture: [],
+    map: [],
+    building: [],
+  }
+}
+
 function buildRegistryFromDesktopRegistry(
   desktopRegistry: ResourceRegistry,
   locale: LocaleCode,
   sourceLabels: EventWorkflowCopy['resourceSources'],
-): EventResourceRegistry {
-  const registry = buildDefaultEventResourceRegistry(sourceLabels)
+): BrowserResourceRegistry {
+  const registry = buildDefaultBrowserRegistry(sourceLabels)
 
   for (const entry of desktopRegistry.entries) {
     const option = makeRegistryOption(entry, locale)
@@ -187,7 +218,7 @@ function makeItemResourceOption(
   entry: ItemWorkspaceEntry,
   textureState: ItemTextureAssetState | null,
   locale: LocaleCode,
-): EventResourceOption {
+): ResourceBrowserOption {
   const source = locale === 'zh-CN' ? '物品目录' : 'Item catalog'
   return {
     id: `item:${entry.qualifiedItemId}`,
@@ -201,6 +232,7 @@ function makeItemResourceOption(
     sourcePath: entry.texturePathLabel,
     item: entry,
     itemTexture: textureState,
+    sourceKind: 'catalog',
   }
 }
 
@@ -219,20 +251,56 @@ async function loadItemResourceOptions(rootPath: string, locale: LocaleCode) {
   )
 }
 
+async function loadMapResourceOptions(rootPath: string, locale: LocaleCode): Promise<ResourceBrowserOption[]> {
+  const maps = await scanMaps(rootPath, locale)
+  return maps.map((map) => {
+    const normalizedPath = map.relativePath.replaceAll('\\', '/').replace(/^Content\//u, '')
+    const value = normalizedPath.replace(/\.(xnb|tmx|tbin)$/iu, '')
+    return {
+      id: `map:${map.id}`,
+      value,
+      label: map.name || map.fileName,
+      kind: 'map',
+      category: map.format.toUpperCase(),
+      meta: `${map.sizeBytes} B`,
+      sourcePath: map.relativePath,
+      sourceKind: 'game',
+    }
+  })
+}
+
+async function loadBuildingResourceOptions(rootPath: string, locale: LocaleCode): Promise<ResourceBrowserOption[]> {
+  const buildings = await loadBuildingWorkspaceEntries(rootPath, locale)
+  return buildings.map((building) => ({
+    id: `building:${building.key}`,
+    value: building.key,
+    label: building.displayName,
+    kind: 'building',
+    subtitle: building.internalName,
+    category: building.groupDisplayName,
+    meta: building.size ? `${building.size.X} x ${building.size.Y}` : (building.builder ?? undefined),
+    sourcePath: building.textureAssetName ?? undefined,
+    sourceKind: 'game',
+  }))
+}
+
 function countDesktopRegistryResources(desktopRegistry: ResourceRegistry) {
   return desktopRegistry.entries.filter((entry) => ['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)).length
 }
 
+/** Dev resource browser lab: loads and displays all resource kinds with pickers. */
 export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }: DevResourceBrowserLabProps) {
-  const copy = useEventStageCopy().devResourceBrowserLab
+  const copy = useResourceBrowserCopy().lab
   const sourceLabels = useEventStageCopy().workflow.resourceSources
   const [detectedDevRootPath, setDetectedDevRootPath] = useState<string | null>(null)
-  const [{ registry: collectedRegistry }, dispatchBrowserRegistry] = useReducer(browserRegistryReducer, {
+  const [{ registry: collectedRegistry, loadState }, dispatchBrowserRegistry] = useReducer(browserRegistryReducer, {
     registry: null,
     loadState: 'fallback',
   })
-  const registry = useMemo(() => collectedRegistry ?? buildDefaultEventResourceRegistry(sourceLabels), [collectedRegistry, sourceLabels])
-  const [selections, setSelections] = useState<Record<EventResourceKind, string>>(DEFAULT_SELECTIONS)
+  const registry = useMemo(() => collectedRegistry ?? buildDefaultBrowserRegistry(sourceLabels), [collectedRegistry, sourceLabels])
+  const [selections, setSelections] = useState<Record<ResourceBrowserKind, string>>(DEFAULT_SELECTIONS)
+  const [audioSelection, setAudioSelection] = useState('')
+  const audioOptions = useMemo(() => [...registry.music, ...registry.sound], [registry.music, registry.sound])
   const effectiveRootPath = directoryInfo?.rootPath ?? detectedDevRootPath
 
   useEffect(() => {
@@ -266,11 +334,19 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
     dispatchBrowserRegistry({ type: 'loading' })
 
     async function collectResources() {
-      const [desktopRegistry, itemOptionsResult] = await Promise.all([
+      const [desktopRegistry, itemOptionsResult, mapOptionsResult, buildingOptionsResult] = await Promise.all([
         loadDesktopResourceRegistry(gameRootPath, locale),
         loadItemResourceOptions(gameRootPath, locale).then(
           (options) => ({ options, error: null }),
-          (error: unknown) => ({ options: [] as EventResourceOption[], error }),
+          (error: unknown) => ({ options: [] as ResourceBrowserOption[], error }),
+        ),
+        loadMapResourceOptions(gameRootPath, locale).then(
+          (options) => ({ options, error: null }),
+          (error: unknown) => ({ options: [] as ResourceBrowserOption[], error }),
+        ),
+        loadBuildingResourceOptions(gameRootPath, locale).then(
+          (options) => ({ options, error: null }),
+          (error: unknown) => ({ options: [] as ResourceBrowserOption[], error }),
         ),
       ])
 
@@ -282,15 +358,27 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
       const nextRegistry = buildRegistryFromDesktopRegistry(desktopRegistry, locale, sourceLabels)
       if (itemOptionsResult.options.length > 0) {
         nextRegistry.item = itemOptionsResult.options
+      } else if (itemOptionsResult.error != null) {
+        // The backend registry is intentionally not a substitute for the full
+        // item catalog: it omits several item families and caused the browser
+        // to look successfully loaded while silently showing partial data.
+        nextRegistry.item = []
       }
+      if (mapOptionsResult.options.length > 0) nextRegistry.map = mapOptionsResult.options
+      if (buildingOptionsResult.options.length > 0) nextRegistry.building = buildingOptionsResult.options
 
-      const nextResourceCount = backendResourceCount + itemOptionsResult.options.length
+      const nextResourceCount =
+        backendResourceCount + itemOptionsResult.options.length + mapOptionsResult.options.length + buildingOptionsResult.options.length
       if (nextResourceCount === 0) {
         dispatchBrowserRegistry({ type: 'fallback' })
         return
       }
 
-      const hasWarnings = desktopRegistry.warnings.length > 0 || itemOptionsResult.error != null
+      const hasWarnings =
+        desktopRegistry.warnings.length > 0 ||
+        itemOptionsResult.error != null ||
+        mapOptionsResult.error != null ||
+        buildingOptionsResult.error != null
       dispatchBrowserRegistry({
         type: 'loaded',
         registry: nextRegistry,
@@ -316,7 +404,18 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
         <section className="dev-resource-browser__main" aria-label={copy.introTitle}>
           <div className="dev-resource-browser__main-body">
             <div className="dev-resource-browser__intro">
-              <p className="dev-resource-browser__intro-title">{copy.introTitle}</p>
+              <div className="dev-resource-browser__intro-head">
+                <p className="dev-resource-browser__intro-title">{copy.introTitle}</p>
+                <span className="dev-resource-browser__load-state" data-state={loadState}>
+                  {loadState === 'loaded'
+                    ? copy.statusLoaded
+                    : loadState === 'loading'
+                      ? copy.statusLoading
+                      : loadState === 'partial'
+                        ? copy.statusPartial
+                        : copy.statusFallback}
+                </span>
+              </div>
               <p className="dev-resource-browser__intro-desc">{copy.introDesc}</p>
             </div>
 
@@ -330,7 +429,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                   <article key={resource.kind} className="dev-resource-browser__kind-card">
                     <div className="dev-resource-browser__kind-head">
                       <span className="dev-resource-browser__kind-icon" style={{ color: resource.tone }} aria-hidden="true">
-                        <Icon className="h-[1.125rem] w-[1.125rem]" />
+                        <Icon className="h-4.5 w-4.5" />
                       </span>
                       <span className="dev-resource-browser__kind-count">{registry[resource.kind].length}</span>
                     </div>
@@ -342,7 +441,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{selected?.label ?? selections[resource.kind]}</span>
                     </div>
-                    <EventResourcePicker
+                    <ResourcePicker
                       value={selections[resource.kind]}
                       label={kindCopy.title}
                       placeholder={kindCopy.placeholder}
@@ -359,6 +458,31 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                   </article>
                 )
               })}
+              <article className="dev-resource-browser__kind-card">
+                <div className="dev-resource-browser__kind-head">
+                  <span className="dev-resource-browser__kind-icon" style={{ color: 'var(--accent)' }} aria-hidden="true">
+                    <Volume2 className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="dev-resource-browser__kind-count">{audioOptions.length}</span>
+                </div>
+                <div>
+                  <h2 className="dev-resource-browser__kind-title">{copy.audioCombined.title}</h2>
+                  <p className="dev-resource-browser__kind-desc">{copy.audioCombined.description}</p>
+                </div>
+                <div className={cx('dev-resource-browser__selection-box', audioSelection && 'has-value')}>
+                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{audioOptions.find((option) => option.value === audioSelection)?.label ?? audioSelection}</span>
+                </div>
+                <ResourcePicker
+                  value={audioSelection}
+                  label={copy.audioCombined.title}
+                  placeholder={copy.audioCombined.placeholder}
+                  options={audioOptions}
+                  selectionMode="confirm"
+                  onSelect={setAudioSelection}
+                  triggerClassName="dev-resource-browser__picker-trigger"
+                />
+              </article>
             </div>
           </div>
         </section>

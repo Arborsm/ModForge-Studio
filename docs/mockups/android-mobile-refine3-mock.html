@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>精修三稿 — 顶栏常驻搜索</title>
+    <style>
+      :root {
+        --accent: #5b54d6;
+        --accent-soft: rgba(91, 84, 214, 0.12);
+        --bg: #f4f4f8;
+        --panel: #ffffff;
+        --text: #232134;
+        --text-2: #6f6c85;
+        --text-3: #9c99b0;
+        --border: #e7e6ef;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        background: linear-gradient(135deg, #eceaf6, #e3e1f0);
+        padding: 26px 20px 60px;
+        color: var(--text);
+      }
+      h1 {
+        font-size: 21px;
+        margin-bottom: 4px;
+      }
+      .lead {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-bottom: 6px;
+        max-width: 940px;
+      }
+      .group {
+        margin-top: 30px;
+      }
+      .group-title h2 {
+        font-size: 16.5px;
+      }
+      .group-title .where {
+        font-size: 12px;
+        color: var(--text-3);
+        margin-left: 8px;
+      }
+      .plans {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        margin-top: 12px;
+      }
+      .plan {
+        width: 316px;
+      }
+      .plan-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .plan-label .tag {
+        min-width: 40px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 12px;
+        padding: 0 8px;
+      }
+      .plan-label b {
+        font-size: 13.5px;
+      }
+      .plan .note {
+        font-size: 12px;
+        color: var(--text-2);
+        line-height: 1.7;
+        margin-top: 9px;
+      }
+
+      .phone {
+        width: 316px;
+        background: var(--bg);
+        border: 1px solid #d8d6e6;
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 10px 28px rgba(35, 33, 82, 0.13);
+        position: relative;
+      }
+      .statusbar {
+        height: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 10.5px;
+        font-weight: 700;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 0 9px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        width: 25px;
+        height: 25px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #6c64e8, #4a44b8);
+        color: #fff;
+        font-weight: 800;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .topbar b {
+        font-size: 14px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .icon-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        flex-shrink: 0;
+      }
+      .icon-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+      .topbar .search {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: #e9e8f1;
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .topbar .search svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+      .topbar .search .filter-btn {
+        margin-left: auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .topbar .search .filter-btn svg {
+        width: 11px;
+        height: 11px;
+        color: #fff;
+      }
+      .content {
+        padding: 12px 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 380px;
+      }
+
+      .cta-slim {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 13px;
+        padding: 10px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+      .cover {
+        height: 62px;
+        border-radius: 10px 10px 0 0;
+      }
+      .card .meta {
+        padding: 7px 9px;
+      }
+      .card .meta b {
+        font-size: 11px;
+        display: block;
+      }
+      .card .meta i {
+        font-style: normal;
+        font-size: 9px;
+        color: var(--text-3);
+      }
+      svg {
+        display: block;
+      }
+
+      /* 发现页筛选面板（二级） */
+      .sheet {
+        position: absolute;
+        inset: auto 0 0 0;
+        background: var(--panel);
+        border-radius: 18px 18px 0 0;
+        padding: 14px 14px 18px;
+        box-shadow: 0 -10px 30px rgba(35, 33, 82, 0.18);
+      }
+      .sheet::before {
+        content: '';
+        display: block;
+        width: 36px;
+        height: 4px;
+        border-radius: 999px;
+        background: #d9d8e4;
+        margin: 0 auto 12px;
+      }
+      .sheet h3 {
+        font-size: 13.5px;
+        margin-bottom: 10px;
+      }
+      .sheet .frow {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      .sheet .fchip {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-2);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 11px;
+      }
+      .sheet .fchip.on {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .sheet .apply {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 9px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 12.5px;
+        margin-top: 4px;
+      }
+      .dim::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(35, 33, 82, 0.28);
+      }
+      .dim .sheet {
+        z-index: 2;
+      }
+
+      .verdict {
+        margin-top: 22px;
+        padding: 13px 15px;
+        background: #fff;
+        border: 1px dashed var(--accent);
+        border-radius: 12px;
+        font-size: 12.5px;
+        color: var(--text-2);
+        line-height: 1.7;
+        max-width: 940px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>精修三稿 — 顶栏常驻搜索</h1>
+    <p class="lead">搜索框上移到顶栏中间空位；筛选/工具收进搜索框右侧的二级按钮（点开底部面板）。更新/诊断没有搜索需求，中间放页面标题。</p>
+
+    <div class="group">
+      <div class="group-title">
+        <h2>① 库页</h2>
+        <span class="where">顶栏搜索 · 内容区直接网格</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">库页</span><b>顶栏搜索 + 启动条</b></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜已装模组…
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.22.53.68.92 1.51 1H21a2 2 0 1 1 0 4h-.09"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="cta-slim">▷ 启动游戏</div>
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>v1.14.1</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>v6.9.2</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #5cbf8a, #2e8f60)"></div>
+                  <div class="meta"><b>Lookup</b><i>v2.3.0</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e87ca8, #c93b74)"></div>
+                  <div class="meta"><b>Ridgeside</b><i>v3.1.4</i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            顶栏中间是常驻搜索（placeholder 按页切换：库页=搜已装模组，发现页=搜 Nexus）；内容区第一行就是启动条，紧接 2
+            列网格，零中间层。原 4 个工具钮收进：排序/显示方式 → 搜索框左？不——它们归入「启动条上方一行小
+            chips」或长按网格菜单；本稿先收进筛选面板统一管理。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">
+        <h2>② 发现页 + 筛选二级面板</h2>
+        <span class="where">搜索右侧蓝色筛选钮 → 底部面板</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">正常态</span><b>搜索 + 筛选钮 + 卡片流</b></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜索 Nexus 模组…<span class="filter-btn"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M7 12h10M10 18h4" /></svg
+                ></span>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>★ 4.9k</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>★ 2.3k</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #5cbf8a, #2e8f60)"></div>
+                  <div class="meta"><b>Automate</b><i>★ 3.6k</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e87ca8, #c93b74)"></div>
+                  <div class="meta"><b>Tractor</b><i>★ 2.0k</i></div>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: center; gap: 12px; align-items: center; font-size: 11.5px; color: var(--text-3)">
+                <span>‹</span><span>第 2 / 39 页</span><span>›</span>
+              </div>
+            </div>
+          </div>
+          <p class="note">刷新钮保留在顶栏最右（低频但常用）；排序/页大小并入筛选面板。</p>
+        </div>
+
+        <div class="plan">
+          <div class="plan-label"><span class="tag">筛选面板</span><b>点筛选钮 → 底部面板</b></div>
+          <div class="phone dim">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" /></svg
+                >搜索 Nexus 模组…<span class="filter-btn"
+                  ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M7 12h10M10 18h4" /></svg
+                ></span>
+              </div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="grid2">
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                  <div class="meta"><b>SVE</b><i>★ 4.9k</i></div>
+                </div>
+                <div class="card">
+                  <div class="cover" style="background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                  <div class="meta"><b>East Scarp</b><i>★ 2.3k</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="sheet">
+              <h3>筛选与排序</h3>
+              <div class="frow">
+                <span class="fchip on">热门</span><span class="fchip">本周</span><span class="fchip">最高赞</span
+                ><span class="fchip">新发布</span>
+              </div>
+              <div class="frow">
+                <span class="fchip on">扩展</span><span class="fchip">玩法</span><span class="fchip">人物</span
+                ><span class="fchip">工具</span><span class="fchip">美化</span>
+              </div>
+              <div class="frow"><span class="fchip">中文</span><span class="fchip">大小 ≤ 100MB</span></div>
+              <div class="apply">应用筛选</div>
+            </div>
+          </div>
+          <p class="note">
+            筛选面板 = 底部弹层（拖动条 + chips 分组 + 应用按钮）：时间/排序、分类、语言、大小都在这里。原左侧筛选栏整体退役。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">
+        <h2>③ 更新 / 诊断页</h2>
+        <span class="where">无搜索需求：顶栏中间放页面标题</span>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <div class="plan-label"><span class="tag">更新</span><b>居中标题版</b></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>▲ ▮</span></div>
+            <div class="topbar">
+              <div class="brand">M</div>
+              <div class="spacer"></div>
+              <b>更新</b>
+              <div class="spacer"></div>
+              <div class="icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+                  <path d="M3 21v-5h5" />
+                </svg>
+              </div>
+            </div>
+            <div class="content">
+              <div class="cta-slim">⟳ 重新检查 · 全选</div>
+              <div class="card" style="display: flex; gap: 10px; padding: 11px">
+                <div style="width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, #e8a06c, #c96a3b)"></div>
+                <div style="flex: 1">
+                  <b style="font-size: 12px">East Scarp</b>
+                  <div style="font-size: 10px; color: var(--text-3)">v6.8.0 → v6.9.2</div>
+                </div>
+                <span
+                  style="
+                    background: var(--accent);
+                    color: #fff;
+                    font-size: 10.5px;
+                    font-weight: 700;
+                    padding: 6px 11px;
+                    border-radius: 999px;
+                    height: fit-content;
+                  "
+                  >更新</span
+                >
+              </div>
+              <div class="card" style="display: flex; gap: 10px; padding: 11px">
+                <div style="width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, #7f76e8, #4a44b8)"></div>
+                <div style="flex: 1">
+                  <b style="font-size: 12px">SVE</b>
+                  <div style="font-size: 10px; color: var(--text-3)">v1.14.0 → v1.14.1</div>
+                </div>
+                <span
+                  style="
+                    background: var(--accent);
+                    color: #fff;
+                    font-size: 10.5px;
+                    font-weight: 700;
+                    padding: 6px 11px;
+                    border-radius: 999px;
+                    height: fit-content;
+                  "
+                  >更新</span
+                >
+              </div>
+            </div>
+          </div>
+          <p class="note">更新页：中间居中标题「更新」，右侧刷新钮；内容=重新检查条+更新行。诊断页同构：中间「诊断」，右侧查看日志钮。</p>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <b>要点</b>：① 顶栏搜索按页切换语义（库=搜已装、发现=搜 Nexus、更新/诊断=居中标题）；② 筛选/排序/页大小全部收进搜索框右侧蓝钮 →
+        底部面板；③ 内容区从第一行起就是真内容（启动条/卡片），不再有任何中间容器。确认或调整后我按此实施。
+      </div>
+    </div>
+  </body>
+</html>

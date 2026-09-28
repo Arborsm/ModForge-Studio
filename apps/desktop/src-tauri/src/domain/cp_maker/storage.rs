@@ -1,3 +1,6 @@
+//! CP Maker draft persistence: load, save, delete, copy and session file management.
+
+use super::project_assets::{copy_project_assets_at_dir, delete_project_assets_at_dir};
 use super::types::{CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerDraftSummary};
 use crate::infrastructure::text_encoding::read_text_file;
 use anyhow::{Context, bail};
@@ -68,6 +71,22 @@ pub fn load_cp_maker_draft_at_dir(
     read_draft_record_from_path(&draft_path, draft_storage_key)
 }
 
+/// Save path for the full-draft host command. Asset refs are owned by the
+/// dedicated asset commands (import/write/rename/delete), which persist them
+/// transactionally; a full-draft save can carry a snapshot captured before such
+/// a mutation landed (e.g. auto-save firing while an import is in flight), so
+/// the on-disk asset list is adopted to keep that stale save from dropping refs
+/// whose files were already written.
+pub fn save_cp_maker_draft_preserving_project_assets_at_dir(
+    drafts_dir: &Path,
+    mut draft: CpMakerDraftRecord,
+) -> anyhow::Result<CpMakerDraftRecord> {
+    if let Ok(existing) = load_cp_maker_draft_at_dir(drafts_dir, &draft.draft_storage_key) {
+        draft.project_assets = existing.project_assets;
+    }
+    save_cp_maker_draft_at_dir(drafts_dir, draft)
+}
+
 pub fn save_cp_maker_draft_at_dir(
     drafts_dir: &Path,
     draft: CpMakerDraftRecord,
@@ -131,7 +150,8 @@ pub fn delete_cp_maker_draft_at_dir(
             draft_storage_key,
             draft_path.display()
         )
-    })
+    })?;
+    delete_project_assets_at_dir(&projects_dir_for(drafts_dir), draft_storage_key)
 }
 
 pub fn copy_cp_maker_draft_at_dir(
@@ -140,8 +160,9 @@ pub fn copy_cp_maker_draft_at_dir(
 ) -> anyhow::Result<CpMakerDraftRecord> {
     let source = load_cp_maker_draft_at_dir(drafts_dir, &request.source_draft_storage_key)?;
 
+    let copied_key = next_cp_maker_draft_storage_key(drafts_dir);
     let copied = CpMakerDraftRecord {
-        draft_storage_key: next_cp_maker_draft_storage_key(drafts_dir),
+        draft_storage_key: copied_key.clone(),
         last_draft_saved_at: None,
         last_exported_at: None,
         last_export_path: None,
@@ -149,11 +170,27 @@ pub fn copy_cp_maker_draft_at_dir(
         ..source
     };
 
-    save_cp_maker_draft_at_dir(drafts_dir, copied)
+    let projects_dir = projects_dir_for(drafts_dir);
+    copy_project_assets_at_dir(
+        &projects_dir,
+        &request.source_draft_storage_key,
+        &copied_key,
+    )?;
+    match save_cp_maker_draft_at_dir(drafts_dir, copied) {
+        Ok(saved) => Ok(saved),
+        Err(error) => {
+            let _ = delete_project_assets_at_dir(&projects_dir, &copied_key);
+            Err(error)
+        }
+    }
 }
 
 pub fn draft_file_path_at_dir(drafts_dir: &Path, draft_storage_key: &str) -> PathBuf {
     drafts_dir.join(format!("{draft_storage_key}.json"))
+}
+
+fn projects_dir_for(drafts_dir: &Path) -> PathBuf {
+    drafts_dir.parent().unwrap_or(drafts_dir).join("projects")
 }
 
 fn current_time_millis(draft_storage_key: &str, path: &Path) -> anyhow::Result<i64> {
@@ -185,15 +222,6 @@ fn normalize_draft_record(mut draft: CpMakerDraftRecord) -> anyhow::Result<CpMak
             "Cp-maker draft serializedChangeRegistry must be a JSON object. [draftStorageKey={}]",
             draft.draft_storage_key
         );
-    }
-
-    for overlay_target in &draft.overlay_targets {
-        if overlay_target.unique_id.trim().is_empty() {
-            bail!(
-                "Cp-maker draft overlayTargets entries must include a uniqueId. [draftStorageKey={}]",
-                draft.draft_storage_key
-            );
-        }
     }
 
     if draft
@@ -256,20 +284,10 @@ fn read_draft_record_from_path(
         );
     }
 
-    for overlay_target in &draft.overlay_targets {
-        if overlay_target.unique_id.trim().is_empty() {
-            bail!(
-                "Cp-maker draft overlayTargets entries must include a uniqueId. [draftStorageKey={}] [path={}]",
-                draft_storage_key,
-                path.display()
-            );
-        }
-    }
-
     Ok(draft)
 }
 
-fn validate_draft_storage_key(draft_storage_key: &str) -> anyhow::Result<()> {
+pub(super) fn validate_draft_storage_key(draft_storage_key: &str) -> anyhow::Result<()> {
     let trimmed = draft_storage_key.trim();
     if trimmed.is_empty() {
         bail!(

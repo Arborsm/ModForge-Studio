@@ -1,16 +1,15 @@
 extern crate self as modforge_studio_desktop_lib;
 
-mod commands;
 mod domain;
 mod host;
-pub mod host_commands;
-pub mod host_runtime;
+pub use host::host_commands;
+pub use host::host_runtime;
 mod infrastructure;
-pub mod sidecar;
+pub use host::sidecar;
 mod support;
 
 #[cfg(any(debug_assertions, feature = "dev-asset-bridge"))]
-pub mod dev_asset_bridge;
+pub use host::dev_asset_bridge;
 
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]
@@ -25,117 +24,181 @@ pub mod diagnostics {
     pub use crate::domain::localization::semantic::{SemanticBenchmarkSample, benchmark_query};
 }
 
-use commands::ai::{
-    apply_ai_profiles_import, cancel_ai_job, clear_ai_translation_cache, export_ai_profiles,
-    get_ai_translation_cache_stats, list_ai_models, load_ai_settings, preview_ai_profiles_import,
-    read_ai_translation_cache, save_ai_settings, test_ai_profile, translate_ai_batch,
-    write_ai_translation_cache,
-};
-use commands::ai_usage::{
-    clear_ai_usage, export_ai_usage, query_ai_usage_records, query_ai_usage_summary,
-};
-use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
-use commands::assets::{
-    clear_file_cache, detect_default_game_directory, export_file, export_map_png,
-    get_file_cache_stats, list_known_game_directories, load_audio_data_url, load_event_asset,
-    load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,
-    scan_events, scan_maps, validate_game_directory,
-};
-use commands::audio::load_xact_audio_data_url;
-use commands::content_patcher::load_content_patcher_result_asset;
-use commands::cp_maker::{
-    build_cp_maker_map_asset, copy_cp_maker_draft, delete_cp_maker_draft, export_cp_maker_pack,
-    import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, load_cp_maker_session,
-    save_cp_maker_draft, save_cp_maker_session,
-};
-use commands::launcher::{
-    cancel_launcher_download, cancel_nexus_sso, check_launcher_updates, clear_launcher_image_cache,
-    download_launcher_mod, get_launcher_backup_directory, get_nexus_sso_status,
-    inspect_launcher_archive, install_launcher_archive, launch_launcher_game,
-    list_launcher_install_backups, load_cached_launcher_updates, load_launcher_download_queue,
-    load_launcher_gmcm_probe_diagnostics, load_launcher_image_failures,
-    load_launcher_library_covers, load_launcher_library_state, load_launcher_mod_config,
-    load_launcher_nexus_diagnostics, load_launcher_remote_mod_detail, load_launcher_runtime_info,
-    load_launcher_settings, load_launcher_update_changelog,
-    load_suppressed_launcher_update_mod_ids, open_launcher_path, open_launcher_url,
-    persist_launcher_library_remote_cover, record_launcher_image_failure,
-    resolve_cached_launcher_image, resolve_launcher_image, restart_launcher_nexus_diagnostics,
-    restore_launcher_install_backup, retry_launcher_nexus_diagnostics_route,
-    save_launcher_download_queue, save_launcher_library_state, save_launcher_mod_config,
-    save_launcher_settings, scan_launcher_library, search_launcher_catalog,
-    set_launcher_library_cover, set_launcher_mod_enabled, set_launcher_nexus_force_offline,
-    start_nexus_sso, validate_nexus_api_key,
-};
-use commands::localization::{
-    acquire_localization_semantic_runtime, cancel_localization_job,
-    copy_translation_memory_entries, create_localization_profile,
-    delete_localization_glossary_entries, delete_localization_profile,
-    delete_localization_semantic_model, delete_translation_memory_entries,
-    download_localization_semantic_model, export_localization_knowledge,
-    import_localization_knowledge, initialize_localization_plan, inspect_localization_context,
-    inspect_localization_semantic_index, inspect_localization_semantic_model,
-    inspect_official_localization_index, list_localization_glossary_entries,
-    list_localization_review_runs, list_localization_scopes, load_localization_default_engine,
-    load_localization_review_run, load_localization_scope, load_localization_semantic_settings,
-    load_localization_style_guide, open_localization_semantic_model_directory,
-    probe_localization_semantic_search, rebuild_localization_semantic_index,
-    rebuild_official_localization_index, record_confirmed_translations,
-    release_localization_semantic_runtime, remove_localization_profile_binding,
-    rename_localization_profile, resolve_localization_scope, review_localization_batch,
-    save_localization_default_engine, save_localization_scope_settings,
-    save_localization_semantic_settings, save_localization_style_guide,
-    search_official_localization, search_translation_memory, set_localization_profile_binding,
-    sync_localization_semantic_index, test_localization_semantic_remote_profile,
-    translate_localization_batch, unload_localization_semantic_runtime,
-    update_localization_review_issues, upsert_localization_glossary_entries,
-    verify_localization_semantic_model,
-};
-use commands::logging::{
-    print_host_runtime_diagnostics, set_debug_logging_enabled, write_frontend_log,
-};
-use commands::machine_translation::{
-    list_machine_translation_languages, load_machine_translation_settings,
-    save_machine_translation_settings, test_machine_translation_profile,
-    translate_machine_translation_batch,
-};
-use commands::mods::{
-    inspect_mod_archive, load_mod_project, save_mod_i18n_files, scan_mod_asset_index,
-    scan_mod_projects,
-};
-use commands::resource_registry::load_resource_registry;
-use commands::saves::scan_default_save_slots;
+/// Read-only helpers for maintainer-owned, local map-pack acceptance reports.
+#[cfg(feature = "installed-game-validation")]
+pub mod map_validation {
+    use anyhow::Context;
+    use serde_json::Value;
+    use std::path::Path;
+
+    pub use crate::infrastructure::game_formats::map::MapDocument;
+
+    pub fn read_relaxed_json(path: &Path) -> anyhow::Result<Value> {
+        crate::infrastructure::game_formats::json_relaxed::read_json_file(
+            path,
+            &format!("map-pack audit JSON `{}`", path.display()),
+        )
+        .map(|(_, value)| value)
+    }
+
+    pub fn import_content_pack(path: &Path) -> anyhow::Result<Value> {
+        let draft = crate::domain::cp_maker::builder::import_cp_maker_pack(
+            path.to_string_lossy().as_ref(),
+        )?;
+        serde_json::to_value(draft).context("Failed to serialize imported content pack draft")
+    }
+
+    pub fn parse_map(path: &Path, relative_path: &str) -> anyhow::Result<MapDocument> {
+        let bytes = std::fs::read(path)
+            .with_context(|| format!("Failed to read map asset `{}`", path.display()))?;
+        crate::infrastructure::game_formats::parse_map_asset(&bytes, path, relative_path)
+    }
+
+    pub fn is_tbin_xnb(path: &Path) -> anyhow::Result<bool> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let has_tbin_reader = xnb.readers.iter().any(|reader| {
+            matches!(
+                reader.name.split(',').next().unwrap_or_default().trim(),
+                "xTile.Pipeline.TideReader"
+                    | "xTile.Pipeline.TbinReader"
+                    | "xTile.Pipeline.TBinReader"
+            )
+        });
+        Ok(has_tbin_reader && xnb.content.as_bytes().is_some())
+    }
+
+    pub fn serialize_map(document: &MapDocument) -> anyhow::Result<Option<Vec<u8>>> {
+        match document.format {
+            crate::infrastructure::game_formats::map::MapFormat::Tmx => {
+                crate::infrastructure::game_formats::tmx::serialize_tmx_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Tbin => {
+                crate::infrastructure::game_formats::tbin::serialize_tbin_map(document).map(Some)
+            }
+            crate::infrastructure::game_formats::map::MapFormat::Xnb => Ok(None),
+        }
+    }
+
+    pub fn parse_map_bytes(
+        bytes: &[u8],
+        source_path: &Path,
+        relative_path: &str,
+    ) -> anyhow::Result<MapDocument> {
+        crate::infrastructure::game_formats::parse_map_asset(bytes, source_path, relative_path)
+    }
+
+    /// Decodes an XNB texture's pixel dimensions without rasterizing it.
+    pub fn read_texture_size(path: &Path) -> anyhow::Result<(u32, u32)> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let texture = xnb
+            .content
+            .as_texture()
+            .context("XNB file did not contain a Texture2D asset")?;
+        Ok((texture.width, texture.height))
+    }
+
+    /// Reads a data/dictionary XNB asset (game data and strings) as JSON.
+    pub fn read_data_asset_json(path: &Path) -> anyhow::Result<Value> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        Ok(xnb.content.to_json())
+    }
+
+    /// Decodes an XNB texture into raw RGBA pixels for report-time PNG dumps.
+    pub fn read_texture_rgba(path: &Path) -> anyhow::Result<(u32, u32, Vec<u8>)> {
+        let xnb = crate::infrastructure::game_formats::xnb::read_xnb_from_path(path)?;
+        let texture = xnb
+            .content
+            .as_texture()
+            .context("XNB file did not contain a Texture2D asset")?;
+        Ok((texture.width, texture.height, texture.rgba.clone()))
+    }
+}
+
+/// Read-only game-asset loaders for the local regression harnesses, mirroring
+/// the launcher's asset surface without pulling in host-runtime bindings.
+pub mod assets_validation {
+    pub use crate::domain::assets::{MapAssetContent, TextAssetContent};
+
+    pub fn load_map_asset(
+        root_path: String,
+        map_path: String,
+        locale: Option<String>,
+    ) -> anyhow::Result<MapAssetContent> {
+        crate::domain::assets::load_map_asset(root_path, map_path, locale)
+    }
+
+    pub fn load_text_asset(
+        root_path: String,
+        asset_path: String,
+        locale: Option<String>,
+    ) -> anyhow::Result<TextAssetContent> {
+        crate::domain::assets::load_text_asset(root_path, asset_path, locale)
+    }
+
+    pub fn load_image_data_url(path: String, locale: Option<String>) -> anyhow::Result<String> {
+        crate::domain::assets::load_image_data_url(path, locale)
+    }
+}
+
+/// Read-only game-format decoders and path helpers for the local
+/// regression/report harnesses. Re-exporting through the library keeps the
+/// harnesses off the fragile src-slice `#[path]` mounts that break on every
+/// module restructure. Ungated: `test_support` is compiled into every build.
+pub mod validation {
+    pub use crate::infrastructure::fs::pathing;
+    pub use crate::infrastructure::game_formats::{tbin, xact, xnb};
+}
+
 use support::logging::{DebugLoggingState, LogEvent, init_host_logging, targets};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{RunEvent, generate_context};
 
+// Re-exported so unit tests can keep using `crate::strip_plugin_epoch_prefix`.
+#[allow(unused_imports)]
+pub(crate) use crate::host::plugin_protocol::strip_plugin_epoch_prefix;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let debug_logging_state = DebugLoggingState::new();
     init_host_logging(&debug_logging_state).expect("failed to initialize ModForge host logger");
+    crate::support::cleanup::cleanup_tauri_shared_memory_leaks();
 
     tauri::Builder::<AppRuntime>::default()
         .manage(debug_logging_state.clone())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let diagnostics_start_result = domain::app_ui::load_app_ui_state()
+            let host = AppHandle::from_tauri(app.handle().clone());
+            let force_offline = crate::domain::app_ui::load_app_ui_state()
                 .map(|state| state.launcher.force_offline)
-                .and_then(|force_offline| {
-                    let host = AppHandle::from_tauri(app.handle().clone());
-                    if force_offline {
-                        domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
-                            &host, true,
-                        )
-                        .map(|_| ())
-                    } else {
-                        domain::nexusmods::diagnostics::prime_launcher_nexus_diagnostics(&host)
-                    }
-                });
-            if let Err(error) = diagnostics_start_result {
-                LogEvent::new("nexus.diagnostics.startupProbeFailed")
-                    .error(format!("{error}"))
-                    .emit_warn(targets::NEXUS);
+                .unwrap_or(false);
+            domain::nexusmods::diagnostics::prime_nexus_diagnostics_at_startup(&host, force_offline);
+
+            // Extract the embedded built-in compat plugins into the app data
+            // directory (first launch and after app updates), then scan that
+            // single directory. The data dir is the user-facing plugin folder
+            // (opened by the plugin manager's "open plugin directory" button);
+            // the source tree under apps/desktop/compat-plugins is only
+            // consulted when MODFORGE_COMPAT_PLUGIN_ROOT points at it.
+            let mut packaged_roots: Vec<std::path::PathBuf> = Vec::new();
+            if let Ok(app_data_dir) = app.path().app_data_dir() {
+                if let Err(err) =
+                    domain::modding::compat_plugin::extract_builtin_plugins_if_needed(&app_data_dir)
+                {
+                    LogEvent::new("compatPlugins.builtinExtractFailed")
+                        .path("appDataDir", &app_data_dir)
+                        .field("host", "tauri")
+                        .error(err)
+                        .emit_warn(targets::TAURI_COMMAND);
+                }
+                let plugin_dir = app_data_dir.join("compat-plugins");
+                if plugin_dir.is_dir() {
+                    packaged_roots.push(plugin_dir);
+                }
+            }
+            if !packaged_roots.is_empty() {
+                domain::modding::compat_plugin::set_plugin_roots(packaged_roots);
             }
 
             let tray_menu = Menu::with_items(
@@ -192,167 +255,214 @@ pub fn run() {
 
             Ok(())
         })
+        .register_uri_scheme_protocol("plugin", crate::host::plugin_protocol::handle_plugin_uri_scheme)
         .invoke_handler(tauri::generate_handler![
-            detect_default_game_directory,
-            list_known_game_directories,
-            get_file_cache_stats,
-            clear_file_cache,
-            validate_game_directory,
-            scan_maps,
-            scan_events,
-            scan_mod_projects,
-            scan_mod_asset_index,
-            load_mod_project,
-            inspect_mod_archive,
-            save_mod_i18n_files,
-            list_cp_maker_drafts,
-            load_cp_maker_draft,
-            load_cp_maker_session,
-            save_cp_maker_draft,
-            save_cp_maker_session,
-            delete_cp_maker_draft,
-            copy_cp_maker_draft,
-            build_cp_maker_map_asset,
-            export_cp_maker_pack,
-            import_cp_maker_pack,
-            load_content_patcher_result_asset,
-            load_map_asset,
-            export_map_png,
-            export_file,
-            load_text_asset,
-            load_event_asset,
-            load_text_file,
-            load_image_data_url,
-            scan_audio_assets,
-            load_audio_data_url,
-            load_xact_audio_data_url,
-            load_resource_registry,
-            scan_default_save_slots,
-            load_launcher_settings,
-            save_launcher_settings,
-            launch_launcher_game,
-            load_launcher_library_state,
-            load_launcher_library_covers,
-            load_launcher_image_failures,
-            record_launcher_image_failure,
-            save_launcher_library_state,
-            set_launcher_library_cover,
-            persist_launcher_library_remote_cover,
-            load_launcher_download_queue,
-            save_launcher_download_queue,
-            get_launcher_backup_directory,
-            open_launcher_path,
-            open_launcher_url,
-            scan_launcher_library,
-            load_launcher_runtime_info,
-            set_launcher_mod_enabled,
-            load_launcher_mod_config,
-            load_launcher_gmcm_probe_diagnostics,
-            save_launcher_mod_config,
-            search_launcher_catalog,
-            load_launcher_remote_mod_detail,
-            load_launcher_update_changelog,
-            clear_launcher_image_cache,
-            load_launcher_nexus_diagnostics,
-            restart_launcher_nexus_diagnostics,
-            retry_launcher_nexus_diagnostics_route,
-            set_launcher_nexus_force_offline,
-            resolve_cached_launcher_image,
-            resolve_launcher_image,
-            load_cached_launcher_updates,
-            load_suppressed_launcher_update_mod_ids,
-            check_launcher_updates,
-            download_launcher_mod,
-            cancel_launcher_download,
-            inspect_launcher_archive,
-            install_launcher_archive,
-            list_launcher_install_backups,
-            restore_launcher_install_backup,
-            load_app_ui_state,
-            patch_app_ui_state,
-            print_host_runtime_diagnostics,
-            set_debug_logging_enabled,
-            write_frontend_log,
-            validate_nexus_api_key,
-            start_nexus_sso,
-            get_nexus_sso_status,
-            cancel_nexus_sso,
-            load_ai_settings,
-            save_ai_settings,
-            export_ai_profiles,
-            preview_ai_profiles_import,
-            apply_ai_profiles_import,
-            list_ai_models,
-            test_ai_profile,
-            translate_ai_batch,
-            cancel_ai_job,
-            read_ai_translation_cache,
-            write_ai_translation_cache,
-            get_ai_translation_cache_stats,
-            clear_ai_translation_cache,
-            query_ai_usage_summary,
-            query_ai_usage_records,
-            export_ai_usage,
-            clear_ai_usage,
-            load_localization_default_engine,
-            save_localization_default_engine,
-            load_machine_translation_settings,
-            save_machine_translation_settings,
-            list_machine_translation_languages,
-            test_machine_translation_profile,
-            translate_machine_translation_batch,
-            translate_localization_batch,
-            load_localization_semantic_settings,
-            save_localization_semantic_settings,
-            inspect_localization_semantic_model,
-            verify_localization_semantic_model,
-            probe_localization_semantic_search,
-            download_localization_semantic_model,
-            delete_localization_semantic_model,
-            open_localization_semantic_model_directory,
-            inspect_localization_semantic_index,
-            rebuild_localization_semantic_index,
-            sync_localization_semantic_index,
-            test_localization_semantic_remote_profile,
-            inspect_official_localization_index,
-            rebuild_official_localization_index,
-            search_official_localization,
-            initialize_localization_plan,
-            inspect_localization_context,
-            acquire_localization_semantic_runtime,
-            release_localization_semantic_runtime,
-            unload_localization_semantic_runtime,
-            cancel_localization_job,
-            resolve_localization_scope,
-            list_localization_scopes,
-            load_localization_scope,
-            save_localization_scope_settings,
-            create_localization_profile,
-            rename_localization_profile,
-            delete_localization_profile,
-            set_localization_profile_binding,
-            remove_localization_profile_binding,
-            list_localization_glossary_entries,
-            upsert_localization_glossary_entries,
-            delete_localization_glossary_entries,
-            load_localization_style_guide,
-            save_localization_style_guide,
-            search_translation_memory,
-            record_confirmed_translations,
-            delete_translation_memory_entries,
-            copy_translation_memory_entries,
-            import_localization_knowledge,
-            export_localization_knowledge,
-            review_localization_batch,
-            list_localization_review_runs,
-            load_localization_review_run,
-            update_localization_review_issues,
+            // Generated by apps/desktop/scripts/gen/generate-host-commands.mjs. Do not edit by hand.
+            // domain::ai::commands
+            domain::ai::commands::apply_ai_profiles_import,
+            domain::ai::commands::cancel_ai_job,
+            domain::ai::commands::clear_ai_translation_cache,
+            domain::ai::commands::export_ai_profiles,
+            domain::ai::commands::fetch_ai_models_dev_catalog,
+            domain::ai::commands::get_ai_translation_cache_stats,
+            domain::ai::commands::list_ai_models,
+            domain::ai::commands::load_ai_settings,
+            domain::ai::commands::preview_ai_profiles_import,
+            domain::ai::commands::read_ai_translation_cache,
+            domain::ai::commands::save_ai_settings,
+            domain::ai::commands::test_ai_profile,
+            domain::ai::commands::translate_ai_batch,
+            domain::ai::commands::write_ai_translation_cache,
+            // domain::app_ui::commands
+            domain::app_ui::commands::load_app_ui_state,
+            domain::app_ui::commands::patch_app_ui_state,
+            // domain::assets::commands
+            domain::assets::commands::clear_file_cache,
+            domain::assets::commands::detect_default_game_directory,
+            domain::assets::commands::export_file,
+            domain::assets::commands::export_map_png,
+            domain::assets::commands::get_file_cache_stats,
+            domain::assets::commands::list_known_game_directories,
+            domain::assets::commands::load_audio_data_url,
+            domain::assets::commands::load_event_asset,
+            domain::assets::commands::load_image_data_url,
+            domain::assets::commands::load_map_asset,
+            domain::assets::commands::load_text_asset,
+            domain::assets::commands::load_text_file,
+            domain::assets::commands::scan_audio_assets,
+            domain::assets::commands::scan_data_assets,
+            domain::assets::commands::scan_events,
+            domain::assets::commands::scan_image_assets,
+            domain::assets::commands::scan_maps,
+            domain::assets::commands::validate_game_directory,
+            // domain::content_patcher::commands
+            domain::content_patcher::commands::load_content_patcher_result_asset,
+            // domain::cp_maker::commands
+            domain::cp_maker::commands::build_cp_maker_map_asset,
+            domain::cp_maker::commands::copy_cp_maker_draft,
+            domain::cp_maker::commands::delete_cp_maker_draft,
+            domain::cp_maker::commands::delete_cp_maker_project_asset,
+            domain::cp_maker::commands::export_cp_maker_pack,
+            domain::cp_maker::commands::import_cp_maker_pack,
+            domain::cp_maker::commands::import_cp_maker_project_assets,
+            domain::cp_maker::commands::list_cp_maker_drafts,
+            domain::cp_maker::commands::load_cp_maker_draft,
+            domain::cp_maker::commands::load_cp_maker_project_map_asset,
+            domain::cp_maker::commands::load_cp_maker_session,
+            domain::cp_maker::commands::read_cp_maker_project_asset,
+            domain::cp_maker::commands::rename_cp_maker_project_asset,
+            domain::cp_maker::commands::save_cp_maker_draft,
+            domain::cp_maker::commands::save_cp_maker_session,
+            domain::cp_maker::commands::write_cp_maker_project_asset,
+            domain::cp_maker::commands::write_cp_maker_project_assets,
+            // domain::debug_bridge::commands
+            domain::debug_bridge::commands::get_debug_bridge_mod_state,
+            domain::debug_bridge::commands::get_debug_bridge_status,
+            domain::debug_bridge::commands::install_debug_bridge_mod,
+            domain::debug_bridge::commands::send_debug_bridge_command,
+            // domain::launcher::commands
+            domain::launcher::commands::cancel_launcher_download,
+            domain::launcher::commands::cancel_nexus_sso,
+            domain::launcher::commands::check_launcher_updates,
+            domain::launcher::commands::check_smapi_update,
+            domain::launcher::commands::clear_launcher_image_cache,
+            domain::launcher::commands::download_launcher_mod,
+            domain::launcher::commands::find_smapi_installer_downloads,
+            domain::launcher::commands::get_launcher_backup_directory,
+            domain::launcher::commands::get_nexus_sso_status,
+            domain::launcher::commands::inspect_launcher_archive,
+            domain::launcher::commands::install_launcher_archive,
+            domain::launcher::commands::install_smapi_update,
+            domain::launcher::commands::launch_launcher_game,
+            domain::launcher::commands::list_launcher_install_backups,
+            domain::launcher::commands::load_cached_launcher_updates,
+            domain::launcher::commands::load_launcher_download_queue,
+            domain::launcher::commands::load_launcher_gmcm_probe_diagnostics,
+            domain::launcher::commands::load_launcher_image_failures,
+            domain::launcher::commands::load_launcher_library_covers,
+            domain::launcher::commands::load_launcher_library_state,
+            domain::launcher::commands::load_launcher_mod_config,
+            domain::launcher::commands::load_launcher_nexus_diagnostics,
+            domain::launcher::commands::load_launcher_remote_mod_detail,
+            domain::launcher::commands::load_launcher_runtime_info,
+            domain::launcher::commands::load_launcher_settings,
+            domain::launcher::commands::load_launcher_update_changelog,
+            domain::launcher::commands::load_suppressed_launcher_update_mod_ids,
+            domain::launcher::commands::open_launcher_path,
+            domain::launcher::commands::open_launcher_url,
+            domain::launcher::commands::persist_launcher_library_remote_cover,
+            domain::launcher::commands::read_launcher_log,
+            domain::launcher::commands::record_launcher_image_failure,
+            domain::launcher::commands::resolve_cached_launcher_image,
+            domain::launcher::commands::resolve_launcher_image,
+            domain::launcher::commands::restart_launcher_nexus_diagnostics,
+            domain::launcher::commands::restore_launcher_install_backup,
+            domain::launcher::commands::retry_launcher_nexus_diagnostics_route,
+            domain::launcher::commands::save_launcher_download_queue,
+            domain::launcher::commands::save_launcher_library_state,
+            domain::launcher::commands::save_launcher_mod_config,
+            domain::launcher::commands::save_launcher_settings,
+            domain::launcher::commands::scan_launcher_library,
+            domain::launcher::commands::search_launcher_catalog,
+            domain::launcher::commands::set_launcher_library_cover,
+            domain::launcher::commands::set_launcher_mod_enabled,
+            domain::launcher::commands::set_launcher_nexus_force_offline,
+            domain::launcher::commands::start_nexus_sso,
+            domain::launcher::commands::validate_nexus_api_key,
+            // domain::localization::commands
+            domain::localization::commands::acquire_localization_semantic_runtime,
+            domain::localization::commands::cancel_localization_job,
+            domain::localization::commands::clear_ai_usage,
+            domain::localization::commands::copy_translation_memory_entries,
+            domain::localization::commands::create_localization_profile,
+            domain::localization::commands::delete_localization_glossary_entries,
+            domain::localization::commands::delete_localization_profile,
+            domain::localization::commands::delete_localization_semantic_model,
+            domain::localization::commands::delete_translation_memory_entries,
+            domain::localization::commands::download_localization_semantic_model,
+            domain::localization::commands::export_ai_usage,
+            domain::localization::commands::export_localization_knowledge,
+            domain::localization::commands::import_localization_knowledge,
+            domain::localization::commands::initialize_localization_plan,
+            domain::localization::commands::inspect_localization_context,
+            domain::localization::commands::inspect_localization_semantic_index,
+            domain::localization::commands::inspect_localization_semantic_model,
+            domain::localization::commands::inspect_official_localization_index,
+            domain::localization::commands::list_localization_glossary_entries,
+            domain::localization::commands::list_localization_review_runs,
+            domain::localization::commands::list_localization_scopes,
+            domain::localization::commands::load_localization_default_engine,
+            domain::localization::commands::load_localization_review_run,
+            domain::localization::commands::load_localization_scope,
+            domain::localization::commands::load_localization_semantic_settings,
+            domain::localization::commands::load_localization_style_guide,
+            domain::localization::commands::open_localization_semantic_model_directory,
+            domain::localization::commands::prewarm_localization_corpus,
+            domain::localization::commands::probe_localization_semantic_search,
+            domain::localization::commands::query_ai_usage_records,
+            domain::localization::commands::query_ai_usage_summary,
+            domain::localization::commands::rebuild_localization_semantic_index,
+            domain::localization::commands::rebuild_official_localization_index,
+            domain::localization::commands::record_confirmed_translations,
+            domain::localization::commands::release_localization_semantic_runtime,
+            domain::localization::commands::remove_localization_profile_binding,
+            domain::localization::commands::rename_localization_profile,
+            domain::localization::commands::resolve_localization_scope,
+            domain::localization::commands::review_localization_batch,
+            domain::localization::commands::save_localization_default_engine,
+            domain::localization::commands::save_localization_scope_settings,
+            domain::localization::commands::save_localization_semantic_settings,
+            domain::localization::commands::save_localization_style_guide,
+            domain::localization::commands::search_official_localization,
+            domain::localization::commands::search_translation_memory,
+            domain::localization::commands::set_localization_profile_binding,
+            domain::localization::commands::sync_localization_semantic_index,
+            domain::localization::commands::test_localization_semantic_remote_profile,
+            domain::localization::commands::translate_localization_batch,
+            domain::localization::commands::unload_localization_semantic_runtime,
+            domain::localization::commands::update_localization_review_issues,
+            domain::localization::commands::upsert_localization_glossary_entries,
+            domain::localization::commands::verify_localization_semantic_model,
+            // domain::localization::machine_translation::commands
+            domain::localization::machine_translation::commands::list_machine_translation_languages,
+            domain::localization::machine_translation::commands::load_machine_translation_settings,
+            domain::localization::machine_translation::commands::save_machine_translation_settings,
+            domain::localization::machine_translation::commands::test_machine_translation_profile,
+            domain::localization::machine_translation::commands::translate_machine_translation_batch,
+            // domain::modding::commands
+            domain::modding::commands::delete_compat_plugin,
+            domain::modding::commands::delete_compat_plugin_entry,
+            domain::modding::commands::get_compat_plugin_roots,
+            domain::modding::commands::list_compat_plugin_entries,
+            domain::modding::commands::list_compat_plugins,
+            domain::modding::commands::read_compat_plugin_entry,
+            domain::modding::commands::read_plugin_asset,
+            domain::modding::commands::reload_compat_plugins,
+            domain::modding::commands::toggle_compat_plugin,
+            domain::modding::commands::write_compat_plugin_entry,
+            domain::modding::commands::write_compat_plugin_entry_image,
+            // domain::mods::commands
+            domain::mods::commands::inspect_mod_archive,
+            domain::mods::commands::load_mod_project,
+            domain::mods::commands::save_mod_i18n_files,
+            domain::mods::commands::scan_mod_asset_index,
+            domain::mods::commands::scan_mod_projects,
+            // domain::resource_registry::commands
+            domain::resource_registry::commands::load_resource_registry,
+            // domain::saves::commands
+            domain::saves::commands::scan_default_save_slots,
+            // infrastructure::game_formats::xact::commands
+            infrastructure::game_formats::xact::commands::load_xact_audio_data_url,
+            // support::logging::commands
+            support::logging::commands::print_host_runtime_diagnostics,
+            support::logging::commands::set_debug_logging_enabled,
+            support::logging::commands::write_frontend_log,
         ])
         .build(generate_context!())
         .expect("error while building tauri application")
         .run(|_app, event| {
             if matches!(event, RunEvent::Exit) {
-                commands::runtime::print_host_runtime_diagnostics_summary("tauri exit");
+                crate::host_runtime::print_host_runtime_diagnostics_summary("tauri exit");
             }
         });
 }

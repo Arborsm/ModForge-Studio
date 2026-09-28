@@ -1,3 +1,5 @@
+//! Shared Content Patcher helpers: manifest field extraction and snapshot diagnostics.
+
 use super::types::ContentPatcherProjectDiagnostic;
 pub(crate) use crate::domain::manifest::content_pack_for_unique_id;
 use serde_json::{Map, Value};

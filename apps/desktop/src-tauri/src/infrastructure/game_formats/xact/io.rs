@@ -1,3 +1,6 @@
+//! Low-level XACT binary I/O helpers: little-endian readers and seek-and-read
+//! for file-offset access.
+
 use anyhow::{Context, bail};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};

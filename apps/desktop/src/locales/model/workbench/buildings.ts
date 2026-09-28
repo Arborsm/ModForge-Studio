@@ -5,8 +5,16 @@ export type BuildingsPanelCopy = {
   browserFilteredEmpty: string
   browserUnloadedEmpty: string
   browserModEmpty: string
-  browserModSubtitle: string
   browserFarmBuildingsTitle: string
+  /** World-building layers, keyed by `BuildingLocationSeedGroup`. */
+  browserGroupMerchants: string
+  browserGroupHouses: string
+  browserGroupOther: string
+  /** Layer for world buildings the seed list does not name. */
+  browserGroupUngrouped: string
+  /** Jump from a codex row into the building authoring editor. */
+  openInAuthoringAction: string
+  openInAuthoringHint: string
   browserSubsectionFarming: string
   browserSubsectionSpecial: string
   browserSubsectionAdditional: string
@@ -17,14 +25,6 @@ export type BuildingsPanelCopy = {
   toolbarPreviewDual: string
   toolbarPreviewBody: string
   modSourcesTitle: string
-  browserConstructibleTitle: string
-  browserConstructibleSubtitle: string
-  browserWorldTitle: string
-  browserWorldSubtitle: string
-  browserConstructibleBadge: string
-  browserWorldBadge: string
-  browserIndoorBadge: string
-  browserExteriorBadge: string
   indexedStatusTemplate: string
   noEntriesStatus: string
   workspaceTitle: string
@@ -35,103 +35,42 @@ export type BuildingsPanelCopy = {
   upgradeTitle: string
   materialsTitle: string
   skinsTitle: string
-  indoorDataTitle: string
-  exteriorDataTitle: string
   worldEntrancesTitle: string
   noTexture: string
   noIndoorMap: string
   noExteriorMap: string
-  loadingIndoorMap: string
-  mapFormatUnsupported: string
-  materialsEmpty: string
-  skinsEmpty: string
-  worldEntrancesEmpty: string
   stageLabel: string
   currentBadge: string
   baseBadge: string
   finalBadge: string
   upgradeBadge: string
   separateBuildBadge: string
-  materialCountLabel: string
-  skinCountLabel: string
-  inspectorTitle: string
-  inspectorSubtitle: string
   inspectorEmpty: string
   basics: string
-  construction: string
-  indoor: string
   assets: string
   displayNameLabel: string
   internalNameLabel: string
   descriptionLabel: string
-  builderLabel: string
   typeLabel: string
-  buildDaysLabel: string
   buildCostLabel: string
-  buildConditionLabel: string
-  magicalLabel: string
   sourceKindLabel: string
   sourceConstructibleLabel: string
   sourceWorldLabel: string
   groupLabel: string
-  upgradeFromLabel: string
-  upgradeToLabel: string
-  sizeLabel: string
-  humanDoorLabel: string
-  animalDoorLabel: string
   indoorMapLabel: string
   exteriorMapLabel: string
   exteriorEntryLabel: string
-  indoorTypeLabel: string
-  nonInstancedIndoorLabel: string
-  entranceCountLabel: string
-  sourceMapLabel: string
   sourceTileLabel: string
   targetTileLabel: string
   triggerLabel: string
-  validOccupantsLabel: string
-  occupantsLabel: string
-  hayCapacityLabel: string
-  pregnancyLabel: string
   textureLabel: string
   textureSizeLabel: string
-  texturePathLabel: string
   sourceRectLabel: string
   drawOffsetLabel: string
-  sortOffsetLabel: string
-  mapPathLabel: string
-  stagesPanelTitle: string
-  stagesPanelSubtitle: string
-  stagesPanelEmpty: string
   detailsTitle: string
-  detailsSubtitle: string
   detailsEmpty: string
   overviewTab: string
-  mapsTab: string
-  extendTab: string
   assetsTab: string
   hasIndoorBadge: string
-  occupantsSectionTitle: string
-  placementTitle: string
-  runtimeDataTitle: string
-  metadataTitle: string
-  additionalPlacementTilesLabel: string
-  collisionMapLabel: string
-  fadeWhenBehindLabel: string
-  flooringLabel: string
-  additionalTileRadiusLabel: string
-  chestsLabel: string
-  actionTilesLabel: string
-  tilePropertiesLabel: string
-  itemConversionsLabel: string
-  drawLayersLabel: string
-  indoorItemsLabel: string
-  indoorItemMovesLabel: string
-  addMailLabel: string
-  metadataLabel: string
-  modDataLabel: string
-  customFieldsLabel: string
-  yesLabel: string
-  noLabel: string
   noneLabel: string
 }

@@ -1,1 +1,13 @@
 * text=auto eol=lf
+
+# Binary assets must never be line-ending converted. `text=auto` detects
+# binary and skips conversion, but a working tree corrupted by an external
+# tool or a mismatched config gets committed verbatim — mark the formats we
+# ship explicitly so checkout and commit leave their bytes alone.
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary

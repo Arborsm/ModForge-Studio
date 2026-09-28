@@ -1,5 +1,11 @@
+/**
+ * @file Zustand store driving the in-app guide engine: registers guide
+ * definitions, tracks active step runs, and persists completion progress.
+ * @module features/guide
+ */
 import { create } from 'zustand'
 import type { GuideDefinition } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state/appUiState'
 import {
   GUIDE_PROGRESS_MODULE_KEY,
@@ -47,7 +53,10 @@ function persistCompletedGuideIds(completed: string[]) {
   void applyAppUiStatePatch({
     workspace: { modules: { [GUIDE_PROGRESS_MODULE_KEY]: { completed } } },
   }).catch((error) => {
-    console.error('[guide] failed to persist guide progress', error)
+    appEvent('error', 'Failed to persist guide progress')
+      .error(error)
+      .context({ source: 'guide-engine', operation: 'persist-progress' })
+      .emit({ notify: false })
   })
 }
 
@@ -69,6 +78,10 @@ function startRun(state: GuideEngineState, guideId: string): Partial<GuideEngine
   }
 }
 
+/**
+ * Global guide engine store. Tracks registered guide definitions, the active
+ * step run, and completed guides; persists completion to app UI state.
+ */
 export const useGuideEngineStore = create<GuideEngineState>((set, get) => ({
   definitions: {},
   stateReady: false,

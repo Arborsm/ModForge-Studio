@@ -1,7 +1,13 @@
+/**
+ * @file Semantic parser for Stardew GameStateQuery strings: tokenizes clauses,
+ * resolves canonical keys/aliases, and formats parsed sets into localized hub labels.
+ */
+
 import type { EditorCopy } from '@locales'
 
 type HubCopy = EditorCopy['studioDesk']['eventPatchHub']
 
+/** All recognized GameStateQuery keys (canonical uppercase forms). */
 export const GAME_STATE_QUERY_KEYS = [
   'ANY',
   'DATE_RANGE',
@@ -224,6 +230,7 @@ function parseGameStateQueryClause(raw: string): ParsedGameStateQueryClause {
   return clause
 }
 
+/** Parses a raw GameStateQuery string into a set of clauses with resolved keys and arguments. */
 export function parseGameStateQuery(source: string): ParsedGameStateQuerySet {
   return {
     raw: source,
@@ -322,6 +329,7 @@ function formatGameStateQuerySetForHub(query: ParsedGameStateQuerySet, hub: HubC
   return hub.gameStateQuerySemantics.all(query.clauses.map((clause) => formatGameStateQueryClauseForHub(clause, hub)))
 }
 
+/** Formats a parsed GameStateQuery (or raw string) into a localized label for the event patch hub. */
 export function formatGameStateQueryForHub(query: ParsedGameStateQuerySet | string, hub: HubCopy): string {
   return formatGameStateQuerySetForHub(typeof query === 'string' ? parseGameStateQuery(query) : query, hub)
 }

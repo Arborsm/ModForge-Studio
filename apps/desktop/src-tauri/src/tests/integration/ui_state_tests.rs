@@ -56,6 +56,7 @@ fn patch_app_ui_state_round_trips_location_navigation_and_modules() {
                         "unknown".to_string(),
                     ]),
                 }),
+                expert_mode: None,
                 modules: Some(modules),
             }),
             ..Default::default()

@@ -32,6 +32,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
     onSelectCharacter,
     onSelectModCharacter,
     onSelectCharacterVariant,
+    onOpenCharacterInAuthoring,
     heavyWorkspaceReady,
   } = options
 
@@ -68,6 +69,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
           onCharacterFilterChange={onCharacterFilterChange}
           onSelectCharacter={onSelectCharacter}
           onSelectModCharacter={onSelectModCharacter}
+          onOpenInAuthoring={onOpenCharacterInAuthoring}
         />,
       ),
     },
@@ -131,6 +133,7 @@ export function buildCharactersWorkspacePanels(options: BuildCharacterPanelsOpti
                 assetState={activeCharacterAssetState}
                 modSources={activeCharacterModSources}
                 onSelectVariant={onSelectCharacterVariant}
+                onOpenInAuthoring={onOpenCharacterInAuthoring}
               />,
             )}
           </DeferredWorkspaceReveal>

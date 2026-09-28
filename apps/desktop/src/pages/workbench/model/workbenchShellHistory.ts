@@ -2,10 +2,15 @@ import type { WorkbenchLocation } from '@shared/contracts'
 
 /**
  * Restorable workbench shell location for browser-style navigation history.
- * Patch-level edit navigation stays in {@link useEditModeNavigation}; this stack
- * only tracks registered module locations.
+ * Extends {@link WorkbenchLocation} with an optional `patchId` so that entering
+ * and exiting a patch editor are first-class history entries.
  */
-export type WorkbenchShellLocation = WorkbenchLocation
+export type WorkbenchShellLocation = { kind: 'home' } | { kind: 'module'; moduleId: string; patchId?: string | null }
+
+/** Convert a plain {@link WorkbenchLocation} into a shell location (no patch). */
+export function toShellLocation(location: WorkbenchLocation): WorkbenchShellLocation {
+  return location.kind === 'module' ? { kind: 'module', moduleId: location.moduleId } : { kind: 'home' }
+}
 
 export type WorkbenchShellHistoryState = {
   entries: WorkbenchShellLocation[]
@@ -16,7 +21,10 @@ const MAX_HISTORY_ENTRIES = 50
 
 /** Compare two shell locations for history dedupe. */
 export function areWorkbenchShellLocationsEqual(left: WorkbenchShellLocation, right: WorkbenchShellLocation): boolean {
-  return left.kind === right.kind && (left.kind === 'home' || (right.kind === 'module' && left.moduleId === right.moduleId))
+  if (left.kind !== right.kind) return false
+  if (left.kind === 'home') return true
+  if (right.kind !== 'module') return false
+  return left.moduleId === right.moduleId && (left.patchId ?? null) === (right.patchId ?? null)
 }
 
 /** Create a history stack seeded with a single root location. */

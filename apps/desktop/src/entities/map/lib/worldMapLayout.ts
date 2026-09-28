@@ -1,3 +1,8 @@
+/**
+ * @file World map layout parser: reads the vanilla `WorldMap` layout JSON to
+ * determine pixel rects for each named area in the world atlas overlay.
+ */
+
 import { normalizeMapName } from './mapNames'
 
 export type WorldMapLayoutArea = {

@@ -1,3 +1,5 @@
+//! Semantic search settings persistence: mode, execution preference, and remote profile management.
+
 use crate::domain::ai::validate_base_url;
 use crate::domain::app_paths::localization_semantic_settings_path;
 use crate::domain::localization::types::{
@@ -156,7 +158,7 @@ fn normalize(profile: &SaveAiSemanticRemoteProfile) -> anyhow::Result<StoredRemo
     Ok(StoredRemoteProfile {
         id: bounded(&profile.id, "id", MAX_ID_BYTES)?,
         name: bounded(&profile.name, "name", MAX_NAME_BYTES)?,
-        base_url: validate_base_url(&profile.base_url)?,
+        base_url: validate_base_url(&profile.base_url, false)?,
         model: bounded(&profile.model, "model", MAX_MODEL_BYTES)?,
         dimensions: profile.dimensions,
         credential_environment: optional_bounded(

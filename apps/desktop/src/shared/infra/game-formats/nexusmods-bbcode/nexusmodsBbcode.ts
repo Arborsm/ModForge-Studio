@@ -1,3 +1,6 @@
+/** @file Nexus Mods BBCode/HTML parser — produces a lossless DOM tree for rendering and text-segment extraction. */
+
+/** Tag names supported by the Nexus Mods BBCode subset. */
 export type NexusModsBbcodeTag =
   | 'b'
   | 'i'
@@ -23,11 +26,13 @@ export type NexusModsBbcodeTag =
   | 'br'
   | 'hr'
 
+/** Plain text leaf node in the BBCode DOM. */
 export type NexusModsBbcodeTextNode = {
   type: 'text'
   value: string
 }
 
+/** Element node carrying a tag, attributes, and child nodes. */
 export type NexusModsBbcodeElementNode = {
   type: 'element'
   tag: NexusModsBbcodeTag
@@ -35,8 +40,10 @@ export type NexusModsBbcodeElementNode = {
   children: NexusModsBbcodeNode[]
 }
 
+/** Union of text and element nodes used throughout the DOM tree. */
 export type NexusModsBbcodeNode = NexusModsBbcodeTextNode | NexusModsBbcodeElementNode
 
+/** Root document node containing top-level children. */
 export type NexusModsBbcodeDocument = {
   type: 'document'
   children: NexusModsBbcodeNode[]
@@ -325,6 +332,10 @@ function closeMatchingTag(stack: StackFrame[], tags: NexusModsBbcodeTag | readon
   return true
 }
 
+/**
+ * Parses Nexus Mods BBCode (with embedded HTML) into a lossless DOM tree.
+ * Unsupported tags are preserved as text so round-tripping stays byte-identical.
+ */
 export function parseNexusModsBbcode(source: string): NexusModsBbcodeDocument {
   const document: NexusModsBbcodeDocument = { type: 'document', children: [] }
   const stack: StackFrame[] = [document]
@@ -397,6 +408,7 @@ export function parseNexusModsBbcode(source: string): NexusModsBbcodeDocument {
   return document
 }
 
+/** Concatenates all descendant text nodes into a single string. */
 export function getNexusModsBbcodeTextContent(nodes: NexusModsBbcodeNode[]): string {
   return nodes
     .map((node) => {
@@ -409,6 +421,7 @@ export function getNexusModsBbcodeTextContent(nodes: NexusModsBbcodeNode[]): str
     .join('')
 }
 
+/** A translatable text span with original source offsets for round-trip replacement. */
 export type NexusModsBbcodeTextSegment = {
   id: string
   start: number

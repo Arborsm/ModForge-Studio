@@ -1,3 +1,8 @@
+/**
+ * @file Dispatcher for `specificTemporarySprite` case handlers, trying each
+ * split case module until one resolves the sprite id.
+ */
+
 import type { EventCommand } from '@entities/event'
 import type { SpecificTemporarySpriteResolution } from '@entities/event'
 import { resolveSpecificTemporarySpriteEffectCase1 } from './eventStageSpecificSpriteEffectCases1'
@@ -16,6 +21,7 @@ const RESOLVERS = [
   resolveSpecificTemporarySpriteEffectCase6,
 ]
 
+/** Tries each case resolver in order, returning the first non-null resolution for the sprite id. */
 export function resolveSpecificTemporarySpriteEffectCase(command: EventCommand, spriteId: string): SpecificTemporarySpriteResolution {
   for (const resolve of RESOLVERS) {
     const resolved = resolve(command, spriteId)

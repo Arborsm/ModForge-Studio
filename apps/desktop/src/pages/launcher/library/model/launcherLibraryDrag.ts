@@ -1,3 +1,6 @@
+/**
+ * @file Launcher mod library drag model: defines drag identifiers, drop target resolution, and reordering logic.
+ */
 import type { UniqueIdentifier } from '@dnd-kit/core'
 import { LAUNCHER_LIBRARY_CUSTOM_ORDER_START_KEY, type LauncherFolderPreviewItem } from './launcherLibraryDisplay'
 

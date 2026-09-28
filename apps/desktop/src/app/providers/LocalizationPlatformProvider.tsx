@@ -1,3 +1,6 @@
+/**
+ * @file Localization platform Provider: adapts host localization commands into a LocalizationPort and injects it into LocalizationProvider.
+ */
 import { useMemo, type ReactNode } from 'react'
 import { LocalizationProvider } from '@entities/localization'
 import {
@@ -55,19 +58,23 @@ import {
   testLocalizationSemanticRemoteProfile,
   loadLocalizationDefaultEngine,
   saveLocalizationDefaultEngine,
+  prewarmLocalizationCorpus,
   initializeLocalizationPlan,
   acquireLocalizationSemanticRuntime,
   releaseLocalizationSemanticRuntime,
   unloadLocalizationSemanticRuntime,
   inspectLocalizationContext,
+  GAME_DIRECTORY_PICKER_TITLE,
 } from '@platform/host'
 import type { LocalizationPort } from '@shared/contracts'
 import { usePlatformPorts } from './usePlatformPorts'
 
+/** Localization platform Provider component: creates a LocalizationPort and injects it into LocalizationProvider. */
 export function LocalizationPlatformProvider({ children }: { children: ReactNode }) {
   const { dialog } = usePlatformPorts()
   const port = useMemo<LocalizationPort>(
     () => ({
+      prewarmCorpus: prewarmLocalizationCorpus,
       loadSemanticSettings: loadLocalizationSemanticSettings,
       saveSemanticSettings: saveLocalizationSemanticSettings,
       inspectSemanticModel: inspectLocalizationSemanticModel,
@@ -99,7 +106,7 @@ export function LocalizationPlatformProvider({ children }: { children: ReactNode
       exportUsage: exportAiUsage,
       clearUsage: clearAiUsage,
       inspectOfficialIndex: inspectOfficialLocalizationIndex,
-      chooseGameDirectory: () => dialog.chooseDirectory('Select the Stardew Valley game folder'),
+      chooseGameDirectory: () => dialog.chooseDirectory(GAME_DIRECTORY_PICKER_TITLE),
       rebuildOfficialIndex: rebuildOfficialLocalizationIndex,
       searchOfficial: searchOfficialLocalization,
       cancelJob: async (jobId) => {

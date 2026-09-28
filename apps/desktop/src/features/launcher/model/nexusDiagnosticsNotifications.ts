@@ -1,3 +1,7 @@
+/**
+ * @file Nexus diagnostics notification builder and sync helper: publishes or
+ * dismisses the launcher diagnostics notification based on route health.
+ */
 import { dismissNotification, publishNotification, type NotificationChip, type PublishNotificationRequest } from '@shared/ui/notifications'
 import type { LauncherCopy } from '@locales/api'
 import type { LauncherNexusDiagnosticsResult } from './launcherContracts'
@@ -8,6 +12,7 @@ import {
   hasLoadingLauncherNexusRoutes,
 } from './nexusDiagnostics'
 
+/** Stable notification id for the launcher Nexus diagnostics banner. */
 export const LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID = 'launcher-nexus-diagnostics'
 
 type LauncherDiagnosticsNotificationContent = Omit<PublishNotificationRequest, 'id' | 'autoDismissMs'>
@@ -43,6 +48,7 @@ function buildLauncherDiagnosticsNotificationChips(diagnostics: LauncherNexusDia
     }))
 }
 
+/** Builds notification content from warning routes and impacted targets, or null when no warnings exist. */
 export function buildLauncherDiagnosticsNotificationContent(
   copy: LauncherCopy,
   diagnostics: LauncherNexusDiagnosticsResult,
@@ -90,6 +96,7 @@ export function buildLauncherDiagnosticsNotificationContent(
   }
 }
 
+/** Publishes or dismisses the diagnostics notification to match the current route health. */
 export function syncLauncherDiagnosticsNotification(
   copy: LauncherCopy,
   diagnostics: LauncherNexusDiagnosticsResult | null | undefined,

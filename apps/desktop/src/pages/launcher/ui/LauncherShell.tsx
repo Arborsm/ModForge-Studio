@@ -9,10 +9,20 @@ import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/helper'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
 
-const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
-const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))
+const LauncherDiscoverPage = lazy(() =>
+  import('./LauncherDiscoverPage').then((module) => ({
+    default: module.LauncherDiscoverPage,
+  })),
+)
+const LauncherUpdatesPage = lazy(() =>
+  import('./LauncherUpdatesPage').then((module) => ({
+    default: module.LauncherUpdatesPage,
+  })),
+)
 const LauncherConfigurationPage = lazy(() =>
-  import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
+  import('./LauncherConfigurationPage').then((module) => ({
+    default: module.LauncherConfigurationPage,
+  })),
 )
 
 const INITIAL_CACHED_PAGES = new Set<LauncherPage>(['library'])
@@ -20,6 +30,8 @@ const INITIAL_CACHED_PAGES = new Set<LauncherPage>(['library'])
 type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
+  /** True inside the Android WebView launcher host; hides desktop-only surfaces. */
+  androidHost: boolean
   onToggleDebugMode: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
@@ -31,7 +43,6 @@ type LauncherShellProps = {
   onDownloadArchivesInstalled?: (archivePaths: string[]) => void
   onNavigateToSettings: () => void
   onSearchDiscover?: (query: string) => void
-  launchGameLabel: string
   launchGameDisabled: boolean
   launchGameBusy: boolean
   onLaunchGame: () => void
@@ -40,6 +51,7 @@ type LauncherShellProps = {
 export default function LauncherShell({
   page,
   debugEnabled,
+  androidHost,
   onToggleDebugMode,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
@@ -51,7 +63,6 @@ export default function LauncherShell({
   onDownloadArchivesInstalled,
   onNavigateToSettings,
   onSearchDiscover,
-  launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
   onLaunchGame,
@@ -108,7 +119,8 @@ export default function LauncherShell({
         settings={settingsState.settings}
         library={library}
         routeEnterSequence={libraryRouteEnterSequence}
-        launchGameLabel={launchGameLabel}
+        routeActive={activePage === 'library'}
+        androidHost={androidHost}
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
@@ -120,6 +132,8 @@ export default function LauncherShell({
       />
     ),
     [
+      activePage,
+      androidHost,
       downloadInstallRequest,
       downloads.queueDownload,
       library,
@@ -127,7 +141,6 @@ export default function LauncherShell({
       onNavigateToSettings,
       onSearchDiscover,
       settingsState.settings,
-      launchGameLabel,
       launchGameDisabled,
       launchGameBusy,
       onLaunchGame,
@@ -150,6 +163,8 @@ export default function LauncherShell({
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
                 searchRequest={discoverSearchRequest}
+                routeActive={activePage === 'discover'}
+                androidHost={androidHost}
               />
             </Suspense>
           ) : null}
@@ -164,6 +179,8 @@ export default function LauncherShell({
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
+                routeActive={activePage === 'updates'}
+                androidHost={androidHost}
               />
             </Suspense>
           ) : null}
@@ -173,10 +190,12 @@ export default function LauncherShell({
             <Suspense fallback={<LoadingMotionFallback />}>
               <LauncherConfigurationPage
                 debugEnabled={debugEnabled}
+                androidHost={androidHost}
                 onToggleDebugMode={onToggleDebugMode}
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
                 settingsState={settingsState}
                 downloads={downloads}
+                routeActive={activePage === 'configuration'}
               />
             </Suspense>
           ) : null}

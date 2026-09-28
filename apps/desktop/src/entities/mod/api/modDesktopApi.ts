@@ -1,3 +1,8 @@
+/**
+ * @file Mod desktop API: promise-cached wrappers around Host Runtime commands
+ * for scanning mod projects, loading inspection data, and saving i18n files.
+ */
+
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, readCached, readPending } from '@shared/lib/cache'

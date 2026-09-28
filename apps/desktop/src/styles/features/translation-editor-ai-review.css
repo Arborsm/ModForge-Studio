@@ -3,36 +3,28 @@
 }
 
 .translation-review-inspector {
-  position: fixed;
+  @apply bg-surface-panel fixed flex min-w-0 flex-col;
   z-index: 40;
   inset: 0;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
   border-left: 1px solid var(--border-color);
-  background: var(--bg-panel);
 }
 
 .translation-review-inspector > header,
 .translation-review-inspector > footer {
-  display: flex;
+  @apply flex items-center justify-between;
   min-height: 3rem;
-  align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border-color);
   padding: 0.625rem 0.75rem;
 }
 
 .translation-review-inspector > header > div {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
   gap: 0.45rem;
 }
 
 .translation-review-inspector > header span {
-  color: var(--text-tertiary);
-  font-size: 0.6875rem;
+  @apply text-text-tertiary text-meta;
 }
 
 .translation-review-inspector > footer {
@@ -41,41 +33,33 @@
 }
 
 .translation-review-empty {
-  display: grid;
+  @apply text-text-secondary grid justify-items-center text-xs;
   margin: auto;
-  justify-items: center;
   gap: 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
 }
 
 .translation-review-skeleton {
-  display: grid;
+  @apply text-text-secondary grid text-xs;
   align-content: start;
   gap: 10px;
   padding: 16px;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
 }
 
 .translation-review-skeleton i {
-  display: block;
+  @apply bg-surface-panel-muted block;
   height: 40px;
   border-radius: 4px;
-  background: var(--bg-panel-muted);
 }
 
 .translation-review-body {
-  display: grid;
-  min-height: 0;
+  @apply grid min-h-0;
   flex: 1;
   grid-template-rows: minmax(8rem, 0.8fr) minmax(12rem, 1.2fr);
 }
 
 .translation-review-list,
 .translation-review-detail {
-  min-height: 0;
-  overflow: auto;
+  @apply min-h-0 overflow-auto;
 }
 
 .translation-review-list {
@@ -83,129 +67,110 @@
 }
 
 .translation-review-row {
-  display: grid;
-  width: 100%;
+  @apply text-text-secondary grid w-full items-center;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
   gap: 0.4rem;
   border-bottom: 1px solid var(--border-color);
   padding: 0.5rem 0.625rem;
-  color: var(--text-secondary);
   text-align: left;
 }
 
 .translation-review-row:hover,
 .translation-review-row.is-active {
-  background: var(--bg-hover);
+  @apply bg-surface-hover;
 }
 
 .translation-review-row > div {
-  display: grid;
-  min-width: 0;
+  @apply grid min-w-0;
 }
 
 .translation-review-row code,
 .translation-review-row > div span {
-  overflow: hidden;
+  @apply overflow-hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .translation-review-row code {
-  color: var(--text-primary);
-  font-size: 0.6875rem;
+  @apply text-text-primary text-meta;
 }
 
 .translation-review-row > div span,
 .translation-review-row > span:last-child {
-  color: var(--text-tertiary);
-  font-size: 0.625rem;
+  @apply text-text-tertiary text-caption;
 }
 
 .translation-review-severity {
+  @apply text-caption font-semibold;
   border-radius: 0.25rem;
   padding: 0.1rem 0.3rem;
-  font-size: 0.625rem;
-  font-weight: 600;
 }
 
 .translation-review-severity.is-minor {
-  color: var(--text-secondary);
-  background: var(--bg-panel-muted);
+  @apply text-text-secondary bg-surface-panel-muted;
 }
 
 .translation-review-severity.is-major {
-  color: var(--warning);
-  background: var(--warning-soft);
+  @apply text-warning bg-warning-soft;
 }
 
 .translation-review-severity.is-critical {
-  color: var(--danger);
-  background: var(--danger-soft);
+  @apply text-danger bg-danger-soft;
 }
 
 .translation-review-detail {
-  display: grid;
+  @apply text-text-secondary grid text-xs;
   align-content: start;
   gap: 0.625rem;
   padding: 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
 }
 
 .translation-review-detail label {
-  color: var(--text-tertiary);
-  font-size: 0.625rem;
-  font-weight: 600;
+  @apply text-text-tertiary text-caption font-semibold;
   text-transform: uppercase;
 }
 
 .translation-review-detail pre {
+  @apply bg-surface-panel-muted overflow-auto p-2.5;
   max-height: 12rem;
-  overflow: auto;
   border: 1px solid var(--border-color);
   border-radius: 0.375rem;
-  background: var(--bg-panel-muted);
-  padding: 0.625rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .translation-review-diff {
-  display: grid;
+  @apply grid;
   gap: 0.375rem;
 }
 
 .translation-review-diff pre {
-  display: grid;
+  @apply grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.5rem;
 }
 
 .translation-review-diff .is-removed {
-  background: var(--danger-soft);
+  @apply bg-danger-soft;
   text-decoration: line-through;
 }
 
 .translation-review-diff .is-added {
-  background: var(--success-soft);
+  @apply bg-success-soft;
   text-decoration: underline;
 }
 
 .translation-review-diff pre > span {
-  font-weight: 700;
+  @apply font-bold;
   text-decoration: none;
 }
 
 .translation-review-meta,
 .translation-review-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  @apply flex flex-wrap items-center justify-between;
   gap: 0.5rem;
 }
 
 .translation-review-stale {
-  color: var(--warning);
+  @apply text-warning;
 }

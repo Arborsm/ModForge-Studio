@@ -59,7 +59,7 @@ export function ObjectGroupsPanel({
       subtitle={copy.rightDock.subtitle}
       className="h-full"
       headerAction={
-        <div className="flex gap-2 text-[10px] font-semibold tracking-[0.16em] uppercase">
+        <div className="text-caption-px tracking-ui-wider flex gap-2 font-semibold uppercase">
           <button type="button" onClick={onShowAllObjectGroups}>
             {copy.controls.showAll}
           </button>
@@ -79,10 +79,10 @@ export function ObjectGroupsPanel({
             onFocusObject={onFocusObject}
           />
         ) : (
-          <div className="px-4 py-5 text-sm text-(--text-secondary)">{copy.rightDock.noObjectGroups}</div>
+          <div className="text-text-secondary px-4 py-5 text-sm">{copy.rightDock.noObjectGroups}</div>
         )
       ) : (
-        <div className="px-4 py-5 text-sm text-(--text-secondary)">{copy.center.noSceneLoaded}</div>
+        <div className="text-text-secondary px-4 py-5 text-sm">{copy.center.noSceneLoaded}</div>
       )}
     </PanelFrame>
   )

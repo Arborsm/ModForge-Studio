@@ -1,3 +1,6 @@
+//! Machine translation settings persistence — profiles, credentials and
+//! keychain/environment credential resolution.
+
 use super::presets::{preset, presets};
 use crate::domain::app_paths::machine_translation_settings_path;
 use crate::domain::localization::types::*;
@@ -91,6 +94,8 @@ pub(crate) fn validate_base_url(value: &str) -> anyhow::Result<String> {
 }
 
 fn credential_entry(profile_id: &str, field: &str) -> anyhow::Result<keyring::Entry> {
+    #[cfg(test)]
+    crate::support::install_mock_credential_store();
     keyring::Entry::new(KEYRING_SERVICE, &format!("{profile_id}:{field}"))
         .context("Failed to open the machine translation credential store.")
 }
@@ -259,6 +264,8 @@ fn snapshot(value: StoredProfile) -> anyhow::Result<MachineTranslationProfile> {
     })
 }
 
+/// Loads machine translation settings, resolving credential sources for
+/// each profile.
 pub fn load() -> anyhow::Result<MachineTranslationSettingsSnapshot> {
     let value = read(&machine_translation_settings_path()?)?;
     Ok(MachineTranslationSettingsSnapshot {
@@ -273,6 +280,8 @@ pub fn load() -> anyhow::Result<MachineTranslationSettingsSnapshot> {
     })
 }
 
+/// Saves machine translation settings, persisting credentials to the keychain
+/// and rolling back on failure.
 pub fn save(
     request: SaveMachineTranslationSettingsRequest,
 ) -> anyhow::Result<MachineTranslationSettingsSnapshot> {

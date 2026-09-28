@@ -5,6 +5,7 @@ import { createInterface, type Interface as ReadlineInterface } from 'node:readl
 import path from 'node:path'
 import type { OpenDialogOptions, SaveDialogOptions } from '../src/shared/contracts/platform'
 import { resolveLinuxOrtSidecar } from './linux-cuda-runtime.mjs'
+import { stripPluginEpochPrefix } from '../src/shared/lib/pluginEpochPrefix'
 
 type RpcResponse = {
   id?: number
@@ -29,6 +30,7 @@ type PendingWindowCloseRequest = {
 
 const localFileProtocol = 'modforge-asset'
 const localFileHost = 'local'
+const pluginProtocolScheme = 'plugin'
 const appDisplayName = process.env.MODFORGE_APP_NAME?.trim() || 'ModForge Studio'
 const appDesktopId = process.env.MODFORGE_DESKTOP_ID?.trim() || 'io.github.Arborsm.ModForgeStudio'
 const isDev = !app.isPackaged
@@ -68,6 +70,14 @@ protocol.registerSchemesAsPrivileged([
     privileges: {
       standard: true,
       secure: true,
+    },
+  },
+  {
+    scheme: pluginProtocolScheme,
+    privileges: {
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
     },
   },
 ])
@@ -117,6 +127,78 @@ function mimeTypeFromPath(filePath: string) {
     default:
       return 'application/octet-stream'
   }
+}
+
+// ── plugin:// protocol (Linux host) ─────────────────────────────────────────
+// Path resolution and file reading are delegated to the sidecar's
+// `read_plugin_asset` host command so all path-safety logic (plugin id
+// validation, extension whitelist, traversal rejection) lives in the single
+// Rust source of truth (compat_plugin.rs). This handler is pure transport:
+// it parses the URL, forwards the request over sidecar IPC, and wraps the
+// response in a fetch Response. See design doc §3.1/§10.3 C3.
+
+type ReadPluginAssetResult = {
+  bytesBase64: string
+  contentType: string
+}
+
+function pluginProtocolNotFound(): Response {
+  return new Response(null, {
+    status: 404,
+    headers: { 'Access-Control-Allow-Origin': '*' },
+  })
+}
+
+function registerPluginProtocol() {
+  protocol.handle(pluginProtocolScheme, async (request) => {
+    const url = new URL(request.url)
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+
+    // Electron custom schemes parse the host from the URL authority. The
+    // webview may issue either `plugin://<pluginId>/<relativePath>` (host is
+    // the plugin id) or `plugin://localhost/<pluginId>/<relativePath>` (host
+    // is localhost, plugin id is the first path segment) depending on how the
+    // URL was constructed. Handle both uniformly, matching the Tauri handler
+    // which normalises across platforms the same way.
+    let pluginId: string
+    let relativePath: string
+    if (url.hostname && url.hostname !== 'localhost') {
+      pluginId = decodeURIComponent(url.hostname)
+      relativePath = pathSegments.join('/')
+    } else {
+      pluginId = decodeURIComponent(pathSegments[0] ?? '')
+      relativePath = pathSegments.slice(1).join('/')
+    }
+
+    // Strip the hot-reload epoch prefix (`__v<N>/`) before forwarding. The
+    // prefix is only inserted by the frontend loader to bypass the webview
+    // module cache; it carries no on-disk meaning. The sidecar strips it too,
+    // but stripping here keeps the IPC payload minimal and matches the Tauri
+    // handler's ordering.
+    relativePath = stripPluginEpochPrefix(relativePath)
+
+    let result: ReadPluginAssetResult
+    try {
+      result = (await sidecarTransport.invoke('read_plugin_asset', {
+        pluginId,
+        relativePath,
+      })) as ReadPluginAssetResult
+    } catch {
+      // Sidecar rejected the path (unsafe id/traversal/non-whitelisted
+      // extension) or the file was missing — both surface as a bare 404 so
+      // no filesystem layout leaks to the webview.
+      return pluginProtocolNotFound()
+    }
+
+    const bytes = Uint8Array.from(Buffer.from(result.bytesBase64, 'base64'))
+    return new Response(bytes, {
+      headers: {
+        'Content-Type': result.contentType,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache',
+      },
+    })
+  })
 }
 
 function resolveSidecarPath() {
@@ -250,7 +332,7 @@ class SidecarTransport {
       return
     }
 
-    if (typeof frame.id !== 'number') {
+    if (typeof frame.id !== 'number' && typeof frame.id !== 'string') {
       return
     }
 
@@ -527,6 +609,7 @@ ipcMain.handle('modforge:save-file-dialog', async (_event, options?: SaveDialogO
 
 void app.whenReady().then(() => {
   registerLocalFileProtocol()
+  registerPluginProtocol()
   sidecarTransport.start()
   createMainWindow()
   createTray()

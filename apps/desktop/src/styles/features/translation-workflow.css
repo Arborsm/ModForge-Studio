@@ -1,38 +1,34 @@
 .translation-workflow-header {
+  @apply bg-surface-panel;
   min-height: 76px;
-  background: var(--bg-panel);
 }
 
 .translation-workflow-step {
-  display: inline-flex;
+  @apply text-text-tertiary inline-flex items-center;
   height: 30px;
-  align-items: center;
   gap: 7px;
   border-bottom: 2px solid transparent;
   padding: 0 10px;
-  color: var(--text-tertiary);
   font-size: 12px;
 }
 
 .translation-workflow-step > span {
-  display: grid;
+  @apply grid rounded-full;
   width: 18px;
   height: 18px;
   place-items: center;
   border: 1px solid var(--border-color);
-  border-radius: 50%;
   font-size: 10px;
 }
 
 .translation-workflow-step.is-active {
+  @apply text-text-primary;
   border-bottom-color: var(--accent);
-  color: var(--text-primary);
 }
 
 .translation-workflow-step.is-active > span {
+  @apply bg-accent-soft text-accent;
   border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .translation-workflow-step:disabled {
@@ -41,44 +37,40 @@
 }
 
 .translation-workflow-error {
-  margin: 0;
+  @apply text-danger bg-danger-soft m-0;
   border-bottom: 1px solid var(--danger);
-  background: var(--danger-soft);
   padding: 9px 20px;
-  color: var(--danger);
   font-size: 12px;
 }
 
 .translation-workflow-setup > div,
 .translation-workflow-review > div {
-  display: grid;
+  @apply grid;
   gap: 24px;
 }
 
 .translation-workflow-setup header,
 .translation-workflow-review header {
-  display: grid;
+  @apply grid;
   gap: 8px;
 }
 
 .translation-workflow-setup h1,
 .translation-workflow-review h1 {
-  margin: 0;
-  color: var(--text-primary);
+  @apply text-text-primary m-0;
   font-size: 22px;
   font-weight: 650;
 }
 
 .translation-workflow-setup header p,
 .translation-workflow-review header p {
-  margin: 0;
-  color: var(--text-secondary);
+  @apply text-text-secondary m-0;
   font-size: 13px;
   line-height: 1.6;
 }
 
 .translation-workflow-locale-grid {
-  display: grid;
+  @apply grid;
   grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
   align-items: end;
   gap: 14px;
@@ -88,48 +80,43 @@
 }
 
 .translation-workflow-locale-grid label {
-  display: grid;
+  @apply text-text-secondary grid;
   gap: 8px;
-  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .translation-workflow-locale-grid > span {
-  display: grid;
+  @apply text-text-tertiary grid;
   height: 36px;
   place-items: center;
-  color: var(--text-tertiary);
 }
 
 .translation-workflow-plan {
-  display: grid;
+  @apply bg-surface-panel-muted grid;
   gap: 14px;
   border-left: 3px solid var(--accent);
-  background: var(--bg-panel-muted);
   padding: 16px 18px;
 }
 
 .translation-workflow-plan > div {
-  display: flex;
+  @apply flex;
   align-items: flex-start;
   gap: 10px;
 }
 
 .translation-workflow-plan > div > span {
-  display: grid;
+  @apply grid;
   gap: 4px;
 }
 
 .translation-workflow-plan small {
-  color: var(--text-secondary);
+  @apply text-text-secondary;
   font-size: 12px;
 }
 
 .translation-workflow-plan label {
-  display: flex;
-  align-items: center;
+  @apply text-text-primary flex items-center;
   gap: 8px;
-  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -139,25 +126,23 @@
 }
 
 .translation-workflow-footer {
-  display: flex;
+  @apply bg-surface-panel flex;
   min-height: 52px;
   flex: 0 0 auto;
   justify-content: flex-end;
   border-top: 1px solid var(--border-color);
-  background: var(--bg-panel);
   padding: 9px 18px;
 }
 
 .translation-workflow-summary {
-  display: grid;
+  @apply grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--border-color);
 }
 
 .translation-workflow-summary section {
-  display: grid;
+  @apply grid items-center;
   grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
   gap: 8px;
   padding: 16px;
 }
@@ -172,25 +157,24 @@
 }
 
 .translation-workflow-summary [data-tone='danger'] svg {
-  color: var(--danger);
+  @apply text-danger;
 }
 
 .translation-workflow-summary [data-tone='warning'] svg {
-  color: var(--warning);
+  @apply text-warning;
 }
 
 .translation-workflow-summary [data-tone='success'] svg {
-  color: var(--success);
+  @apply text-success;
 }
 
 .translation-workflow-issues {
-  display: grid;
+  @apply grid;
   border: 1px solid var(--border-color);
 }
 
 .translation-workflow-issues button {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
   gap: 10px;
   padding: 10px 14px;
   text-align: left;
@@ -201,61 +185,46 @@
 }
 
 .translation-workflow-issues button:hover {
-  background: var(--bg-hover);
+  @apply bg-surface-hover;
 }
 
 .translation-workflow-issues button > span {
-  display: grid;
+  @apply grid;
   gap: 2px;
 }
 
 .translation-workflow-issues small {
-  color: var(--text-secondary);
+  @apply text-text-secondary;
 }
 
 .translation-workflow-review-actions {
-  display: flex;
-  flex-wrap: wrap;
+  @apply flex flex-wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 
 .translation-workflow-success {
-  display: flex;
-  align-items: center;
+  @apply text-success bg-success-soft m-0 flex items-center;
   gap: 8px;
-  margin: 0;
-  background: var(--success-soft);
   padding: 12px 14px;
-  color: var(--success);
 }
 
 .translation-workflow-memory-warning {
-  display: flex;
-  align-items: center;
+  @apply text-warning bg-warning-soft m-0 flex items-center;
   gap: 8px;
-  margin: 0;
-  background: var(--warning-soft);
   padding: 12px 14px;
-  color: var(--warning);
 }
 
 .translation-context-panel {
+  @apply bg-surface-panel overflow-auto;
   width: min(320px, 28vw);
   min-width: 250px;
-  overflow: auto;
   border-left: 1px solid var(--border-color);
-  background: var(--bg-panel);
 }
 
 .translation-source-text {
-  display: block;
-  width: 100%;
-  cursor: text;
-  overflow: auto;
+  @apply bg-surface-panel-muted text-text-secondary block w-full cursor-text overflow-auto;
   border-color: var(--border-color);
-  background: var(--bg-panel-muted);
-  color: var(--text-secondary);
 }
 
 .translation-source-text:focus {
@@ -265,8 +234,7 @@
 }
 
 .translation-context-panel > header {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
   gap: 8px;
   border-bottom: 1px solid var(--border-color);
   padding: 12px 14px;
@@ -274,22 +242,20 @@
 }
 
 .translation-context-panel > p {
-  margin: 0;
+  @apply text-text-secondary m-0;
   padding: 16px;
-  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .translation-context-loading,
 .translation-context-error {
-  display: grid;
+  @apply text-text-secondary grid;
   min-height: 12rem;
   place-content: center;
   justify-items: center;
   gap: 10px;
   padding: 16px;
-  color: var(--text-secondary);
   font-size: 12px;
   text-align: center;
 }
@@ -310,19 +276,16 @@
 }
 
 .translation-context-groups h3 {
-  display: flex;
-  align-items: center;
+  @apply text-text-tertiary flex items-center;
   gap: 6px;
   margin: 0 0 8px;
-  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 650;
 }
 
 .translation-context-groups article {
-  display: grid;
+  @apply bg-surface-panel-muted grid;
   gap: 4px;
-  background: var(--bg-panel-muted);
   padding: 9px 10px;
   font-size: 11px;
 }
@@ -333,13 +296,12 @@
 
 .translation-context-groups article span,
 .translation-context-groups article small {
-  color: var(--text-secondary);
+  @apply text-text-secondary;
 }
 
 .translation-context-groups article button {
+  @apply text-accent font-semibold;
   justify-self: start;
-  color: var(--accent);
-  font-weight: 600;
 }
 
 @media (max-width: 900px) {

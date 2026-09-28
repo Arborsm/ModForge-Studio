@@ -29,10 +29,18 @@ const DOMAIN_FILES = [
   'workbench/translation-editor.ts',
   'workbench/event-stage.ts',
   'workbench/characters.ts',
+  'workbench/character-data.ts',
   'workbench/buildings.ts',
   'workbench/items.ts',
   'workbench/view-menu.ts',
   'workbench/world-atlas.ts',
+  'workbench/dialogue.ts',
+  'workbench/schedule.ts',
+  'workbench/mail.ts',
+  'workbench/debugger.ts',
+  'workbench/ai-localization.ts',
+  'workbench/i18n-generator.ts',
+  'guides.ts',
 ]
 
 describe('typed locale bundles', () => {
@@ -51,10 +59,10 @@ describe('typed locale bundles', () => {
     expect(getViewMenuCopy('en-US').resetLabel).toBe('Reset Default Layout')
     expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
     expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
-    expect(getEditorCopy('zh-CN').launcher.pages.configuration).toBe('配置')
-    expect(getEditorCopy('zh-CN').launcher.configuration.title).toBe('配置')
-    expect(getEditorCopy('en-US').launcher.pages.configuration).toBe('Configuration')
-    expect(getEditorCopy('en-US').launcher.configuration.title).toBe('Configuration')
+    expect(getEditorCopy('zh-CN').launcher.pages.configuration).toBe('诊断')
+    expect(getEditorCopy('zh-CN').launcher.configuration.title).toBe('诊断')
+    expect(getEditorCopy('en-US').launcher.pages.configuration).toBe('Diagnostics')
+    expect(getEditorCopy('en-US').launcher.configuration.title).toBe('Diagnostics')
     expect(getEditorCopy('zh-CN').launcher.diagnostics.apiKeySubtitle).toContain('API Key')
     expect(getEditorCopy('en-US').launcher.diagnostics.apiKeySubtitle).toContain('Nexus login')
   })

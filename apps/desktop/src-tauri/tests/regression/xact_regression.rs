@@ -1,9 +1,7 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
-use infrastructure::game_formats::xact;
+use modforge_studio_desktop_lib::validation::xact;
 use std::{fs, path::PathBuf, time::Instant};
 
 #[test]
@@ -32,7 +30,7 @@ fn loads_reference_xact_cues_as_wav_data_urls() {
         "woodchipper_occasional",
     ] {
         let started = Instant::now();
-        let url = xact::load_xact_audio_data_url(game_root.display().to_string(), cue.to_string())
+        let url = xact::load_xact_audio_data_url(&game_root.display().to_string(), cue)
             .unwrap_or_else(|error| panic!("{cue}: {error}"));
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         assert!(

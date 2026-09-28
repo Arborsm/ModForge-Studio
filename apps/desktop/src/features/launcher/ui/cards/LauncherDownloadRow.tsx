@@ -1,16 +1,21 @@
+/**
+ * @file Launcher download queue row: progress bar, status label, retry/remove
+ * actions, and error classification for one download item.
+ */
 import { useEditorCopy } from '@locales/provider'
 import type { LauncherDownloadQueueItem } from '../../model/types'
 import { formatBytes } from '@shared/lib/formatting'
 import { cx } from '@shared/lib/helper'
 
+/** Props for {@link LauncherDownloadRow}. */
 type LauncherDownloadRowProps = {
   item: LauncherDownloadQueueItem
-  statusLabel: string
   onRetry: () => void
   onRemove: () => void
   onInstall: () => void
 }
 
+/** Returns the download progress percentage (0–100) or null when byte totals are unavailable. */
 function getDownloadProgressPercent(item: LauncherDownloadQueueItem) {
   if (typeof item.totalBytes !== 'number' || item.totalBytes <= 0 || typeof item.downloadedBytes !== 'number') {
     return null
@@ -19,6 +24,7 @@ function getDownloadProgressPercent(item: LauncherDownloadQueueItem) {
   return Math.max(0, Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100)))
 }
 
+/** Classifies a download error message into a known error kind for localized copy, or null when unclassifiable. */
 function classifyDownloadError(message: string | null) {
   if (!message) {
     return null
@@ -49,9 +55,11 @@ function classifyDownloadError(message: string | null) {
   return null
 }
 
-export function LauncherDownloadRow({ item, statusLabel, onRetry, onRemove, onInstall }: LauncherDownloadRowProps) {
+/** Renders a single download queue row with status, progress bar, error detail, and action links. */
+export function LauncherDownloadRow({ item, onRetry, onRemove, onInstall }: LauncherDownloadRowProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
+  const statusLabel = copy.states[item.status]
   const sourceLabel =
     item.source === 'updates' ? copy.pages.updates : item.source === 'debug' ? copy.pages.configuration : copy.pages.discover
   const versionLabel = item.version ?? rootCopy.common.none

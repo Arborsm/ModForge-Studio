@@ -1,18 +1,13 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Grid2x2 } from 'lucide-react'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { LocaleCode, ViewportLabels, ThemeMode } from '@locales/api'
+import { getResolvedSourceRect, type BuildingTextureAssetState, type BuildingWorkspaceEntry } from '@entities/building'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { MapDocument, ViewportWorldPoint } from '@entities/map'
 import type { MapViewportHandle } from '@entities/map'
-import { useBuildingsCopy } from '@locales/provider'
+import { useBuildingsCopy, useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { formatRect } from '@shared/infra/game-formats/geometryFormatting'
-import {
-  buildBuildingCanvasBackdropStyle,
-  getVisibleLayerIds,
-  getVisibleObjectGroupIds,
-  getResolvedSourceRect,
-} from './buildingViewHelpers'
+import { buildBuildingCanvasBackdropStyle, getVisibleLayerIds, getVisibleObjectGroupIds } from './buildingViewHelpers'
 import { BuildingPrimaryPreview } from './BuildingPrimaryPreview'
 import { BuildingMaterialsPanel } from './BuildingMaterialsPanel'
 import { BuildingSkinsPanel } from './BuildingSkinsPanel'
@@ -21,7 +16,6 @@ import { BuildingIndoorMapPanel } from './BuildingIndoorMapPanel'
 
 type BuildingWorkspaceProps = {
   locale: LocaleCode
-  viewportLabels: ViewportLabels
   theme: ThemeMode
   accentColor: string
   building: BuildingWorkspaceEntry | null
@@ -51,7 +45,7 @@ export default function BuildingWorkspace(props: BuildingWorkspaceProps) {
   if (!props.building) {
     return (
       <div className="building-workspace-pane h-full">
-        <div className="flex h-full min-h-0 items-center justify-center px-6 text-sm text-(--text-secondary)">{copy.inspectorEmpty}</div>
+        <div className="text-text-secondary flex h-full min-h-0 items-center justify-center px-6 text-sm">{copy.inspectorEmpty}</div>
       </div>
     )
   }
@@ -60,7 +54,6 @@ export default function BuildingWorkspace(props: BuildingWorkspaceProps) {
     <BuildingWorkspaceContent
       key={props.building.key}
       locale={props.locale}
-      viewportLabels={props.viewportLabels}
       theme={props.theme}
       accentColor={props.accentColor}
       building={props.building}
@@ -90,6 +83,7 @@ type BuildingWorkspaceContentProps = Omit<BuildingWorkspaceProps, 'building'> & 
 
 function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
   const copy = useBuildingsCopy()
+  const viewportLabels = useEditorCopy().viewportLabels
   const mapViewportRef = useRef<MapViewportHandle | null>(null)
   const [zoomLevel, setZoomLevel] = useState(1)
   const [previewMode, setPreviewMode] = useState<PreviewMode>('dual')
@@ -105,15 +99,14 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
   const hasUpgradeChain = isConstructible && props.upgradeChain.length > 1
   const effectivePreviewMode: PreviewMode = hasIndoorMap ? previewMode : 'solo'
 
-  const materials = <BuildingMaterialsPanel building={props.building} springObjectsState={props.springObjectsState} copy={copy} />
-  const skins = hasSkins ? <BuildingSkinsPanel building={props.building} copy={copy} /> : null
+  const materials = <BuildingMaterialsPanel building={props.building} springObjectsState={props.springObjectsState} />
+  const skins = hasSkins ? <BuildingSkinsPanel building={props.building} /> : null
   const chain = hasUpgradeChain ? (
     <BuildingUpgradeChain
       upgradeChain={props.upgradeChain}
       activeBuildingKey={props.building.key}
       chainTextureStates={props.chainTextureStates}
       onSelectBuildingStage={props.onSelectBuildingStage}
-      copy={copy}
     />
   ) : null
 
@@ -139,7 +132,6 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
       activeExteriorFocusPoint={props.activeExteriorFocusPoint}
       activeExteriorMapPath={props.activeExteriorMapPath}
       locale={props.locale}
-      viewportLabels={props.viewportLabels}
       theme={props.theme}
       accentColor={props.accentColor}
       showGrid={props.showGrid}
@@ -174,7 +166,6 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
           locale={props.locale}
           theme={props.theme}
           accentColor={props.accentColor}
-          copy={copy}
           onZoomChange={setZoomLevel}
         />
       </div>
@@ -198,17 +189,17 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
               type="button"
               className="building-workspace-tb-btn"
               disabled={!zoomControlsEnabled}
-              aria-label={props.viewportLabels.zoomOut}
+              aria-label={viewportLabels.zoomOut}
               onClick={() => mapViewportRef.current?.zoomOut()}
             >
               −
             </button>
-            <span className="building-workspace-tb-zoom">{props.viewportLabels.zoomLabel(zoomLevel)}</span>
+            <span className="building-workspace-tb-zoom">{viewportLabels.zoomLabel(zoomLevel)}</span>
             <button
               type="button"
               className="building-workspace-tb-btn"
               disabled={!zoomControlsEnabled}
-              aria-label={props.viewportLabels.zoomIn}
+              aria-label={viewportLabels.zoomIn}
               onClick={() => mapViewportRef.current?.zoomIn()}
             >
               +
@@ -217,7 +208,7 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
               type="button"
               className="building-workspace-tb-btn"
               disabled={!zoomControlsEnabled}
-              aria-label={props.viewportLabels.fit}
+              aria-label={viewportLabels.fit}
               onClick={() => mapViewportRef.current?.fitToScreen()}
             >
               {copy.toolbarZoomFit}

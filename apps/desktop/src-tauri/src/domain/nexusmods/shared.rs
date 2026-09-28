@@ -1,3 +1,6 @@
+//! Shared Nexus Mods helpers: URL building, GraphQL error extraction, URL
+//! normalization, and HTML entity decoding.
+
 use serde_json::Value;
 
 pub(crate) use crate::domain::manifest::string_field;
@@ -30,11 +33,5 @@ pub(crate) fn normalize_nexus_url(value: &str) -> String {
 }
 
 pub(crate) fn decode_html(value: &str) -> String {
-    value
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&nbsp;", " ")
+    html_escape::decode_html_entities(value).into_owned()
 }

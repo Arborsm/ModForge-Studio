@@ -1,3 +1,9 @@
+import { orNull } from '@platform/observability'
+
+/**
+ * @file useLauncherDiscover hook: remote catalog search state with debounced
+ * queries, facet merging, and Nexus diagnostics gating.
+ */
 import { useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { TaskCancelledError, useLatestTask, type TaskScope } from '@shared/lib/task-runtime'
@@ -171,6 +177,7 @@ function waitForDiscoverDelay(delayMs: number, scope: TaskScope) {
   })
 }
 
+/** Manages launcher discover catalog search state: query, sort, filters, pagination, and Nexus diagnostics gating. */
 export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscoverToolbarState> | null) {
   const launcherPort = useLauncherPort()
   const runDiscoverTask = useLatestTask('launcher-discover')
@@ -232,7 +239,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
       } satisfies SearchLauncherCatalogRequest
 
       try {
-        const diagnostics = bypassDiagnostics ? null : await launcherPort.loadNexusDiagnostics().catch(() => null)
+        const diagnostics = bypassDiagnostics ? null : await orNull(launcherPort.loadNexusDiagnostics(), 'launcherDiscover.loadDiagnostics')
         if (!scope.isCurrent()) {
           return
         }

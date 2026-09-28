@@ -1,41 +1,28 @@
-import type { AppCommand, PendingWorkbenchCommandIntent } from '@shared/contracts'
-import type { AppMode } from '@locales/api'
+/**
+ * @file App command routing: the app shell's root handler for typed cross-layer commands.
+ */
+import type { AppCommand, SettingsWindowTarget } from '@shared/contracts'
 
-let nextIntentId = 0
-
+/** Dependencies for createAppCommandHandler. */
 export type AppCommandHandlerDependencies = {
-  setAppMode: (mode: AppMode) => void
-  onPendingIntent: (intent: PendingWorkbenchCommandIntent | null) => void
+  openSettings: (target: SettingsWindowTarget) => void
+  reloadCompatPlugins: () => void
 }
 
+/** App command handler instance type. */
 export type AppCommandHandler = ReturnType<typeof createAppCommandHandler>
 
-export function createAppCommandHandler({ setAppMode, onPendingIntent }: AppCommandHandlerDependencies) {
-  let currentPendingIntent: PendingWorkbenchCommandIntent | null = null
-
+/** Creates the root app command handler; registered on the app command dispatcher singleton by the app shell. */
+export function createAppCommandHandler({ openSettings, reloadCompatPlugins }: AppCommandHandlerDependencies) {
   return {
     handleCommand: (command: AppCommand) => {
-      if (command.type === 'navigation/open-workbench-module' || command.type === 'workbench/open-asset') {
-        nextIntentId += 1
-        currentPendingIntent = {
-          id: `intent-${nextIntentId}-${Date.now()}`,
-          command,
-        }
-        onPendingIntent(currentPendingIntent)
-        setAppMode('workbench')
+      if (command.type === 'navigation/open-settings') {
+        openSettings(command.target)
         return
       }
-
-      // navigation/open-page, unknown: no-op
-    },
-
-    clearPendingIntent: () => {
-      currentPendingIntent = null
-      onPendingIntent(null)
-    },
-
-    getCurrentPendingIntent: (): PendingWorkbenchCommandIntent | null => {
-      return currentPendingIntent
+      if (command.type === 'plugins/reload-compat') {
+        reloadCompatPlugins()
+      }
     },
   }
 }

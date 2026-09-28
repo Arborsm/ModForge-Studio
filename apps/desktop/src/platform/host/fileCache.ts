@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for backend file cache statistics and clearing.
+ * @module platform/host/fileCache
+ */
+
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from './runtime'
 

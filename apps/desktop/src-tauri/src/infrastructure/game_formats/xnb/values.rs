@@ -1,3 +1,5 @@
+//! XNB value types: `XnbValue` JSON-like tree and `TextureData` for texture extraction.
+
 use base64::Engine;
 use serde_json::{Map, Number, Value, json};
 

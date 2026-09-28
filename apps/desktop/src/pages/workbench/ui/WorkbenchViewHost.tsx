@@ -1,5 +1,6 @@
 import { Component, createElement, Suspense, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { WorkbenchModuleRegistration } from '@shared/contracts'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
 import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
@@ -7,11 +8,20 @@ import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
 type ModuleErrorBoundaryProps = {
   title: string
   detail: string
-  retryLabel: string
+  moduleId: string
   children: ReactNode
 }
 
 type ModuleErrorBoundaryState = { error: Error | null; retryKey: number }
+
+function RetryButton({ onClick }: { onClick: () => void }) {
+  const copy = useEditorCopy()
+  return (
+    <button type="button" className="control-button control-button-primary" onClick={onClick}>
+      {copy.messages.workbenchModuleRetry}
+    </button>
+  )
+}
 
 class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErrorBoundaryState> {
   state: ModuleErrorBoundaryState = { error: null, retryKey: 0 }
@@ -20,20 +30,23 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
     return { error }
   }
 
-  componentDidCatch(_error: Error, _info: ErrorInfo) {}
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    // The webview console bridge drops the Error object argument from React's
+    // default caught-error logging, so log the message and component stack
+    // explicitly to keep module crashes diagnosable from the terminal log.
+    appEvent('error', 'Workbench module crashed')
+      .error(error)
+      .context({ source: 'workbench-view-host', operation: 'module-error-boundary', moduleId: this.props.moduleId })
+      .logMessage(`${error.message}\n${info.componentStack}`)
+      .emit({ notify: false })
+  }
 
   render() {
     if (this.state.error) {
       return (
         <div className="empty-state-card-fill" role="alert">
           <EmptyStateCard title={this.props.title} detail={this.props.detail} density="compact" />
-          <button
-            type="button"
-            className="control-button control-button-primary"
-            onClick={() => this.setState((state) => ({ error: null, retryKey: state.retryKey + 1 }))}
-          >
-            {this.props.retryLabel}
-          </button>
+          <RetryButton onClick={() => this.setState((state) => ({ error: null, retryKey: state.retryKey + 1 }))} />
         </div>
       )
     }
@@ -46,7 +59,16 @@ class ModuleErrorBoundary extends Component<ModuleErrorBoundaryProps, ModuleErro
 }
 
 function WorkbenchRuntime({ module }: { module: WorkbenchModuleRegistration }) {
-  const [Runtime] = useState(() => module.createRuntime())
+  // Re-create the lazy runtime when the module registration object reference
+  // changes (e.g. compat-plugin hot-reload swaps the module set). useState's
+  // initializer only runs once per mount, so we track the module identity and
+  // reset the Runtime when it changes.
+  const [Runtime, setRuntime] = useState(() => module.createRuntime())
+  const [trackedModule, setTrackedModule] = useState(module)
+  if (trackedModule !== module) {
+    setTrackedModule(module)
+    setRuntime(module.createRuntime())
+  }
 
   return (
     <LoadingMotionReveal itemId={`workbench-module:${module.id}`} index={0} className="h-full min-h-0">
@@ -73,9 +95,9 @@ export function WorkbenchViewHost({ module }: { module: WorkbenchModuleRegistrat
   return (
     <ModuleErrorBoundary
       key={module.id}
+      moduleId={module.id}
       title={copy.messages.workbenchModuleErrorTitle}
       detail={copy.messages.workbenchModuleErrorDetail}
-      retryLabel={copy.messages.workbenchModuleRetry}
     >
       <WorkbenchRuntime module={module} />
     </ModuleErrorBoundary>

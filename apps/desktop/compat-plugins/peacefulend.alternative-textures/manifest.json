@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "peacefulend.alternative-textures",
+  "name": "Alternative Textures 兼容",
+  "description": "Alternative Textures texture management workspace.",
+  "author": "PeacefulEnd",
+  "version": "2.0.0",
+  "category": "visual",
+  "tags": ["textures", "alternative-textures", "editor"],
+  "targets": ["PeacefulEnd.AlternativeTextures", "PeacefulAlternativeTextures.AlternativeTextures"],
+  "sdkVersion": "1.0.0",
+  "entry": "index.js",
+  "styles": "styles.css",
+  "contributions": {}
+}

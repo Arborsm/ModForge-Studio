@@ -1,0 +1,401 @@
+/* Mail authoring module: focused editor, compact tabs, and central controls. */
+@layer components {
+  .mail-editor {
+    @apply bg-surface-panel h-full min-h-0;
+  }
+
+  .mail-editor-dirty-badge {
+    @apply bg-warning-soft text-warning text-meta font-ui-semibold rounded-full px-2 py-0.5;
+  }
+
+  .mail-editor-save-status {
+    @apply text-text-tertiary text-xs;
+  }
+
+  .mail-editor-save-status[data-state='error'] {
+    @apply text-danger;
+  }
+
+  .mail-editor-save-status[data-state='saved'] {
+    @apply text-success;
+  }
+
+  .mail-editor-body {
+    @apply flex h-full min-h-0;
+  }
+
+  .mail-editor-focused-layout {
+    @apply grid h-full min-h-0 overflow-hidden;
+    grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
+  }
+
+  .mail-editor-main {
+    @apply grid min-h-0 min-w-0 overflow-hidden;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .mail-editor-side {
+    @apply bg-surface-panel flex min-h-0 flex-col gap-3 overflow-y-auto p-3;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-tabs {
+    @apply border-border-subtle flex h-9.5 min-w-0 items-stretch overflow-x-auto border-b px-2 py-0;
+  }
+
+  .mail-editor-tab-back,
+  .mail-editor-tab {
+    @apply text-text-secondary inline-flex min-w-0 flex-none items-center justify-center gap-1.5 border-b-2 border-b-transparent px-3 py-0 text-xs;
+    transition:
+      color 120ms ease,
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .mail-editor-tab-back {
+    @apply mr-1 w-8 p-0;
+  }
+
+  .mail-editor-tab:hover,
+  .mail-editor-tab-back:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .mail-editor-tab.is-active {
+    @apply text-text-primary;
+    border-bottom-color: var(--accent);
+  }
+
+  .mail-editor-tab.is-complete svg {
+    @apply text-success;
+  }
+
+  .mail-editor-tab.is-attention svg {
+    @apply text-warning;
+  }
+
+  .mail-editor-tab.is-optional svg {
+    @apply text-text-tertiary;
+  }
+
+  .mail-editor-tabs-spacer {
+    @apply flex-auto;
+  }
+
+  .mail-editor-tabs .authoring-header-expert-toggle {
+    @apply ml-2 flex-none self-center;
+  }
+
+  .mail-editor-workbar {
+    @apply flex min-w-0 items-center justify-between gap-3 px-3 py-2;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-workbar-title {
+    @apply grid min-w-0 gap-px;
+  }
+
+  .mail-editor-workbar-title strong,
+  .mail-editor-workbar-title span {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mail-editor-workbar-title strong {
+    @apply text-text-primary text-body;
+  }
+
+  .mail-editor-workbar-title span {
+    @apply text-text-tertiary text-caption font-mono;
+  }
+
+  .mail-editor-workbar-actions {
+    @apply inline-flex shrink-0 items-center gap-2;
+  }
+
+  .mail-editor-tab-content {
+    @apply min-h-0 overflow-y-auto px-4 pt-3.5 pb-5;
+  }
+
+  .mail-editor-tab-pane {
+    @apply flex flex-col gap-3.5;
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+
+  .mail-editor-section {
+    @apply flex flex-col gap-2;
+  }
+
+  .mail-editor-section-head {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .mail-editor-field-label {
+    @apply text-text-tertiary text-meta font-ui-semibold tracking-ui block uppercase;
+  }
+
+  .mail-editor-muted {
+    @apply text-text-tertiary text-xs;
+  }
+
+  .mail-editor-field-error {
+    @apply text-danger text-meta;
+  }
+
+  .mail-editor-empty {
+    @apply flex flex-1 flex-col items-center justify-center gap-1.5 p-8 text-center;
+  }
+
+  .mail-editor-empty-title {
+    @apply text-text-primary font-ui-semibold text-sm;
+  }
+
+  .mail-editor-empty-hint {
+    @apply text-text-secondary text-xs;
+  }
+
+  /* ── Body editor ────────────────────────────────────────── */
+
+  .mail-editor-toolbar {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+
+  .mail-editor-toolbar-button {
+    @apply bg-surface-panel text-text-secondary inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .mail-editor-toolbar-button:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .mail-editor-toolbar-color {
+    @apply text-text-tertiary ml-auto inline-flex items-center gap-1.5 text-xs;
+  }
+
+  .mail-editor-toolbar-color .control-input {
+    @apply w-auto;
+    min-width: 6.5rem;
+  }
+
+  .mail-editor-textarea {
+    @apply border-border-subtle bg-surface-panel text-text-primary text-body min-h-52 w-full resize-y rounded-xl border p-3 font-mono;
+    line-height: 1.6;
+  }
+
+  .mail-editor-textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 1px;
+  }
+
+  .mail-editor-attachment-chips {
+    @apply flex flex-wrap gap-1.5;
+  }
+
+  .mail-editor-attachment-chip {
+    @apply bg-surface-panel-muted text-text-secondary inline-flex max-w-full items-center gap-1.5 rounded-full pt-1 pr-1.5 pb-1 pl-2.5 text-xs;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  }
+
+  .mail-editor-attachment-chip-label {
+    @apply overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .mail-editor-attachment-chip-remove {
+    @apply text-text-tertiary inline-flex h-4.5 w-4.5 items-center justify-center rounded-full;
+  }
+
+  .mail-editor-attachment-chip-remove:hover {
+    @apply bg-danger-soft text-danger;
+  }
+
+  /* ── Delivery section ───────────────────────────────────── */
+
+  .mail-editor-delivery-empty {
+    @apply text-warning rounded-xl px-4 py-3.5 text-xs;
+    border: 1px dashed var(--border-color);
+    background: color-mix(in srgb, var(--warning-soft) 55%, transparent);
+  }
+
+  .mail-editor-delivery-rules {
+    @apply flex flex-col gap-3;
+  }
+
+  .mail-editor-delivery-card {
+    @apply bg-surface-panel rounded-card flex flex-col gap-2.5 p-3.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  }
+
+  .mail-editor-delivery-card-head {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .mail-editor-delivery-card-title {
+    @apply text-text-primary text-body font-bold;
+  }
+
+  .mail-editor-delivery-grid {
+    @apply grid gap-2.5;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  }
+
+  .mail-editor-delivery-field {
+    @apply flex min-w-0 flex-col gap-1;
+  }
+
+  .mail-editor-delivery-field-wide {
+    @apply col-span-full;
+  }
+
+  .mail-editor-delivery-condition-row {
+    @apply flex items-center gap-1.5;
+  }
+
+  .mail-editor-delivery-condition-row .control-input {
+    @apply min-w-0 flex-1;
+  }
+
+  .mail-editor-delivery-condition-text {
+    @apply bg-surface-panel-muted text-text-primary text-meta leading-ui min-w-0 flex-1 rounded-lg px-2 py-1.5 font-mono;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    overflow-wrap: anywhere;
+  }
+
+  .mail-editor-delivery-condition-text[data-empty='true'] {
+    @apply text-text-tertiary text-meta bg-transparent;
+    border-style: dashed;
+    font-family: inherit;
+  }
+
+  .mail-editor-delivery-builder-button {
+    @apply inline-flex shrink-0 items-center gap-1.5;
+  }
+
+  .mail-editor-delivery-clear-button {
+    @apply text-text-secondary shrink-0;
+  }
+
+  .mail-editor-delivery-clear-button:hover {
+    @apply text-danger;
+  }
+
+  .mail-editor-delivery-footer {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .mail-editor-delivery-remove {
+    @apply text-danger inline-flex items-center gap-1.5;
+  }
+
+  .mail-editor-delivery-hint-text {
+    @apply text-text-tertiary text-meta;
+  }
+
+  .mail-editor-delivery-expert {
+    @apply flex flex-col gap-1.5 pt-2.5;
+    border-top: 1px dashed color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .mail-editor-delivery-expert-heading {
+    @apply text-text-secondary text-meta tracking-ui font-bold;
+  }
+
+  /* ── Dialog fields ──────────────────────────────────────── */
+
+  .mail-editor-dialog-field {
+    @apply mb-2.5 flex flex-col gap-1.5;
+  }
+
+  .mail-editor-dialog-label {
+    @apply text-text-tertiary text-meta font-ui-semibold tracking-ui uppercase;
+  }
+
+  .mail-editor-dialog-hint {
+    @apply text-text-tertiary text-meta;
+  }
+
+  .mail-editor-dialog-grid {
+    @apply grid gap-2.5;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+
+  .mail-editor-dialog-item-row {
+    @apply flex items-center gap-1.5;
+  }
+
+  .mail-editor-dialog-item-row .control-input {
+    @apply min-w-0 flex-1;
+  }
+
+  .mail-editor-dialog-resource-field,
+  .mail-editor-localized-row {
+    @apply flex min-w-0 items-center gap-1.5;
+  }
+
+  .mail-editor-dialog-resource-field {
+    @apply flex-1;
+  }
+
+  .mail-editor-dialog-resource-field > .control-input,
+  .mail-editor-localized-row > .control-input {
+    @apply min-w-0 flex-1;
+  }
+
+  .mail-editor-raw-textarea {
+    @apply min-h-32 resize-y font-mono leading-normal;
+  }
+
+  .mail-editor-dialog-count {
+    @apply flex-none;
+    max-width: 5rem;
+  }
+
+  .mail-editor-dialog-item-actions {
+    @apply flex items-center gap-2;
+  }
+
+  .mail-editor-dialog-tools {
+    @apply flex flex-wrap gap-2.5;
+  }
+
+  .mail-editor-dialog-check {
+    @apply text-text-secondary inline-flex items-center gap-1.5 text-xs;
+  }
+
+  @media (max-width: 48rem) {
+    .mail-editor,
+    .mail-editor-focused-layout {
+      @apply h-auto min-h-full;
+    }
+
+    .mail-editor-focused-layout {
+      @apply overflow-visible;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mail-editor-main {
+      @apply overflow-visible;
+    }
+
+    .mail-editor-tab-content {
+      @apply overflow-visible;
+    }
+
+    .mail-editor-side {
+      @apply border-border-subtle min-h-96 border-t border-l-0;
+    }
+
+    .mail-editor-workbar {
+      @apply flex-col items-start;
+    }
+
+    .mail-editor-workbar-actions {
+      @apply flex-wrap;
+    }
+  }
+}

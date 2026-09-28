@@ -1,4 +1,7 @@
+//! Machine translation provider adapters, settings and host commands.
+
 pub(crate) mod adapters;
+pub(crate) mod commands;
 mod presets;
 mod protection;
 pub mod settings;

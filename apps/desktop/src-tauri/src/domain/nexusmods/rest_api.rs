@@ -1,3 +1,6 @@
+//! Nexus Mods REST v1 API module: re-exports client functions and provides
+//! endpoint URL builders for mod files and download links.
+
 pub mod client;
 pub mod downloads;
 

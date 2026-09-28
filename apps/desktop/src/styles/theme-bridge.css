@@ -1,0 +1,122 @@
+/*
+ * Tailwind v4 theme bridge — exposes tokens.css CSS variables as Tailwind
+ * utility tokens so components can use `bg-surface-panel`, `text-primary`,
+ * `border-border-subtle`, `shadow-panel`, etc. instead of verbose
+ * `bg-[var(--bg-panel)]` / `text-(--text-primary)` arbitrary values.
+ *
+ * The CSS variables it references are defined in `tokens.css`, which is loaded
+ * globally by `index.css`. CSS variables resolve at use time across the cascade,
+ * so `workbench.css` does not need to re-import `tokens.css`; it only needs this
+ * bridge so Tailwind generates the matching utilities for its own scanned sources.
+ *
+ * Only semantic tokens are bridged here. Per-theme source tokens
+ * (--color-accent, --surface-panel, etc.) are already defined in tokens.css
+ * and referenced indirectly through the aliases below.
+ */
+@theme {
+  /* === Color aliases (map to tokens.css semantic variables) === */
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+
+  /* === Surface / background === */
+  --color-surface-app: var(--bg-app);
+  --color-surface-panel: var(--bg-panel);
+  --color-surface-panel-muted: var(--bg-panel-muted);
+  --color-surface-viewport: var(--bg-viewport);
+  --color-surface-active: var(--bg-active);
+  --color-surface-elevated: var(--bg-elevated);
+  --color-surface-overlay: var(--bg-overlay);
+  --color-surface-hover: var(--bg-hover);
+  --color-surface-inverse: var(--surface-inverse);
+
+  /* === Text === */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-inverse: var(--text-inverse);
+
+  /* === Border === */
+  --color-border-subtle: var(--border-color);
+
+  /* === Focus ring === */
+  --color-focus-ring: var(--focus-ring);
+
+  /* === Content Patchier chip colors === */
+  --color-cp-logic: var(--cp-logic);
+  --color-cp-file: var(--cp-file);
+  --color-cp-data: var(--cp-data);
+  --color-cp-logic-dark: var(--cp-logic-dark);
+  --color-cp-file-dark: var(--cp-file-dark);
+  --color-cp-data-dark: var(--cp-data-dark);
+
+  /* === Grid lines (map editor) === */
+  --color-grid-minor: var(--grid-minor);
+  --color-grid-major: var(--grid-major);
+
+  /* === Scrim / bevel === */
+  --color-scrim: var(--scrim);
+  --color-bevel-highlight: var(--bevel-highlight);
+
+  /* === Font families === */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* === Shadows === */
+  --shadow-panel: var(--shadow-panel);
+  --shadow-float: var(--shadow-float);
+
+  /* === Z-index scale (exposed as z-dock, z-popover, etc.) === */
+  --z-dock: var(--z-dock);
+  --z-popover: var(--z-popover);
+  --z-titlebar-divider: var(--z-titlebar-divider);
+  --z-titlebar: var(--z-titlebar);
+  --z-drawer: var(--z-drawer);
+  --z-guide: var(--z-guide);
+  --z-dialog: var(--z-dialog);
+  --z-dialog-stack: var(--z-dialog-stack);
+  --z-toast: var(--z-toast);
+  --z-tooltip: var(--z-tooltip);
+
+  /* === Custom font sizes — rem (scales with clamp root font-size) === */
+  --text-caption: 0.625rem;
+  --text-meta: 0.6875rem;
+  --text-body: 0.8125rem;
+
+  /* === Custom font sizes — px (fixed, does not scale) === */
+  --text-caption-px: 10px;
+  --text-meta-px: 11px;
+  --text-body-px: 12px;
+
+  /* === Custom border radius (semantic, does not override Tailwind defaults) === */
+  --radius-control: 0.3125rem;
+  --radius-button: 0.4375rem;
+  --radius-field: 0.625rem;
+  --radius-card: 0.875rem;
+  --radius-panel: 1.125rem;
+
+  /* === Custom font weights (UI-specific intermediate values) === */
+  --font-weight-ui: 550;
+  --font-weight-ui-semibold: 650;
+  --font-weight-ui-bold: 750;
+
+  /* === Custom letter-spacing === */
+  --tracking-ui-tight: -0.02em;
+  --tracking-ui: 0.04em;
+  --tracking-ui-wide: 0.12em;
+  --tracking-ui-wider: 0.16em;
+
+  /* === Custom line-height === */
+  --leading-ui-tight: 1.2;
+  --leading-ui: 1.4;
+  --leading-ui-relaxed: 1.6;
+}

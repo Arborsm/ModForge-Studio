@@ -8,7 +8,7 @@ const shared: LauncherSharedCopy = {
     library: 'Library',
     discover: 'Discover',
     updates: 'Updates',
-    configuration: 'Configuration',
+    configuration: 'Diagnostics',
   },
   descriptions: {
     library: 'Your installed and pinned mods will appear here.',
@@ -98,6 +98,8 @@ const shared: LauncherSharedCopy = {
     autoInstallDownloads: 'Auto-install completed downloads',
     keepDownloadedArchives: 'Keep downloaded archives',
     gmcmParsingEnabled: 'Parse dynamic GMCM settings',
+    showConsoleWindow: 'Show SMAPI console window',
+    showConsoleWindowDescription: 'Show the SMAPI console window when launching the game to view mod loading logs.',
   },
   sortOptions: {
     newest: 'Newest',
@@ -106,6 +108,24 @@ const shared: LauncherSharedCopy = {
     downloads: 'Downloads',
     endorsements: 'Endorsements',
     name: 'Name',
+  },
+  logAnalysis: {
+    notificationTitle: (count) => `The game log reported ${count} error${count === 1 ? '' : 's'} in the last session`,
+    notificationFirstError: (source, message) => `${source ?? 'SMAPI'}: ${message}`,
+    analyzeAction: 'Analyze with AI',
+    sheetTitle: 'Game log errors',
+    errorsSectionTitle: (count) => `Errors from the last session (${count})`,
+    errorsTruncated: (count) => `+${count} more not shown`,
+    emptyErrorMessage: '(no message)',
+    viewLogsAction: 'View logs',
+    notConfiguredTitle: 'No AI profile yet',
+    notConfiguredDescription:
+      'Game-log analysis uses the AI profile from the workbench AI settings. Set up a default profile there and it will be used here automatically.',
+    openSettingsAction: 'Open AI settings',
+    runningLabel: 'Analyzing the log…',
+    resultTitle: 'AI analysis',
+    failedTitle: 'Analysis failed',
+    retryAction: 'Retry',
   },
   states: {
     loading: 'Loading launcher data...',

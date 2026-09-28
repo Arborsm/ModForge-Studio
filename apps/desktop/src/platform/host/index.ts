@@ -7,24 +7,21 @@ export {
   chooseDirectory,
   chooseSaveFile,
   chooseGameDirectory,
+  GAME_DIRECTORY_PICKER_TITLE,
   chooseImageFile,
-  chooseModArchiveFile,
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
   type LauncherArchiveDragDropPayload,
   type UnlistenFn,
 } from './dialogs'
 export {
-  closeCurrentWindow,
   forceCloseCurrentWindow,
-  hideCurrentWindow,
   isCurrentWindowFullscreen,
   isCurrentWindowMaximized,
   listenToWindowCloseRequest,
   minimizeCurrentWindow,
   minimizeCurrentWindowToTray,
   setFullscreenCurrentWindow,
-  showCurrentWindow,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './window'
@@ -35,13 +32,15 @@ export {
   type FrontendLogLevel,
   type FrontendLogRequest,
 } from './logging'
-export { loadAppUiState, patchAppUiState } from './appUi'
+export { listenToAndroidBackRequest, loadAppUiState, patchAppUiState } from './appUi'
 export {
   cancelAiJob,
   clearAiTranslationCache,
+  fetchAiModelsDevCatalog,
   getAiTranslationCacheStats,
   listAiModels,
   listenToAiProgress,
+  listenToAiStream,
   loadAiSettings,
   readAiTranslationCache,
   saveAiSettings,
@@ -57,6 +56,7 @@ export { clearAiUsage, exportAiUsage, queryAiUsageRecords, queryAiUsageSummary }
 export {
   loadLocalizationDefaultEngine,
   saveLocalizationDefaultEngine,
+  prewarmLocalizationCorpus,
   loadLocalizationSemanticSettings,
   saveLocalizationSemanticSettings,
   inspectLocalizationSemanticModel,

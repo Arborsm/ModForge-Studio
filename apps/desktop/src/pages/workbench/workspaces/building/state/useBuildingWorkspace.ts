@@ -1,19 +1,22 @@
+import { orValue } from '@platform/observability'
+
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import type { ViewportWorldPoint } from '@entities/map'
 import type { ModAssetIndexGroup } from '@pages/workbench/workspaces/mod/state/browser'
 import { deferToTimeout } from '@shared/lib/react'
-import { type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
+import { type GameDirectoryInfo, loadMapAsset, loadOptionalTextAsset, scanMaps } from '@entities/game/api'
 import type { BuildingsPanelCopy, LocaleCode } from '@locales'
 import type { MapDocument } from '@entities/map'
-import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
+import { SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/infra/stardew-assets/contentPaths'
 import {
-  BUILDINGS_DATA_ASSET_PATH,
   type BuildingTextureAssetState,
   type BuildingWorkspaceEntry,
   type ConstructibleBuildingGroup,
-  createBuildingEntryIndex,
   createConstructibleBuildingGroups,
-} from '../entities/building'
+  loadBuildingImageState,
+  loadBuildingWorkspaceEntries,
+  loadChainTextureStates,
+} from '@entities/building'
 import {
   type BrowserSourceMode,
   buildModBrowserGroups,
@@ -25,10 +28,7 @@ import {
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
 import { loadModResultImageState } from '@pages/workbench/workspaces/mod'
 
-import { localizeBuildingEntries } from './buildingTextLocalization'
-import { buildObjectDisplayIndex, hydrateBuildingMaterials } from './buildingObjectDisplay'
 import { buildLocationSeeds, buildWorldBuildingEntries } from './buildingWorldEntries'
-import { loadImageState, loadChainTextureStates } from './buildingTextureAssets'
 import { useActiveBuildingFallback } from './buildingSelection'
 
 type UseBuildingWorkspaceOptions = {
@@ -103,15 +103,11 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       }),
     [buildingFilter, buildingLookup, modIndex.mods],
   )
-  const activeBuildingModSources = useMemo(
-    () =>
-      findModSources({
-        mods: modIndex.mods,
-        selectReferences: (group: ModAssetIndexGroup) => group.buildings,
-        key: activeBuildingId,
-      }),
-    [activeBuildingId, modIndex.mods],
-  )
+  const activeBuildingModSources = findModSources({
+    mods: modIndex.mods,
+    selectReferences: (group: ModAssetIndexGroup) => group.buildings,
+    key: activeBuildingId,
+  })
   const activeModBuildingEntry = useMemo(
     () => findModBrowserEntry(modBuildingGroups, activeModBuildingSelectionId),
     [activeModBuildingSelectionId, modBuildingGroups],
@@ -137,10 +133,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   )
   const activeTextureState = activeBuilding?.sourceKind === 'constructible' ? (activeChainTextureStates[activeBuilding.key] ?? null) : null
   const effectiveActiveTextureState = browserSourceMode === 'mod' ? (activeModTextureState ?? activeTextureState) : activeTextureState
-  const mapDocumentsByAssetName = useMemo(
-    () => new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const)),
-    [mapDocuments],
-  )
+  const mapDocumentsByAssetName = new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const))
   const activeIndoorMapDocument = activeBuilding?.indoorMapAssetName
     ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null)
     : null
@@ -193,27 +186,15 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
     void (async () => {
       try {
-        const [buildingsAsset, objectsAsset, locationsAsset, mapAssets] = await Promise.all([
-          loadTextAsset(directoryInfo.rootPath, BUILDINGS_DATA_ASSET_PATH, locale),
-          loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, LOCATIONS_DATA_ASSET_PATH, locale).catch(() => null),
-          scanMaps(directoryInfo.rootPath, locale).catch(() => []),
+        const [hydratedConstructibleEntries, locationsAsset, mapAssets] = await Promise.all([
+          loadBuildingWorkspaceEntries(directoryInfo.rootPath, locale),
+          loadOptionalTextAsset(directoryInfo.rootPath, LOCATIONS_DATA_ASSET_PATH, locale, 'buildingWorkspace.optionalLocations'),
+          orValue(scanMaps(directoryInfo.rootPath, locale), [], 'buildingWorkspace.scanMaps'),
         ])
         if (cancelled) {
           return
         }
 
-        const localizedConstructibleEntries = await localizeBuildingEntries(
-          createBuildingEntryIndex(buildingsAsset.content),
-          directoryInfo.rootPath,
-          locale,
-        )
-        const hydratedConstructibleEntries = objectsAsset
-          ? hydrateBuildingMaterials(
-              localizedConstructibleEntries,
-              await buildObjectDisplayIndex(directoryInfo.rootPath, locale, objectsAsset.content),
-            )
-          : localizedConstructibleEntries
         const loadedMapDocuments = (
           await runWithConcurrency(
             mapAssets.filter((asset) => asset.format === 'xnb'),
@@ -295,7 +276,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       loading: true,
     })
 
-    void loadImageState(springObjectsPath, locale)
+    void loadBuildingImageState(springObjectsPath, locale)
       .then((state) => {
         if (!cancelled) {
           setSpringObjectsState(state)

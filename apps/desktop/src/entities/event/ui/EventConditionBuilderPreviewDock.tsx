@@ -1,8 +1,12 @@
+/**
+ * @file Preview dock for the event condition builder, showing validation,
+ * natural/code preview, and apply/cancel actions.
+ */
+
 import { cx } from '@shared/lib/helper'
-import type { ConditionBuilderCopy } from './eventConditionBuilderTypes'
+import { useEditorCopy } from '@locales/provider'
 
 type EventConditionBuilderPreviewDockProps = {
-  copy: ConditionBuilderCopy
   eventIdValidation: string
   naturalPreview: string
   codePreview: string
@@ -12,13 +16,13 @@ type EventConditionBuilderPreviewDockProps = {
 
 /** Renders validation, natural/code preview, and apply/cancel actions for the condition builder. */
 export function EventConditionBuilderPreviewDock({
-  copy,
   eventIdValidation,
   naturalPreview,
   codePreview,
   onCancel,
   onApply,
 }: EventConditionBuilderPreviewDockProps) {
+  const copy = useEditorCopy().studioDesk.eventPatchHub.conditionBuilder
   return (
     <aside className={cx('condition-builder-preview-dock', eventIdValidation && 'invalid')} aria-label={copy.previewDockLabel}>
       <div className="condition-builder-previews">

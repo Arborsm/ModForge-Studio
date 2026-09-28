@@ -1,0 +1,593 @@
+@layer components {
+  /* Map inspector content tab: semantic card sections (warps/doors/day-night),
+   * flat entry rows, tile hover previews and object locate rows. The map
+   * animation dialog lives in map-animation-dialog.css. */
+  .map-asset-card-section {
+    @apply grid min-w-0;
+    gap: 0.375rem;
+    padding: 0.5rem 0 0.625rem;
+  }
+
+  .map-asset-card-section > header {
+    @apply text-text-primary flex items-center justify-between;
+    min-height: 1.75rem;
+    gap: 0.375rem;
+    padding: 0 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  /* v2.8: section head = title · count on the left; the quiet ＋ owns the add
+     operation (its tooltip carries the guidance). */
+  .map-asset-card-heading {
+    @apply flex min-w-0 items-baseline overflow-hidden whitespace-nowrap;
+    gap: 0.25rem;
+  }
+
+  .map-asset-card-count {
+    @apply text-text-tertiary;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+  }
+
+  /* Empty sections keep their reachable ＋ but recede behind populated ones. */
+  .map-asset-card-section.is-empty .map-asset-card-heading {
+    @apply text-text-secondary;
+  }
+
+  .map-asset-card-add-head {
+    @apply text-text-tertiary inline-flex items-center justify-center;
+    width: 1.375rem;
+    height: 1.375rem;
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    padding: 0;
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .map-asset-card-add-head:hover:not(:disabled) {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .map-asset-card-add-head:disabled {
+    @apply opacity-40;
+    cursor: default;
+  }
+
+  .map-asset-card-list {
+    @apply grid min-w-0;
+  }
+
+  /* Content tab: one continuous hairline-grouped column. Top-level blocks
+     (object details, semantic cards, animations, objects) separate with a
+     full-strength divider; entry rows inside use the lighter row hairline. */
+  .map-asset-content-tab {
+    @apply grid min-w-0;
+  }
+
+  .map-asset-content-tab > * + *,
+  .map-asset-card-stack > * + * {
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* Vertical stack of the semantic card sections (warps / doors / day-night). */
+  .map-asset-card-stack {
+    @apply grid min-w-0;
+  }
+
+  /* v2.8 entry row: flat borderless row — hairline separators; actions only on hover. */
+  .map-asset-entry-card {
+    @apply flex items-center;
+    min-width: 0;
+    gap: 0.5rem;
+    padding: 0.375rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .map-asset-entry-card:last-child {
+    border-bottom: none;
+  }
+
+  .map-asset-entry-card:hover {
+    background: var(--bg-hover);
+  }
+
+  .map-asset-entry-card-actions {
+    @apply flex flex-none items-center;
+    gap: 0.125rem;
+  }
+
+  .map-asset-entry-card-action {
+    display: none;
+  }
+
+  .map-asset-entry-card:hover .map-asset-entry-card-action,
+  .map-asset-entry-card:focus-within .map-asset-entry-card-action {
+    display: inline-flex;
+  }
+
+  .map-asset-entry-card-body {
+    @apply flex min-w-0 flex-1 items-center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-entry-card-text {
+    @apply grid min-w-0 flex-1;
+    gap: 0.125rem;
+  }
+
+  .map-asset-entry-card-text strong,
+  .map-asset-entry-card-text small {
+    @apply overflow-hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-asset-entry-card-text strong {
+    @apply text-text-primary;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  .map-asset-entry-card-text small {
+    @apply text-text-tertiary;
+    font-size: 0.625rem;
+    line-height: 1.35;
+  }
+
+  /* Row-tail meta (warp carrier), kept out of the two-line summary. */
+  .map-asset-entry-tag {
+    @apply text-text-tertiary flex-none overflow-hidden;
+    font-size: 0.625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Type subgroup label inside the merged object section (lights / objects / furniture)
+     and inside the animation section (per tilesheet). */
+  .map-asset-subgroup {
+    @apply text-text-tertiary overflow-hidden whitespace-nowrap;
+    padding: 0.125rem 0.25rem 0;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+  }
+
+  /* ===== Tile-index hover previews (day/night swaps, doors) ===== */
+  .map-asset-tile-ref {
+    @apply relative min-w-0 flex-1;
+  }
+
+  /* Warp rows: same flat row language, plus a hover peek of the target map.
+     The popover is a Radix Popover anchored to the hovered row; only the
+     chrome lives here. */
+  .map-asset-warp-ref {
+    @apply relative flex min-w-0 flex-1 items-center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-warp-preview-pop {
+    width: 16rem;
+    padding: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
+    z-index: var(--z-popover);
+    /* Peek-only: the row keeps the interaction, the preview never steals it. */
+    pointer-events: none;
+  }
+
+  .map-asset-warp-preview {
+    @apply grid overflow-hidden;
+    height: 10rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+  }
+
+  .map-asset-warp-preview > .map-viewport-root {
+    min-height: 0;
+  }
+
+  .map-asset-warp-preview.is-loading,
+  .map-asset-warp-preview.is-error {
+    @apply text-text-secondary flex items-center justify-center gap-2;
+    padding: 1rem;
+    font-size: 0.6875rem;
+    text-align: center;
+  }
+
+  .map-asset-tile-ref-pop {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.375rem);
+    z-index: var(--z-popover);
+    display: none;
+    gap: 0.375rem;
+    padding: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-float);
+  }
+
+  .map-asset-tile-ref:hover .map-asset-tile-ref-pop,
+  .map-asset-tile-ref:focus-within .map-asset-tile-ref-pop {
+    display: flex;
+  }
+
+  .map-asset-tile-ref-block {
+    @apply grid;
+    justify-items: center;
+    gap: 0.25rem;
+  }
+
+  .map-asset-tile-ref-label {
+    @apply text-text-tertiary;
+    font-size: 0.5625rem;
+    line-height: 1.2;
+  }
+
+  .map-asset-tile-ref-img,
+  .map-asset-tile-ref-ph {
+    display: block;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.1875rem;
+    background-color: var(--bg-panel-muted);
+    background-image: conic-gradient(var(--border-color) 25%, transparent 0 50%, var(--border-color) 0 75%, transparent 0);
+    background-size: 0.5rem 0.5rem;
+  }
+
+  .map-asset-tile-ref-img {
+    border: 1px solid var(--border-color);
+    image-rendering: pixelated;
+    object-fit: contain;
+  }
+
+  .map-asset-tile-ref-ph {
+    border: 1px dashed var(--border-color);
+  }
+
+  /* Row-head thumbs (day/night swaps, doors, warp sources) sit at the row head as the icon block. */
+  .map-asset-entry-card-body > .map-asset-tile-ref:has(> .map-asset-entry-thumbs) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-entry-thumbs {
+    @apply flex-none self-start;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .map-asset-entry-thumbs .map-asset-tile-ref-img,
+  .map-asset-entry-thumbs .map-asset-tile-ref-ph {
+    width: auto;
+    height: auto;
+    max-width: 4.5rem;
+    max-height: 2rem;
+  }
+
+  .map-asset-entry-thumbs .map-asset-tile-ref-ph {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  /* ===== Advanced raw-property collapsible ===== */
+  .map-asset-raw-toggle {
+    @apply grid min-w-0;
+    gap: 0.375rem;
+  }
+
+  .map-asset-raw-toggle summary {
+    @apply text-text-secondary cursor-pointer;
+    font-size: 0.6875rem;
+    list-style: none;
+    user-select: none;
+  }
+
+  .map-asset-raw-toggle summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .map-asset-raw-toggle summary:hover {
+    @apply text-text-primary;
+  }
+
+  .map-asset-raw-toggle summary::before {
+    content: '▸ ';
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+
+  .map-asset-raw-toggle[open] summary::before {
+    transform: rotate(90deg);
+  }
+
+  /* ===== Palette tile editor collapsible (tile properties + animation) ===== */
+  .map-asset-palette-tile-editor {
+    @apply flex min-w-0;
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+  }
+
+  .map-asset-palette-tile-editor .control-button {
+    @apply text-text-secondary;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .map-asset-palette-tile-editor .control-button:hover {
+    @apply text-text-primary;
+  }
+
+  /* ===== Inspector animations-tab empty hint ===== */
+  .map-asset-animation-tab-hint {
+    @apply text-text-tertiary m-0;
+    font-size: 0.6875rem;
+  }
+
+  /* Animation group list in the inspector content tab: flat hairline rows matching entry cards. */
+  .map-asset-animation-list {
+    @apply flex flex-col;
+    gap: 0.25rem;
+  }
+
+  .map-asset-animation-list-group {
+    @apply flex flex-col;
+    gap: 0.125rem;
+  }
+
+  .map-asset-animation-list-items {
+    @apply flex flex-col;
+  }
+
+  .map-asset-animation-list-item {
+    @apply flex items-center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .map-asset-animation-list-item:last-child {
+    border-bottom: none;
+  }
+
+  .map-asset-animation-list-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .map-asset-animation-list-item-body {
+    @apply flex flex-col;
+    flex: 1;
+    min-width: 0;
+    gap: 0.0625rem;
+  }
+
+  .map-asset-animation-list-item-id {
+    @apply text-text-primary;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .map-asset-animation-list-item-meta {
+    @apply text-text-tertiary;
+    font-size: 0.625rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Use-tile action: hover-revealed like entry-card actions. */
+  .map-asset-animation-list-item-use {
+    display: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  .map-asset-animation-list-item:hover .map-asset-animation-list-item-use,
+  .map-asset-animation-list-item:focus-within .map-asset-animation-list-item-use {
+    display: inline-flex;
+  }
+
+  /* ===== Object locate rows (same flat-row language as entry cards) ===== */
+  .map-asset-object-row {
+    @apply flex items-center;
+    min-width: 0;
+    gap: 0.25rem;
+    padding: 0.25rem 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .map-asset-object-row:last-child {
+    border-bottom: none;
+  }
+
+  .map-asset-object-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .map-asset-object-row > button:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .map-asset-object-row .icon-button {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
+    padding: 0;
+    visibility: hidden;
+  }
+
+  .map-asset-object-row:hover .icon-button,
+  .map-asset-object-row:focus-within .icon-button {
+    visibility: visible;
+  }
+
+  .map-asset-object-row .icon-button.is-danger:hover {
+    @apply text-danger;
+    background: var(--danger-soft);
+  }
+
+  .map-asset-furniture-row-label,
+  .map-asset-object-row-label {
+    @apply flex flex-col items-start;
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.25;
+  }
+
+  .map-asset-furniture-row-pos,
+  .map-asset-object-row-pos {
+    font-size: 0.6875rem;
+    opacity: 0.55;
+  }
+
+  .map-asset-object-details-head {
+    @apply flex items-center justify-between;
+    gap: 0.5rem;
+  }
+
+  .map-asset-object-details-head .map-asset-detail-actions {
+    @apply flex items-center;
+    gap: 0.125rem;
+  }
+
+  .map-asset-object-details-head .icon-button {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .map-asset-object-details-head .icon-button.is-danger:hover {
+    @apply text-danger;
+    background: var(--danger-soft);
+  }
+
+  .map-asset-object-details-meta {
+    @apply text-text-secondary;
+    font-size: 0.75rem;
+  }
+
+  /* Selected-object editor block inside its section: a hairline below keeps it
+     separated from the flat rows, and disappears when it is the only content. */
+  .map-asset-card-section .map-asset-object-details:not(:last-child) {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    padding-bottom: 0.375rem;
+  }
+
+  /* ===== Cell-pick capture rows (warp / doors / day-night forms) ===== */
+  .map-asset-picked-cell {
+    @apply text-text-secondary flex min-w-0 flex-wrap items-baseline;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+
+  .map-asset-picked-cell small {
+    @apply text-text-tertiary;
+    font-size: 0.5625rem;
+  }
+
+  .map-asset-picked-cell-label {
+    @apply text-text-tertiary;
+    font-size: 0.625rem;
+    font-weight: 600;
+  }
+
+  .map-asset-picked-warn {
+    @apply text-danger;
+    font-size: 0.625rem;
+    line-height: 1.35;
+  }
+
+  .map-asset-picked-tile {
+    @apply flex min-w-0 items-center;
+    gap: 0.5rem;
+  }
+
+  .map-asset-picked-tile small {
+    @apply text-text-tertiary;
+    font-size: 0.5625rem;
+  }
+
+  .map-asset-picked-tile .map-asset-tile-ref-img,
+  .map-asset-picked-tile .map-asset-tile-ref-ph {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  /* ===== v2.8 long-list collapse link ===== */
+  .map-asset-more-link {
+    @apply text-text-tertiary self-start;
+    border: none;
+    background: transparent;
+    padding: 0.125rem;
+    font-size: 0.6875rem;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .map-asset-more-link:hover {
+    @apply text-accent;
+  }
+
+  /* ===== Diagnostics "locate" action (hover-revealed) ===== */
+  .map-asset-diagnostics-row {
+    @apply flex flex-wrap items-baseline;
+    gap: 0.375rem;
+  }
+
+  .map-asset-diagnostics-locate {
+    @apply text-accent;
+    display: none;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: 0.6875rem;
+    cursor: pointer;
+  }
+
+  .map-asset-diagnostics-row:hover .map-asset-diagnostics-locate,
+  .map-asset-diagnostics-locate:focus-visible {
+    display: inline;
+  }
+
+  /* ===== Warp destination dialog (dialog-picked landing cell) ===== */
+  .map-warp-dialog {
+    @apply grid min-w-0;
+    gap: 0.75rem;
+  }
+
+  .map-warp-dialog-field {
+    @apply text-text-secondary grid min-w-0 gap-1;
+  }
+
+  .map-warp-dialog-field > span {
+    font-size: 0.6875rem;
+  }
+
+  .map-warp-dialog-field .compact-select {
+    max-width: 100%;
+  }
+
+  .map-warp-dialog-empty {
+    @apply text-text-tertiary m-0;
+    font-size: 0.6875rem;
+  }
+}

@@ -1,5 +1,10 @@
+/**
+ * @file World state preview overlay builders: derives building data index and
+ * overlay sprites (atlas + stage) for rendering world-state-dependent map overlays.
+ */
+
 import type { MapDocument, MapPropertyValue, MapWorldOverlaySprite } from '@entities/map'
-import { stripTileGidFlags } from '@entities/map'
+import { stripTileGidFlags, unwrapMapPropertyValue } from '@entities/map'
 import { findTilesetForGid as resolveTilesetForGid } from '@entities/map'
 
 export type StageWorldOverlaySprite = MapWorldOverlaySprite
@@ -21,11 +26,12 @@ function normalizeMapNameToken(value: string) {
 }
 
 function parseMapPointPropertyValue(value: MapPropertyValue | undefined) {
-  if (typeof value !== 'string') {
+  const unwrapped = unwrapMapPropertyValue(value)
+  if (typeof unwrapped !== 'string') {
     return null
   }
 
-  const [rawX, rawY] = value.trim().split(/\s+/u)
+  const [rawX, rawY] = unwrapped.trim().split(/\s+/u)
   const x = Number.parseFloat(rawX ?? '')
   const y = Number.parseFloat(rawY ?? '')
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null

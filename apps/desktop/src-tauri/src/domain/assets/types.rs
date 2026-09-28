@@ -1,3 +1,5 @@
+//! Asset domain types: game directory info, map/event/image/audio/data asset summaries and content models.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,6 +74,26 @@ pub struct AudioAssetSummary {
     pub kind: String,
     pub absolute_path: String,
     pub relative_path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageAssetSummary {
+    /// Content Patcher asset key (forward slashes, no extension), e.g. `Characters/Abigail`.
+    pub name: String,
+    pub absolute_path: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataAssetSummary {
+    /// Content Patcher asset key (forward slashes, no extension), e.g. `Data/ObjectInformation`.
+    pub name: String,
+    pub absolute_path: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -2,12 +2,12 @@ import type { GameDirectoryInfo } from '@entities/game/api/types'
 
 export type { GameDirectoryInfo }
 
-/** Content pack target dependency selected from scanned mods or manual entry. */
-export type CpMakerOverlayTarget = {
+/** One entry of the manifest `Dependencies` list, as SMAPI reads it. */
+export type CpMakerDependency = {
   uniqueId: string
-  displayName: string | null
-  required: boolean
-  source: 'scanned-mod' | 'manual'
+  minimumVersion?: string
+  /** SMAPI treats a dependency without `IsRequired` as required. */
+  isRequired: boolean
 }
 
 /** Lightweight CP Maker draft metadata for draft lists. */
@@ -19,6 +19,7 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+/** Active-project session tracking which draft is open in the editor. */
 export type CpMakerSession = {
   activeDraftKey: string | null
   activeGeneratedDraftKey: string | null
@@ -35,10 +36,11 @@ export type CpMakerDraftRecord = {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    contentPackForMinimumVersion?: string
     minimumApiVersion?: string
     updateKeys?: string[]
+    dependencies?: CpMakerDependency[]
   }
-  overlayTargets: CpMakerOverlayTarget[]
   configSchemaDraft: Record<string, unknown>
   serializedChangeRegistry: Record<string, unknown>
   dynamicTokens?: Array<{ name: string; value: string; when?: Record<string, unknown> }>
@@ -46,6 +48,7 @@ export type CpMakerDraftRecord = {
   aliasTokenNames?: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
   i18nFiles: Array<{ locale: string; rawJson: string }>
+  projectAssets: ProjectAssetRef[]
   lastDraftSavedAt: number | null
   lastExportedAt: number | null
   lastExportPath: string | null
@@ -56,6 +59,69 @@ export type CpMakerDraftRecord = {
   } | null
 }
 
+/** Origin of a project asset within the draft lifecycle. */
+export type ProjectAssetSource = 'imported' | 'generated' | 'edited'
+
+/** Lightweight reference to a persisted project asset stored inside a draft. */
+export type ProjectAssetRef = {
+  relativePath: string
+  mediaType: string
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+  sourceType: ProjectAssetSource
+  dependencies: Array<{ relativePath: string; kind: string }>
+}
+
+/** Asset payload with base64-encoded bytes for transport to the host. */
+export type ProjectAssetPayload = {
+  asset: ProjectAssetRef
+  bytesBase64: string
+}
+
+/** Parsed map asset content returned for preview or editing. */
+export type ProjectMapAssetContent = {
+  name: string
+  format: string
+  absolutePath: string
+  relativePath: string
+  content: string
+}
+
+/** Request to read a single project asset by draft key and relative path. */
+export type ReadProjectAssetRequest = {
+  draftStorageKey: string
+  relativePath: string
+}
+
+/** Request to write a single project asset with its bytes and source type. */
+export type WriteProjectAssetRequest = ReadProjectAssetRequest & {
+  mediaType: string
+  bytesBase64: string
+  sourceType: ProjectAssetSource
+}
+
+/** Request to write a batch of project assets atomically under one draft. */
+export type WriteProjectAssetsRequest = {
+  draftStorageKey: string
+  assets: Array<Omit<WriteProjectAssetRequest, 'draftStorageKey'>>
+}
+
+/** Request to rename a project asset to a new relative path. */
+export type RenameProjectAssetRequest = ReadProjectAssetRequest & {
+  newRelativePath: string
+}
+
+/** Request to delete a single project asset from a draft. */
+export type DeleteProjectAssetRequest = ReadProjectAssetRequest
+
+/** Request to import external files into a draft's project asset store. */
+export type ImportProjectAssetsRequest = {
+  draftStorageKey: string
+  sourcePaths: string[]
+  destinationDirectory: string
+}
+
 /** Request to duplicate an existing draft by storage key. */
 export type CopyCpMakerDraftRequest = {
   source_draft_storage_key: string
@@ -63,6 +129,7 @@ export type CopyCpMakerDraftRequest = {
 
 /** Request to export a generated Content Patcher pack to disk. */
 export type CpMakerExportRequest = {
+  draft_storage_key: string
   output_path: string
   manifest_json: string
   content_json: string
@@ -80,8 +147,14 @@ export type CpMakerExportResult = {
 
 /** Request to build a previewable map asset from an in-memory map document. */
 export type BuildCpMakerMapAssetRequest = {
-  relative_path: string
-  map_document: unknown // MapDocument from backend
+  relativePath: string
+  mapDocument: unknown // MapDocument from backend
+}
+
+/** Result of building a virtual map asset preview, including companion assets. */
+export type BuildCpMakerMapAssetResult = {
+  asset: VirtualPreviewAsset
+  companionAssets: VirtualPreviewAsset[]
 }
 
 /** Virtual asset bundled into preview/export flows before it exists on disk. */

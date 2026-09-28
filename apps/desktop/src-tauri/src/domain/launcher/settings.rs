@@ -1,6 +1,8 @@
-use super::paths::launcher_settings_path;
+//! Launcher settings persistence: load, normalize, merge patches, and save with file locking.
+
 use super::types::{LauncherSettings, NullablePatch, SaveLauncherSettingsRequest};
 use crate::AppHandle;
+use crate::domain::app_paths::launcher_settings_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::text_encoding::read_text_file;
 use crate::support::logging::{LogEvent, targets};
@@ -48,6 +50,7 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
         gmcm_parsing_enabled: settings.gmcm_parsing_enabled,
+        show_console_window: settings.show_console_window,
     }
 }
 
@@ -206,6 +209,9 @@ pub(crate) fn merge_launcher_settings(
         gmcm_parsing_enabled: request
             .gmcm_parsing_enabled
             .unwrap_or(existing.gmcm_parsing_enabled),
+        show_console_window: request
+            .show_console_window
+            .unwrap_or(existing.show_console_window),
     }
 }
 
@@ -247,6 +253,7 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &AppHandle,
     settings: &LauncherSettings,
 ) {
+    let _ = app;
     LogEvent::new("launcherSettings.nexusDiagnosticsRestart")
         .flag(
             "apiKeyPresent",
@@ -254,8 +261,9 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
         )
         .emit_info(targets::LAUNCHER_SETTINGS);
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
-        Some(app),
-        settings,
+        &crate::domain::nexusmods::request::NexusRequestContext::new(
+            settings.nexus_api_key.clone(),
+        ),
     );
 }
 

@@ -1,4 +1,4 @@
-use super::{build_patch_plan, build_patch_plan_with_context};
+use super::{build_effective_context, build_patch_plan, build_patch_plan_with_context};
 use crate::domain::content_patcher::context::SimulationContext;
 use crate::domain::content_patcher::project::load_content_patcher_project;
 use crate::test_support::{create_temp_dir, write_file};
@@ -309,6 +309,137 @@ fn build_patch_plan_prefers_explicit_config_values_over_schema_defaults() {
     .expect("plan");
 
     assert_eq!(plan.patches[0].target, "TileSheets/base_crops");
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn build_patch_plan_falls_back_to_first_allow_value_when_config_has_no_default() {
+    let root = create_temp_dir("cp-plan-config-first-allow-value");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "ConfigSchema": {
+    "Mermaid": {
+      "AllowValues": "Delphine, Pearl, Sabrina"
+    }
+  },
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Characters/Mariner",
+      "FromFile": "assets/{{mermaid}}.png"
+    }
+  ]
+}"#,
+    );
+
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let plan = build_patch_plan(&snapshot).expect("plan");
+
+    assert_eq!(
+        plan.patches[0].from_file.as_deref(),
+        Some("assets/Delphine.png")
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn build_patch_plan_resolves_null_dynamic_token_to_blank_in_from_file() {
+    let root = create_temp_dir("cp-plan-null-dynamic-token");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "DynamicTokens": [
+    { "Name": "seas", "Value": null }
+  ],
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Maps/panorama",
+      "FromFile": "assets/Panorama/vanilla_day{{seas}}.png"
+    }
+  ]
+}"#,
+    );
+
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let plan = build_patch_plan(&snapshot).expect("plan");
+
+    assert_eq!(
+        plan.patches[0].from_file.as_deref(),
+        Some("assets/Panorama/vanilla_day.png")
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn build_effective_context_exposes_dynamic_tokens_for_apply_time_conditions() {
+    let root = create_temp_dir("cp-plan-dynamic-token-context");
+    write_file(
+        &root.join("manifest.json"),
+        r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    );
+    write_file(
+        &root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "ConfigSchema": {
+    "InteriorOption": {
+      "AllowValues": "auto, vanilla",
+      "Default": "auto"
+    }
+  },
+  "DynamicTokens": [
+    { "Name": "interiorrecolor", "Value": "vanilla" },
+    {
+      "Name": "interiorrecolor",
+      "Value": "starblue",
+      "When": { "InteriorOption": "starblue" }
+    }
+  ],
+  "Changes": []
+}"#,
+    );
+
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let context =
+        build_effective_context(&snapshot, &SimulationContext::default()).expect("context");
+
+    assert_eq!(
+        context
+            .custom_tokens
+            .get("interiorrecolor")
+            .and_then(|value| value.as_str()),
+        Some("vanilla")
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

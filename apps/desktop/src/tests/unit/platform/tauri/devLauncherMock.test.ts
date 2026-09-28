@@ -28,8 +28,8 @@ describe('dev launcher mock', () => {
     expect(mockIpcHandler).not.toBeNull()
     const savedQueue = { items: [{ id: 'download-1' }] }
 
-    expect(mockIpcHandler?.('save_launcher_download_queue', { request: savedQueue })).toEqual(savedQueue)
-    expect(mockIpcHandler?.('load_launcher_download_queue')).toEqual(savedQueue)
+    await expect(mockIpcHandler?.('save_launcher_download_queue', { request: savedQueue })).resolves.toEqual(savedQueue)
+    await expect(mockIpcHandler?.('load_launcher_download_queue')).resolves.toEqual(savedQueue)
   })
 
   it('seeds AI settings fixtures when mfSettingsMock is enabled', async () => {
@@ -39,23 +39,23 @@ describe('dev launcher mock', () => {
     installDevLauncherMock()
     expect(mockIpcHandler).not.toBeNull()
 
-    const aiSettings = mockIpcHandler?.('load_ai_settings') as {
+    const aiSettings = (await mockIpcHandler?.('load_ai_settings')) as {
       profiles: Array<{ id: string }>
       defaultProfileId: string | null
     }
     expect(aiSettings.profiles.length).toBeGreaterThan(0)
     expect(aiSettings.defaultProfileId).toBe('openai-workbench')
 
-    const engine = mockIpcHandler?.('load_localization_default_engine') as { kind: string; profileId: string }
+    const engine = (await mockIpcHandler?.('load_localization_default_engine')) as { kind: string; profileId: string }
     expect(engine).toEqual({ kind: 'generative-ai', profileId: 'openai-workbench' })
 
-    const mt = mockIpcHandler?.('load_machine_translation_settings') as { profiles: unknown[] }
+    const mt = (await mockIpcHandler?.('load_machine_translation_settings')) as { profiles: unknown[] }
     expect(mt.profiles.length).toBeGreaterThan(0)
 
-    const semantic = mockIpcHandler?.('load_localization_semantic_settings') as { mode: string }
+    const semantic = (await mockIpcHandler?.('load_localization_semantic_settings')) as { mode: string }
     expect(semantic.mode).toBe('builtin')
 
-    const usage = mockIpcHandler?.('query_ai_usage_summary') as { totals: { requests: number } }
+    const usage = (await mockIpcHandler?.('query_ai_usage_summary')) as { totals: { requests: number } }
     expect(usage.totals.requests).toBeGreaterThan(0)
   })
 })

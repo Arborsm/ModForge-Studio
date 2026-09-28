@@ -1,11 +1,10 @@
 import { useItemsCopy } from '@locales/provider'
-import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
+import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@entities/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { ItemSprite } from '../../../workspaces/item'
+import { ItemSprite } from '@entities/item'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 
 type ItemInspectorPanelProps = {
-  noneLabel: string
   item: ItemWorkspaceEntry | null
   textureState: ItemTextureAssetState | null
 }
@@ -19,8 +18,9 @@ function renderKv(label: string, value: string) {
   )
 }
 
-export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspectorPanelProps) {
+export function ItemInspectorPanel({ item, textureState }: ItemInspectorPanelProps) {
   const copy = useItemsCopy()
+  const noneLabel = copy.noneLabel
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
@@ -30,7 +30,7 @@ export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspec
           <>
             <PanelSection variant="accent">
               <div className="flex items-center gap-3">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-(--border-color) bg-(--bg-panel)">
+                <div className="border-border-subtle bg-surface-panel flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border">
                   <ItemSprite
                     item={item}
                     textureState={textureState}
@@ -40,8 +40,8 @@ export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspec
                 </div>
                 <div className="min-w-0">
                   <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
-                  <p className="mt-2 truncate text-base font-semibold text-(--text-primary)">{item.displayName}</p>
-                  <p className="truncate text-xs text-(--text-secondary)">{item.qualifiedItemId}</p>
+                  <p className="text-text-primary mt-2 truncate text-base font-semibold">{item.displayName}</p>
+                  <p className="text-text-secondary truncate text-xs">{item.qualifiedItemId}</p>
                 </div>
               </div>
             </PanelSection>

@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for AI usage queries, exports and retention operations.
+ * @module platform/host/aiUsage
+ */
+
 import type { AiUsageClearResult, AiUsageQuery, AiUsageRecordPage, AiUsageSummary } from '@shared/contracts'
 import { HOST_COMMANDS } from '@platform/host-commands'
 import { invokeDesktop } from './runtime'

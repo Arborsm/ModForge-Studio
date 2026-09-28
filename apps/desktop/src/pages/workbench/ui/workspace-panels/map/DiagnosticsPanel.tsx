@@ -11,7 +11,7 @@ export function DiagnosticsPanel({ directoryInfo, visibleLayerIds, visibleObject
       hideHeader
       title={copy.rightDock.diagnostics}
       subtitle={copy.rightDock.projectFacts}
-      headerAction={<Activity className="h-4 w-4 text-(--text-secondary)" />}
+      headerAction={<Activity className="text-text-secondary h-4 w-4" />}
     >
       <div className="space-y-2.5 p-2.5">
         {directoryInfo ? (
@@ -35,7 +35,7 @@ export function DiagnosticsPanel({ directoryInfo, visibleLayerIds, visibleObject
               </div>
             </div>
 
-            <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-2.5">
+            <div className="border-border-subtle bg-surface-panel-muted rounded-xl border px-2.5">
               <div className="kv-row compact-kv-row">
                 <span>{copy.common.executable}</span>
                 <span>{directoryInfo.executablePath}</span>
@@ -45,12 +45,12 @@ export function DiagnosticsPanel({ directoryInfo, visibleLayerIds, visibleObject
                 <span>{directoryInfo.mapsPath ?? copy.common.none}</span>
               </div>
             </div>
-            <div className="rounded-xl border border-(--border-color) bg-(--bg-panel-muted) px-3 py-3 text-xs text-(--text-secondary)">
+            <div className="border-border-subtle bg-surface-panel-muted text-text-secondary rounded-xl border px-3 py-3 text-xs">
               {workspaceStatus.message || copy.common.none}
             </div>
           </>
         ) : (
-          <div className="rounded-xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+          <div className="border-border-subtle text-text-secondary rounded-xl border border-dashed px-4 py-5 text-sm">
             {copy.rightDock.diagnosticsPrompt}
           </div>
         )}

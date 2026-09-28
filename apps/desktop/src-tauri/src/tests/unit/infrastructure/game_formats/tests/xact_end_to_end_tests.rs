@@ -1,4 +1,4 @@
-use crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths;
+use crate::infrastructure::game_formats::xact::load_xact_audio_data_url;
 use std::fs;
 
 fn write_u16_le(bytes: &mut [u8], offset: usize, value: u16) {
@@ -123,7 +123,7 @@ fn loads_self_contained_xact_fixture_as_wav_data_url() {
         .expect("write sound bank");
     fs::write(xact_root.join("TinyBank.xwb"), minimal_wave_bank_bytes()).expect("write wave bank");
 
-    let data_url = load_xact_audio_data_url_for_paths(root.to_string_lossy().as_ref(), "tinyCue")
+    let data_url = load_xact_audio_data_url(root.to_string_lossy().as_ref(), "tinyCue")
         .expect("load minimal xact cue");
 
     assert!(data_url.starts_with("data:audio/wav;base64,"));
@@ -139,7 +139,7 @@ fn loads_self_contained_xact_fixture_as_wav_data_url() {
     ];
     assert_eq!(decoded, expected_wav);
 
-    let error = load_xact_audio_data_url_for_paths(root.to_string_lossy().as_ref(), "missingCue")
+    let error = load_xact_audio_data_url(root.to_string_lossy().as_ref(), "missingCue")
         .expect_err("unknown cue should fail");
     assert!(error.to_string().contains("missingCue"));
 

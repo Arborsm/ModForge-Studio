@@ -1,3 +1,8 @@
+/**
+ * @file Icon mapping for event condition builder chips, selecting a lucide icon
+ * per condition category and specific precondition key.
+ */
+
 import {
   CalendarDays,
   Clock,
@@ -34,6 +39,7 @@ export const CONDITION_WEATHER_ICONS = {
   greenRain: Flower2,
 } satisfies Record<WeatherId, typeof Sun>
 
+/** Returns the lucide icon component for a condition chip, based on its parsed precondition key. */
 export function iconForConditionChip(chip: ConditionChip) {
   if (chip.id === 'weather:greenRain') {
     return Flower2

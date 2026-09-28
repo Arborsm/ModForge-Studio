@@ -1,6 +1,7 @@
+//! Launcher mod download queue management and Nexus download execution with cancellation support.
+
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
-use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
 use super::runtime::open_launcher_url_in_browser;
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
 use super::trace::log_launcher_trace;
@@ -9,12 +10,15 @@ use super::types::{
     LauncherDownloadQueueItem, LauncherDownloadQueueState,
 };
 use crate::AppHandle;
-use crate::domain::app_ui::load_app_ui_state;
+use crate::domain::app_paths::{
+    launcher_backup_dir, launcher_download_queue_path, launcher_settings_path,
+};
 use crate::domain::nexusmods::downloads::{
     ResolveDownloadUrlError, download_file_response, fetch_mod_files_payload, resolve_download_url,
     select_download_candidate,
 };
 use crate::domain::nexusmods::http::launcher_http_client;
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::http::resumable_download::{
     PartialRetention, ResumableDownloadRequest, ResumeRequest, download_resumable,
@@ -29,7 +33,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
-const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
+pub(crate) const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 const LAUNCHER_DOWNLOAD_PROGRESS_EVENT: &str = "launcher://download-progress";
 static LAUNCHER_DOWNLOAD_QUEUE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -66,21 +70,23 @@ pub fn cancel_launcher_download(download_id: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn take_cancelled_launcher_download(download_id: &str) -> anyhow::Result<bool> {
+pub(crate) fn take_cancelled_launcher_download(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
         .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .remove(download_id))
 }
 
-fn is_launcher_download_cancelled(download_id: &str) -> anyhow::Result<bool> {
+pub(crate) fn is_launcher_download_cancelled(download_id: &str) -> anyhow::Result<bool> {
     Ok(cancelled_launcher_downloads()
         .lock()
         .map_err(|_| anyhow::anyhow!("Launcher download cancellation mutex was poisoned."))?
         .contains(download_id))
 }
 
-fn ensure_launcher_download_not_cancelled(download_id: Option<&str>) -> anyhow::Result<()> {
+pub(crate) fn ensure_launcher_download_not_cancelled(
+    download_id: Option<&str>,
+) -> anyhow::Result<()> {
     if let Some(download_id) = download_id {
         if is_launcher_download_cancelled(download_id)? {
             let _ = take_cancelled_launcher_download(download_id)?;
@@ -110,7 +116,7 @@ fn emit_download_progress(
     .map_err(anyhow::Error::msg)
 }
 
-fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
+pub(crate) fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
     format!(
         "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id={file_id}&game_id={game_id}"
     )
@@ -360,6 +366,7 @@ fn parse_content_disposition_file_name(value: &str) -> Option<String> {
 pub fn download_launcher_mod(
     app: AppHandle,
     request: DownloadLauncherModRequest,
+    force_non_premium: bool,
 ) -> anyhow::Result<DownloadLauncherModResult> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "download_launcher_mod",
@@ -400,7 +407,8 @@ pub fn download_launcher_mod(
             })?;
 
             let client = launcher_http_client()?;
-            let files_payload = fetch_mod_files_payload(&client, &settings, request.mod_id)?;
+            let context = NexusRequestContext::new(settings.nexus_api_key.clone());
+            let files_payload = fetch_mod_files_payload(&client, &context, request.mod_id)?;
             ensure_launcher_download_not_cancelled(download_id)?;
             let candidate = select_download_candidate(
                 &files_payload,
@@ -416,10 +424,7 @@ pub fn download_launcher_mod(
                     .optional("version", candidate.version.as_deref())
             });
 
-            if load_app_ui_state()
-                .map(|state| state.launcher.force_non_premium)
-                .unwrap_or(false)
-            {
+            if force_non_premium {
                 open_nexus_manual_download_page(
                     request.mod_id,
                     candidate.file_id,
@@ -435,7 +440,7 @@ pub fn download_launcher_mod(
             }
 
             let download_url =
-                match resolve_download_url(&client, &settings, request.mod_id, candidate.file_id) {
+                match resolve_download_url(&client, &context, request.mod_id, candidate.file_id) {
                     Ok(download_url) => download_url,
                     Err(ResolveDownloadUrlError::PremiumRequired) => {
                         open_nexus_manual_download_page(

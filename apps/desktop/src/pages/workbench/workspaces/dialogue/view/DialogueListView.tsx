@@ -1,0 +1,327 @@
+import { useState } from 'react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import { EyeOff, FolderX, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { DraftUndoButtons } from '@features/cp-maker'
+import { useDialogueEditorCopy } from '@locales/provider'
+import { cx, formatCopyTemplate } from '@shared/lib/helper'
+import { EmptyStateCard } from '@shared/ui/EmptyStateCard'
+import type { DialogueTreeEntry } from '@entities/dialogue'
+import {
+  dialogueEntryLabel,
+  isInlineEditableScript,
+  parseDialogueScript,
+  readInlineScriptText,
+  writeInlineScriptText,
+} from '@entities/dialogue'
+import type { UseDialogueWorkspaceReturn } from '../state/useDialogueWorkspace'
+
+function DialogueBulkEntryRow({
+  node,
+  onOpenPageEditor,
+  onStageText,
+  onDelete,
+}: {
+  node: DialogueTreeEntry
+  onOpenPageEditor: () => void
+  onStageText: (key: string, script: string) => void
+  onDelete: (() => void) | null
+}) {
+  const copy = useDialogueEditorCopy()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const { entry, shadow } = node
+  const originBadge =
+    entry.origin === 'vanilla' ? copy.originVanillaBadge : entry.origin === 'project' ? copy.originProjectBadge : copy.originOverrideBadge
+  const shadowTooltip = shadow
+    ? formatCopyTemplate(shadow.scope === 'full' ? copy.shadowFullTooltipTemplate : copy.shadowPartialTooltipTemplate, {
+        key: shadow.shadowedBy,
+      })
+    : null
+  const ast = parseDialogueScript(entry.script)
+  const inlineEditable = isInlineEditableScript(entry.script)
+  const label = dialogueEntryLabel(entry)
+
+  function handleTextBlur(event: React.FocusEvent<HTMLTextAreaElement>) {
+    const next = event.target.value
+    if (next === readInlineScriptText(ast)) {
+      return
+    }
+    onStageText(entry.key, writeInlineScriptText(ast, next))
+  }
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <div className="dialogue-editor-entry-row" data-shadowed={shadow ? shadow.scope : undefined} title={shadowTooltip ?? undefined}>
+          <div className="dialogue-editor-entry-main">
+            <span className="dialogue-editor-entry-head">
+              <span className="dialogue-editor-entry-title">{label}</span>
+              <span className="dialogue-editor-entry-badge" data-origin={entry.origin}>
+                {originBadge}
+              </span>
+              {shadow ? (
+                <span className="dialogue-editor-entry-shadow-badge">
+                  <EyeOff className="dialogue-editor-action-icon" />
+                  {copy.shadowBadge}
+                </span>
+              ) : null}
+            </span>
+            <span className="dialogue-editor-entry-key">{entry.key}</span>
+            {inlineEditable ? (
+              <textarea
+                className="control-input dialogue-editor-bulk-text"
+                defaultValue={readInlineScriptText(ast)}
+                placeholder={copy.bulkTextPlaceholder}
+                spellCheck={false}
+                rows={2}
+                onBlur={handleTextBlur}
+              />
+            ) : (
+              <>
+                <span className="dialogue-editor-entry-preview">{entry.preview}</span>
+                <div className="dialogue-editor-entry-bulk-actions">
+                  <button type="button" className="control-button dialogue-editor-entry-action" onClick={onOpenPageEditor}>
+                    <Pencil className="dialogue-editor-action-icon" />
+                    {copy.pageEditorAction}
+                  </button>
+                  <span className="dialogue-editor-entry-pages">
+                    {formatCopyTemplate(copy.pageCountTemplate, { count: entry.pageCount })}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="dialogue-editor-entry-side">
+            <div className="dialogue-editor-entry-actions">
+              {onDelete ? (
+                <button
+                  type="button"
+                  className={cx('control-button dialogue-editor-entry-action', confirmingDelete && 'dialogue-editor-entry-action-danger')}
+                  onClick={() => {
+                    if (confirmingDelete) {
+                      setConfirmingDelete(false)
+                      onDelete()
+                      return
+                    }
+                    setConfirmingDelete(true)
+                  }}
+                  onBlur={() => setConfirmingDelete(false)}
+                >
+                  <Trash2 className="dialogue-editor-action-icon" />
+                  {confirmingDelete ? copy.deleteConfirmAction : copy.deleteAction}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+          <ContextMenu.Item className="context-menu-item" onSelect={onOpenPageEditor}>
+            {copy.pageEditorAction}
+          </ContextMenu.Item>
+          {onDelete ? (
+            <>
+              <ContextMenu.Separator className="context-menu-separator" />
+              <ContextMenu.Item className="context-menu-item is-danger" onSelect={onDelete}>
+                {copy.deleteAction}
+              </ContextMenu.Item>
+            </>
+          ) : null}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  )
+}
+
+/** Priority tree of the active NPC's keys: tier sections, family subgroups, bulk-editable rows. */
+function DialogueEntryTree({ workspace }: { workspace: UseDialogueWorkspaceReturn }) {
+  const copy = useDialogueEditorCopy()
+
+  return (
+    <>
+      {workspace.entryTree.map((tier) => (
+        <section key={tier.tier} className="dialogue-editor-tree-tier">
+          <header className="dialogue-editor-tree-tier-head">
+            <span className="dialogue-editor-tree-tier-title">{copy.keyTierLabels[tier.tier]}</span>
+            <span className="dialogue-editor-tree-count">
+              {formatCopyTemplate(copy.entryTreeCountTemplate, { count: tier.entryCount })}
+            </span>
+          </header>
+          {tier.families.map((family) => (
+            <div key={family.family} className="dialogue-editor-tree-family">
+              <p className="dialogue-editor-tree-family-title">{copy.keyFamilyLabels[family.family]}</p>
+              <div className="dialogue-editor-tree-family-rows">
+                {family.entries.map((node) => (
+                  <DialogueBulkEntryRow
+                    key={`${node.entry.key} ${node.entry.script}`}
+                    node={node}
+                    onOpenPageEditor={() => workspace.openEntry(node.entry)}
+                    onStageText={(key, script) => workspace.stageBulkEntry(key, script)}
+                    onDelete={node.entry.origin === 'vanilla' ? null : () => workspace.deleteEntry(node.entry.key)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      ))}
+    </>
+  )
+}
+
+/** NPC catalog rail plus the merged vanilla/project entry list for the active NPC. */
+export function DialogueListView({ workspace }: { workspace: UseDialogueWorkspaceReturn }) {
+  const copy = useDialogueEditorCopy()
+  const {
+    hasGameDirectory,
+    npcLoading,
+    npcError,
+    filteredNpcs,
+    npcFilter,
+    setNpcFilter,
+    activeNpcId,
+    selectNpc,
+    vanillaLoading,
+    vanillaError,
+    entries,
+    refreshVanillaEntries,
+    openNewEntry,
+    isDirty,
+    saveState,
+  } = workspace
+
+  const saveStatusText =
+    saveState === 'saving'
+      ? copy.draft.savingStatus
+      : saveState === 'saved'
+        ? copy.draft.savedStatus
+        : saveState === 'error'
+          ? copy.draft.saveErrorStatus
+          : null
+
+  const statusText = npcLoading
+    ? copy.npcLoading
+    : vanillaLoading
+      ? copy.entriesLoading
+      : vanillaError
+        ? formatCopyTemplate(copy.entriesLoadErrorTemplate, { error: vanillaError })
+        : formatCopyTemplate(copy.entriesCountTemplate, { count: entries.length })
+
+  return (
+    <div className="dialogue-editor">
+      <header className="dialogue-editor-header">
+        <div>
+          <div className="dialogue-editor-title">{copy.title}</div>
+          <div className="dialogue-editor-subtitle">{copy.subtitle}</div>
+        </div>
+        <div className="dialogue-editor-header-actions">
+          {isDirty ? <span className="dialogue-editor-dirty-badge">{copy.draft.dirtyBadge}</span> : null}
+          {saveStatusText ? (
+            <span className={cx('dialogue-editor-save-status', saveState === 'error' && 'is-error')}>{saveStatusText}</span>
+          ) : null}
+          <DraftUndoButtons onUndo={workspace.undo} onRedo={workspace.redo} />
+          <button type="button" className="control-button" onClick={refreshVanillaEntries} disabled={!hasGameDirectory || vanillaLoading}>
+            <RefreshCw className="dialogue-editor-action-icon" />
+            {copy.refreshVanillaAction}
+          </button>
+          <button type="button" className="control-button" onClick={openNewEntry} disabled={!activeNpcId}>
+            <Plus className="dialogue-editor-action-icon" />
+            {copy.newEntryAction}
+          </button>
+          <button type="button" className="control-button" onClick={workspace.revert} disabled={!isDirty}>
+            {copy.draft.revertAction}
+          </button>
+          <button
+            type="button"
+            className="control-button control-button-primary"
+            onClick={workspace.save}
+            disabled={!isDirty || saveState === 'saving'}
+          >
+            {copy.draft.saveAction}
+          </button>
+        </div>
+      </header>
+
+      <div className="dialogue-editor-body">
+        <aside className="dialogue-editor-rail">
+          <div className="dialogue-editor-rail-head">
+            <p className="dialogue-editor-rail-title">{copy.npcListTitle}</p>
+            <div className="dialogue-editor-search">
+              <Search className="dialogue-editor-search-icon" />
+              <input
+                className="control-input dialogue-editor-search-input"
+                value={npcFilter}
+                onChange={(event) => setNpcFilter(event.target.value)}
+                placeholder={copy.npcSearchPlaceholder}
+                spellCheck={false}
+              />
+            </div>
+          </div>
+          <div className="dialogue-editor-rail-list custom-scrollbar">
+            {npcLoading ? <p className="dialogue-editor-muted">{copy.npcLoading}</p> : null}
+            {/* A failed vanilla catalog is reported above the list rather than
+                instead of it: the NPCs the project itself introduces are still
+                authorable without a game install. */}
+            {!npcLoading && npcError ? (
+              <p className="dialogue-editor-error">{formatCopyTemplate(copy.npcLoadErrorTemplate, { error: npcError })}</p>
+            ) : null}
+            {!npcLoading && filteredNpcs.length === 0 ? (
+              <p className="dialogue-editor-muted">{copy.npcEmpty}</p>
+            ) : (
+              filteredNpcs.map((npc) => (
+                <button
+                  key={npc.id}
+                  type="button"
+                  className={cx('dialogue-editor-npc-row', npc.id === activeNpcId && 'dialogue-editor-npc-row-active')}
+                  aria-pressed={npc.id === activeNpcId}
+                  onClick={() => selectNpc(npc.id)}
+                >
+                  <span className="dialogue-editor-npc-name">{npc.displayName}</span>
+                  <span className="dialogue-editor-npc-meta">
+                    <span className="dialogue-editor-npc-id">{npc.id}</span>
+                    {npc.source === 'project' ? <span className="dialogue-editor-npc-badge">{copy.npcProjectBadge}</span> : null}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+
+        <section className="dialogue-editor-main">
+          {!hasGameDirectory ? (
+            <div className="dialogue-editor-directory-notice">
+              <FolderX className="dialogue-editor-directory-notice-icon" />
+              <div>
+                <p className="dialogue-editor-directory-notice-title">{copy.noGameDirectoryTitle}</p>
+                <p className="dialogue-editor-directory-notice-hint">{copy.noGameDirectoryHint}</p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="dialogue-editor-main-head">
+            <p className="dialogue-editor-main-title">{copy.entriesTitle}</p>
+            <p className={cx('dialogue-editor-main-status', vanillaError && 'dialogue-editor-error')}>{statusText}</p>
+          </div>
+
+          <div className="dialogue-editor-entry-list custom-scrollbar">
+            {entries.length === 0 && !vanillaLoading ? (
+              <EmptyStateCard
+                density="compact"
+                title={copy.entriesEmptyTitle}
+                detail={copy.entriesEmptyHint}
+                primaryAction={
+                  <button type="button" className="control-button control-button-primary" onClick={openNewEntry} disabled={!activeNpcId}>
+                    <Plus className="dialogue-editor-action-icon" />
+                    {copy.newEntryAction}
+                  </button>
+                }
+              />
+            ) : (
+              <DialogueEntryTree workspace={workspace} />
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}

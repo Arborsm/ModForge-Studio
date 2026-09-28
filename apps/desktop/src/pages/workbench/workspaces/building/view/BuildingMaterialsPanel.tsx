@@ -1,15 +1,17 @@
 import { getSpringObjectsSourceRect } from '@entities/event'
-import { buildAbsoluteSpriteLayerStyle } from './buildingViewHelpers'
 import { formatPoint } from '@shared/infra/game-formats/geometryFormatting'
 import { useBuildingsCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
-import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/api'
+import {
+  buildAbsoluteSpriteLayerStyle,
+  type BuildingTextureAssetState,
+  type BuildingWorkspaceEntry,
+  type WorldBuildingEntrance,
+} from '@entities/building'
 
 export type BuildingMaterialsPanelProps = {
   building: BuildingWorkspaceEntry
   springObjectsState: BuildingTextureAssetState
-  copy: BuildingsPanelCopy
 }
 
 function MaterialChip({
@@ -48,11 +50,11 @@ function MaterialChip({
             }}
           />
         ) : (
-          <span className="text-[0.625rem] font-semibold text-(--text-secondary) uppercase">{label.slice(0, 1)}</span>
+          <span className="text-text-secondary text-caption font-semibold uppercase">{label.slice(0, 1)}</span>
         )}
       </div>
-      <span className="max-w-24 truncate text-xs font-semibold text-(--text-primary)">{label}</span>
-      <span className="font-mono text-xs font-bold text-(--text-primary)">×{amount}</span>
+      <span className="text-text-primary max-w-24 truncate text-xs font-semibold">{label}</span>
+      <span className="text-text-primary font-mono text-xs font-bold">×{amount}</span>
     </div>
   )
 }
@@ -63,10 +65,10 @@ function WorldEntranceRow({ entrance }: { entrance: WorldBuildingEntrance }) {
     <div className="building-workspace-material-row items-start">
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="truncate text-sm font-semibold text-(--text-primary)">{entrance.sourceMapName}</p>
+          <p className="text-text-primary truncate text-sm font-semibold">{entrance.sourceMapName}</p>
           <span className="dock-chip shrink-0">{entrance.trigger}</span>
         </div>
-        <p className="mt-0.5 text-xs text-(--text-secondary)">
+        <p className="text-text-secondary mt-0.5 text-xs">
           {copy.sourceTileLabel} {formatPoint(entrance.sourceTile, copy.noneLabel)} → {copy.targetTileLabel}{' '}
           {formatPoint(entrance.targetTile, copy.noneLabel)}
         </p>
@@ -80,6 +82,7 @@ function WorldEntranceRow({ entrance }: { entrance: WorldBuildingEntrance }) {
  * Returns null when empty (no empty-state placeholder).
  */
 export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
+  const copy = useBuildingsCopy()
   const isConstructible = props.building.sourceKind === 'constructible'
 
   if (isConstructible) {
@@ -88,7 +91,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
     }
     return (
       <div>
-        <p className="building-workspace-section-title mb-1.5">{props.copy.materialsTitle}</p>
+        <p className="building-workspace-section-title mb-1.5">{copy.materialsTitle}</p>
         <div className="flex flex-wrap gap-2">
           {props.building.buildMaterials.map((material) => (
             <MaterialChip
@@ -110,7 +113,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
 
   return (
     <div>
-      <p className="building-workspace-section-title mb-1.5">{props.copy.worldEntrancesTitle}</p>
+      <p className="building-workspace-section-title mb-1.5">{copy.worldEntrancesTitle}</p>
       <div>
         {props.building.worldEntrances.map((entrance, index) => (
           <WorldEntranceRow key={`${props.building.key}:${index}`} entrance={entrance} />

@@ -1,3 +1,8 @@
+/**
+ * @file Desktop host facade for window management (minimize, maximize, fullscreen, close, tray, close-request listener).
+ * @module platform/host/window
+ */
+
 import { canUseDesktopHost, getPlatformPorts } from './runtime'
 
 /** Minimizes the current desktop window when running inside Tauri. */
@@ -54,15 +59,6 @@ export async function toggleFullscreenCurrentWindow() {
   return getPlatformPorts().desktopWindow.toggleFullscreen()
 }
 
-/** Closes the current desktop window when running inside Tauri. */
-export async function closeCurrentWindow() {
-  if (!canUseDesktopHost()) {
-    return
-  }
-
-  await getPlatformPorts().desktopWindow.close()
-}
-
 /** Closes the current desktop window without re-emitting a host close request. */
 export async function forceCloseCurrentWindow() {
   if (!canUseDesktopHost()) {
@@ -70,24 +66,6 @@ export async function forceCloseCurrentWindow() {
   }
 
   await getPlatformPorts().desktopWindow.forceClose()
-}
-
-/** Hides the current desktop window to the background without exiting the app. */
-export async function hideCurrentWindow() {
-  if (!canUseDesktopHost()) {
-    return
-  }
-
-  await getPlatformPorts().desktopWindow.hide()
-}
-
-/** Shows and focuses the current desktop window after it was hidden. */
-export async function showCurrentWindow() {
-  if (!canUseDesktopHost()) {
-    return
-  }
-
-  await getPlatformPorts().desktopWindow.show()
 }
 
 /** Hides the current desktop window so it can be restored from the system tray. */

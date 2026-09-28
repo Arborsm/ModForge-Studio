@@ -16,6 +16,7 @@ export type WorkbenchShellCopy = {
   localeShort: Record<LocaleCode, string>
   statusTone: Record<WorkspaceTone, string>
   controls: {
+    back: string
     toggleTheme: string
     toggleLocale: string
     browse: string
@@ -71,6 +72,22 @@ export type WorkbenchShellCopy = {
     hideGameWorldAdditions: string
     showGrid: string
     hideGrid: string
+    lightingPreview: string
+    lightingDay: string
+    lightingDusk: string
+    /** Winter dusk variant in the lighting pill's mini menu. */
+    lightingDuskWinter: string
+    /** Non-winter dusk RGB disambiguation subtitle (255,255,0). */
+    lightingDuskSub: string
+    /** Winter dusk RGB disambiguation subtitle (warm 245,225,170). */
+    lightingDuskWinterSub: string
+    /** Disabled-state title for the dusk segment indoors. */
+    lightingDuskIndoorHint: string
+    lightingNight: string
+    /** Pill title: what the preview shows for outdoor vs indoor maps. */
+    lightingPreviewHint: string
+    /** Tooltip explaining the world atlas concept (multiple maps stitched together). */
+    worldAtlasConceptHint: string
     moduleWorkspace: string
     moduleWorkspaceDisabled: string
     moduleCanvas: string
@@ -137,8 +154,8 @@ export type WorkbenchShellCopy = {
     pendingExportDetail: string
     pendingExportEmptyTitle: string
     pendingExportEmptyDescription: string
-    conflictCount: (count: number) => string
-    conflictMetric: string
+    errorMetric: string
+    warningMetric: string
     conflictDetail: string
     conflictEmptyTitle: string
     conflictEmptyDescription: string
@@ -301,6 +318,7 @@ export type WorkbenchShellCopy = {
     workbenchModuleRetry: string
     onlyTmxSupported: string
     directorySelectionFailed: string
+    knownDirectoriesLoadFailed: string
     loadedMapAssets: (count: number, format: string) => string
     loadedMapAssetsWithActiveMap: (count: number, format: string, mapName: string) => string
   }

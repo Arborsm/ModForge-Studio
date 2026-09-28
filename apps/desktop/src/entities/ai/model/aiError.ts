@@ -1,3 +1,7 @@
+/**
+ * @file Parses and classifies AI command error envelopes for inline UI surfacing and transient-failure detection.
+ * @module entities/ai
+ */
 import type { AiErrorCode } from '@shared/contracts'
 
 const AI_ERROR_PATTERN = /AI_ERROR::([a-z-]+)::([\s\S]*)/
@@ -32,4 +36,15 @@ export function parseAiFailure(cause: unknown): AiFailure {
     return { code: 'unknown', detail: message }
   }
   return { code, detail: match[2].trim() }
+}
+
+/**
+ * True for provider failures that are transient at the level of a single batch:
+ * a timed-out or unreachable request may succeed when retried later, so a
+ * multi-batch job can degrade per batch instead of failing wholesale. Deterministic
+ * failures (authentication, model, rate-limit, validation, cancellation) are not
+ * transient because retrying the remaining batches would repeat the same error.
+ */
+export function isTransientAiFailure(failure: AiFailure): boolean {
+  return failure.code === 'timeout' || failure.code === 'network'
 }

@@ -21,7 +21,7 @@ const guides: GuidesCopy = {
         },
         'nav-tabs': {
           title: 'Page navigation',
-          description: 'Switch between Library, Discover, Updates, and Configuration. Badges highlight pending updates and downloads.',
+          description: 'Switch between Library, Discover, Updates, and Diagnostics. Badges highlight pending updates and downloads.',
         },
         'library-toolbar': {
           title: 'Search and view',
@@ -81,10 +81,10 @@ const guides: GuidesCopy = {
       },
     },
     'launcher-configuration': {
-      title: 'Launcher Configuration',
+      title: 'Launcher Diagnostics',
       steps: {
         welcome: {
-          title: 'Configure the launcher',
+          title: 'Diagnose the launcher',
           description: 'Game paths, your Nexus account, and diagnostics are all maintained here.',
         },
         'config-game': {
@@ -135,6 +135,42 @@ const guides: GuidesCopy = {
         'translation-knowledge': {
           title: 'Knowledge and corpus',
           description: 'Capture terminology and proven translations so every new translation reuses your previous work.',
+        },
+      },
+    },
+    'workbench-map': {
+      title: 'Map Editor',
+      steps: {
+        welcome: {
+          title: 'Map Editor',
+          description:
+            'Edit Stardew Valley maps: paint tiles, add warps and doors, manage layers, and export changes as Content Patcher patches or direct map assets.',
+        },
+        'map-catalog-card': {
+          title: 'Choose a game map',
+          description: 'Click a map card to create a patch, or use "Import & edit file" to edit the map file directly.',
+        },
+        'map-layer-list': {
+          title: 'Select a layer',
+          description: 'Maps are composed of layers (Back, Buildings, Front, etc.). Pick the layer you want to paint on.',
+        },
+        'map-tileset-palette': {
+          title: 'Pick a tile',
+          description: 'Open the palette tab and select a tile or tile region from the tilesheet to use as your brush.',
+        },
+        'map-canvas': {
+          title: 'Paint on the canvas',
+          description:
+            'Drag on the canvas to paint with the selected tile. Use the tool rail to switch between brush, fill, erase, and more.',
+        },
+        'map-inspector-map': {
+          title: 'Add warps and doors',
+          description:
+            'The Inspector > Content tab manages warps, doors and day/night swaps. Use Add, then pick the cell right inside the dialog. Music and ambient light live in the editor top bar.',
+        },
+        'map-save-button': {
+          title: 'Save your changes',
+          description: 'Press Ctrl+S or click the save button to write changes back to the patch or map asset.',
         },
       },
     },

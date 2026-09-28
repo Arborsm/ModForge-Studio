@@ -20,6 +20,7 @@ export type GuideId =
   | 'launcher-configuration'
   | 'workbench-home'
   | 'workbench-translation'
+  | 'workbench-map'
 
 export type GuidesCopy = {
   controls: {

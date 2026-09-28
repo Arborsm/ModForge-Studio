@@ -1,28 +1,47 @@
+/**
+ * @file Map viewport helper functions: tile image loading, tile flag handling,
+ * color conversion, and rasterization utilities shared across viewport components.
+ */
+
 import {
   FLIPPED_DIAGONALLY_FLAG,
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
   findTilesetForGid,
   stripTileGidFlags,
+  unwrapMapPropertyValue,
 } from '@entities/map'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
+import { appEvent, reportRecovered } from '@platform/observability'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '@shared/lib/maps'
 import { clampPanZoomZoom } from '@shared/lib/viewports'
 import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { HoverObjectInfo, TileHoverInfo } from '@entities/map'
-import type { MapAtlasPoint, MapAtlasPortal, MapAtlasWarpRoute, MapDocument, MapObject, MapTileset } from '@entities/map'
+import type {
+  MapAtlasPoint,
+  MapAtlasPortal,
+  MapAtlasWarpRoute,
+  MapDocument,
+  MapObject,
+  MapTileset,
+  MapTilesetAnimationFrame,
+} from '@entities/map'
 import type { LoadedTilesetImage } from './mapViewportTypes'
+import type { MapContentBounds } from '../lib/mapContentBounds'
 
 export const VIEWPORT_PADDING = 56
 export const VIEWPORT_OVERPAN = 160
 const MAX_RENDER_CANVAS_DIMENSION = 4096
 const MAX_RENDER_CANVAS_AREA = 16_777_216
+const TRANSPARENT_TILE_ALPHA_THRESHOLD = 0
+const transparentTileIdCache = new WeakMap<HTMLImageElement, Map<string, ReadonlySet<number> | null>>()
+
 export function clampZoom(value: number) {
   return clampPanZoomZoom(value)
 }
 
 function getNumericMapProperty(mapDocument: MapDocument, key: string) {
-  const value = mapDocument.properties[key]
+  const value = unwrapMapPropertyValue(mapDocument.properties[key])
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
   }
@@ -35,6 +54,156 @@ function getNumericMapProperty(mapDocument: MapDocument, key: string) {
   }
 
   return null
+}
+
+function getLoadedImageSize(image: HTMLImageElement, tileset: MapTileset) {
+  const width = tileset.imageWidth ?? (image.naturalWidth > 0 ? image.naturalWidth : image.width)
+  const height = tileset.imageHeight ?? (image.naturalHeight > 0 ? image.naturalHeight : image.height)
+  return { width, height }
+}
+
+function hasVisibleAlphaPixel(data: Uint8ClampedArray, imageWidth: number, left: number, top: number, width: number, height: number) {
+  for (let y = top; y < top + height; y += 1) {
+    for (let x = left; x < left + width; x += 1) {
+      if (data[(y * imageWidth + x) * 4 + 3] > TRANSPARENT_TILE_ALPHA_THRESHOLD) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+function includeRasterPixelBounds(
+  current: { left: number; top: number; right: number; bottom: number } | null,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+) {
+  if (!current) {
+    return { left, top, right, bottom }
+  }
+
+  return {
+    left: Math.min(current.left, left),
+    top: Math.min(current.top, top),
+    right: Math.max(current.right, right),
+    bottom: Math.max(current.bottom, bottom),
+  }
+}
+
+export function getRasterAlphaBounds(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context || canvas.width <= 0 || canvas.height <= 0) {
+    return null
+  }
+
+  try {
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+    let bounds: { left: number; top: number; right: number; bottom: number } | null = null
+
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        if (data[(y * canvas.width + x) * 4 + 3] <= TRANSPARENT_TILE_ALPHA_THRESHOLD) {
+          continue
+        }
+        bounds = includeRasterPixelBounds(bounds, x, y, x + 1, y + 1)
+      }
+    }
+
+    return bounds
+      ? {
+          x: bounds.left,
+          y: bounds.top,
+          width: bounds.right - bounds.left,
+          height: bounds.bottom - bounds.top,
+        }
+      : null
+  } catch (error) {
+    reportRecovered(error, 'map-viewport.compute-raster-bounds')
+    return null
+  }
+}
+
+function getTransparentTileIds(loadedTileset: LoadedTilesetImage): ReadonlySet<number> | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const { image, tileset } = loadedTileset
+  const { width: imageWidth, height: imageHeight } = getLoadedImageSize(image, tileset)
+  if (imageWidth <= 0 || imageHeight <= 0 || tileset.tileWidth <= 0 || tileset.tileHeight <= 0 || tileset.columns <= 0) {
+    return null
+  }
+
+  const cacheKey = [tileset.name, tileset.tileWidth, tileset.tileHeight, tileset.tileCount, tileset.columns, imageWidth, imageHeight].join(
+    ':',
+  )
+  const cachedForImage = transparentTileIdCache.get(image)
+  if (cachedForImage?.has(cacheKey)) {
+    return cachedForImage.get(cacheKey) ?? null
+  }
+
+  const nextCacheForImage = cachedForImage ?? new Map<string, ReadonlySet<number> | null>()
+  transparentTileIdCache.set(image, nextCacheForImage)
+
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = imageWidth
+    canvas.height = imageHeight
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) {
+      nextCacheForImage.set(cacheKey, null)
+      return null
+    }
+
+    context.clearRect(0, 0, imageWidth, imageHeight)
+    context.drawImage(image, 0, 0, imageWidth, imageHeight)
+    const data = context.getImageData(0, 0, imageWidth, imageHeight).data
+    const transparentTileIds = new Set<number>()
+
+    for (let tileId = 0; tileId < tileset.tileCount; tileId += 1) {
+      const sourceX = (tileId % tileset.columns) * tileset.tileWidth
+      const sourceY = Math.floor(tileId / tileset.columns) * tileset.tileHeight
+      const isInsideImage =
+        sourceX >= 0 && sourceY >= 0 && sourceX + tileset.tileWidth <= imageWidth && sourceY + tileset.tileHeight <= imageHeight
+      if (!isInsideImage || !hasVisibleAlphaPixel(data, imageWidth, sourceX, sourceY, tileset.tileWidth, tileset.tileHeight)) {
+        transparentTileIds.add(tileId)
+      }
+    }
+
+    nextCacheForImage.set(cacheKey, transparentTileIds)
+    return transparentTileIds
+  } catch (error) {
+    nextCacheForImage.set(cacheKey, null)
+    reportRecovered(error, 'map-viewport.compute-transparent-tiles')
+    return null
+  }
+}
+
+export function getTransparentTileGids(tilesets: MapTileset[], tilesetImages: Record<number, LoadedTilesetImage>) {
+  let inspectedTilesets = 0
+  const transparentTileGids = new Set<number>()
+
+  for (const tileset of tilesets) {
+    const loadedTileset = tilesetImages[tileset.firstGid]
+    if (!loadedTileset) {
+      continue
+    }
+
+    const transparentTileIds = getTransparentTileIds(loadedTileset)
+    if (!transparentTileIds) {
+      continue
+    }
+
+    inspectedTilesets += 1
+    for (const tileId of transparentTileIds) {
+      transparentTileGids.add(tileset.firstGid + tileId)
+    }
+  }
+
+  return inspectedTilesets > 0 ? transparentTileGids : null
 }
 
 export function getDefaultViewportState(mapDocument: MapDocument | null) {
@@ -150,8 +319,13 @@ export function loadImage(path: string, locale: LocaleCode, errorFactory: (path:
         imagePromiseCache.delete(cacheKey)
         resolve(resource.image)
       })
-      .catch(() => {
+      .catch((error) => {
         imagePromiseCache.delete(cacheKey)
+        appEvent('warning', 'Failed to load map image resource')
+          .error(error)
+          .context({ source: 'map-viewport-helpers', operation: 'load-image-resource', path })
+          .dedupe(`map-image-resource:${path}`)
+          .emit({ notify: false })
         reject(new Error(errorFactory(path)))
       })
   })
@@ -355,6 +529,46 @@ export function getObjectBounds(object: MapObject, minimumWorldSize: number) {
   return { x, y, width, height, isPoint }
 }
 
+/**
+ * Returns the topmost visible object hit at a world point, or null.
+ * Hit order matches painting order: later groups and later objects within a
+ * group take precedence over earlier ones. An optional `skipObject` predicate
+ * rejects objects from hit-testing (e.g. canvas-hidden TileData rule objects).
+ */
+export function hitTestMapObject(
+  mapDocument: MapDocument,
+  visibleObjectGroupIds: ReadonlySet<number>,
+  worldX: number,
+  worldY: number,
+  options?: { skipObject?: (object: MapObject) => boolean },
+): MapObject | null {
+  const minimumWorldSize = 12
+  let hit: MapObject | null = null
+
+  for (const group of mapDocument.objectGroups) {
+    if (!group.visible || !visibleObjectGroupIds.has(group.id)) {
+      continue
+    }
+
+    for (const object of group.objects) {
+      if (options?.skipObject?.(object)) {
+        continue
+      }
+
+      const bounds = getObjectBounds(object, minimumWorldSize)
+      const withinX = worldX >= bounds.x && worldX <= bounds.x + bounds.width
+      const withinY = worldY >= bounds.y && worldY <= bounds.y + bounds.height
+      if (!withinX || !withinY) {
+        continue
+      }
+
+      hit = object
+    }
+  }
+
+  return hit
+}
+
 function collectHoveredObjects(mapDocument: MapDocument, visibleObjectGroupIds: ReadonlySet<number>, pixelX: number, pixelY: number) {
   const minimumWorldSize = 12
   const hits: HoverObjectInfo[] = []
@@ -445,26 +659,53 @@ export function buildHoverInfo(
   } satisfies TileHoverInfo
 }
 
+/** Picks the current animation frame tileId for a given elapsed time. */
+function resolveAnimationFrame(frames: MapTilesetAnimationFrame[], time: number): number {
+  if (frames.length === 1) return frames[0]!.tileId
+  const totalDuration = frames.reduce((sum, frame) => sum + Math.max(1, frame.duration), 0)
+  let elapsed = time % totalDuration
+  for (const frame of frames) {
+    const duration = Math.max(1, frame.duration)
+    if (elapsed < duration) return frame.tileId
+    elapsed -= duration
+  }
+  return frames[frames.length - 1]!.tileId
+}
+
 export function rasterizeTileLayers(
   targetCanvas: HTMLCanvasElement,
   mapDocument: MapDocument,
   layers: MapDocument['layers'],
   tilesets: MapTileset[],
   tilesetImages: Record<number, LoadedTilesetImage>,
+  options: {
+    sourceBounds?: MapContentBounds
+    targetWidth?: number
+    targetHeight?: number
+    /** Current animation clock in milliseconds; used to pick the current frame of animated tiles. */
+    animationTime?: number
+  } = {},
 ) {
   const rasterContext = targetCanvas.getContext('2d')
   if (!rasterContext) {
     return false
   }
 
-  const rasterWidth = Math.max(1, mapDocument.width * mapDocument.tileWidth)
-  const rasterHeight = Math.max(1, mapDocument.height * mapDocument.tileHeight)
+  const fullWidth = Math.max(1, mapDocument.width * mapDocument.tileWidth)
+  const fullHeight = Math.max(1, mapDocument.height * mapDocument.tileHeight)
+  const sourceBounds = options.sourceBounds ?? { x: 0, y: 0, width: fullWidth, height: fullHeight }
+  const rasterWidth = Math.max(1, Math.round(options.targetWidth ?? fullWidth))
+  const rasterHeight = Math.max(1, Math.round(options.targetHeight ?? fullHeight))
   targetCanvas.width = rasterWidth
   targetCanvas.height = rasterHeight
 
   rasterContext.setTransform(1, 0, 0, 1, 0, 0)
   rasterContext.clearRect(0, 0, rasterWidth, rasterHeight)
   rasterContext.imageSmoothingEnabled = false
+  const scale = Math.min(rasterWidth / sourceBounds.width, rasterHeight / sourceBounds.height)
+  const offsetX = (rasterWidth - sourceBounds.width * scale) / 2 - sourceBounds.x * scale
+  const offsetY = (rasterHeight - sourceBounds.height * scale) / 2 - sourceBounds.y * scale
+  rasterContext.setTransform(scale, 0, 0, scale, offsetX, offsetY)
 
   for (const layer of layers) {
     rasterContext.globalAlpha = layer.opacity
@@ -487,8 +728,12 @@ export function rasterizeTileLayers(
       }
 
       const tileId = gid - tileset.firstGid
-      const sourceX = (tileId % tileset.columns) * tileset.tileWidth
-      const sourceY = Math.floor(tileId / tileset.columns) * tileset.tileHeight
+      // Resolve animated tile: pick the current frame based on the animation clock.
+      const frames = tileset.animations[tileId]
+      const effectiveTileId =
+        frames && frames.length > 0 && options.animationTime != null ? resolveAnimationFrame(frames, options.animationTime) : tileId
+      const sourceX = (effectiveTileId % tileset.columns) * tileset.tileWidth
+      const sourceY = Math.floor(effectiveTileId / tileset.columns) * tileset.tileHeight
       const destinationX = (index % layer.width) * mapDocument.tileWidth + layer.offsetX
       const destinationY = Math.floor(index / layer.width) * mapDocument.tileHeight + layer.offsetY
 
@@ -537,5 +782,6 @@ export function rasterizeTileLayers(
   }
 
   rasterContext.globalAlpha = 1
+  rasterContext.setTransform(1, 0, 0, 1, 0, 0)
   return true
 }

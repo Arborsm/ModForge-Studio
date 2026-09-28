@@ -12,7 +12,7 @@ The frontend architecture is suitable for a complex desktop workbench:
 
 ## Target Layers
 
-The durable frontend layers are `app`, `pages`, `widgets`, `features`, `entities`, `shared`, and `platform`. Do not use this document as a file map: project structure is indexed by CodeGraph, and concrete paths should be discovered with `codegraph_files`, `codegraph_context`, and `codegraph_search`.
+The durable frontend layers are `app`, `pages`, `widgets`, `features`, `entities`, `shared`, `platform`, and `locales`. The `locales` layer owns the typed copy bundles: all UI copy must come from typed locale keys instead of inline strings. (`src/dev` hosts development-only experiment pages and is not a durable layer.) Do not use this document as a file map: project structure is indexed by CodeGraph, and concrete paths should be discovered with `codegraph_files`, `codegraph_context`, and `codegraph_search`.
 
 Target dependency direction:
 
@@ -42,7 +42,7 @@ Rules:
 
 - `app` may import all lower layers.
 - `app` should not contain feature business logic.
-- `app/registry-setup.ts` is the only place that creates the static registry instance.
+- `app/registry-setup.ts` is the single static composition point that wires all registration objects into one registry instance. The factory itself (`createAppRegistry`) and the workbench module validation (`validateWorkbenchModules`) live in `app/registry.ts`.
 - `app` is the right home for app-level orchestration hooks that translate events into commands; do not create a dedicated `processes` layer.
 
 ### pages
@@ -84,6 +84,10 @@ Rules:
 Examples:
 
 - `cp-maker`
+- `launcher`
+- `guide`
+- `resource-browser` (shared resource picker + project asset library)
+- `translation-editor`
 - concrete patch editors
 - import/export flows
 - feature-specific command palettes or builders
@@ -96,7 +100,7 @@ Rules:
 
 ### entities
 
-`entities` are headless domain modules.
+`entities` are domain modules centered on model and api code. An entity may also carry its own domain rendering components under `entities/*/ui` (for example `entities/asset-schema/ui/AssetFieldRenderer.tsx` and `visualControls.tsx`); those components render domain data but the import restrictions below still apply to them.
 
 Examples:
 
@@ -106,6 +110,11 @@ Examples:
 - `entities/building`
 - `entities/item`
 - `entities/mod`
+- `entities/ai`
+- `entities/asset-schema`
+- `entities/content-patcher`
+- `entities/dialogue`
+- `entities/localization`
 
 Responsibilities:
 
@@ -136,7 +145,7 @@ Responsibilities:
 - `shared/ui`: pure UI primitives.
 - `shared/lib`: pure helpers and generic hooks.
 - `shared/infra`: game-format and asset-format parsing helpers that do not call host adapters.
-- `shared/types`: cross-domain types that are not contracts.
+- `shared/workspace`: pure layout geometry and sizing logic for the workspace (`layoutConstants`, `layoutGeometry`, `layoutSizing`, `layoutState`).
 
 Rules:
 
@@ -156,7 +165,7 @@ Responsibilities:
 - File system, dialog, window, storage, and shell ports.
 - Desktop host feature detection.
 - Host bridge helpers under `platform/host`.
-- Host command constants, `HostCommandClient`, task runtime, and frontend observability adapters.
+- Generated host command constants (`platform/host-commands`, produced by `apps/desktop/scripts/gen/generate-host-commands.mjs`; never edit by hand), `HostCommandClient`, and frontend observability adapters. The shared task runtime itself lives in `shared/lib/task-runtime.ts` and is imported by `HostCommandClient`.
 
 Rules:
 
@@ -169,13 +178,15 @@ Rules:
 
 ## Registry
 
-Use a static registry, not runtime self-registration.
+Use a static registry, not runtime self-registration. The registry drives the workbench module system.
 
 Rules:
 
-- Registry interfaces live in `shared/contracts/registry.ts`.
-- Feature/widget modules export registration objects.
-- `app/registry-setup.ts` imports those objects and builds the registry instance.
+- Registry interfaces live in `shared/contracts/registry.ts`. `WorkbenchModuleRegistration` carries `navigation: { section, order, icon, labelKey }`, `presentation: 'browser' | 'authoring' | 'standalone'`, `projectAccess: 'none' | 'read' | 'write'`, a lazy `createRuntime` factory, and a `persistenceKey`.
+- Workbench navigation is grouped into five sections: `browse`, `authoring`, `translation`, `tools`, and `development`.
+- Registrations are centralized in `pages/workbench/module-registrations.ts` (roughly 25 modules) and composed statically in `app/registry-setup.ts`; dev-only modules are included conditionally via `import.meta.env.DEV`.
+- `createAppRegistry` in `app/registry.ts` validates invariants when the registry is built: no duplicate module ids or `persistenceKey`s, `browser` modules cannot request `write` project access, and navigation sections are limited to the section whitelist.
+- Runtime hosts live under `pages/workbench/ui/module-runtimes/`. All modules with the `authoring` presentation share a single shell in `AuthoringRuntime`, which mounts the expert mode UI (`ExpertPanel` and `ExpertModeButton` from `features/cp-maker`) and visual editing controls from `entities/asset-schema/ui`.
 - `WorkbenchPage` and view hosts consume the registry result.
 - Shell code should not import concrete workspace views just to switch on route strings.
 
@@ -194,11 +205,11 @@ The product guide layer is a global overlay like the notification and dialog lay
 - Steps that point at collapsible UI (pack drawer, mod detail drawer) stay decoupled through `shared/lib/guide-tour-events.ts`: the overlay announces each activated step on `window`, and pages listening for their anchor ids reveal the referenced UI. The overlay also scrolls anchors into view and tracks the anchor rect until layout settles.
 - The settings window hosts the replay entry (per-guide replay + reset all) and is the only place besides the overlay that calls the engine directly.
 
-## Workbench shell composition (target)
+## Workbench shell composition
 
-Workbench chrome is migrating to a left-nav + project-titlebar shell. Product intent and PR slices live in `docs/design/workbench-shell-migration.md`; visual/IA rules live in `docs/design/page-design-spec.md` §0.
+Workbench chrome uses a left-nav + project-titlebar shell. Product intent and PR slices live in `docs/design/workbench-authoring-rework.md`; visual/IA rules live in `docs/design/page-design-spec.md` §0.
 
-Architecture implications while landing that shell:
+Architecture implications of that shell:
 
 - Put expandable side navigation and shell layout grids in `widgets/` (e.g. workbench-shell), not in feature modules.
 - Keep `pages/workbench` as route/mode orchestration (`home` vs `workspace`, browse/preview vs edit) and panel host composition.
@@ -208,24 +219,55 @@ Architecture implications while landing that shell:
 
 ## Event + Command
 
-Cross-feature communication uses two channels:
+The old typed event bus (`shared/contracts/events.ts`, `app/providers/appEventBus.ts`,
+`workbenchOrchestration.ts`) and the pending-intent chain were removed in the codebase
+hygiene overhaul: every event flow had zero or one subscriber, and the bus duplicated
+what stores and direct calls already express. Cross-module communication now converges
+on exactly two idioms — do not invent a third one:
 
-- Events describe what happened.
-- Commands describe what should be done.
-
-Example flow:
-
-1. `cp-maker` emits `CpMakerAssetSelected`.
-2. `app/providers/workbenchOrchestration` listens to that event.
-3. The process dispatches `OpenWorkspaceAsset`.
-4. Workbench command handling changes workspace, opens the asset, and focuses the correct view.
+| Semantics                                                    | Mechanism                                                                                |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| State / one-shot signal                                      | zustand store (`shared/lib/app-state` or a domain store, registered in G3-R3)            |
+| Request across a boundary where direct calls are not allowed | `appCommands` singleton (`shared/lib/app-runtime/appCommands.ts`, typed union contracts) |
 
 Rules:
 
 - Feature A must not import Feature B.
-- Features may emit typed events.
-- App-level orchestration hooks translate events into commands.
-- Commands are handled by app/page orchestration, not by random leaf components.
+- No new `modforge:*` CustomEvent bridges: the G3-R2 whitelist is empty and enforced.
+- `appCommands.dispatch` is fire-and-forget; handlers register at AppShell mount and the
+  union only contains commands with a real end-to-end flow.
+
+## State Stores
+
+`AppUiState` (`shared/lib/app-state/appUiState.ts`) is the single persistence authority:
+an in-memory snapshot plus a serialized patch queue behind a pluggable persistence
+adapter. It is intentionally non-reactive — reactive reads go through zustand stores.
+
+State falls into four categories:
+
+| Category          | Meaning                                                            | Persistence                    | Examples                                                                  |
+| ----------------- | ------------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------- |
+| Global preference | User preferences spanning the whole app (theme, locale, switches)  | AppUiState sections            | `preferencesStore.ts` (the primary preference store)                      |
+| Workspace persist | Durable per-workspace user data                                    | AppUiState sections            | `playerAppearanceStore.ts`                                                |
+| Module session    | Ephemeral state of one editor/module session                       | none (or module-owned storage) | `editModeStore.ts`, `undoStack.ts`, event-workflow `editorStore.ts`       |
+| Domain runtime    | Long-lived runtime state of a domain (plugins, guide engine, etc.) | domain-owned                   | `compatPluginStore.ts`, `guideEngine.ts`, `pluginConditionSyntaxStore.ts` |
+
+Supplementary registered mechanisms: cross-module handoff stores (`authoringHandoff.ts`,
+`assetLibraryFocusStore.ts`), one-shot signals
+(`launcherOverlayDismissStore.ts` epoch), and the app runtime registry
+(`workbenchRegistryStore.ts`).
+
+Rules:
+
+- Every direct `zustand` import must be registered in the G3-R3 table
+  (`tests/architecture/asyncOwnership.test.ts`) with its category annotation.
+- Global preferences live in `preferencesStore` only: no per-preference providers and no
+  component-level `useState` mirroring of persisted values. Preference setters update the
+  store and persist via `applyAppUiStatePatch` in the same action.
+- Stores that persist to AppUiState hydrate once (idempotent `hydrate` action) and persist
+  inside mutation actions; do not build hydration/save bidirectional sync effects.
+- Domain stores must not import `platform`; error reporting stays at the layer that owns
+  the store (pages/features may use `appEvent`, shared falls back to `console.error`).
 
 ## Platform DI
 
@@ -273,6 +315,8 @@ Typical policy mapping:
 
 Backend command scheduling is documented as agent/backend rules in `AGENTS.md`; frontend architecture only owns how business code reaches the host and how UI state publication is scoped.
 
+**Policy layers are separate namespaces.** Frontend `HostCommandPolicy` governs the UI request lifecycle (in-flight dedup, stale-result gating, UI queueing, fan-out throttling) and its `parallelPool`/`resource`/`queue` keys are frontend-only throttle domains. The Rust binding independently declares execution scheduling (lane, execution pool, `HostCommandResource` locks, cancel/mutation semantics) inside `impl HostCommand` — see `AGENTS.md` backend rules. The two layers intentionally may differ (e.g. a read command may be UI-throttled through `parallelPool` while the backend runs it on the Io lane); they are not expected to mirror each other, and frontend pool keys are not backend resource locks. The host command generator verifies backend binding drift; frontend policy is reviewed through the architecture tests that scan `HostCommandClient` usage.
+
 ## Implementation Completeness
 
 Architecture boundaries are not a reason to ship hollow slices. Do not add placeholder UI, no-op commands, fake data, TODO flows, silent catches, or happy-path-only implementations just to satisfy a visible acceptance point.
@@ -298,7 +342,7 @@ Rules:
 
 - Prefer small, slice-level public APIs.
 - Avoid adding segment-level `index.ts` files inside already sliced areas unless the extra boundary is truly needed.
-- For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/types`) rather than creating one giant barrel.
+- For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/workspace`) rather than creating one giant barrel.
 - Keep `shared/infra` for game-format helpers and `platform/host` for host bridge helpers; do not re-export either through `shared/lib`.
 - If a project grows beyond one sensible root, split it into multiple packages or roots instead of accumulating more barrel layers.
 
@@ -322,6 +366,7 @@ CSS follows the same ownership model as the frontend layers. Global entry points
 Rules:
 
 - `apps/desktop/src/styles/index.css` is the single global style entry. Do not add another global entry point for convenience.
+- Inside `styles/index.css`, the root-level `tokens.css` and `base.css` are imported first, in that order, before the `primitives`, `workspace`, and `features` folders, so design tokens and base rules establish the cascade for everything that follows. The root-level `workbench.css` is a separate lazy aggregator for workbench-only styles: `AppShell` dynamically imports it when the workbench shell mounts instead of loading it through `index.css`.
 - Keep `primitives`, `workspace`, and `features` separated by responsibility. Do not duplicate selectors across those folders to patch ownership problems.
 - Keep individual CSS files below 1000 lines. When a file approaches that threshold, split it by stable UI regions such as shell, sidebar, card grid, dialog, details panel, lists, or responsive rules.
 - Preserve cascade order during a split. The original file should become a thin `@import` aggregator, and imported files should appear in the same order the rules previously appeared.
@@ -354,7 +399,7 @@ These tests are mandatory because documentation alone will not stop architectura
 
 Tests are centralized under `apps/desktop/src/tests/` and must not live next to source files.
 
-- `src/tests/unit/` — **pure-logic tests only**, arranged to mirror the source path they exercise. These are always `.ts` files (never `.tsx`/`.spec.tsx`): they do not render components or use `renderHook`, and they avoid assertions on CSS classes, inline styles, or DOM hierarchy. Cover parsers, data transformation, reducers, command routing, and headless state logic — the behavior TypeScript cannot check. For example, a test for `src/features/launcher/model/launcherLibraryDisplay.ts` belongs at `src/tests/unit/features/launcher/model/launcherLibraryDisplay.test.ts`.
+- `src/tests/unit/` — **pure-logic tests only**, arranged to mirror the source path they exercise. These are always `.ts` files (never `.tsx`/`.spec.tsx`): they do not render components or use `renderHook`, and they avoid assertions on CSS classes, inline styles, or DOM hierarchy. Cover parsers, data transformation, reducers, command routing, and headless state logic — the behavior TypeScript cannot check. For example, a test for `src/features/launcher/model/nexusDiagnostics.ts` belongs at `src/tests/unit/features/launcher/model/nexusDiagnostics.test.ts`.
 - `src/tests/architecture/` — architecture and repository-shape assertions, including dependency direction, style ownership, and code-splitting rules.
 - `src/tests/support/` — shared test infrastructure only: `setup.ts` (jsdom environment + matchers), `sourceScan.ts` (used by the architecture scanners), and type declarations. Consume these through the `@test/*` alias, which resolves to `src/tests/support`.
 

@@ -1,23 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
+/**
+ * @file Launcher page component: composes the top navigation, downloads popover, and launcher shell.
+ */
+import { useEffect, useState } from 'react'
+import { appEvent, reportRecovered } from '@platform/observability'
+import { listenToAndroidInAppBrowserDownload } from '@platform/android'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode } from '@locales/api'
-import { useEditorCopy } from '@locales/provider'
+import { useEditorCopy, useNotificationCopy } from '@locales/provider'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
 import { useLauncherImageFetchNotifications } from '@features/launcher/model/useLauncherImageFetchNotifications'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { useGameLogErrorWatch } from '@features/launcher/model/useGameLogErrorWatch'
+import type { SmapiLogError } from '@features/launcher/model/gameLogErrors'
+import {
+  clearNotifications,
+  dismissNotification,
+  markNotificationsSeen,
+  publishNotification,
+  NotificationCenter,
+  useNotificationLog,
+} from '@shared/ui/notifications'
+import { useLauncherOverlayDismissStore } from '@shared/lib/app-state'
 import type { LocaleCode } from '@locales'
 import type { LauncherDiscoverSearchRequest } from './model/launcherDiscoverSearchRequest'
+import { LauncherLogView } from './ui/LauncherLogDialog'
+import { MobilePageShell } from './ui/mobile/MobilePageShell'
+import { MobileBottomNav } from './ui/mobile/MobileBottomNav'
+import { useMobilePageStore } from './ui/mobile/mobilePageStore'
+import { LogAnalysisSheet } from './ui/mobile/LogAnalysisSheet'
 
 type LauncherPageProps = {
   page: LauncherPageId
   debugEnabled: boolean
   desktopHost: boolean
+  /** True when running inside the Android WebView launcher host; hides desktop-only surfaces. */
+  androidHost: boolean
   theme: ThemeMode
   locale: LocaleCode
   onToggleTheme: () => void
@@ -82,10 +104,12 @@ function navigateToGmcmDiagnostics(onLauncherPageChange: (page: LauncherPageId) 
   window.requestAnimationFrame(revealTarget)
 }
 
+/** Launcher page component: manages launch, downloads, GMCM detection notifications, and page routing. */
 export function LauncherPage({
   page,
   debugEnabled,
   desktopHost,
+  androidHost,
   theme,
   onToggleTheme,
   onAppModeChange,
@@ -100,15 +124,72 @@ export function LauncherPage({
   onLauncherDiagnosticsUpdate,
 }: LauncherPageProps) {
   const copy = useEditorCopy()
+  const notificationsCopy = useNotificationCopy()
+  const notificationLog = useNotificationLog()
+  const hasNotifications = notificationLog.length > 0
   const launcherRuntime = useLauncherRuntime()
   useLauncherImageFetchNotifications()
   useLauncherUpdateProgressNotifications()
+
+  // Android in-app browser: a file the user downloaded inside the overlay was
+  // fetched by the host — surface the outcome as a toast (which also lands in
+  // the notification center) on success or failure.
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+
+    return listenToAndroidInAppBrowserDownload((payload) => {
+      const noticeId = `android-in-app-download:${payload.fileName}`
+      if (payload.status === 'completed') {
+        appEvent(
+          'success',
+          payload.installed ? copy.launcher.downloads.inAppDownloadInstalledTitle : copy.launcher.downloads.inAppDownloadSavedTitle,
+        )
+          .description(
+            payload.installed
+              ? copy.launcher.downloads.inAppDownloadInstalledDetail(payload.fileName)
+              : copy.launcher.downloads.inAppDownloadSavedDetail(payload.fileName),
+          )
+          .noticeId(noticeId)
+          .context({ source: 'launcher-in-app-browser', operation: 'captured-download' })
+          .emit()
+        return
+      }
+
+      appEvent('error', copy.launcher.downloads.inAppDownloadFailedTitle)
+        .description(copy.launcher.downloads.inAppDownloadFailedDetail(payload.message ?? payload.fileName))
+        .noticeId(noticeId)
+        .context({ source: 'launcher-in-app-browser', operation: 'captured-download' })
+        .emit()
+    })
+  }, [androidHost, copy])
   const [launchBusy, setLaunchBusy] = useState(false)
   const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const [discoverSearchRequest, setDiscoverSearchRequest] = useState<LauncherDiscoverSearchRequest | null>(null)
+  const [logAnalysisErrors, setLogAnalysisErrors] = useState<SmapiLogError[] | null>(null)
+  const [logAnalysisSheetOpen, setLogAnalysisSheetOpen] = useState(false)
+  // Takeover launch finishes the launcher activity when the game starts, so a
+  // mount-time log diff sees exactly the session that just ended.
+  useGameLogErrorWatch({
+    androidHost,
+    onErrors: setLogAnalysisErrors,
+    onAnalyze: (errors) => {
+      setLogAnalysisErrors(errors)
+      setLogAnalysisSheetOpen(true)
+    },
+    onViewLogs: () => {
+      useMobilePageStore.getState().openPage('logs')
+    },
+  })
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
+  // Android host: downloads / notifications open as full-screen pages instead
+  // of titlebar floats; the shell never shows them at the same time.
+  const mobilePage = useMobilePageStore((state) => state.page)
+  const openMobilePage = useMobilePageStore((state) => state.openPage)
+  const closeMobilePage = useMobilePageStore((state) => state.closePage)
   const downloadsPopover = (
     <LauncherDownloadsPopover
       downloads={launcherRuntime.downloads}
@@ -117,9 +198,17 @@ export function LauncherPage({
       }}
     />
   )
+  const openLauncherUtilityPage = (utilityPage: 'downloads' | 'notifications') => {
+    useLauncherOverlayDismissStore.getState().requestLauncherOverlayDismiss()
+    if (utilityPage === 'notifications') {
+      markNotificationsSeen()
+    }
+    openMobilePage(utilityPage)
+  }
   useEffect(() => {
     if (
       !desktopHost ||
+      androidHost ||
       launcherRuntime.settingsState.state !== 'ready' ||
       launcherRuntime.settingsState.settings.gmcmParsingEnabled === false
     ) {
@@ -179,8 +268,9 @@ export function LauncherPage({
           autoDismissMs: null,
         })
       })
-      .catch(() => {
+      .catch((error) => {
         // Configuration page retry remains available if the startup probe itself cannot run.
+        reportRecovered(error, 'launcherPage.gmcmProbe')
       })
 
     return () => {
@@ -190,17 +280,21 @@ export function LauncherPage({
     copy.launcher.actions.viewDetails,
     copy.launcher.configuration,
     desktopHost,
+    androidHost,
     launcherPort,
     launcherRuntime.settingsState.settings.gmcmParsingEnabled,
     launcherRuntime.settingsState.state,
     onLauncherPageChange,
   ])
-  const handleLaunchGame = useCallback(async () => {
+  const handleLaunchGame = async () => {
     if (!desktopHost || launchBusy) {
       return
     }
 
-    if (!launcherRuntime.settingsState.settings.gamePath?.trim()) {
+    // The Android host discovers the game from its installed package, so the
+    // desktop game-path requirement does not apply there; native launch guards
+    // (game installed, version supported, SMAPI present) surface as command errors.
+    if (!androidHost && !launcherRuntime.settingsState.settings.gamePath?.trim()) {
       onOpenSettings('launcher')
       return
     }
@@ -215,44 +309,39 @@ export function LauncherPage({
       if (normalizedCode === 'missinggamepath' || normalizedMessage.includes('game path')) {
         onOpenSettings('launcher')
       }
-      publishNotification({
-        level: 'error',
-        title: copy.launcher.actions.launchFailed,
-        description: message,
-      })
+      appEvent('error', copy.launcher.actions.launchFailed)
+        .error(error)
+        .description(message)
+        .context({
+          source: 'launcher-page',
+          operation: 'launch game',
+        })
+        .emit()
     } finally {
       setLaunchBusy(false)
     }
-  }, [
-    copy.launcher.actions.launchFailed,
-    desktopHost,
-    launchBusy,
-    launcherPort,
-    launcherRuntime.settingsState.settings.gamePath,
-    onOpenSettings,
-  ])
+  }
 
-  const handleSearchDiscover = useCallback(
-    (query: string) => {
-      const normalizedQuery = query.trim()
-      if (!normalizedQuery) {
-        return
-      }
-      setDiscoverSearchRequest({ id: Date.now(), query: normalizedQuery })
-      onLauncherPageChange('discover')
-    },
-    [onLauncherPageChange],
-  )
+  const handleSearchDiscover = (query: string) => {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      return
+    }
+    setDiscoverSearchRequest({ id: Date.now(), query: normalizedQuery })
+    onLauncherPageChange('discover')
+  }
 
   return (
     <div className="flex h-full flex-col">
       <TopMenuBar
         appMode="launcher"
         onAppModeChange={onAppModeChange}
+        modeSwitchable={!androidHost}
+        androidHost={androidHost}
         theme={theme}
         onToggleTheme={onToggleTheme}
-        statusTone="idle"
         desktopHost={desktopHost}
+        windowControls={desktopHost && !androidHost}
         onMinimizeWindow={onMinimizeWindow}
         onToggleMaximizeWindow={onToggleMaximizeWindow}
         onCloseWindow={onCloseWindow}
@@ -266,8 +355,9 @@ export function LauncherPage({
           downloadsProgressPercent: launcherRuntime.downloads.downloadProgressPercent,
           downloadsHasFailure: launcherRuntime.downloadsHasFailure,
           settingsWarning: false,
-          settingsWarningLabel: '',
           downloadsPopover,
+          onOpenDownloads: androidHost ? () => openLauncherUtilityPage('downloads') : undefined,
+          onOpenNotifications: androidHost ? () => openLauncherUtilityPage('notifications') : undefined,
         }}
       />
 
@@ -276,6 +366,7 @@ export function LauncherPage({
           <LauncherShell
             page={activeLauncherPage}
             debugEnabled={debugEnabled}
+            androidHost={androidHost}
             onToggleDebugMode={onToggleDebugMode}
             onNavigateToDiagnostics={onNavigateToDiagnostics}
             onRetryDiagnostics={onRetryDiagnostics}
@@ -287,10 +378,52 @@ export function LauncherPage({
             onDownloadArchivesInstalled={launcherRuntime.downloads.markArchivesInstalled}
             onNavigateToSettings={() => onLauncherPageChange('configuration')}
             onSearchDiscover={handleSearchDiscover}
-            launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
             launchGameBusy={launchBusy}
             onLaunchGame={() => void handleLaunchGame()}
+          />
+          {mobilePage ? (
+            <MobilePageShell
+              title={
+                mobilePage === 'downloads'
+                  ? copy.launcher.downloads.title
+                  : mobilePage === 'logs'
+                    ? copy.launcher.configuration.logViewer.title
+                    : notificationsCopy.centerTitle
+              }
+              onClose={closeMobilePage}
+              action={
+                mobilePage === 'notifications' ? (
+                  <button type="button" className="mobile-page-head-action" onClick={clearNotifications} disabled={!hasNotifications}>
+                    {notificationsCopy.centerClearAll}
+                  </button>
+                ) : undefined
+              }
+            >
+              {mobilePage === 'downloads' ? (
+                downloadsPopover
+              ) : mobilePage === 'logs' ? (
+                <LauncherLogView active />
+              ) : (
+                <NotificationCenter showHeader={false} onAfterCloseOnClickAction={closeMobilePage} />
+              )}
+            </MobilePageShell>
+          ) : null}
+          {androidHost ? (
+            <MobileBottomNav
+              pages={availableLauncherPages}
+              activePage={activeLauncherPage}
+              onPageChange={onLauncherPageChange}
+              updatesBadgeCount={launcherRuntime.updatesBadgeCount}
+            />
+          ) : null}
+          <LogAnalysisSheet
+            open={androidHost && logAnalysisSheetOpen}
+            onClose={() => setLogAnalysisSheetOpen(false)}
+            errors={logAnalysisErrors}
+            onOpenAiSettings={() => {
+              onOpenSettings('ai')
+            }}
           />
         </div>
       </div>

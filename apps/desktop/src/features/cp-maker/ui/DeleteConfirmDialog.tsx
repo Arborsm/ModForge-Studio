@@ -1,19 +1,25 @@
+/**
+ * @file Reusable confirmation dialog for destructive delete actions.
+ * @module features/cp-maker
+ */
 import { AlertTriangle } from 'lucide-react'
 import { useId } from 'react'
+import { useEditorCopy } from '@locales/provider'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
 
 interface DeleteConfirmDialogProps {
   open: boolean
   title: string
   message: string
-  cancelLabel: string
-  confirmLabel: string
   onClose: () => void
   onConfirm: () => void
 }
 
-export function DeleteConfirmDialog({ open, title, message, cancelLabel, confirmLabel, onClose, onConfirm }: DeleteConfirmDialogProps) {
+/** Confirmation dialog for delete operations with a warning tone. */
+export function DeleteConfirmDialog({ open, title, message, onClose, onConfirm }: DeleteConfirmDialogProps) {
   const titleId = useId()
+  const cancelLabel = useEditorCopy().studioDesk.createDialog.cancel
+  const confirmLabel = useEditorCopy().studioDesk.deleteProject
 
   return (
     <Dialog open={open} onClose={onClose} size="sm" labelledBy={titleId}>
@@ -26,7 +32,7 @@ export function DeleteConfirmDialog({ open, title, message, cancelLabel, confirm
         id={titleId}
       />
       <DialogBody>
-        <p className="text-xs text-(--text-secondary)">{message}</p>
+        <p className="text-text-secondary text-xs">{message}</p>
       </DialogBody>
       <DialogFooter>
         <DialogAction onClick={onClose}>{cancelLabel}</DialogAction>

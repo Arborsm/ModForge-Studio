@@ -1,0 +1,2181 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>地图编辑器 v2 原型</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-soft: #fafafa;
+        --stage: #f7f7f9;
+        --divider: #e6e6eb;
+        --text: #2c2c30;
+        --text-dim: #8a8a92;
+        --accent: #5b6cff;
+        --accent-soft: #eef0ff;
+        --hover: #f4f4f7;
+        --danger: #d64545;
+        --warn: #b97a1a;
+        --shadow-card: 0 8px 28px rgb(0 0 0 / 0.1);
+        --shadow-chip: 0 2px 10px rgb(0 0 0 / 0.06);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font:
+          13px/1.5 -apple-system,
+          'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      button {
+        font-family: inherit;
+      }
+
+      .proto-note {
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--divider);
+        background: var(--bg-soft);
+        font-size: 12px;
+        color: var(--text-dim);
+        flex: none;
+      }
+
+      .app {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 216px minmax(0, 1fr) 288px;
+        min-height: 0;
+      }
+
+      .icon-btn {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 15px;
+      }
+      .icon-btn:hover {
+        background: var(--hover);
+      }
+      .icon-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .btn {
+        height: 28px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn:hover {
+        background: var(--hover);
+      }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      /* ---------- 顶栏 ---------- */
+      .hdr {
+        height: 46px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--divider);
+      }
+      .hdr .title {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+        min-width: 0;
+      }
+      .hdr .title strong {
+        font-size: 13px;
+      }
+      .hdr .title span {
+        font-size: 11px;
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .hdr .save-status {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-left: 8px;
+      }
+      .hdr .spacer {
+        flex: 1;
+      }
+
+      /* ---------- 侧栏通用 ---------- */
+      .panel {
+        background: var(--bg);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .layers-col {
+        border-right: 1px solid var(--divider);
+      }
+      .inspector {
+        border-left: 1px solid var(--divider);
+      }
+      .panel-toolbar {
+        height: 36px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--divider);
+      }
+      .panel-toolbar .lbl {
+        font-size: 12px;
+        color: var(--text-dim);
+        padding: 0 4px;
+      }
+      .panel-toolbar .spacer {
+        flex: 1;
+      }
+      .panel-toolbar .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+      }
+
+      /* ---------- 左栏：图层 ---------- */
+      .layers-pane {
+        flex: 1.3;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .layer-list {
+        flex: 1;
+        overflow: auto;
+        padding: 4px;
+      }
+      .layer-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .layer-row:hover {
+        background: var(--hover);
+      }
+      .layer-row.is-active {
+        background: var(--accent-soft);
+      }
+      .layer-row .thumb {
+        width: 28px;
+        height: 28px;
+        flex: none;
+        border-radius: 6px;
+        border: 1px solid var(--divider);
+        background:
+          linear-gradient(45deg, #f0f0f3 25%, transparent 25%, transparent 75%, #f0f0f3 75%),
+          linear-gradient(45deg, #f0f0f3 25%, transparent 25%, transparent 75%, #f0f0f3 75%) 6px 6px / 12px 12px,
+          #fff;
+      }
+      .layer-row .meta {
+        min-width: 0;
+        flex: 1;
+      }
+      .layer-row .meta b {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .layer-row .meta small {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      /* v2：行内操作 hover 才显示；隐藏图层的眼睛、锁定图层的锁常显 */
+      .layer-row .row-actions {
+        display: none;
+        gap: 2px;
+        flex: none;
+      }
+      .layer-row:hover .row-actions,
+      .layer-row.is-active .row-actions {
+        display: inline-flex;
+      }
+      .layer-row .row-actions .icon-btn {
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .layer-row .vis {
+        flex: none;
+        color: var(--text-dim);
+        font-size: 12px;
+        width: 22px;
+        height: 22px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .layer-row:hover .vis {
+        display: inline-flex;
+      }
+      .layer-row.is-hidden .vis {
+        display: inline-flex;
+      }
+      .layer-row.is-hidden .meta {
+        opacity: 0.35;
+      }
+      .layer-foot {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 4px 8px;
+        border-top: 1px solid var(--divider);
+      }
+      .layer-foot .spacer {
+        flex: 1;
+      }
+      .layer-foot .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+
+      /* ---------- 左栏：历史 ---------- */
+      .history {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--divider);
+        position: relative;
+      }
+      .history-split {
+        position: absolute;
+        top: -3px;
+        left: 0;
+        right: 0;
+        height: 6px;
+        cursor: row-resize;
+        z-index: 6;
+      }
+      .history-split:hover {
+        background: rgb(91 108 255 / 0.18);
+      }
+      .history-list {
+        flex: 1;
+        overflow: auto;
+        padding: 4px;
+      }
+      .hist-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 11.5px;
+      }
+      .hist-row:hover {
+        background: var(--hover);
+      }
+      .hist-row .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--divider);
+        flex: none;
+      }
+      .hist-row.is-current .dot {
+        background: var(--accent);
+      }
+      .hist-row .txt {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .hist-row.is-future {
+        opacity: 0.4;
+      }
+      .hist-row .undo-to {
+        display: none;
+        color: var(--accent);
+        font-size: 11px;
+        flex: none;
+      }
+      .hist-row:hover .undo-to {
+        display: inline;
+      }
+
+      /* ---------- 画布区 ---------- */
+      .stage {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--stage);
+      }
+      .canvas {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-image: linear-gradient(#eeeef2 1px, transparent 1px), linear-gradient(90deg, #eeeef2 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
+      .mock-map {
+        width: 300px;
+        height: 440px;
+        border-radius: 6px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, #6b4a2f 0 22%, #8a5f3c 22% 24%, #a9743f 24% 100%);
+        box-shadow: 0 8px 30px rgb(0 0 0 / 0.18);
+        outline: 1px solid rgb(0 0 0 / 0.25);
+      }
+      .mock-map .room {
+        position: absolute;
+        border-radius: 4px;
+      }
+      .mock-map .r1 {
+        inset: 10% 8% 66% 8%;
+        background: #5d4030;
+      }
+      .mock-map .r2 {
+        inset: 38% 14% 34% 14%;
+        background: #7d5535;
+      }
+      .mock-map .r3 {
+        inset: 70% 20% 8% 20%;
+        background: #96683d;
+      }
+      .mock-map .warp-marker {
+        position: absolute;
+        left: 46%;
+        bottom: 2%;
+        width: 34px;
+        height: 22px;
+        border: 2px dashed var(--accent);
+        border-radius: 4px;
+        background: rgb(91 108 255 / 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .float-chip {
+        position: absolute;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        box-shadow: var(--shadow-chip);
+        display: flex;
+        align-items: center;
+        z-index: 180;
+      }
+      .tools {
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px;
+      }
+      .tools .icon-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
+      }
+      .tools .icon-btn.is-active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .tools .sep {
+        width: 18px;
+        height: 1px;
+        background: var(--divider);
+        margin: 3px auto;
+      }
+      /* ---------- v2.3 顶栏快捷 chip + popover ---------- */
+      .hdr-chip {
+        position: relative;
+      }
+      .chip-btn {
+        height: 28px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .chip-btn:hover {
+        background: var(--hover);
+      }
+      .chip-btn .caret {
+        color: var(--text-dim);
+        font-size: 9px;
+      }
+      .chip-btn .chip-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        border: 1px solid var(--divider);
+        background: rgb(95 95 95);
+      }
+      .pop {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 300;
+        width: 220px;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 12px;
+        box-shadow: var(--shadow-card);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .pop[hidden] {
+        display: none;
+      }
+      .pop-fld > span {
+        display: block;
+        font-size: 11px;
+        color: var(--text-dim);
+        margin-bottom: 5px;
+      }
+      .pop-opt {
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text);
+      }
+      .pop-opt:hover {
+        background: var(--hover);
+      }
+      .pop-opt.is-on {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .pop-hint {
+        font-size: 10.5px;
+        color: var(--text-dim);
+        line-height: 1.4;
+      }
+      /* ---------- v2.6 音乐/环境光控件 ---------- */
+      .pop-group {
+        font-size: 10.5px;
+        color: var(--text-dim);
+        padding: 5px 8px 1px;
+      }
+      .pop-opt small {
+        display: block;
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+      .pop-radio {
+        display: flex;
+        gap: 3px;
+        background: var(--hover);
+        border-radius: 8px;
+        padding: 2px;
+      }
+      .pop-radio button {
+        flex: 1;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        padding: 4px 0;
+        font-size: 11.5px;
+        cursor: pointer;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+      .pop-radio button.is-on {
+        background: #fff;
+        color: var(--text);
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+      }
+      .pop-time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--text);
+      }
+      .pop-time select {
+        flex: 1;
+        min-width: 0;
+        height: 26px;
+        border: 1px solid var(--divider);
+        border-radius: 7px;
+        background: #fff;
+        font-size: 12px;
+        padding: 0 4px;
+        color: var(--text);
+      }
+      #musicPop {
+        width: 250px;
+      }
+      .pop-adv {
+        font-size: 11.5px;
+        color: var(--text-dim);
+      }
+      .pop-adv summary {
+        cursor: pointer;
+      }
+      .pop-adv input {
+        margin-top: 6px;
+        width: 100%;
+        height: 28px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        padding: 0 8px;
+        font-size: 12px;
+        color: var(--text);
+        box-sizing: border-box;
+      }
+      .pop-colors {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .pop-swatch {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--divider);
+        cursor: pointer;
+      }
+      .pop-swatch.is-on {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      /* v2.6：自定义色调取色器（＋ 色板，点开系统取色） */
+      .pop-custom {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: var(--text-dim);
+        background: #fff;
+        overflow: hidden;
+      }
+      .pop-custom input[type='color'] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .zoom-chip {
+        right: 14px;
+        bottom: 14px;
+        padding: 3px 6px;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .zoom-chip .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+      }
+      .zoom-chip .sep-v {
+        width: 1px;
+        height: 16px;
+        background: var(--divider);
+        margin: 0 2px;
+      }
+      .stage [hidden] {
+        display: none !important;
+      }
+
+      /* ---------- v2.5 光照预览浮动条 ---------- */
+      .preview-pill {
+        right: 14px;
+        top: 12px;
+        padding: 3px;
+        gap: 2px;
+        /* 高于调色板（180）：黄昏迷你菜单从 pill 内弹出，不能被调色板盖住 */
+        z-index: 260;
+      }
+      .preview-pill .seg-btn {
+        border: none;
+        background: transparent;
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .preview-pill .seg-btn.is-on {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      /* 黄昏天空色调只对户外有意义：室内禁用（白天/夜晚仍可用于环境光插值预览） */
+      .preview-pill .seg-btn:disabled {
+        opacity: 0.38;
+        pointer-events: none;
+      }
+      /* 黄昏变体迷你菜单（黄昏按钮 ▸ 收冬变体） */
+      .seg-wrap {
+        position: relative;
+      }
+      .seg-wrap .caret {
+        font-size: 9px;
+        opacity: 0.6;
+      }
+      .dusk-mini {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 300;
+        min-width: 158px;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        box-shadow: var(--shadow-card);
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .dusk-mini[hidden] {
+        display: none;
+      }
+      .dusk-opt {
+        border: none;
+        background: transparent;
+        padding: 6px 9px;
+        border-radius: 7px;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .dusk-opt:hover {
+        background: var(--hover);
+      }
+      .dusk-opt.is-on {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .dusk-opt small {
+        font-size: 10px;
+        opacity: 0.55;
+      }
+      .chip-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .chip-btn:disabled:hover {
+        background: #fff;
+      }
+
+      /* ---------- v2.2 格属性 overlay ---------- */
+      .map-wrap {
+        position: relative;
+      }
+      .cell-overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(14, 1fr);
+        grid-template-rows: repeat(20, 1fr);
+        cursor: crosshair;
+        z-index: 3;
+      }
+      .cell-overlay .oc {
+        border: 1px solid rgb(255 255 255 / 0.14);
+      }
+      .cell-overlay .oc.block {
+        background: rgb(214 69 69 / 0.42);
+      }
+      .cell-overlay .oc.npc {
+        background: rgb(185 122 26 / 0.45);
+      }
+      .cell-overlay .oc.water {
+        background: rgb(64 120 220 / 0.45);
+      }
+      .cell-overlay .oc.dig {
+        background: rgb(77 164 78 / 0.42);
+      }
+      .paint-rules {
+        left: 12px;
+        bottom: 14px;
+        padding: 3px 6px;
+        gap: 4px;
+      }
+      .paint-rules .lbl {
+        font-size: 11px;
+        color: var(--text-dim);
+        padding: 0 4px;
+      }
+      .paint-rules .rule {
+        border: 1px solid var(--divider);
+        background: #fff;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        color: var(--text-dim);
+      }
+      .paint-rules .rule.is-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      /* ---------- v2 调色板悬浮卡 ---------- */
+      .palette {
+        position: absolute;
+        right: 14px;
+        top: 56px;
+        width: 26rem;
+        max-width: calc(100% - 96px);
+        max-height: calc(100% - 120px);
+        z-index: 180;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 12px;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .palette .pal-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--divider);
+        cursor: grab;
+        user-select: none;
+        background: var(--bg-soft);
+        flex: none;
+      }
+      .palette .pal-head:active {
+        cursor: grabbing;
+      }
+      .palette .pal-head .grip {
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      .palette .pal-head .spacer {
+        flex: 1;
+      }
+      .palette .pal-head .icon-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .palette .pal-head .icon-btn.is-active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .pal-search {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 8px 10px 6px;
+        padding: 0 8px;
+        height: 28px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .pal-search:focus-within {
+        border-color: var(--accent);
+      }
+      .pal-search .ic {
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .pal-search input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        font-size: 12px;
+        background: transparent;
+        color: var(--text);
+      }
+      .pal-sheets {
+        flex: none;
+        display: flex;
+        gap: 4px;
+        padding: 0 10px 6px;
+        overflow-x: auto;
+      }
+      .sheet-chip {
+        flex: none;
+        height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+      }
+      .sheet-chip.is-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      /* v2：该图块表有已记住的选区 → 小圆点提示，切回即恢复 */
+      .sheet-chip .mem {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .pal-recents {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 10px 6px;
+        overflow-x: auto;
+      }
+      .pal-recents > .lbl {
+        font-size: 11px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .recent-cell {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+        border: 1px solid var(--divider);
+        background: #fff;
+        cursor: pointer;
+        padding: 3px;
+        display: grid;
+        gap: 1px;
+      }
+      .recent-cell:hover {
+        border-color: var(--accent);
+      }
+      .recent-cell i {
+        border-radius: 1px;
+        display: block;
+      }
+      .pal-body {
+        flex: 1;
+        min-height: 240px;
+        overflow: auto;
+        margin: 0 10px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background:
+          linear-gradient(45deg, #f2f2f5 25%, transparent 25%, transparent 75%, #f2f2f5 75%) 0 0 / 12px 12px,
+          linear-gradient(45deg, #f2f2f5 25%, transparent 25%, transparent 75%, #f2f2f5 75%) 6px 6px / 12px 12px,
+          #fff;
+        position: relative;
+      }
+      .pal-grid {
+        display: grid;
+        gap: 0;
+        width: max-content;
+        user-select: none;
+      }
+      .pal-cell {
+        width: 26px;
+        height: 26px;
+        border: none;
+        background: transparent;
+        cursor: crosshair;
+        padding: 1px;
+        position: relative;
+      }
+      .pal-cell i {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 2px;
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+      }
+      .pal-cell:hover i {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
+        z-index: 2;
+        position: relative;
+      }
+      /* v2：grid 视图多格选区高亮 */
+      .pal-cell.is-sel i {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+        position: relative;
+        z-index: 2;
+      }
+      .pal-cell.is-sel::after {
+        content: '';
+        position: absolute;
+        inset: 2px;
+        background: rgb(91 108 255 / 0.18);
+        border-radius: 2px;
+        pointer-events: none;
+      }
+      .pal-foot {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-top: 1px solid var(--divider);
+      }
+      .pal-foot .cur {
+        flex: 1;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pal-foot .cur b {
+        color: var(--accent);
+      }
+      .pal-foot .zoom-inline {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .pal-foot .zoom-inline .icon-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+      }
+      /* 悬浮图块预览 tooltip（v2：替代裸 title） */
+      .tile-tip {
+        position: fixed;
+        z-index: 400;
+        pointer-events: none;
+        background: #fff;
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        box-shadow: var(--shadow-card);
+        padding: 8px;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+      .tile-tip .big {
+        width: 64px;
+        height: 64px;
+        border-radius: 4px;
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+      }
+      .tile-tip .nm {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      /* ---------- 检查器 ---------- */
+      .inspector-body {
+        flex: 1;
+        overflow: auto;
+        padding: 12px 12px 14px;
+        min-height: 0;
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .inspector-body.is-active {
+        display: flex;
+      }
+      .insp-section {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      /* v2.8：段头 = 标题 · 计数 + 右侧 ＋（添加操作收进段头，不再用整行虚线按钮；操作指引放 title） */
+      .insp-section > .sec-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2px;
+      }
+      .insp-section > .sec-head > span {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-dim);
+      }
+      .sec-add {
+        width: 18px;
+        height: 18px;
+        border: none;
+        background: none;
+        border-radius: 5px;
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .sec-add:hover {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .sec-tip {
+        font-size: 11px;
+        color: var(--text-dim);
+        line-height: 1.45;
+      }
+      /* v2.8：卡片 = 图标块 + 两行摘要，hover 出底色，操作钮 hover 显现 */
+      .entry-card {
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        padding: 6px 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+        background: #fff;
+      }
+      .entry-card:hover {
+        background: var(--hover);
+      }
+      .entry-card .ic {
+        flex: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: var(--bg-soft);
+        border: 1px solid var(--divider);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .entry-card .txt {
+        min-width: 0;
+        flex: 1;
+        line-height: 1.35;
+      }
+      .entry-card .txt b {
+        font-size: 12px;
+        font-weight: 600;
+        display: block;
+      }
+      .entry-card .txt small {
+        font-size: 11px;
+        color: var(--text-dim);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .entry-card .del {
+        display: none;
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--text-dim);
+        flex: none;
+      }
+      .entry-card:hover .del {
+        display: inline-flex;
+      }
+      .entry-card .del:hover {
+        color: var(--danger);
+      }
+      /* v2.8：长列表折叠（沿用昼夜替换模式） */
+      .more-link {
+        border: none;
+        background: none;
+        padding: 2px;
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: pointer;
+        text-align: left;
+      }
+      .more-link:hover {
+        color: var(--accent);
+      }
+      /* v2：Warp 落点 = 目标地图下拉 + 迷你地图点选，不再手填坐标 */
+      .warp-dest {
+        border: 1px solid var(--divider);
+        border-radius: 9px;
+        padding: 8px 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .warp-dest .sel {
+        height: 28px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 12px;
+        padding: 0 8px;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+      }
+      .warp-dest .sel .caret {
+        color: var(--text-dim);
+        font-size: 10px;
+      }
+      .mini-dest {
+        position: relative;
+        height: 120px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: crosshair;
+        background: linear-gradient(180deg, #88a86b 0 55%, #7a5f3d 55% 58%, #96683d 58% 100%);
+      }
+      .mini-dest .grid-lines {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgb(255 255 255 / 0.22) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(255 255 255 / 0.22) 1px, transparent 1px);
+        background-size: 12px 12px;
+      }
+      .mini-dest .pin {
+        position: absolute;
+        left: 62%;
+        top: 38%;
+        width: 12px;
+        height: 12px;
+        transform: translate(-50%, -50%);
+        border-radius: 3px;
+        background: var(--accent);
+        box-shadow: 0 0 0 2px #fff;
+      }
+      .mini-dest .hint {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 3px 8px;
+        font-size: 10.5px;
+        color: #fff;
+        background: rgb(0 0 0 / 0.35);
+      }
+      .raw-toggle {
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 11px;
+        color: var(--text-dim);
+        cursor: pointer;
+        padding: 2px;
+      }
+      .raw-toggle:hover {
+        color: var(--text);
+      }
+
+      /* ---------- v2.1 对话框：低频配置收进来 ---------- */
+      .dlg-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 500;
+        background: rgb(0 0 0 / 0.32);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .dlg-overlay.is-open {
+        display: flex;
+      }
+      .dlg {
+        width: 420px;
+        max-width: calc(100vw - 48px);
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 24px 64px rgb(0 0 0 / 0.22);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .dlg-head {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px 10px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .dlg-head .icon-btn {
+        margin-left: auto;
+        width: 26px;
+        height: 26px;
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+      .dlg-body {
+        padding: 0 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .dlg-body .fld {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .dlg-body .fld > span {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .dlg-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 16px 14px;
+      }
+      /* 对话框里的落点预览图比内联版更大 */
+      .dlg .mini-dest {
+        height: 200px;
+      }
+      .dlg .mini-dest .grid-lines {
+        background-size: 16px 16px;
+      }
+
+      /* ---------- 检查区 ---------- */
+      .diagnostics {
+        flex: none;
+        border-top: 1px solid var(--divider);
+        display: flex;
+        flex-direction: column;
+        max-height: 40%;
+      }
+      .diag-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        cursor: pointer;
+        user-select: none;
+        flex: none;
+      }
+      .diag-head .lbl {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .diag-badge {
+        font-size: 10px;
+        border-radius: 999px;
+        padding: 1px 7px;
+        background: #fdf3e3;
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .diag-head .caret {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+      .diag-list {
+        overflow: auto;
+        padding: 0 8px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .diag-list[hidden] {
+        display: none !important;
+      }
+      .diag-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 7px;
+        border-radius: 7px;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .diag-row:hover {
+        background: var(--hover);
+      }
+      .diag-row .ic {
+        flex: none;
+        font-size: 12px;
+      }
+      .diag-row .txt {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .diag-row .go {
+        color: var(--accent);
+        font-size: 11px;
+        flex: none;
+        opacity: 0;
+      }
+      .diag-row:hover .go {
+        opacity: 1;
+      }
+      .diag-foot {
+        padding: 0 12px 8px;
+        font-size: 10.5px;
+        color: var(--text-dim);
+        flex: none;
+      }
+
+      /* ---------- 状态栏 ---------- */
+      .statusbar {
+        height: 26px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 12px;
+        border-top: 1px solid var(--divider);
+        font-size: 11.5px;
+        color: var(--text-dim);
+      }
+      .statusbar .spacer {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proto-note">
+      v2.6 原型：① 调色板重做；② 检查器只留地图语义（传送/门/昼夜替换/光源），低频配置收对话框；③ 单元格 tab 移除——通行规则改画布 overlay
+      涂刷，翻转/旋转收进缩放 chip；④ 音乐卡重写：默认/静音/分组音轨（可读名+cue 原名副标题）+ 播放时段（全天/指定时段，HHMM 步进下拉）+
+      高级自定义音轨名；⑤ 环境光卡重写：白天色调 + 夜晚色调（跟白天一样/单独设置），仅室内启用；⑥
+      室内/户外是顶栏独立开关，光照预览浮动条仅户外启用；⑦ 图层行内操作 hover 才显示；⑧ 历史人话文案。
+    </div>
+
+    <div class="app">
+      <header class="hdr">
+        <button class="icon-btn" title="返回素材库">←</button>
+        <div class="title">
+          <strong>AdventureGuild</strong>
+          <span>assets/maps/AdventureGuild.tmx</span>
+        </div>
+        <span class="save-status">已保存</span>
+        <div class="spacer"></div>
+        <div class="hdr-chip" data-pop="musicPop">
+          <button class="chip-btn" onclick="togglePop('musicPop')">
+            <span>🎵</span><span id="musicChipLabel">公会氛围</span><span class="caret">▾</span>
+          </button>
+          <!-- v2.6：音乐卡重写——默认/静音/分组音轨 + 播放时段（HHMM 步进） + 高级自定义；室内/室外已挪走 -->
+          <div class="pop" id="musicPop" hidden>
+            <div class="pop-fld">
+              <span>音乐</span>
+              <div class="pop-opt" data-m="跟随游戏默认">跟随游戏默认</div>
+              <div class="pop-opt" data-m="静音">静音</div>
+              <div class="pop-group">城镇</div>
+              <div class="pop-opt is-on" data-m="公会氛围">公会氛围<small>guild_ambient</small></div>
+              <div class="pop-opt" data-m="城镇春日">城镇春日<small>spring_town</small></div>
+              <div class="pop-group">矿洞</div>
+              <div class="pop-opt" data-m="矿洞深处">矿洞深处<small>mines_danger</small></div>
+              <div class="pop-group">环境音</div>
+              <div class="pop-opt" data-m="森林夜晚">森林夜晚<small>forest_night</small></div>
+            </div>
+            <div class="pop-fld">
+              <span>播放时段</span>
+              <div class="pop-radio" id="musicRange">
+                <button class="is-on" data-r="all">全天</button>
+                <button data-r="span">只在指定时段</button>
+              </div>
+              <div class="pop-time" id="musicSpan" hidden>
+                从
+                <select id="musicFrom"></select>
+                到
+                <select id="musicTo"></select>
+              </div>
+            </div>
+            <details class="pop-adv">
+              <summary>高级：自定义音轨名</summary>
+              <input placeholder="cue 原名，如 mymod_custom_track" />
+            </details>
+          </div>
+        </div>
+        <!-- v2.5：室内/户外与音乐拆开；环境光仅室内启用（户外由昼夜循环驱动，AmbientLight 被游戏忽略） -->
+        <button class="chip-btn" id="envChip" title="室内地图：环境光生效；户外地图：昼夜光照生效" onclick="toggleEnv()">🏠 室内</button>
+        <div class="hdr-chip" data-pop="lightPop">
+          <button class="chip-btn" id="lightChip" onclick="togglePop('lightPop')">
+            <span class="chip-swatch" style="background: rgb(100 120 30)"></span><span id="lightChipLabel">默认</span
+            ><span class="caret">▾</span>
+          </button>
+          <!-- v2.6：环境光重写——白天色调 + 夜晚色调两档，天黑后游戏在两者之间插值 -->
+          <div class="pop" id="lightPop" hidden>
+            <div class="pop-fld">
+              <span>白天色调</span>
+              <div class="pop-colors">
+                <span class="pop-swatch is-on" style="background: rgb(100 120 30)" title="原版默认 RGB(100,120,30)"></span>
+                <label class="pop-swatch pop-custom" title="自定义色调">＋<input type="color" value="#64781e" /></label>
+              </div>
+            </div>
+            <div class="pop-fld">
+              <span>夜晚色调</span>
+              <div class="pop-colors">
+                <span class="pop-swatch is-on" style="background: rgb(150 150 30)" title="原版默认 RGB(150,150,30)"></span>
+                <label class="pop-swatch pop-custom" title="自定义色调">＋<input type="color" value="#96961e" /></label>
+              </div>
+            </div>
+            <span class="pop-hint"
+              >不写就走原版默认（白天 100,120,30 / 夜晚 150,150,30），天黑后两者之间插值；仅室内生效，户外由游戏昼夜决定</span
+            >
+          </div>
+        </div>
+        <button class="btn" onclick="openDiag()">✓ 检查格式</button>
+        <button class="btn btn-primary">保存地图</button>
+      </header>
+
+      <div class="body">
+        <!-- 左栏：图层 + 历史 -->
+        <aside class="panel layers-col">
+          <div class="layers-pane">
+            <div class="panel-toolbar">
+              <span class="lbl">图层 · 5</span>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="新增图层">＋</button>
+            </div>
+            <div class="layer-list" id="layerList"></div>
+            <div class="layer-foot">
+              <button class="icon-btn" title="复制图层">⧉</button>
+              <button class="icon-btn" title="删除图层">🗑</button>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="上移">↑</button>
+              <button class="icon-btn" title="下移">↓</button>
+            </div>
+          </div>
+
+          <div class="history">
+            <div class="history-split" title="拖拽调整比例"></div>
+            <div class="panel-toolbar">
+              <span class="lbl">历史</span>
+              <div class="spacer"></div>
+              <button class="icon-btn" title="撤销">↩</button>
+              <button class="icon-btn" title="重做">↪</button>
+            </div>
+            <div class="history-list">
+              <div class="hist-row"><span class="dot"></span><span class="txt">打开地图</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">画笔 · Back (12, 9)</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">修改环境光为「昏暗」</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">重命名图层 Buildings2</span></div>
+              <div class="hist-row"><span class="dot"></span><span class="txt">隐藏图层 Front</span></div>
+              <div class="hist-row is-current"><span class="dot"></span><span class="txt">填充 · Back 区域</span></div>
+              <div class="hist-row is-future">
+                <span class="dot"></span><span class="txt">画笔 · Buildings (7, 2)</span><span class="undo-to">回到这步</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- 中：画布 -->
+        <section class="stage">
+          <div class="canvas">
+            <div class="map-wrap">
+              <div class="mock-map">
+                <div class="room r1"></div>
+                <div class="room r2"></div>
+                <div class="room r3"></div>
+                <div class="warp-marker" title="走出 (6, 20) → Mountain (76, 9)">⇥</div>
+              </div>
+              <!-- v2.2：格属性 overlay，▤ 模式开启后显示并可直接涂刷 -->
+              <div class="cell-overlay" id="cellOverlay" hidden></div>
+            </div>
+          </div>
+
+          <!-- v2.2：overlay 模式的规则涂刷条 -->
+          <div class="paint-rules float-chip" id="paintRules" hidden>
+            <span class="lbl">格属性</span>
+            <button class="rule is-active" data-rule="walkable" title="恢复默认可通行">可通行</button>
+            <button class="rule" data-rule="block" title="阻挡角色">阻挡角色</button>
+            <button class="rule" data-rule="npc" title="阻挡 NPC">阻挡 NPC</button>
+            <button class="rule" data-rule="water" title="水域">水域</button>
+            <button class="rule" data-rule="dig" title="可种植">可种植</button>
+          </div>
+
+          <div class="tools float-chip">
+            <button class="icon-btn is-active" title="选择 (I)">➤</button>
+            <button class="icon-btn" title="画笔 (B)">🖌</button>
+            <button class="icon-btn" title="橡皮 (E)">⌫</button>
+            <button class="icon-btn" title="填充 (F)">🪣</button>
+            <button class="icon-btn" title="矩形 (R)">▭</button>
+            <button class="icon-btn" title="取色 (D)">💧</button>
+            <div class="sep"></div>
+            <button class="icon-btn" title="平移 (H)">✋</button>
+            <button class="icon-btn" id="overlayToggle" title="格属性区域 (G)" onclick="toggleOverlay()">▤</button>
+            <div class="sep"></div>
+            <button class="icon-btn is-active" title="图块面板">▦</button>
+          </div>
+
+          <!-- v2.5：光照预览浮动条（右上角）——常驻：户外预览昼夜循环，室内预览环境光昼夜插值 -->
+          <div
+            class="preview-pill float-chip"
+            id="previewPill"
+            title="光照预览（只影响画布，不改地图数据）：户外=游戏昼夜循环，室内=环境光白天→夜晚插值"
+          >
+            <button class="seg-btn is-on" data-t="白天">☀ 白天</button>
+            <span class="seg-wrap">
+              <button
+                class="seg-btn"
+                data-t="黄昏"
+                disabled
+                title="黄昏天空色调只对户外地图有意义（室内走环境光白天→夜晚插值，用白天/夜晚预览）"
+              >
+                🌇 黄昏 <span class="caret">▾</span>
+              </button>
+              <div class="dusk-mini" id="duskMini" hidden>
+                <button class="dusk-opt is-on" data-v="dusk">🌇 黄昏<small>255,255,0</small></button>
+                <button class="dusk-opt" data-v="duskWinter">❄ 黄昏·冬<small>暖色 245,225,170</small></button>
+              </div>
+            </span>
+            <button class="seg-btn" data-t="夜晚">🌙 夜晚</button>
+          </div>
+
+          <div class="zoom-chip float-chip">
+            <button class="icon-btn" title="水平翻转">⇋</button>
+            <button class="icon-btn" title="垂直翻转">⇵</button>
+            <button class="icon-btn" title="旋转 90°">↻</button>
+            <span class="sep-v"></span>
+            <button class="icon-btn">−</button><span>100%</span><button class="icon-btn">＋</button>
+            <button class="icon-btn" title="适配窗口">⛶</button>
+          </div>
+
+          <!-- v2 调色板悬浮卡 -->
+          <div class="palette" id="palette">
+            <div class="pal-head" id="palDragHandle">
+              <span class="grip">⠿</span>
+              <div class="pal-search" style="margin: 0; flex: 1">
+                <span class="ic">⌕</span>
+                <input id="palSearch" placeholder="搜索图块表…" />
+              </div>
+              <button class="icon-btn is-active" id="viewGrid" title="网格视图" onclick="setView('grid')">▦</button>
+              <button class="icon-btn" id="viewSheet" title="整图视图" onclick="setView('sheet')">🖼</button>
+              <button class="icon-btn" title="关闭">✕</button>
+            </div>
+            <div class="pal-sheets" id="palSheets"></div>
+            <div class="pal-recents" id="palRecents">
+              <span class="lbl">最近</span>
+            </div>
+            <div class="pal-body" id="palBody">
+              <div class="pal-grid" id="palGrid"></div>
+            </div>
+            <div class="pal-foot">
+              <span class="cur" id="palCur">已选 <b>2×3</b> · townInterior</span>
+              <div class="zoom-inline"><button class="icon-btn">−</button><span>100%</span><button class="icon-btn">＋</button></div>
+            </div>
+          </div>
+          <div class="tile-tip" id="tileTip">
+            <div class="big" id="tileTipBig"></div>
+            <span class="nm" id="tileTipNm">图块 #0</span>
+          </div>
+        </section>
+
+        <!-- 右：检查器（v2.2：tab 已移除，单一滚动面板） -->
+        <aside class="panel inspector">
+          <div class="inspector-body is-active" id="paneMap">
+            <div class="insp-section">
+              <div class="sec-head">
+                <span>传送入口 · 1</span>
+                <button class="sec-add" title="添加入口：在画布上点选位置">＋</button>
+              </div>
+              <!-- v2.1：卡片只留摘要，点「修改」打开对话框选目标地图 + 落点 -->
+              <div class="entry-card">
+                <span class="ic">⇥</span>
+                <div class="txt"><b>走出 (6, 20) → 山地</b><small id="warpSummary">落在 (76, 9)</small></div>
+                <button class="icon-btn del" title="修改落点" onclick="openWarpDialog()">✎</button>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head">
+                <span>门 · 1</span>
+                <button class="sec-add" title="添加门：在画布上点选门格">＋</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">🚪</span>
+                <div class="txt"><b>门 · (1, 9)</b><small>可开合门格；图块自动取当前格</small></div>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head">
+                <span>昼夜替换 · 8 组</span>
+                <button class="sec-add" title="添加替换：先点选格子，再在调色板选夜晚图块">＋</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">⇄</span>
+                <div class="txt"><b>Front (3, 1)</b><small>日 #256 ⇄ 夜 #1253</small></div>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">⇄</span>
+                <div class="txt"><b>Buildings (10, 4)</b><small>日 #88 ⇄ 夜 #1090</small></div>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+              <!-- v2.8：长列表默认只显示前 2 条，折叠收其余（对齐计划的长列表折叠模式） -->
+              <button class="more-link">查看全部 8 组 ›</button>
+            </div>
+
+            <div class="insp-section">
+              <div class="sec-head">
+                <span>光源 · 3</span>
+                <button class="sec-add" title="添加光源：右键画布格子">＋</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">🕯</span>
+                <div class="txt"><b>烛台</b><small>(11, 7) · Buildings</small></div>
+                <button class="icon-btn del" title="定位">◎</button>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">💡</span>
+                <div class="txt"><b>吊灯</b><small>(8, 4) · Buildings</small></div>
+                <button class="icon-btn del" title="定位">◎</button>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+              <div class="entry-card">
+                <span class="ic">🏮</span>
+                <div class="txt"><b>壁灯</b><small>(3, 14) · Back</small></div>
+                <button class="icon-btn del" title="定位">◎</button>
+                <button class="icon-btn del" title="删除">🗑</button>
+              </div>
+            </div>
+
+            <button class="raw-toggle">▸ 高级：查看原始属性值</button>
+          </div>
+
+          <div class="diagnostics">
+            <div class="diag-head" onclick="toggleDiag()">
+              <span class="lbl">检查</span>
+              <span class="diag-badge">2 警告</span>
+              <span class="caret" id="diagCaret">▾</span>
+            </div>
+            <div class="diag-list" id="diagList">
+              <div class="diag-row">
+                <span class="ic">⚠️</span><span class="txt">图层 Buildings2 只剩 1 格，建议合并进 Buildings</span
+                ><span class="go">定位 ›</span>
+              </div>
+              <div class="diag-row"><span class="ic">💡</span><span class="txt">没有设置音乐，进入这张地图会延续上一首</span></div>
+            </div>
+            <div class="diag-foot">保存时自动重新检查</div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="statusbar">
+        <span>14 × 20 格 · 16px</span><span>Back</span>
+        <div class="spacer"></div>
+        <span>当前笔刷：柜台 2×3 · townInterior</span>
+        <span>12, 9</span>
+      </footer>
+    </div>
+
+    <!-- v2.1：传送落点对话框 -->
+    <div class="dlg-overlay" id="warpDlg">
+      <div class="dlg">
+        <div class="dlg-head">传送落点<button class="icon-btn" onclick="closeDialog('warpDlg')">✕</button></div>
+        <div class="dlg-body">
+          <label class="fld"
+            ><span>落在哪张地图</span>
+            <div class="sel" style="height: 30px"><span>山地（Mountain）</span><span class="caret">▾</span></div>
+          </label>
+          <label class="fld"
+            ><span>落点位置（点击地图选择）</span>
+            <div class="mini-dest" id="miniDest">
+              <div class="grid-lines"></div>
+              <div class="pin" id="destPin"></div>
+              <span class="hint" id="destHint">落点 (76, 9)</span>
+            </div>
+          </label>
+        </div>
+        <div class="dlg-foot">
+          <button class="btn" onclick="closeDialog('warpDlg')">取消</button>
+          <button class="btn btn-primary" onclick="confirmWarp()">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ---------- 图层列表（hover 行内操作） ----------
+      const layers = [
+        ['Front2', 17, false, false],
+        ['Front', 90, false, false],
+        ['Buildings2', 1, true, false],
+        ['Buildings', 178, false, true],
+        ['Back', 280, false, false],
+      ]
+      const layerList = document.getElementById('layerList')
+      layers.forEach(([name, count, hidden, locked], i) => {
+        const row = document.createElement('div')
+        row.className = 'layer-row' + (i === 4 ? ' is-active' : '') + (hidden ? ' is-hidden' : '')
+        row.innerHTML = `
+          <div class="thumb"></div>
+          <div class="meta"><b>${name}</b><small>${count} 格</small></div>
+          <span class="row-actions">
+            <button class="icon-btn" title="锁定">${locked ? '🔒' : '🔓'}</button>
+            <button class="icon-btn" title="更多">⋯</button>
+          </span>
+          <span class="vis" title="显示/隐藏">👁</span>`
+        layerList.appendChild(row)
+      })
+
+      // ---------- v2 调色板 ----------
+      const SHEETS = [
+        { name: 'townInterior', seed: 3, sel: { x: 4, y: 2, w: 2, h: 3 } },
+        { name: 'springobjects', seed: 11, sel: { x: 9, y: 5, w: 1, h: 1 } },
+        { name: 'farmhouse_tiles', seed: 23, sel: null },
+        { name: 'walls_and_floors', seed: 41, sel: null },
+        { name: 'furniture_custom', seed: 57, sel: null },
+      ]
+      const COLS = 12
+      const ROWS = 18
+      let activeSheet = 0
+      let view = 'grid'
+      const recents = []
+
+      function tileColor(sheet, x, y) {
+        const h = (sheet.seed * 37 + x * 17 + y * 29 + ((x * y) % 7) * 11) % 360
+        const s = 32 + ((x + y + sheet.seed) % 4) * 9
+        const l = 38 + ((x * 3 + y * 5 + sheet.seed) % 5) * 8
+        return `hsl(${h} ${s}% ${l}%)`
+      }
+
+      function renderSheetChips(filter = '') {
+        const box = document.getElementById('palSheets')
+        box.innerHTML = ''
+        SHEETS.forEach((sheet, i) => {
+          if (filter && !sheet.name.toLowerCase().includes(filter)) return
+          const chip = document.createElement('button')
+          chip.className = 'sheet-chip' + (i === activeSheet ? ' is-active' : '')
+          chip.innerHTML = `<span>${sheet.name}</span>${sheet.sel ? '<span class="mem"></span>' : ''}`
+          chip.onclick = () => {
+            activeSheet = i
+            renderAll()
+          }
+          box.appendChild(chip)
+        })
+      }
+
+      function renderGrid() {
+        const grid = document.getElementById('palGrid')
+        grid.innerHTML = ''
+        grid.style.gridTemplateColumns = `repeat(${COLS}, 26px)`
+        const sheet = SHEETS[activeSheet]
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const cell = document.createElement('button')
+            cell.className = 'pal-cell'
+            const inSel =
+              sheet.sel && x >= sheet.sel.x && x < sheet.sel.x + sheet.sel.w && y >= sheet.sel.y && y < sheet.sel.y + sheet.sel.h
+            if (inSel) cell.classList.add('is-sel')
+            const color = tileColor(sheet, x, y)
+            cell.innerHTML = `<i style="background:${color}"></i>`
+            const index = y * COLS + x
+            cell.onmouseenter = (e) => showTip(e.currentTarget, color, index, sheet.name)
+            cell.onmouseleave = hideTip
+            cell.onclick = () => commitSelection(x, y, 1, 1)
+            grid.appendChild(cell)
+          }
+        }
+      }
+
+      function commitSelection(x, y, w, h) {
+        const sheet = SHEETS[activeSheet]
+        sheet.sel = { x, y, w, h }
+        const idx = recents.findIndex((r) => r.sheet === sheet.name && r.x === x && r.y === y && r.w === w && r.h === h)
+        if (idx >= 0) recents.splice(idx, 1)
+        recents.unshift({ sheet: sheet.name, seed: sheet.seed, x, y, w, h })
+        if (recents.length > 8) recents.pop()
+        renderAll()
+      }
+
+      function renderRecents() {
+        const box = document.getElementById('palRecents')
+        box.innerHTML = '<span class="lbl">最近</span>'
+        for (const r of recents) {
+          const cell = document.createElement('button')
+          cell.className = 'recent-cell'
+          cell.style.gridTemplateColumns = `repeat(${r.w}, 1fr)`
+          cell.title = `${r.sheet} ${r.w}×${r.h}`
+          for (let dy = 0; dy < r.h; dy++)
+            for (let dx = 0; dx < r.w; dx++) {
+              const i = document.createElement('i')
+              i.style.background = tileColor({ seed: r.seed }, r.x + dx, r.y + dy)
+              cell.appendChild(i)
+            }
+          cell.onclick = () => {
+            const si = SHEETS.findIndex((s) => s.name === r.sheet)
+            if (si >= 0) {
+              activeSheet = si
+              SHEETS[si].sel = { x: r.x, y: r.y, w: r.w, h: r.h }
+              renderAll()
+            }
+          }
+          box.appendChild(cell)
+        }
+      }
+
+      function renderCur() {
+        const sheet = SHEETS[activeSheet]
+        document.getElementById('palCur').innerHTML = sheet.sel
+          ? `已选 <b>${sheet.sel.w}×${sheet.sel.h}</b> · ${sheet.name}`
+          : `未选择 · ${sheet.name}`
+      }
+
+      function renderAll() {
+        renderSheetChips(document.getElementById('palSearch').value.trim().toLowerCase())
+        renderGrid()
+        renderRecents()
+        renderCur()
+      }
+
+      // 搜索：过滤图块表 chip
+      document.getElementById('palSearch').addEventListener('input', (e) => {
+        renderSheetChips(e.target.value.trim().toLowerCase())
+      })
+
+      // hover 放大预览
+      const tip = document.getElementById('tileTip')
+      function showTip(anchor, color, index, sheetName) {
+        document.getElementById('tileTipBig').style.background = color
+        document.getElementById('tileTipNm').textContent = `图块 #${index} · ${sheetName}`
+        const r = anchor.getBoundingClientRect()
+        tip.style.display = 'flex'
+        const tw = 96
+        tip.style.left = Math.max(8, r.left - tw - 10) + 'px'
+        tip.style.top = Math.min(window.innerHeight - 110, Math.max(8, r.top - 20)) + 'px'
+      }
+      function hideTip() {
+        tip.style.display = 'none'
+      }
+
+      function setView(v) {
+        view = v
+        document.getElementById('viewGrid').classList.toggle('is-active', v === 'grid')
+        document.getElementById('viewSheet').classList.toggle('is-active', v === 'sheet')
+        // 原型里两种视图共用同一网格 mock；真实实现中整图视图渲染整张 tilesheet
+      }
+
+      // 调色板拖动
+      ;(function () {
+        const panel = document.getElementById('palette')
+        const handle = document.getElementById('palDragHandle')
+        let start = null
+        handle.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('.icon-btn') || e.target.closest('input')) return
+          start = { x: e.clientX, y: e.clientY, left: panel.offsetLeft, top: panel.offsetTop }
+          handle.setPointerCapture(e.pointerId)
+        })
+        handle.addEventListener('pointermove', (e) => {
+          if (!start) return
+          const stage = panel.parentElement
+          const left = Math.min(Math.max(0, start.left + e.clientX - start.x), stage.clientWidth - panel.offsetWidth)
+          const top = Math.min(Math.max(0, start.top + e.clientY - start.y), stage.clientHeight - 80)
+          panel.style.left = left + 'px'
+          panel.style.top = top + 'px'
+          panel.style.right = 'auto'
+        })
+        handle.addEventListener('pointerup', () => {
+          start = null
+        })
+      })()
+
+      // 初始最近使用
+      recents.push(
+        { sheet: 'townInterior', seed: 3, x: 4, y: 2, w: 2, h: 3 },
+        { sheet: 'springobjects', seed: 11, x: 9, y: 5, w: 1, h: 1 },
+        { sheet: 'townInterior', seed: 3, x: 1, y: 8, w: 3, h: 2 },
+      )
+      renderAll()
+
+      // ---------- v2.2 格属性 overlay 模式 ----------
+      const overlay = document.getElementById('cellOverlay')
+      const paintRules = document.getElementById('paintRules')
+      let overlayOn = false
+      let activeRule = 'walkable'
+      const OC_COLS = 14
+      const OC_ROWS = 20
+      const ocCells = []
+      for (let y = 0; y < OC_ROWS; y++) {
+        for (let x = 0; x < OC_COLS; x++) {
+          const c = document.createElement('div')
+          c.className = 'oc'
+          c.dataset.x = x
+          c.dataset.y = y
+          overlay.appendChild(c)
+          ocCells.push(c)
+        }
+      }
+      function ocAt(x, y) {
+        return ocCells[y * OC_COLS + x]
+      }
+      // 预置区域：房间墙边阻挡、水池、种植区
+      for (let x = 2; x <= 11; x++) {
+        ocAt(x, 3).classList.add('block')
+        ocAt(x, 7).classList.add('block')
+      }
+      for (let y = 3; y <= 7; y++) {
+        ocAt(2, y).classList.add('block')
+        ocAt(11, y).classList.add('block')
+      }
+      for (let x = 4; x <= 7; x++) for (let y = 9; y <= 10; y++) ocAt(x, y).classList.add('water')
+      for (let x = 5; x <= 8; x++) for (let y = 15; y <= 17; y++) ocAt(x, y).classList.add('dig')
+      function paintCell(c) {
+        if (activeRule === 'walkable') {
+          c.className = 'oc'
+          return
+        }
+        if (activeRule === 'block' || activeRule === 'npc') c.classList.remove('block', 'npc')
+        c.classList.add(activeRule)
+      }
+      let painting = false
+      overlay.addEventListener('pointerdown', (e) => {
+        painting = true
+        overlay.setPointerCapture(e.pointerId)
+        const c = e.target.closest('.oc')
+        if (c) paintCell(c)
+      })
+      overlay.addEventListener('pointermove', (e) => {
+        if (!painting) return
+        const el = document.elementFromPoint(e.clientX, e.clientY)
+        const c = el && el.closest('.oc')
+        if (c) paintCell(c)
+      })
+      overlay.addEventListener('pointerup', () => {
+        painting = false
+      })
+      function toggleOverlay() {
+        overlayOn = !overlayOn
+        overlay.hidden = !overlayOn
+        paintRules.hidden = !overlayOn
+        document.getElementById('overlayToggle').classList.toggle('is-active', overlayOn)
+      }
+      paintRules.addEventListener('click', (e) => {
+        const btn = e.target.closest('.rule')
+        if (!btn) return
+        activeRule = btn.dataset.rule
+        paintRules.querySelectorAll('.rule').forEach((r) => r.classList.toggle('is-active', r === btn))
+      })
+
+      // ---------- v2.1 对话框 ----------
+      function openWarpDialog() {
+        document.getElementById('warpDlg').classList.add('is-open')
+      }
+      function closeDialog(id) {
+        document.getElementById(id).classList.remove('is-open')
+      }
+      document.querySelectorAll('.dlg-overlay').forEach((overlay) => {
+        overlay.addEventListener('pointerdown', (e) => {
+          if (e.target === overlay) overlay.classList.remove('is-open')
+        })
+      })
+      // 落点点选：在对话框的大预览图上点击
+      let warpLanding = { x: 76, y: 9 }
+      const miniDest = document.getElementById('miniDest')
+      miniDest.addEventListener('click', (e) => {
+        const r = miniDest.getBoundingClientRect()
+        const px = Math.min(Math.max(e.clientX - r.left, 6), r.width - 6)
+        const py = Math.min(Math.max(e.clientY - r.top, 6), r.height - 6)
+        const pin = document.getElementById('destPin')
+        pin.style.left = px + 'px'
+        pin.style.top = py + 'px'
+        warpLanding = { x: Math.round((px / r.width) * 120), y: Math.round((py / r.height) * 60) }
+        document.getElementById('destHint').textContent = `落点 (${warpLanding.x}, ${warpLanding.y})`
+      })
+      function confirmWarp() {
+        document.getElementById('warpSummary').textContent = `落在 (${warpLanding.x}, ${warpLanding.y})`
+        closeDialog('warpDlg')
+      }
+
+      // ---------- v2.6 音乐/环境光控件逻辑 ----------
+      // 游戏时钟 HHMM 制（分钟只到 50）：步进下拉，不让用户敲数字
+      ;(function () {
+        const opts = []
+        for (let h = 6; h <= 26; h++)
+          for (const m of [0, 10, 20, 30, 40, 50]) {
+            const hh = h % 24
+            const v = `${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+            opts.push(`<option value="${v}">${v}${h >= 24 ? '（次日）' : ''}</option>`)
+          }
+        const from = document.getElementById('musicFrom')
+        const to = document.getElementById('musicTo')
+        from.innerHTML = opts.join('')
+        to.innerHTML = opts.join('') + '<option value="0">不限</option>'
+        from.value = '18:00'
+        to.value = '24:00'
+      })()
+      document.getElementById('musicRange').addEventListener('click', (e) => {
+        const btn = e.target.closest('button')
+        if (!btn) return
+        document.querySelectorAll('#musicRange button').forEach((b) => b.classList.toggle('is-on', b === btn))
+        document.getElementById('musicSpan').hidden = btn.dataset.r !== 'span'
+      })
+      // 音轨点选后同步 chip 文案
+      document.querySelectorAll('#musicPop .pop-opt[data-m]').forEach((opt) => {
+        opt.addEventListener('click', () => {
+          document.getElementById('musicChipLabel').textContent = opt.dataset.m
+        })
+      })
+
+      // 自定义色调：取色后回写色板并选中
+      document.querySelectorAll('.pop-custom input[type="color"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          const swatch = input.closest('.pop-swatch')
+          swatch.style.background = input.value
+          swatch.style.color = 'transparent'
+          swatch.parentElement.querySelectorAll('.pop-swatch').forEach((s) => s.classList.toggle('is-on', s === swatch))
+        })
+      })
+
+      // ---------- v2.5 室内/户外 与光照预览联动 ----------
+      // 证据（反编译 GameLocation）：AmbientLight 只对室内生效（另有 AmbientNightLight 做夜晚渐变）；
+      // 户外地图环境光被忽略，完全由昼夜循环驱动 → 环境光 chip 仅室内启用；
+      // 预览条常驻：户外预览游戏昼夜循环，室内预览环境光白天→夜晚插值；
+      // 黄昏天空色调只对户外有意义 → 室内禁用黄昏按钮，选中态回退白天。
+      let isOutdoors = false
+      function toggleEnv() {
+        isOutdoors = !isOutdoors
+        document.getElementById('envChip').textContent = isOutdoors ? '🌳 户外' : '🏠 室内'
+        // 环境光：仅室内启用
+        document.getElementById('lightChip').disabled = isOutdoors
+        if (isOutdoors) document.getElementById('lightPop').hidden = true
+        // 黄昏：仅户外启用；切回室内时若黄昏选中则回退白天
+        duskBtn.disabled = !isOutdoors
+        duskMini.hidden = true
+        if (!isOutdoors && duskBtn.classList.contains('is-on')) {
+          activateSeg(previewPill.querySelector('[data-t="白天"]'))
+        }
+      }
+      // 预览条：白天 / 黄昏（▾ 迷你菜单收冬季变体）/ 夜晚
+      const previewPill = document.getElementById('previewPill')
+      const duskMini = document.getElementById('duskMini')
+      const duskBtn = previewPill.querySelector('[data-t="黄昏"]')
+      const activateSeg = (btn) => previewPill.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', b === btn))
+      previewPill.addEventListener('click', (e) => {
+        const opt = e.target.closest('.dusk-opt')
+        if (opt) {
+          duskMini.querySelectorAll('.dusk-opt').forEach((o) => o.classList.toggle('is-on', o === opt))
+          duskBtn.childNodes[0].textContent = opt.dataset.v === 'duskWinter' ? '❄ 黄昏·冬 ' : '🌇 黄昏 '
+          duskMini.hidden = true
+          activateSeg(duskBtn)
+          return
+        }
+        const btn = e.target.closest('.seg-btn')
+        if (!btn) return
+        activateSeg(btn)
+        duskMini.hidden = btn === duskBtn ? !duskMini.hidden : true
+      })
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#previewPill')) duskMini.hidden = true
+      })
+
+      // ---------- v2.3 顶栏 popover ----------
+      function togglePop(id) {
+        const target = document.getElementById(id)
+        const willOpen = target.hidden
+        document.querySelectorAll('.pop').forEach((p) => (p.hidden = true))
+        target.hidden = !willOpen
+      }
+      document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.hdr-chip')) return
+        document.querySelectorAll('.pop').forEach((p) => (p.hidden = true))
+      })
+      // popover 内选项点击：单选高亮（原型示意）
+      document.querySelectorAll('.pop-fld').forEach((fld) => {
+        fld.addEventListener('click', (e) => {
+          const opt = e.target.closest('.pop-opt, .pop-seg button, .pop-swatch')
+          if (!opt) return
+          fld.querySelectorAll('.pop-opt, .pop-seg button, .pop-swatch').forEach((o) => o.classList.toggle('is-on', o === opt))
+        })
+      })
+
+      // ---------- 检查区 ----------
+      function toggleDiag() {
+        const list = document.getElementById('diagList')
+        const caret = document.getElementById('diagCaret')
+        const open = !list.hidden
+        list.hidden = open
+        caret.textContent = open ? '▸' : '▾'
+      }
+      function openDiag() {
+        document.getElementById('diagList').hidden = false
+        document.getElementById('diagCaret').textContent = '▾'
+      }
+    </script>
+  </body>
+</html>

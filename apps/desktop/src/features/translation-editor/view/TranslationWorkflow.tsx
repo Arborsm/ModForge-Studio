@@ -1,8 +1,15 @@
+/**
+ * @file Three-step translation workflow — locale setup, editing, and review/checks with persistence.
+ * @module features/translation-editor
+ */
+
 import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Languages, Save, Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ContentPatcherI18nFile } from '@entities/mod/api'
 import { useLocalization } from '@entities/localization'
 import { useTranslationEditorCopy } from '@locales/provider'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import { cx } from '@shared/lib/helper'
 import type { ConfirmedTranslation } from '@shared/contracts'
 import {
@@ -13,6 +20,7 @@ import {
 } from '../model/translationEditor'
 import { TranslationEditor, type TranslationEditorProps } from './TranslationEditor'
 
+/** Props for the `TranslationWorkflow` component — extends `TranslationEditorProps` with project-change callback. */
 export type TranslationWorkflowProps = TranslationEditorProps & {
   onChangeProject?: () => void
 }
@@ -65,12 +73,9 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
   const semanticRuntimeLeaseId = useRef(crypto.randomUUID())
   const sourceFile = findFile(props.i18nFiles, props.sourceLocale)
   const targetFile = findFile(props.i18nFiles, props.targetLocale)
-  const entries = useMemo(() => buildTranslationEntries({ sourceFile, targetFile, query: '', status: 'all' }), [sourceFile, targetFile])
+  const entries = buildTranslationEntries({ sourceFile, targetFile, query: '', status: 'all' })
   const existing = entries.filter((entry) => entry.sourceText.trim() && entry.targetText.trim())
-  const check = useMemo(
-    () => buildTranslationCheckSummary(sourceFile, targetFile, entries, props.targetLocale),
-    [entries, props.targetLocale, sourceFile, targetFile],
-  )
+  const check = buildTranslationCheckSummary(sourceFile, targetFile, entries, props.targetLocale)
   const projectRootPath = props.project?.rootPath ?? ''
   const contextKey = `${projectRootPath}\u0000${props.sourceLocale}\u0000${props.targetLocale}`
   useEffect(() => {
@@ -82,9 +87,9 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
   useEffect(() => {
     if (!projectRootPath) return
     const leaseId = semanticRuntimeLeaseId.current
-    void localization.acquireSemanticRuntime(leaseId).catch(() => undefined)
+    void ignoreError(localization.acquireSemanticRuntime(leaseId), 'translationWorkflow.semanticRuntime')
     return () => {
-      void localization.releaseSemanticRuntime(leaseId).catch(() => undefined)
+      void ignoreError(localization.releaseSemanticRuntime(leaseId), 'translationWorkflow.semanticRuntime')
     }
   }, [localization, projectRootPath])
 
@@ -154,12 +159,20 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
                 unitKey: entry.key,
               })),
           })
-        } catch {
+        } catch (error) {
           setMemoryWarning(true)
+          appEvent('warning', copy.memoryLearningFailed)
+            .error(error)
+            .context({ source: 'translation-workflow', operation: 'record-memory' })
+            .emit({ notify: false })
         }
       }
-    } catch {
+    } catch (error) {
       setError(copy.workflowSaveFailed)
+      appEvent('error', copy.workflowSaveFailed)
+        .error(error)
+        .context({ source: 'translation-workflow', operation: 'save' })
+        .emit({ notify: false })
     } finally {
       setSaving(false)
     }
@@ -173,10 +186,10 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
 
   if (!props.project) return <TranslationEditor {...props} />
   return (
-    <div className="translation-workflow flex h-full min-h-0 flex-col bg-(--bg-app)">
-      <header className="translation-workflow-header flex shrink-0 items-center gap-4 border-b border-(--border-color) px-5 py-3">
+    <div className="translation-workflow bg-surface-app flex h-full min-h-0 flex-col">
+      <header className="translation-workflow-header border-border-subtle flex shrink-0 items-center gap-4 border-b px-5 py-3">
         <div className="min-w-0 flex-1">
-          <strong className="block truncate text-sm text-(--text-primary)">{props.project.name}</strong>
+          <strong className="text-text-primary block truncate text-sm">{props.project.name}</strong>
           <nav className="mt-2 flex items-center gap-1" aria-label={copy.workspaceLabel}>
             {steps.map(([id, label], index) => (
               <button
@@ -209,7 +222,7 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
           <main className="translation-workflow-setup custom-scrollbar h-full overflow-auto p-6">
             <div className="mx-auto max-w-3xl">
               <header>
-                <Languages className="h-6 w-6 text-(--accent)" />
+                <Languages className="text-accent h-6 w-6" />
                 <h1>{copy.workflowSetupTitle}</h1>
                 <p>{copy.workflowSetupDescription}</p>
               </header>
@@ -225,7 +238,7 @@ export function TranslationWorkflow(props: TranslationWorkflowProps) {
                       .filter((file) => file.locale !== props.targetLocale)
                       .map((file) => (
                         <option key={file.locale} value={file.locale}>
-                          {file.locale}
+                          {file.locale === 'default' ? copy.defaultLocaleLabel : file.locale}
                         </option>
                       ))}
                   </select>

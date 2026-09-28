@@ -1,24 +1,25 @@
+/**
+ * @file Dev-only component-level performance scenarios: renders individual
+ * widgets (project gallery, translation editor, event modals, launcher detail)
+ * with large fixture data.
+ * @module dev
+ */
 import { useDeferredValue, useState, type ReactNode } from 'react'
-import { localeBundles } from '@locales'
 import { LocaleProvider } from '@locales/provider'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
 import type { LauncherModConfigResult, SaveLauncherModConfigRequest } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher/model/types'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
-import { PatchQuickMenu } from '@features/cp-maker/ui/PatchQuickMenu'
 import { StudioDeskProjectGallery } from '@features/cp-maker/ui/StudioDeskProjectGallery'
 import { TranslationEditor } from '@features/translation-editor'
 import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBuilderModal'
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { EventPatchHubEvent } from '@entities/event'
-import type { DraftPatch, WorkspaceId } from '@features/cp-maker'
+import type { WorkspaceId } from '@features/cp-maker'
 import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 
-const copy = localeBundles['en-US']
-const editorCopy = copy.editor
-const hubCopy = editorCopy.studioDesk.eventPatchHub
 const noop = () => {}
 const asyncNoop = async () => {}
 
@@ -61,7 +62,6 @@ const launcherPort = {
 } as unknown as LauncherPort
 
 type ScenarioId =
-  | 'cp-maker-patch-menu'
   | 'cp-maker-project-gallery'
   | 'mod-translation'
   | 'event-condition-builder'
@@ -69,7 +69,6 @@ type ScenarioId =
   | 'launcher-mod-detail'
 
 const scenarioIds: ScenarioId[] = [
-  'cp-maker-patch-menu',
   'cp-maker-project-gallery',
   'mod-translation',
   'event-condition-builder',
@@ -276,26 +275,6 @@ function workspaceFor(index: number): WorkspaceId {
   return ['events', 'map', 'characters', 'buildings', 'items', 'mods'][index % 6] as WorkspaceId
 }
 
-function createPatch(index: number): DraftPatch {
-  const actions: DraftPatch['action'][] = ['EditData', 'EditImage', 'EditMap', 'Load', 'Include']
-  return {
-    id: `patch-${index}`,
-    workspace: workspaceFor(index),
-    target: `Data/Locations/PerformanceTarget${index % 80}`,
-    action: actions[index % actions.length],
-    logName: `Festival expansion patch ${index}`,
-    enabled: index % 9 !== 0,
-    updatedAt: Date.now() - index * 60_000,
-    fromFile: index % 4 === 0 ? `assets/generated/${index}.json` : undefined,
-    when: index % 3 === 0 ? { Season: 'spring', HasSeenEvent: `${700000 + index}` } : undefined,
-    editorState: {
-      entries: {
-        [`perf.event.${index}`]: `Abigail ${index} ${index % 80} 2 farmer 10 10 2/speak "Performance event ${index}"/end`,
-      },
-    },
-  }
-}
-
 function createWorldBible(count: number): StudioDeskWorldBibleModel {
   const makeEntries = (prefix: string) =>
     range(count).map((index) => ({
@@ -311,7 +290,7 @@ function createWorldBible(count: number): StudioDeskWorldBibleModel {
     story: makeEntries('story'),
     items: makeEntries('item'),
     scenes: makeEntries('scene'),
-    conflictCount: Math.floor(count / 12),
+    errorCount: Math.floor(count / 12),
   }
 }
 
@@ -337,10 +316,10 @@ function createGalleryProjects(count: number): StudioDeskGalleryProject[] {
     lastEditedAt: Date.now() - index * 90_000,
     lastExportedAt: index % 6 === 0 ? null : Date.now() - index * 180_000,
     isCurrent: index === 2,
-    statuses: index % 7 === 0 ? ['conflict'] : ['export'],
+    statuses: index % 7 === 0 ? ['error'] : ['export'],
     searchText: `performance content pack ${index} ModForge.Performance.${index}`,
     coverTone: tones[index % tones.length],
-    conflictCount: index % 7 === 0 ? 2 : 0,
+    errorCount: index % 7 === 0 ? 2 : 0,
     needsMetadata: index % 11 === 0,
   }))
 }
@@ -366,9 +345,9 @@ function createStudioDeskModel(count: number): StudioDeskModel {
     stats: {
       eventCount: count,
       mapCount: Math.floor(count / 3),
-      festivalCount: Math.floor(count / 8),
       assetCount: Math.floor(count / 2),
-      conflictCount: Math.floor(count / 10),
+      errorCount: Math.floor(count / 10),
+      warningCount: Math.floor(count / 6),
     },
     worldBible: createWorldBible(Math.max(32, Math.floor(count / 3))),
     exportSummary: {
@@ -456,6 +435,8 @@ function createEvent(index: number): EventPatchHubEvent {
     actors: range(8).map((actorIndex) => ({ name: `NPC${actorIndex}`, tileX: actorIndex + 4, tileY: actorIndex + 10 })),
     commandCount: 48,
     dialogueCount: 12,
+    issues:
+      index % 13 === 0 ? [{ severity: 'warning', code: 'eventMissingEnd', messageKey: 'event.missingEnd', path: [`event-${index}`] }] : [],
     issueCount: index % 13 === 0 ? 1 : 0,
     scriptSteps: range(18).map((step) => ({ index: step, title: `Step ${step}`, detail: `Command detail ${step}` })),
     preconditionGroups: {
@@ -486,6 +467,8 @@ function createLocalMod(): LauncherLibraryItem {
     dependencies: range(20).map((index) => ({ uniqueId: `Required dependency ${index}`, required: true })),
     requiredDependencies: range(20).map((index) => `Required dependency ${index}`),
     missingRequiredDependencies: range(4).map((index) => `Missing dependency ${index}`),
+    minimumApiVersion: null,
+    requiresNewerSmapi: false,
   }
 }
 
@@ -546,22 +529,11 @@ function ScenarioFrame({ id, children }: { id: ScenarioId; children: ReactNode }
   return (
     <div className="dev-performance-scenario" data-mf-perf-scenario={id}>
       <header className="panel-surface p-3">
-        <p className="text-xs font-semibold text-(--text-secondary) uppercase">Compiler cleanup performance scenario</p>
-        <h1 className="text-lg font-semibold text-(--text-primary)">{id}</h1>
+        <p className="text-text-secondary text-xs font-semibold uppercase">Compiler cleanup performance scenario</p>
+        <h1 className="text-text-primary text-lg font-semibold">{id}</h1>
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
     </div>
-  )
-}
-
-function PatchMenuScenario() {
-  const [activePatchId, setActivePatchId] = useState<string | null>('patch-4')
-  return (
-    <ScenarioFrame id="cp-maker-patch-menu">
-      <div className="p-8">
-        <PatchQuickMenu patches={range(360).map(createPatch)} activePatchId={activePatchId} onSelectPatch={setActivePatchId} />
-      </div>
-    </ScenarioFrame>
   )
 }
 
@@ -616,8 +588,6 @@ function EventConditionScenario() {
         event={event}
         allEvents={range(240).map(createEvent)}
         alias="performance-alias"
-        hubCopy={hubCopy}
-        copy={hubCopy.conditionBuilder}
         onApply={noop}
         onCancel={noop}
       />
@@ -628,13 +598,7 @@ function EventConditionScenario() {
 function EventGameStateScenario() {
   return (
     <ScenarioFrame id="event-game-state-query-builder">
-      <EventGameStateQueryBuilderModal
-        copy={hubCopy.conditionBuilder.gameStateQueryBuilder}
-        hubCopy={hubCopy}
-        initialQuery="TIME 1900 2300, PLAYER_HAS_ITEM (O)74 12"
-        onApply={noop}
-        onCancel={noop}
-      />
+      <EventGameStateQueryBuilderModal initialQuery="TIME 1900 2300, PLAYER_HAS_ITEM (O)74 12" onApply={noop} onCancel={noop} />
     </ScenarioFrame>
   )
 }
@@ -658,7 +622,6 @@ function LauncherDetailScenario() {
 }
 
 function scenarioFor(id: ScenarioId) {
-  if (id === 'cp-maker-patch-menu') return <PatchMenuScenario />
   if (id === 'cp-maker-project-gallery') return <ProjectGalleryScenario />
   if (id === 'mod-translation') return <ModTranslationScenario />
   if (id === 'event-condition-builder') return <EventConditionScenario />
@@ -668,9 +631,10 @@ function scenarioFor(id: ScenarioId) {
 
 function resolveScenarioId(): ScenarioId {
   const requested = new URLSearchParams(window.location.search).get('mfPerfScenario')
-  return scenarioIds.includes(requested as ScenarioId) ? (requested as ScenarioId) : 'cp-maker-patch-menu'
+  return scenarioIds.includes(requested as ScenarioId) ? (requested as ScenarioId) : 'cp-maker-project-gallery'
 }
 
+/** Dev scenario entry point: resolves the requested performance scenario from URL params. */
 export function DevPerformanceScenario() {
   return (
     <LocaleProvider locale="en-US">

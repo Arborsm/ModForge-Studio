@@ -1,0 +1,38 @@
+import type { AudioPanelCopy } from '../../../model/workbench'
+
+const audioPanel: AudioPanelCopy = {
+  browserTitle: 'Audio Browser',
+  browserSubtitle: 'Music and sound cues',
+  browserPlaceholder: 'Search cues',
+  browserEmptyFiltered: 'No cues match the current filter',
+  browserEmptyMissing: 'No audio assets found. Open a game directory to load cues.',
+  groupMusic: 'Music',
+  groupSound: 'Sound',
+  statsAll: 'Total',
+  statsMusic: 'Music',
+  statsSound: 'Sound',
+  previewTitle: 'Preview',
+  previewEmpty: 'Select a cue to preview',
+  previewLoading: 'Loading audio…',
+  previewError: (message) => `Failed to load audio: ${message}`,
+  play: 'Play',
+  pause: 'Pause',
+  loop: 'Loop',
+  loopEnabled: 'Loop enabled',
+  volume: 'Volume',
+  cueLabel: 'Cue',
+  kindLabel: 'Kind',
+  sourceLabel: 'Source',
+  pathLabel: 'Path',
+  formatLabel: 'Format',
+  formatXact: 'XACT',
+  formatOgg: 'OGG',
+  formatWav: 'WAV',
+  formatMp3: 'MP3',
+  formatUnknown: 'Unknown',
+  copyCue: 'Copy cue name',
+  copyCueDone: 'Copied',
+  seekLabel: 'Seek playback position',
+}
+
+export default audioPanel

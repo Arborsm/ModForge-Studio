@@ -1,5 +1,9 @@
+/**
+ * @file Launcher cover image loading hook and shared resource cache.
+ */
 import { useEffect, useState } from 'react'
 import { createResourceCache } from '@shared/lib/resources'
+import { appEvent } from '@platform/observability'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherPort } from './launcherPort'
 
@@ -7,6 +11,7 @@ const launcherImageCache = createResourceCache<string>({
   maxEntries: 96,
 })
 
+/** Loads a launcher image URL into the shared cache, hitting the disk cache first when not refreshing. */
 export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPort, refresh = false, modKey: string | null = null) {
   if (refresh) {
     launcherImageCache.invalidate(url)
@@ -38,6 +43,7 @@ function getCachedLauncherImageUrl(url: string | null) {
   return launcherImageCache.get(url)
 }
 
+/** Resolves a remote launcher cover image to a desktop asset URL, with loading/error state. */
 export function useLauncherImage(url: string | null, modKey: string | null = null) {
   const launcherPort = useLauncherPort()
   const cachedImageUrl = getCachedLauncherImageUrl(url)
@@ -61,8 +67,12 @@ export function useLauncherImage(url: string | null, modKey: string | null = nul
           setLoadedImage({ url, imageUrl: result })
         }
       } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        appEvent('debug', 'Launcher image load failed')
+          .context({ source: 'launcher-image-loader', operation: 'load', url, modKey: normalizedModKey || undefined, error: message })
+          .dedupe(`launcher-image:${url}`)
+          .emit({ notify: false })
         if (active) {
-          const message = error instanceof Error ? error.message : 'Image load failed'
           setLoadError({ url, error: message })
         }
       }

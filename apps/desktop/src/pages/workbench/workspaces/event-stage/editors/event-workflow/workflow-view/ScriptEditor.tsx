@@ -1,4 +1,6 @@
-// 右侧剧本编辑器容器
+/**
+ * @file Right-side script editor container component.
+ */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ListOrdered, Plus, Rows3 } from 'lucide-react'
@@ -15,23 +17,13 @@ import { useEventStageCopy } from '@locales/provider'
 
 export type ScriptEditorProps = {
   script: EventScript | null
-  locale?: 'zh-CN' | 'en-US'
   resourceRegistry?: EventResourceRegistry
-  currentPlaybackCommandId?: string | null
   eventId?: string | null
   onScriptChange?: (script: EventScript) => void
   className?: string
 }
 
-export function ScriptEditor({
-  script,
-  locale = 'zh-CN',
-  resourceRegistry,
-  currentPlaybackCommandId = null,
-  eventId,
-  onScriptChange,
-  className,
-}: ScriptEditorProps) {
+export function ScriptEditor({ script, resourceRegistry, eventId, onScriptChange, className }: ScriptEditorProps) {
   // Subscribe only to needed state slices to avoid re-renders on unrelated store changes
   const currentScript = useEditorStore((s) => s.currentScript)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -113,28 +105,22 @@ export function ScriptEditor({
     [script],
   )
 
-  const handleUpdateArgs = useCallback(
-    (commandIndex: number, argIndex: number, values: string[]) => {
-      const state = useEditorStore.getState()
-      const editableScript = state.currentScript ?? script
-      if (!state.currentScript && editableScript) {
-        state.setCurrentScript(editableScript)
-      }
-      const cmd = editableScript?.commands[commandIndex]
-      if (!cmd) return
-      const nextArgs = [...cmd.args.slice(0, argIndex), ...values]
-      const raw = serializeRaw(nextArgs)
-      useEditorStore.getState().updateCommandAt(commandIndex, raw)
-    },
-    [script],
-  )
+  const handleUpdateArgs = (commandIndex: number, argIndex: number, values: string[]) => {
+    const state = useEditorStore.getState()
+    const editableScript = state.currentScript ?? script
+    if (!state.currentScript && editableScript) {
+      state.setCurrentScript(editableScript)
+    }
+    const cmd = editableScript?.commands[commandIndex]
+    if (!cmd) return
+    const nextArgs = [...cmd.args.slice(0, argIndex), ...values]
+    const raw = serializeRaw(nextArgs)
+    useEditorStore.getState().updateCommandAt(commandIndex, raw)
+  }
 
-  const handleEnterPickMode = useCallback(
-    (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => {
-      useEditorStore.getState().setPickModeTarget({ commandIndex, paramIndex, controlType })
-    },
-    [],
-  )
+  const handleEnterPickMode = (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => {
+    useEditorStore.getState().setPickModeTarget({ commandIndex, paramIndex, controlType })
+  }
 
   const handleSetInlineDelay = useCallback(
     (commandIndex: number, pauseCommandIndex: number | null, valueMs: number) => {
@@ -153,9 +139,9 @@ export function ScriptEditor({
     [script],
   )
 
-  const handleRemoveInlineDelay = useCallback((pauseCommandIndex: number) => {
+  const handleRemoveInlineDelay = (pauseCommandIndex: number) => {
     useEditorStore.getState().removeCommandAt(pauseCommandIndex)
-  }, [])
+  }
 
   // Ctrl+K / Cmd+K to open CommandPalette
   useEffect(() => {
@@ -227,11 +213,7 @@ export function ScriptEditor({
       <div className="script-list">
         <ScriptTimeline
           commands={commands}
-          locale={locale}
-          copy={copy}
-          workflowCopy={workflowCopy}
           resourceRegistry={resourceRegistry}
-          currentPlaybackCommandId={currentPlaybackCommandId}
           onUpdateArg={handleUpdateArg}
           onUpdateArgs={handleUpdateArgs}
           onSetInlineDelay={handleSetInlineDelay}
@@ -273,8 +255,6 @@ export function ScriptEditor({
             nextState.commandPaletteInsertIndex ?? nextState.currentScript?.commands.length ?? editableScript?.commands.length ?? 0
           nextState.insertCommandAt(insertIndex, template)
         }}
-        locale={locale}
-        copy={workflowCopy}
       />
     </div>
   )

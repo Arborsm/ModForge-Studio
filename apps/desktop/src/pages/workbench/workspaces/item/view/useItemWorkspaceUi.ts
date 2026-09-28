@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import type { ItemBrowseCategory } from '../entities/item'
+import type { ItemBrowseCategory } from '@entities/item'
 import type { DetailTab } from './itemWorkspaceTypes'
 
 export type CatalogViewMode = 'list' | 'grid'

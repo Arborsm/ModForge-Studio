@@ -1,0 +1,432 @@
+@layer components {
+  .schedule-editor {
+    @apply bg-surface-app flex h-full min-h-0 flex-col;
+  }
+
+  .schedule-editor-header {
+    @apply bg-surface-panel flex shrink-0 items-center justify-between gap-3 px-5 py-3;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .schedule-editor-title {
+    @apply text-text-primary text-base font-bold;
+  }
+
+  .schedule-editor-subtitle {
+    @apply text-text-secondary text-xs;
+  }
+
+  .schedule-editor-header-status {
+    @apply flex min-w-0 shrink-0 items-center gap-2.5;
+  }
+
+  .schedule-editor-header-selected {
+    @apply text-text-secondary overflow-hidden text-xs whitespace-nowrap;
+    max-width: 18rem;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-editor-save-status {
+    @apply text-text-tertiary text-xs;
+  }
+
+  .schedule-editor-save-status.is-error {
+    @apply text-danger;
+  }
+
+  .schedule-editor-body {
+    @apply flex min-h-0 flex-1 overflow-hidden;
+  }
+
+  .schedule-editor-rail {
+    @apply bg-surface-panel flex min-h-0 w-84 shrink-0 flex-col;
+    min-width: 17rem;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .schedule-editor-rail-head {
+    @apply flex shrink-0 flex-col gap-2 px-3.5 pt-3.5 pb-2.5;
+  }
+
+  .schedule-editor-field-label {
+    @apply text-text-tertiary text-meta font-ui-semibold;
+  }
+
+  .schedule-editor-directory-card {
+    @apply flex flex-col gap-1.5 rounded-xl p-3;
+    border: 1px dashed var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
+  }
+
+  .schedule-editor-directory-card-title {
+    @apply text-text-primary text-body font-ui-semibold;
+  }
+
+  .schedule-editor-entry-list {
+    @apply flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3.5 pt-1 pb-3;
+  }
+
+  .schedule-editor-entry-list-meta {
+    @apply flex shrink-0 items-baseline justify-between gap-2 px-3.5 pt-1.5 pb-1;
+  }
+
+  .schedule-editor-entry-item {
+    @apply flex flex-col gap-1.5 rounded-xl border border-transparent px-2.5 py-2 text-left;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .schedule-editor-entry-item:hover {
+    @apply bg-surface-hover;
+  }
+
+  .schedule-editor-entry-item.is-active {
+    @apply bg-accent-soft;
+    border-color: color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: inset 2px 0 0 0 var(--accent);
+  }
+
+  .schedule-editor-entry-key {
+    @apply text-text-primary text-body font-ui-semibold flex min-w-0 items-baseline gap-1.5 font-mono;
+  }
+
+  .schedule-editor-entry-label {
+    @apply text-text-tertiary text-meta overflow-hidden font-sans font-medium whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-editor-entry-badges {
+    @apply flex flex-wrap gap-1;
+  }
+
+  .schedule-editor-badge {
+    @apply text-text-secondary text-caption font-ui-semibold inline-flex items-center rounded-full px-1.5 py-px leading-normal;
+    background: color-mix(in srgb, var(--bg-panel-muted) 85%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .schedule-editor-badge.is-accent {
+    @apply bg-accent-soft;
+    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  .schedule-editor-badge.is-warn {
+    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 30%, transparent);
+  }
+
+  .schedule-editor-priority-hint {
+    @apply text-text-tertiary text-meta leading-ui shrink-0 px-3.5 pt-0 pb-1.5;
+  }
+
+  /* One key family of the rail's priority tree; earlier families win in game. */
+  .schedule-editor-family-group {
+    @apply flex flex-col gap-0.5;
+  }
+
+  .schedule-editor-family-group + .schedule-editor-family-group {
+    @apply mt-2;
+  }
+
+  .schedule-editor-family-head {
+    @apply flex items-baseline justify-between gap-2 px-2.5 pt-1 pb-0.5;
+  }
+
+  .schedule-editor-family-title {
+    @apply text-text-secondary text-meta tracking-ui font-bold;
+  }
+
+  .schedule-editor-family-count {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .schedule-editor-readonly-banner {
+    @apply flex items-center gap-2.5 rounded-xl px-3 py-2.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 60%, transparent);
+  }
+
+  .schedule-editor-readonly-banner .schedule-editor-hint {
+    @apply min-w-0 flex-1;
+  }
+
+  .schedule-editor-rail-footer {
+    @apply shrink-0 px-3.5 pt-2.5 pb-3.5;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .schedule-editor-main {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-6;
+  }
+
+  .schedule-editor-form {
+    @apply grid gap-3;
+    grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1.4fr) auto auto;
+    align-items: end;
+  }
+
+  .schedule-editor-form-field {
+    @apply flex min-w-0 flex-col gap-1.5;
+  }
+
+  .schedule-editor-inline-error {
+    @apply text-danger text-meta;
+  }
+
+  .schedule-editor-checkbox {
+    @apply text-text-primary text-body inline-flex h-10 items-center gap-1.5;
+  }
+
+  .schedule-editor-checkbox input {
+    accent-color: var(--accent);
+  }
+
+  .schedule-editor-section {
+    @apply flex flex-col gap-2;
+  }
+
+  .schedule-editor-section-title {
+    @apply text-text-primary text-body font-ui-semibold flex items-baseline justify-between gap-2;
+  }
+
+  .schedule-editor-section-hint {
+    @apply text-text-tertiary text-meta font-medium;
+  }
+
+  .schedule-editor-segment-toolbar {
+    @apply flex flex-wrap items-center gap-2 pt-0.5;
+  }
+
+  .schedule-editor-issues {
+    @apply flex flex-col gap-1;
+  }
+
+  .schedule-editor-issue {
+    @apply text-text-secondary text-meta flex items-center gap-1.5;
+  }
+
+  .schedule-editor-issue.is-error {
+    @apply text-danger;
+  }
+
+  .schedule-editor-raw-textarea {
+    @apply min-h-44 resize-y px-3 py-2.5 font-mono text-xs;
+    line-height: 1.6;
+  }
+
+  .schedule-editor-script-panel {
+    @apply flex flex-col gap-1.5 rounded-xl px-3 py-2.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 40%, var(--bg-panel));
+  }
+
+  .schedule-editor-script-pre {
+    @apply text-text-secondary m-0 font-mono text-xs whitespace-pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .schedule-editor-actions {
+    @apply flex items-center gap-2 pt-1;
+  }
+
+  .schedule-editor .control-button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .schedule-editor-actions-spacer {
+    @apply flex-1;
+  }
+
+  .schedule-editor-empty-card {
+    @apply text-text-secondary rounded-card text-body flex flex-col items-start gap-2 p-5;
+    border: 1px dashed var(--border-color);
+  }
+
+  .schedule-editor-empty-card-title {
+    @apply text-text-primary font-ui-semibold text-sm;
+  }
+
+  .schedule-editor-hint {
+    @apply text-text-tertiary text-xs;
+  }
+
+  /* Map visualization panel */
+  .schedule-editor-content {
+    @apply flex min-w-0 flex-1 gap-4;
+  }
+
+  .schedule-editor-form-column {
+    @apply flex min-w-0 flex-1 flex-col gap-4;
+  }
+
+  .schedule-editor-map-container {
+    @apply flex w-md shrink-0 flex-col;
+    min-width: 24rem;
+  }
+
+  .schedule-map-panel {
+    @apply border-border-subtle bg-surface-panel flex h-full flex-col overflow-hidden rounded-xl border;
+  }
+
+  .schedule-map-panel-header {
+    @apply flex shrink-0 items-center justify-between px-3 py-2;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 40%, transparent);
+  }
+
+  .schedule-map-panel-location {
+    @apply text-text-primary font-ui-semibold text-xs;
+  }
+
+  .schedule-map-panel-viewport {
+    @apply relative min-h-0 flex-1;
+  }
+
+  .schedule-map-panel-empty {
+    @apply flex h-full items-center justify-center rounded-xl;
+    border: 1px dashed var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 30%, transparent);
+  }
+
+  .schedule-map-panel-title-group {
+    @apply flex min-w-0 flex-col gap-0.5;
+  }
+
+  .schedule-map-panel-selected {
+    @apply text-text-secondary text-meta;
+  }
+
+  .schedule-map-panel-retry {
+    @apply border-border-subtle text-text-secondary text-meta inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md border bg-transparent px-2 py-0.5;
+  }
+
+  .schedule-map-panel-retry:hover {
+    @apply text-text-primary;
+    border-color: var(--accent);
+  }
+
+  .schedule-map-panel-retry-icon {
+    @apply h-3 w-3;
+  }
+
+  .schedule-map-panel-empty-text {
+    @apply text-text-secondary flex items-center gap-1.5 px-4 py-0 text-center text-xs;
+    max-width: 20rem;
+  }
+
+  .schedule-map-panel-empty-icon {
+    @apply h-3.5 w-3.5 shrink-0;
+  }
+
+  .schedule-map-panel-footer {
+    @apply flex shrink-0 flex-col gap-1 px-3 py-2;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .schedule-map-panel-hint {
+    @apply text-text-secondary text-meta leading-ui;
+  }
+
+  .schedule-map-panel-note {
+    @apply text-warning text-meta leading-ui;
+  }
+
+  .schedule-map-legend {
+    @apply mt-0.5 flex flex-wrap gap-x-3 gap-y-1;
+  }
+
+  .schedule-map-legend-item {
+    @apply text-text-secondary text-meta flex items-center gap-1.5;
+  }
+
+  .schedule-map-legend-swatch {
+    @apply h-2.5 w-2.5 shrink-0;
+    border-radius: 50%;
+  }
+
+  .schedule-map-legend-swatch.is-current {
+    @apply bg-accent;
+    border: 1px solid var(--bg-panel);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .schedule-map-legend-swatch.is-other {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .schedule-map-legend-line {
+    @apply w-5 shrink-0;
+    height: 0;
+    border-top-width: 2px;
+    border-top-color: var(--accent);
+  }
+
+  .schedule-map-legend-line.is-movement {
+    border-top-style: solid;
+  }
+
+  .schedule-map-legend-line.is-uncertain {
+    border-top-style: dashed;
+  }
+
+  /*
+   * The overlay is mounted with `scaleMapOverlayWithViewport`, so every length
+   * below is in unscaled world pixels (one tile = 16px) and the viewport's zoom
+   * transform scales them. Hence the deliberately small stroke and font sizes.
+   */
+  .schedule-map-overlay-svg {
+    @apply block overflow-visible;
+  }
+
+  .schedule-map-leg {
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+  }
+
+  .schedule-map-leg.is-uncertain {
+    stroke-dasharray: 4 3;
+    stroke: color-mix(in srgb, var(--accent) 65%, transparent);
+  }
+
+  .schedule-map-transition-label {
+    @apply font-ui-semibold;
+    fill: var(--text-primary);
+    stroke: var(--bg-panel);
+    stroke-width: 3;
+    paint-order: stroke fill;
+    font-size: 10px;
+  }
+
+  .schedule-map-marker circle {
+    fill: color-mix(in srgb, var(--accent) 35%, transparent);
+    stroke: color-mix(in srgb, var(--accent) 70%, transparent);
+    stroke-width: 1.5;
+  }
+
+  .schedule-map-marker text {
+    @apply font-bold;
+    fill: var(--text-primary);
+    font-size: 9px;
+  }
+
+  .schedule-map-marker.is-current circle {
+    fill: var(--accent);
+    stroke: var(--text-inverse);
+    stroke-width: 2;
+  }
+
+  .schedule-map-marker.is-current text {
+    fill: var(--text-inverse);
+  }
+
+  .schedule-map-marker-sprite {
+    image-rendering: pixelated;
+  }
+}

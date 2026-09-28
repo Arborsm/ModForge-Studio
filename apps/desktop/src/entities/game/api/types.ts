@@ -1,3 +1,8 @@
+/**
+ * @file Game asset API type definitions: game directory metadata, map/event
+ * asset summaries, parsed asset content, and resource registry interfaces.
+ */
+
 /** Validated Stardew Valley game directory metadata used by workbench editors. */
 export type GameDirectoryInfo = {
   rootPath: string
@@ -70,6 +75,24 @@ export type AudioAssetSummary = {
   kind: 'music' | 'sound'
   absolutePath: string
   relativePath: string
+}
+
+/** Game image texture summary (XNB or loose image) used by import pickers. */
+export type GameImageAssetSummary = {
+  /** Content Patcher asset key (forward slashes, no extension), e.g. `Characters/Abigail`. */
+  name: string
+  relativePath: string
+  absolutePath: string
+  sizeBytes: number
+}
+
+/** Game data file summary (XNB/JSON under Content/Data) used by import pickers. */
+export type GameDataAssetSummary = {
+  /** Content Patcher asset key (forward slashes, no extension), e.g. `Data/ObjectInformation`. */
+  name: string
+  relativePath: string
+  absolutePath: string
+  sizeBytes: number
 }
 
 /** Single normalized resource entry from the global desktop resource registry. */

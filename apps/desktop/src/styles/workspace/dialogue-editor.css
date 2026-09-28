@@ -1,0 +1,595 @@
+@layer components {
+  /* ── Shell ── */
+
+  .dialogue-editor {
+    @apply bg-surface-app flex h-full min-h-0 flex-col;
+  }
+
+  .dialogue-editor-empty-shell {
+    @apply flex flex-1 items-center justify-center p-8;
+  }
+
+  .dialogue-editor-header {
+    @apply bg-surface-panel flex shrink-0 items-center justify-between gap-3 px-5 py-3;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .dialogue-editor-title {
+    @apply text-text-primary text-base font-bold;
+  }
+
+  .dialogue-editor-subtitle {
+    @apply text-text-secondary text-xs;
+  }
+
+  .dialogue-editor-header-actions {
+    @apply inline-flex shrink-0 items-center gap-2;
+  }
+
+  .dialogue-editor-body {
+    @apply grid min-h-0 flex-1 overflow-hidden;
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+  }
+
+  .dialogue-editor-action-icon {
+    @apply h-3.5 w-3.5 shrink-0;
+  }
+
+  .dialogue-editor-muted {
+    @apply text-text-tertiary px-1 py-2 text-xs;
+  }
+
+  .dialogue-editor-error {
+    @apply text-danger px-0 py-1 text-xs;
+  }
+
+  .dialogue-editor-mono-input {
+    @apply font-mono text-xs;
+  }
+
+  /* ── NPC rail ── */
+
+  .dialogue-editor-rail {
+    @apply bg-surface-panel flex min-h-0 flex-col;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .dialogue-editor-rail-head {
+    @apply shrink-0 px-3.5 pt-3 pb-2;
+  }
+
+  .dialogue-editor-rail-title {
+    @apply text-text-tertiary text-meta tracking-ui mb-2 font-bold uppercase;
+  }
+
+  .dialogue-editor-search {
+    @apply relative;
+  }
+
+  .dialogue-editor-search-icon {
+    @apply text-text-tertiary pointer-events-none absolute h-3.5 w-3.5;
+    top: 50%;
+    left: 0.625rem;
+    transform: translateY(-50%);
+  }
+
+  .dialogue-editor-search-input {
+    @apply bg-surface-panel-muted pl-8;
+  }
+
+  .dialogue-editor-rail-list {
+    @apply flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-3;
+  }
+
+  .dialogue-editor-npc-row {
+    @apply rounded-field flex flex-col gap-0.5 border border-transparent px-2.5 py-1.5 text-left;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .dialogue-editor-npc-row:hover {
+    @apply bg-surface-hover;
+  }
+
+  .dialogue-editor-npc-row-active {
+    @apply bg-accent-soft;
+    border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+    box-shadow: inset 2px 0 0 0 var(--accent);
+  }
+
+  .dialogue-editor-npc-name {
+    @apply text-text-primary text-body overflow-hidden font-semibold whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-npc-row-active .dialogue-editor-npc-name {
+    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+  }
+
+  .dialogue-editor-npc-meta {
+    @apply inline-flex min-w-0 items-center gap-1.5;
+  }
+
+  .dialogue-editor-npc-id {
+    @apply text-text-tertiary text-meta overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-npc-badge {
+    @apply text-caption shrink-0 rounded-full px-1.5 py-px font-semibold;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  }
+
+  /* ── Entry list ── */
+
+  .dialogue-editor-main {
+    @apply flex min-h-0 min-w-0 flex-col;
+  }
+
+  .dialogue-editor-directory-notice {
+    @apply bg-warning-soft mx-4 mt-3 mb-0 flex items-start gap-2.5 rounded-xl px-3.5 py-2.5;
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  }
+
+  .dialogue-editor-directory-notice-icon {
+    @apply text-warning mt-0.5 h-4 w-4 shrink-0;
+  }
+
+  .dialogue-editor-directory-notice-title {
+    @apply text-text-primary text-body font-ui-semibold;
+  }
+
+  .dialogue-editor-directory-notice-hint {
+    @apply text-text-secondary mt-0.5 text-xs;
+  }
+
+  .dialogue-editor-main-head {
+    @apply flex shrink-0 items-baseline justify-between gap-3 px-4 pt-3 pb-2;
+  }
+
+  .dialogue-editor-main-title {
+    @apply text-text-primary text-body font-bold;
+  }
+
+  .dialogue-editor-main-status {
+    @apply text-text-tertiary text-xs tabular-nums;
+  }
+
+  .dialogue-editor-entry-list {
+    @apply flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4 pt-1 pb-4;
+  }
+
+  /* ── Priority tree ── */
+
+  .dialogue-editor-tree-tier {
+    @apply flex flex-col gap-2;
+  }
+
+  .dialogue-editor-tree-tier-head {
+    @apply flex items-baseline justify-between gap-2;
+    padding-block: 0.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .dialogue-editor-tree-tier-title {
+    @apply text-text-secondary tracking-ui text-xs font-bold;
+  }
+
+  .dialogue-editor-tree-count {
+    @apply text-text-tertiary text-meta tabular-nums;
+  }
+
+  .dialogue-editor-tree-family {
+    @apply flex flex-col gap-1.5 pl-2.5;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+  }
+
+  .dialogue-editor-tree-family-title {
+    @apply text-text-tertiary text-meta font-ui-semibold;
+  }
+
+  .dialogue-editor-tree-family-rows {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .dialogue-editor-entry-row {
+    @apply bg-surface-panel rounded-card flex items-stretch gap-3 px-3.5 py-2.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .dialogue-editor-entry-row:hover {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--bg-hover) 55%, var(--bg-panel));
+  }
+
+  /* Shadowed keys stay readable but visibly demoted; hover restores full contrast. */
+  .dialogue-editor-entry-row[data-shadowed] {
+    @apply opacity-62;
+    border-style: dashed;
+  }
+
+  .dialogue-editor-entry-row[data-shadowed='full'] {
+    @apply opacity-48;
+  }
+
+  .dialogue-editor-entry-row[data-shadowed]:hover {
+    @apply opacity-100;
+  }
+
+  .dialogue-editor-entry-shadow-badge {
+    @apply text-caption font-ui-semibold inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px;
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    color: color-mix(in srgb, var(--warning) 70%, var(--text-primary));
+  }
+
+  .dialogue-editor-shadow-explanation {
+    @apply text-text-secondary flex items-start gap-1.5 text-xs leading-normal;
+  }
+
+  .dialogue-editor-shadow-explanation[data-scope='full'] {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-shadow-jump {
+    @apply rounded-button text-meta h-7 gap-1.5 px-2.5;
+    align-self: flex-start;
+  }
+
+  .dialogue-editor-shadow-jump-key {
+    @apply text-text-tertiary text-meta font-mono;
+  }
+
+  .dialogue-editor-entry-main {
+    @apply flex min-w-0 flex-1 flex-col gap-1 text-left;
+  }
+
+  .dialogue-editor-entry-head {
+    @apply inline-flex min-w-0 items-center gap-2;
+  }
+
+  .dialogue-editor-entry-key {
+    @apply text-text-primary font-ui-semibold overflow-hidden font-mono text-xs whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-entry-badge {
+    @apply text-caption font-ui-semibold shrink-0 rounded-full px-2 py-px;
+  }
+
+  .dialogue-editor-entry-badge[data-origin='vanilla'] {
+    @apply text-text-secondary;
+    background: color-mix(in srgb, var(--text-tertiary) 14%, transparent);
+  }
+
+  .dialogue-editor-entry-badge[data-origin='project'] {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  }
+
+  .dialogue-editor-entry-badge[data-origin='override'] {
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: color-mix(in srgb, var(--warning) 70%, var(--text-primary));
+  }
+
+  .dialogue-editor-entry-family {
+    @apply text-text-tertiary text-meta shrink-0;
+  }
+
+  .dialogue-editor-entry-title {
+    @apply text-text-primary text-body overflow-hidden font-semibold whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-entry-preview {
+    @apply text-text-secondary overflow-hidden text-xs whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-entry-side {
+    @apply flex shrink-0 flex-col items-end justify-between gap-1.5;
+  }
+
+  .dialogue-editor-entry-pages {
+    @apply text-text-tertiary text-meta tabular-nums;
+  }
+
+  .dialogue-editor-entry-actions {
+    @apply inline-flex gap-1.5;
+  }
+
+  .dialogue-editor-entry-action {
+    @apply rounded-button text-meta h-7 px-2.5;
+  }
+
+  .dialogue-editor-entry-action-danger {
+    @apply bg-danger-soft text-danger;
+    border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  }
+
+  /* ── Editor top bar ── */
+
+  .dialogue-editor-topbar {
+    @apply bg-surface-panel flex shrink-0 items-center justify-between gap-3 px-4 py-2.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .dialogue-editor-topbar-lead {
+    @apply flex min-w-0 items-center gap-3;
+  }
+
+  .dialogue-editor-topbar-heading {
+    @apply min-w-0;
+  }
+
+  .dialogue-editor-topbar-title {
+    @apply text-text-primary overflow-hidden text-sm font-bold whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-breadcrumb {
+    @apply text-text-secondary text-meta inline-flex min-w-0 items-center gap-1.5;
+  }
+
+  .dialogue-editor-breadcrumb-sep {
+    @apply text-text-tertiary;
+  }
+
+  .dialogue-editor-breadcrumb-key {
+    @apply text-text-tertiary font-mono;
+  }
+
+  .dialogue-editor-topbar-actions {
+    @apply inline-flex shrink-0 items-center gap-2;
+  }
+
+  .dialogue-editor-readonly-badge {
+    @apply text-text-secondary text-meta inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold;
+    background: color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+  }
+
+  .dialogue-editor-dirty-badge {
+    @apply bg-warning-soft text-warning text-meta font-ui-semibold shrink-0 rounded-full px-2 py-0.5;
+  }
+
+  .dialogue-editor-save-status {
+    @apply text-text-tertiary text-meta;
+  }
+
+  .dialogue-editor-save-status.is-error {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-save-status-dirty {
+    @apply text-warning font-semibold;
+  }
+
+  /* ── Canvas ── */
+
+  .dialogue-editor-editor-body {
+    @apply grid min-h-0 flex-1 overflow-hidden;
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+
+  .dialogue-editor-canvas {
+    @apply min-h-0 min-w-0 overflow-y-auto px-4 pt-6 pb-12;
+    background:
+      radial-gradient(color-mix(in srgb, var(--border-color) 45%, transparent) 1px, transparent 1px) 0 0 / 1.25rem 1.25rem,
+      var(--bg-app);
+  }
+
+  .dialogue-editor-flow {
+    @apply mx-auto my-0 flex flex-col items-center;
+    width: min(34rem, 100%);
+  }
+
+  .dialogue-editor-flow-step {
+    @apply flex w-full flex-col items-center;
+  }
+
+  .dialogue-editor-connector {
+    @apply h-4.5 rounded-full;
+    width: 2px;
+    background: color-mix(in srgb, var(--border-color) 90%, transparent);
+  }
+
+  .dialogue-editor-start-card,
+  .dialogue-editor-page-card {
+    @apply bg-surface-panel shadow-panel rounded-card w-full cursor-pointer px-3.5 py-3;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .dialogue-editor-start-card:hover,
+  .dialogue-editor-page-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border-color));
+  }
+
+  .dialogue-editor-page-card-selected {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--border-color));
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent),
+      var(--shadow-panel);
+  }
+
+  .dialogue-editor-start-card {
+    background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg-panel));
+  }
+
+  .dialogue-editor-start-card-icon {
+    @apply text-accent inline-flex h-6 w-6 items-center justify-center rounded-lg;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .dialogue-editor-start-card-meta {
+    @apply text-text-secondary mt-1.5 inline-flex flex-wrap items-center gap-1.5 text-xs;
+  }
+
+  .dialogue-editor-start-card-hint {
+    @apply text-text-tertiary text-meta mt-1;
+  }
+
+  .dialogue-editor-page-card-head {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .dialogue-editor-page-card-title {
+    @apply text-text-primary shrink-0 text-xs font-bold;
+  }
+
+  .dialogue-editor-page-card-separator {
+    @apply text-caption shrink-0 rounded-full px-2 py-px font-mono font-semibold;
+  }
+
+  .dialogue-editor-page-card-separator[data-separator='end'] {
+    background: color-mix(in srgb, var(--info) 16%, transparent);
+    color: color-mix(in srgb, var(--info) 75%, var(--text-primary));
+  }
+
+  .dialogue-editor-page-card-separator[data-separator='break'] {
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: color-mix(in srgb, var(--success) 70%, var(--text-primary));
+  }
+
+  .dialogue-editor-page-card-flag {
+    @apply text-caption inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px font-semibold;
+  }
+
+  .dialogue-editor-page-card-flag[data-flag='question'] {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  }
+
+  .dialogue-editor-page-card-flag[data-flag='raw'] {
+    @apply text-text-secondary;
+    background: color-mix(in srgb, var(--text-tertiary) 14%, transparent);
+  }
+
+  .dialogue-editor-page-card-flag[data-flag='warning'] {
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: color-mix(in srgb, var(--warning) 72%, var(--text-primary));
+  }
+
+  .dialogue-editor-flag-icon {
+    @apply h-3 w-3 shrink-0;
+  }
+
+  .dialogue-editor-page-card-remove {
+    @apply text-text-tertiary ml-auto;
+  }
+
+  .dialogue-editor-page-card-remove:hover {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-page-card-body {
+    @apply mt-2 flex items-start gap-2.5;
+  }
+
+  .dialogue-editor-page-card-portrait {
+    @apply bg-surface-panel-muted rounded-lg;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .dialogue-editor-page-card-text {
+    @apply text-text-primary text-body leading-ui min-w-0 flex-1 overflow-hidden;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+
+  .dialogue-editor-page-card-text-empty {
+    @apply text-text-tertiary italic;
+  }
+
+  /* ── `$q` / `$r` sub-branches, expanded inside the page card ── */
+
+  .dialogue-editor-page-card-branches {
+    @apply mt-2 flex flex-col gap-1.5 pl-2.5;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .dialogue-editor-page-card-branch {
+    @apply flex min-w-0 items-baseline gap-2;
+  }
+
+  .dialogue-editor-page-card-branch-title {
+    @apply text-text-tertiary text-caption shrink-0 font-bold;
+  }
+
+  .dialogue-editor-page-card-branch-text {
+    @apply text-text-secondary min-w-0 flex-1 overflow-hidden text-xs whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-page-card-branch-key {
+    @apply text-accent text-caption shrink-0 rounded-full px-2 py-px font-mono;
+    background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  }
+
+  /* ── Advanced command segments in the page card ── */
+
+  .dialogue-editor-page-card-flag[data-flag='command'] {
+    background: color-mix(in srgb, var(--info) 16%, transparent);
+    color: color-mix(in srgb, var(--info) 75%, var(--text-primary));
+  }
+
+  .dialogue-editor-page-card-segments {
+    @apply mt-2 flex flex-col gap-1.5;
+  }
+
+  .dialogue-editor-page-card-segment {
+    @apply flex min-w-0 items-start gap-2;
+  }
+
+  .dialogue-editor-page-card-segment[data-segment='command'] {
+    @apply flex-wrap rounded-lg px-2 py-1.5;
+    border: 1px dashed color-mix(in srgb, var(--info) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--info) 6%, transparent);
+  }
+
+  .dialogue-editor-page-card-segment-label {
+    @apply text-meta shrink-0 font-bold;
+    color: color-mix(in srgb, var(--info) 70%, var(--text-primary));
+  }
+
+  .dialogue-editor-page-card-segment-args {
+    @apply flex min-w-0 flex-wrap gap-1.5;
+  }
+
+  .dialogue-editor-page-card-segment-arg {
+    @apply inline-flex min-w-0 items-baseline gap-1;
+  }
+
+  .dialogue-editor-page-card-segment-arg-label {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .dialogue-editor-page-card-segment-arg-value {
+    @apply text-text-secondary text-meta overflow-hidden font-mono whitespace-nowrap;
+    max-width: 14rem;
+    text-overflow: ellipsis;
+  }
+
+  .dialogue-editor-add-inline {
+    @apply inline-flex gap-1.5 px-0 py-1.5;
+  }
+
+  .dialogue-editor-add-button {
+    @apply text-text-secondary text-meta h-6.5 rounded-full px-2.5;
+    border-style: dashed;
+  }
+
+  .dialogue-editor-add-button:hover {
+    @apply text-accent;
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}

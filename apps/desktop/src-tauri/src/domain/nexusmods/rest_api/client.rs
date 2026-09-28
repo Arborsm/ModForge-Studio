@@ -1,3 +1,6 @@
+//! Nexus Mods REST v1 API client: user validation, mod info, and rate-limit
+//! quota tracking via response headers.
+
 use reqwest::StatusCode;
 use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
@@ -70,8 +73,6 @@ fn update_quota(response: &Response) {
     }
 }
 
-// ---- Error type ----
-
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum NexusRestError {
     #[error("Not authenticated: no API Key configured")]
@@ -111,8 +112,6 @@ impl Serialize for NexusRestError {
         serializer.serialize_str(&self.to_string())
     }
 }
-
-// ---- Request/Response types ----
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -172,8 +171,6 @@ pub(crate) struct ModUserInfo {
     pub member_group_id: u64,
     pub member_id: u64,
 }
-
-// ---- Internal helpers ----
 
 fn unavailable_mod_error_from_success_body(body: &Value) -> Option<NexusRestError> {
     let mod_id = body.get("mod_id").and_then(Value::as_u64);
@@ -268,8 +265,6 @@ fn send_rest_request<T: serde::de::DeserializeOwned>(
         }
     }
 }
-
-// ---- Public API functions ----
 
 /// Validate API key and return user info (including premium status).
 pub(crate) fn validate_user(api_key: &str) -> Result<UserInfo, NexusRestError> {

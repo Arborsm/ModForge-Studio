@@ -1,5 +1,6 @@
 @import './configuration/shell-and-layout.css';
 @import './configuration/account-and-routes.css';
 @import './configuration/settings.css';
+@import './configuration/smapi-card.css';
 @import './configuration/debug-tools.css';
 @import './configuration/scaffold-and-responsive.css';

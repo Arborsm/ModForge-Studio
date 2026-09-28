@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   ChevronRight,
   Database,
+  Download,
   FolderOpen,
   HelpCircle,
   Image,
@@ -15,12 +16,14 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
+import { useLauncherMobileTopLeading, usePreferencesStore } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent, ignoreError } from '@platform/observability'
+import { setAndroidDevServerUrl } from '@platform/android'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { publishNotification } from '@shared/ui/notifications'
 import {
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
@@ -53,11 +56,19 @@ import type {
   ValidateApiKeyResult,
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
+import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
+import { LauncherDevServerTools } from './LauncherDevServerTools'
+import { LauncherLogDialog } from './LauncherLogDialog'
+import { useMobilePageStore } from './mobile/mobilePageStore'
+import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
+import type { SmapiUpdateCardStatus } from '@features/launcher/model/smapiUpdateModel'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
 import { ConfigAccountCard, ConfigCompletionRail, ConfigDownloadDefaults, type ConfigStep } from './LauncherConfigurationRailCards'
 
 type LauncherConfigurationPageProps = {
   debugEnabled: boolean
+  /** True inside the Android WebView launcher host; hides the desktop .NET GMCM probe surfaces. */
+  androidHost: boolean
   onToggleDebugMode: () => void
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   settingsState: ReturnType<typeof useLauncherSettings>
@@ -65,6 +76,8 @@ type LauncherConfigurationPageProps = {
     activeItems: Array<{ source: string; status: string }>
     startDebugSimulation: (title: string) => void
   }
+  /** False while the diagnostics route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
 }
 
 type ApiRouteTone = 'ok' | 'warn' | 'danger' | 'loading'
@@ -215,30 +228,6 @@ function getNextHourTimestampSeconds() {
 function getQuotaDetail(limit: string, resetAt: number | null | undefined, fallbackResetAt: () => number, copy: LauncherCopy) {
   const resetDetail = formatResetCountdown(resetAt ?? fallbackResetAt(), copy)
   return resetDetail == null ? limit : `${limit} · ${resetDetail}`
-}
-
-function getPremiumExpiryLabel(status: ValidateApiKeyResult | null, copy: LauncherCopy) {
-  if (!status?.isPremium) {
-    return null
-  }
-
-  if (status.isLifetimePremium) {
-    return copy.diagnostics.premiumLifetime
-  }
-
-  const rawValue = status.premiumExpiresAt?.trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const timestampMs = Number(rawValue)
-  const date =
-    Number.isFinite(timestampMs) && timestampMs > 0
-      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
-      : new Date(rawValue)
-  const displayValue = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString()
-
-  return copy.diagnostics.premiumExpiresAt(displayValue)
 }
 
 function getPremiumCacheExpiresAtMs(status: ValidateApiKeyResult | null) {
@@ -487,12 +476,12 @@ function getRouteIcon(routeId: string) {
   return <Network className="h-4 w-4" />
 }
 
-function ConfigPanelHeader({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
+function ConfigPanelHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
     <div className="launcher-config-panel-head">
       <div>
         <h2>{title}</h2>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       {actions ? <div className="launcher-config-panel-actions">{actions}</div> : null}
     </div>
@@ -503,18 +492,27 @@ function ConfigPathPanel({
   settingsState,
   copy,
   browseLabel,
+  androidHost,
 }: {
   settingsState: ReturnType<typeof useLauncherSettings>
   copy: LauncherCopy
   browseLabel: string
+  /** True inside the Android WebView host; the desktop game-path row is hidden there. */
+  androidHost: boolean
 }) {
   const launcherPort = useLauncherPort()
   const rows = [
-    {
-      field: 'gamePath' as const,
-      label: copy.fields.gamePath,
-      value: settingsState.settings.gamePath,
-    },
+    // The game directory is a desktop-launcher concept: the Android host ships
+    // the game inside its own app data and never exposes a user-picked path.
+    ...(androidHost
+      ? []
+      : [
+          {
+            field: 'gamePath' as const,
+            label: copy.fields.gamePath,
+            value: settingsState.settings.gamePath,
+          },
+        ]),
     {
       field: 'modsPath' as const,
       label: copy.fields.modsPath,
@@ -741,7 +739,7 @@ function useNexusApiAccountStatus(
     }
   }, [launcherPort])
 
-  const startSso = useCallback(async () => {
+  const startSso = async () => {
     let cancelled = false
     setSsoStarting(true)
     try {
@@ -764,7 +762,7 @@ function useNexusApiAccountStatus(
       cancelled = true
       setSsoStarting(false)
     }
-  }, [launcherPort, onAuthorized, refresh, refreshApiKeyStatus])
+  }
 
   return {
     apiKeyStatus,
@@ -860,6 +858,7 @@ function ConfigNexusPanel({
   account,
   copy,
   routes,
+  androidHost = false,
   diagnosticsRefreshing,
   onRefreshDiagnostics,
 }: {
@@ -867,26 +866,135 @@ function ConfigNexusPanel({
   account: NexusApiAccountStatus
   copy: LauncherCopy
   routes: LauncherNexusRouteSnapshot[]
+  androidHost?: boolean
   diagnosticsRefreshing: boolean
   onRefreshDiagnostics: () => void
 }) {
   const hasApiKey = Boolean(settingsState.settings.nexusApiKey?.trim())
   const isAuthorized = Boolean(account.apiKeyStatus || account.ssoAuthorized || hasApiKey)
-  const dailyPercent = getPercent(account.apiKeyStatus?.dailyRemaining, 20_000)
-  const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, 500)
+  // Nexus rate limits scale with the account tier: premium keys get 20k/day and
+  // 2.5k/hour, free keys a fraction of that. A single hardcoded cap made premium
+  // quotas read as "1,989 / 500 · 100%" — a full red bar on a healthy key.
+  const isPremium = Boolean(account.apiKeyStatus?.isPremium)
+  const dailyCap = isPremium ? 20_000 : 2_500
+  const hourlyCap = isPremium ? 2_500 : 500
+  const dailyPercent = getPercent(account.apiKeyStatus?.dailyRemaining, dailyCap)
+  const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, hourlyCap)
   const dailyLimit = getQuotaDetail(
-    copy.settings.nexusQuotaDailyLimit,
+    copy.settings.nexusQuotaDailyLimit(formatNumber(dailyCap)),
     account.apiKeyStatus?.dailyResetAt,
     getNextUtcMidnightTimestampSeconds,
     copy,
   )
   const hourlyLimit = getQuotaDetail(
-    copy.settings.nexusQuotaHourlyLimit,
+    copy.settings.nexusQuotaHourlyLimit(formatNumber(hourlyCap)),
     account.apiKeyStatus?.hourlyResetAt,
     getNextHourTimestampSeconds,
     copy,
   )
   const displayedRoutes = getDisplayedConfigRoutes(routes, copy)
+
+  const routeList = (
+    <div className="launcher-config-api-list">
+      {displayedRoutes.map((route, index) => {
+        const tone = getRouteRowTone(route, account, isAuthorized)
+        return (
+          <ConfigApiRow
+            key={route.routeId}
+            index={index}
+            routeId={route.routeId as ConfigRouteId}
+            name={getRouteDisplayName(route, copy)}
+            description={getRouteDescription(route, copy)}
+            tone={tone}
+            statusLabel={getRouteStatusLabel(route, tone, copy)}
+            resolved={route.status !== 'loading'}
+          >
+            {getRouteIcon(route.routeId)}
+          </ConfigApiRow>
+        )
+      })}
+    </div>
+  )
+
+  const accountSlot = (
+    <div className="launcher-config-account-slot">
+      {isAuthorized ? (
+        <div className="launcher-config-dashboard">
+          <div className="launcher-config-dash-metrics">
+            <ConfigMetric
+              title={copy.settings.nexusQuotaDaily}
+              value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
+              percent={dailyPercent}
+              limit={dailyLimit}
+            />
+            <ConfigMetric
+              title={copy.settings.nexusQuotaHourly}
+              value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
+              percent={hourlyPercent}
+              limit={hourlyLimit}
+              warn
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="launcher-config-guest-hero">
+          <div>
+            <h3>{copy.settings.nexusGuestTitle}</h3>
+            <p>{copy.settings.nexusGuestSubtitle}</p>
+          </div>
+          <div className="launcher-config-actions">
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              disabled={account.ssoStarting}
+              aria-busy={account.ssoStarting}
+              onClick={() => void account.startSso()}
+            >
+              {account.ssoStarting ? <RefreshCw className={cx('h-3.5 w-3.5 animate-spin')} aria-hidden="true" /> : null}
+              {copy.settings.nexusSignInAction}
+            </button>
+            <button
+              type="button"
+              className="launcher-config-button"
+              onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
+            >
+              {copy.settings.nexusPasteApiKeyAction}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const apiError = account.apiKeyError ? <p className="launcher-config-api-error">{`Log: ${account.apiKeyError}`}</p> : null
+
+  // Android host: one combined card reads as a desktop panel squeezed onto a
+  // phone, so the route probes and the account section become two plain cards
+  // with small titles — the same visual language as the preferences card.
+  if (androidHost) {
+    return (
+      <>
+        <section
+          className="launcher-config-panel launcher-config-network-mobile"
+          aria-label={copy.configuration.nexusDiagnosticsTitle}
+          data-testid="launcher-config-network-mobile"
+        >
+          <div className="launcher-config-rail-title">{copy.configuration.nexusDiagnosticsTitle}</div>
+          {routeList}
+          {apiError}
+        </section>
+        <section
+          className="launcher-config-panel launcher-config-nexus"
+          aria-label={copy.settings.nexusAccessTitle}
+          data-testid="launcher-config-nexus"
+          data-guide="launcher-config-nexus"
+        >
+          <ConfigPanelHeader title={copy.settings.nexusAccessTitle} />
+          {accountSlot}
+        </section>
+      </>
+    )
+  }
 
   return (
     <section
@@ -924,76 +1032,9 @@ function ConfigNexusPanel({
           </div>
         }
       />
-
-      <div className="launcher-config-account-slot">
-        {isAuthorized ? (
-          <div className="launcher-config-dashboard">
-            <div className="launcher-config-dash-metrics">
-              <ConfigMetric
-                title={copy.settings.nexusQuotaDaily}
-                value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
-                percent={dailyPercent}
-                limit={dailyLimit}
-              />
-              <ConfigMetric
-                title={copy.settings.nexusQuotaHourly}
-                value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
-                percent={hourlyPercent}
-                limit={hourlyLimit}
-                warn
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="launcher-config-guest-hero">
-            <div>
-              <h3>{copy.settings.nexusGuestTitle}</h3>
-              <p>{copy.settings.nexusGuestSubtitle}</p>
-            </div>
-            <div className="launcher-config-actions">
-              <button
-                type="button"
-                className="launcher-config-button launcher-config-button-primary"
-                disabled={account.ssoStarting}
-                aria-busy={account.ssoStarting}
-                onClick={() => void account.startSso()}
-              >
-                {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-                {copy.settings.nexusSignInAction}
-              </button>
-              <button
-                type="button"
-                className="launcher-config-button"
-                onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
-              >
-                {copy.settings.nexusPasteApiKeyAction}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="launcher-config-api-list">
-        {displayedRoutes.map((route, index) => {
-          const tone = getRouteRowTone(route, account, isAuthorized)
-          return (
-            <ConfigApiRow
-              key={route.routeId}
-              index={index}
-              routeId={route.routeId as ConfigRouteId}
-              name={getRouteDisplayName(route, copy)}
-              description={getRouteDescription(route, copy)}
-              tone={tone}
-              statusLabel={getRouteStatusLabel(route, tone, copy)}
-              resolved={route.status !== 'loading'}
-            >
-              {getRouteIcon(route.routeId)}
-            </ConfigApiRow>
-          )
-        })}
-      </div>
-
-      {account.apiKeyError ? <p className="launcher-config-api-error">{`Log: ${account.apiKeyError}`}</p> : null}
+      {accountSlot}
+      {routeList}
+      {apiError}
     </section>
   )
 }
@@ -1107,7 +1148,10 @@ function ConfigGmcmProbePanel({
               resolved={diagnostics != null}
               statusAction={
                 diagnostics != null && (row.tone === 'warn' || row.tone === 'danger')
-                  ? { label: copy.configuration.gmcmProbeResolveAction, onClick: onOpenDetails }
+                  ? {
+                      label: copy.configuration.gmcmProbeResolveAction,
+                      onClick: onOpenDetails,
+                    }
                   : undefined
               }
             >
@@ -1210,24 +1254,261 @@ function ConfigGmcmProbePanel({
   )
 }
 
+function getSmapiUpdateStatusTone(status: SmapiUpdateCardStatus): ApiRouteTone {
+  switch (status.kind) {
+    case 'up-to-date':
+    case 'install-success':
+      return 'ok'
+    case 'not-configured':
+    case 'update-available':
+      return 'warn'
+    case 'check-failed':
+    case 'install-failed':
+      return 'danger'
+    case 'checking':
+    case 'installing':
+      return 'loading'
+  }
+}
+
+type SmapiUpdateCopy = LauncherCopy['configuration']['smapiUpdate']
+
+function getSmapiUpdateStatusLabel(status: SmapiUpdateCardStatus, copy: SmapiUpdateCopy) {
+  switch (status.kind) {
+    case 'not-configured':
+      return copy.statusNotConfigured
+    case 'checking':
+      return copy.statusChecking
+    case 'up-to-date':
+      return copy.statusUpToDate
+    case 'update-available':
+      return copy.statusUpdateAvailable
+    case 'installing':
+      return copy.statusInstalling
+    case 'install-success':
+      return copy.statusInstalled
+    case 'check-failed':
+      return copy.statusCheckFailed
+    case 'install-failed':
+      return copy.statusInstallFailed
+  }
+}
+
+function ConfigSmapiUpdateCard({
+  copy,
+  gamePath,
+  androidHost = false,
+  onRuntimeInfoRefreshed,
+}: {
+  copy: LauncherCopy
+  gamePath: string | null
+  androidHost?: boolean
+  onRuntimeInfoRefreshed?: (info: LauncherRuntimeInfo) => void
+}) {
+  const smapiUpdate = useSmapiUpdate({ gamePath, pathsManagedByHost: androidHost, onRuntimeInfoRefreshed })
+  const status = smapiUpdate.status
+  const smapiCopy = copy.configuration.smapiUpdate
+  const tone = getSmapiUpdateStatusTone(status)
+  // The Android host reports a missing SMAPI as installedVersion "0.0.0" with an
+  // update available; surface that as a fresh-install state instead of an update.
+  const freshInstall = status.kind === 'update-available' && status.installedVersion === '0.0.0'
+  const statusLabel = freshInstall ? smapiCopy.statusNotInstalled : getSmapiUpdateStatusLabel(status, smapiCopy)
+  const requiredByModsTooltip =
+    status.kind === 'update-available' && status.requiredByMods.length
+      ? status.requiredByMods.map((mod) => smapiCopy.requiredByModsTooltip(mod.modName, mod.minimumApiVersion)).join('\n')
+      : null
+  const installing = status.kind === 'installing'
+  const updateAvailable = status.kind === 'update-available'
+  const actionMode = deriveSmapiUpdateActionMode(updateAvailable ? status.download : null)
+  const localCandidate = updateAvailable ? status.installerCandidate : null
+  const showLocalSection =
+    updateAvailable && (localCandidate !== null || status.installerScanState === 'scanning' || status.installerScanState === 'failed')
+  const showManualFlowGuidance = updateAvailable && (actionMode === 'nexus' || actionMode === 'none')
+
+  return (
+    <section
+      className={cx('launcher-config-panel launcher-config-smapi-update', `launcher-config-smapi-update-${tone}`)}
+      aria-label={smapiCopy.title}
+      data-testid="launcher-config-smapi-update"
+    >
+      <ConfigPanelHeader
+        title={smapiCopy.title}
+        description={smapiCopy.subtitle}
+        actions={
+          <div className="launcher-config-actions">
+            <span className={cx('launcher-config-status-tag', `launcher-config-status-tag-${tone}`)}>{statusLabel}</span>
+            <button
+              type="button"
+              className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button"
+              aria-busy={smapiUpdate.checking}
+              disabled={smapiUpdate.checking || installing}
+              aria-label={smapiCopy.title}
+              title={smapiCopy.title}
+              onClick={() => void smapiUpdate.runCheck()}
+            >
+              <RefreshCw className={cx('h-3.5 w-3.5', smapiUpdate.checking && 'animate-spin')} aria-hidden="true" />
+            </button>
+          </div>
+        }
+      />
+
+      <div className="launcher-config-smapi-body">
+        {status.kind === 'not-configured' ? <p className="launcher-config-smapi-detail">{smapiCopy.notConfiguredDetail}</p> : null}
+        {status.kind === 'checking' ? <p className="launcher-config-smapi-detail">{smapiCopy.checkingDetail}</p> : null}
+        {status.kind === 'up-to-date' ? (
+          <p className="launcher-config-smapi-detail">{smapiCopy.upToDateDetail(status.installedVersion, status.gameVersion)}</p>
+        ) : null}
+        {status.kind === 'update-available' ? (
+          <div className="launcher-config-smapi-update-detail">
+            <p className="launcher-config-smapi-detail">
+              {freshInstall ? smapiCopy.notInstalledDetail : smapiCopy.updateAvailableDetail(status.installedVersion, status.targetVersion)}
+            </p>
+            <p className="launcher-config-smapi-hint">{smapiCopy.latestStableHint(status.latestStableVersion)}</p>
+            {status.versionSource === 'nexus' ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusSourceHint}</p> : null}
+            {status.requiredByMods.length ? (
+              <span
+                className="launcher-config-smapi-affected"
+                aria-label={requiredByModsTooltip ?? undefined}
+                data-tooltip={requiredByModsTooltip ?? undefined}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{smapiCopy.requiredByModsSummary(status.requiredByMods.length)}</span>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {showManualFlowGuidance ? <p className="launcher-config-smapi-hint">{smapiCopy.nexusManualGuidance}</p> : null}
+        {showLocalSection ? (
+          <div className="launcher-config-smapi-local">
+            <div className="launcher-config-smapi-local-head">
+              <span className="launcher-config-smapi-local-title">{smapiCopy.localSectionTitle}</span>
+              {status.installerScanState === 'scanning' ? (
+                <span className="launcher-config-smapi-hint">{smapiCopy.installerScanningDetail}</span>
+              ) : null}
+              {status.installerScanState === 'failed' ? (
+                <span className="launcher-config-smapi-hint launcher-config-smapi-error">
+                  {status.installerScanError ?? smapiCopy.installerScanFallback}
+                </span>
+              ) : null}
+            </div>
+            {localCandidate ? (
+              <div className="launcher-config-smapi-candidate">
+                <span className="launcher-config-smapi-candidate-copy">
+                  <span className="launcher-config-smapi-candidate-name" title={localCandidate.path}>
+                    {localCandidate.fileName}
+                  </span>
+                  <span className="launcher-config-smapi-candidate-meta">
+                    {smapiCopy.localCandidateVersionLabel(localCandidate.version)} ·{' '}
+                    {localCandidate.naming === 'github' ? smapiCopy.candidateNamingGithub : smapiCopy.candidateNamingNexus}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="launcher-config-button launcher-config-button-primary"
+                  onClick={() => void smapiUpdate.startLocalInstall(localCandidate)}
+                >
+                  <PackageCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{smapiCopy.installLocalAction}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {status.kind === 'check-failed' || status.kind === 'install-failed' ? (
+          <p className="launcher-config-smapi-detail launcher-config-smapi-error">{status.message}</p>
+        ) : null}
+        {status.kind === 'installing' ? (
+          <div className="launcher-config-smapi-install-progress">
+            <span className={cx('launcher-config-progress', tone === 'warn' && 'launcher-config-progress-warn')}>
+              <i style={{ width: `${status.percent ?? 0}%` }} />
+            </span>
+            <span className="launcher-config-smapi-progress-meta">
+              {smapiCopy.installingDetail(smapiCopy.installPhaseLabels[status.phase], status.message)}
+              {status.percent != null ? ` · ${smapiCopy.installPercent(status.percent)}` : ''}
+            </span>
+          </div>
+        ) : null}
+        {status.kind === 'install-success' ? (
+          <p className="launcher-config-smapi-detail">{smapiCopy.installedDetail(status.installedVersion)}</p>
+        ) : null}
+
+        <div className="launcher-config-smapi-actions">
+          {status.kind === 'update-available' && actionMode === 'github' ? (
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              onClick={() => void smapiUpdate.startInstall()}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{freshInstall ? smapiCopy.installAction : smapiCopy.updateAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' && actionMode === 'nexus' ? (
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              onClick={() => void smapiUpdate.openNexusManualDownload()}
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.openNexusAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' && (actionMode === 'nexus' || actionMode === 'none') ? (
+            <button type="button" className="launcher-config-button" onClick={smapiUpdate.rescanInstallerDownloads}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.rescanAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'update-available' && !androidHost ? (
+            <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.pickLocalInstaller()}>
+              <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.pickLocalAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'check-failed' || status.kind === 'install-failed' ? (
+            <button type="button" className="launcher-config-button" onClick={() => void smapiUpdate.runCheck()}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{smapiCopy.retryAction}</span>
+            </button>
+          ) : null}
+          {status.kind === 'installing' && status.cancellable ? (
+            <button type="button" className="launcher-config-button launcher-config-danger-button" onClick={smapiUpdate.cancelInstall}>
+              {smapiCopy.cancelAction}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function LauncherConfigurationPage({
   debugEnabled,
+  androidHost,
   onToggleDebugMode,
   onLauncherDiagnosticsUpdate,
   settingsState,
   downloads,
+  routeActive = true,
 }: LauncherConfigurationPageProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
+  useLauncherMobileTopLeading(<h1 className="mobile-top-title">{copy.pages.configuration}</h1>, androidHost && routeActive)
   const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const [bbcodePreviewExpanded, setBbcodePreviewExpanded] = useState(false)
   const [diagnosticRoutes, setDiagnosticRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
   const [lastDiagnosticsAt, setLastDiagnosticsAt] = useState<number | null>(null)
   const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false)
-  const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
+  const forceOffline = usePreferencesStore((state) => state.forceOffline)
+  const setForceOffline = usePreferencesStore((state) => state.setForceOffline)
   const [forceOfflineBusy, setForceOfflineBusy] = useState(false)
-  const [forceNonPremium, setForceNonPremium] = useState(() => getAppUiStateSnapshot().launcher.forceNonPremium)
+  const forceNonPremium = usePreferencesStore((state) => state.forceNonPremium)
+  const setForceNonPremium = usePreferencesStore((state) => state.setForceNonPremium)
   const [forceNonPremiumBusy, setForceNonPremiumBusy] = useState(false)
+  // Android-only dev-server override: the persisted value lives in the native
+  // settings file and reaches this page through the launcher settings load.
+  const devServerUrl = settingsState.settings.devServerUrl ?? null
+  const [devServerBusy, setDevServerBusy] = useState(false)
   const [diagnosticsPollNonce] = useState(0)
   const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
@@ -1243,14 +1524,21 @@ export function LauncherConfigurationPage({
   const gmcmProbeStepTone = getProbeStatusTone(gmcmProbeDiagnostics)
   const gmcmPreferenceReady = settingsState.state === 'ready'
   const gmcmParsingEnabled = settingsState.settings.gmcmParsingEnabled !== false
-  const hasGmcmProbeIssue = gmcmParsingEnabled && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
+  // The .NET GMCM probe cannot run on Android; mod config editing there uses the pure JSON path.
+  const gmcmProbeAvailable = !androidHost
+  const hasGmcmProbeIssue = gmcmParsingEnabled && gmcmProbeAvailable && (gmcmProbeStepTone === 'warn' || gmcmProbeStepTone === 'danger')
   const stepItems: ConfigStep[] = [
-    {
-      id: 'paths',
-      label: copy.settings.stepPaths,
-      detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
-      tone: configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger',
-    },
+    // Path setup is a desktop-launcher concern; the Android host owns its paths.
+    ...(androidHost
+      ? []
+      : [
+          {
+            id: 'paths',
+            label: copy.settings.stepPaths,
+            detail: copy.settings.configuredPathsSummary(configuredPaths, 3),
+            tone: (configuredPaths === 3 ? 'ok' : configuredPaths > 0 ? 'warn' : 'danger') as ConfigStep['tone'],
+          },
+        ]),
     {
       id: 'nexus',
       label: copy.settings.stepNexus,
@@ -1263,16 +1551,20 @@ export function LauncherConfigurationPage({
       detail: warningDiagnostics ? copy.settings.diagnosticsReview : copy.settings.diagnosticsHealthy,
       tone: warningDiagnostics ? 'warn' : 'ok',
     },
-    {
-      id: 'gmcm-probe',
-      label: copy.settings.stepGmcmProbe,
-      detail: !gmcmParsingEnabled
-        ? copy.configuration.gmcmParsingDisabled
-        : hasGmcmProbeIssue
-          ? copy.settings.gmcmProbeReview
-          : copy.settings.gmcmProbeReady,
-      tone: hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok',
-    },
+    ...(gmcmProbeAvailable
+      ? [
+          {
+            id: 'gmcm-probe',
+            label: copy.settings.stepGmcmProbe,
+            detail: !gmcmParsingEnabled
+              ? copy.configuration.gmcmParsingDisabled
+              : hasGmcmProbeIssue
+                ? copy.settings.gmcmProbeReview
+                : copy.settings.gmcmProbeReady,
+            tone: (hasGmcmProbeIssue ? gmcmProbeStepTone : 'ok') as ConfigStep['tone'],
+          },
+        ]
+      : []),
   ]
   const readyStepCount = stepItems.filter((step) => step.tone === 'ok').length
   const issueStepCount = stepItems.length - readyStepCount
@@ -1294,6 +1586,15 @@ export function LauncherConfigurationPage({
       onLauncherDiagnosticsUpdate?.(diagnostics)
     },
     [onLauncherDiagnosticsUpdate],
+  )
+  const handleRuntimeInfoRefreshed = useCallback(
+    (info: LauncherRuntimeInfo) => {
+      setRuntimeInfo(info)
+      writeCachedLauncherConfigurationRuntimeInfo(info, {
+        gamePath: settingsState.settings.gamePath ?? '',
+      })
+    },
+    [settingsState.settings.gamePath],
   )
   const handleRefreshDiagnostics = useCallback(() => {
     setDiagnosticsRefreshing(true)
@@ -1448,7 +1749,7 @@ export function LauncherConfigurationPage({
     }
   }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
   useEffect(() => {
-    if (!gmcmPreferenceReady || !gmcmParsingEnabled) {
+    if (!gmcmPreferenceReady || !gmcmParsingEnabled || !gmcmProbeAvailable) {
       setGmcmProbeDiagnostics(null)
       setGmcmProbeRefreshing(false)
       return
@@ -1462,40 +1763,30 @@ export function LauncherConfigurationPage({
         const diagnostics = await launcherPort.loadGmcmProbeDiagnostics()
         if (!disposed) {
           setGmcmProbeDiagnostics(diagnostics)
-          reportAppEvent({
-            level: diagnostics.status === 'ready' ? 'debug' : diagnostics.status === 'warning' ? 'warning' : 'error',
-            title: copy.configuration.gmcmProbeTitle,
-            description: getProbeNotificationDescription(diagnostics, copy),
-            action:
-              diagnostics.status === 'ready'
-                ? undefined
-                : {
-                    label: copy.actions.viewDetails,
-                    callback: handleNavigateToGmcmProbe,
-                  },
-            debugDiagnosticsEnabled: debugEnabled,
-            notify: false,
-            logMessage: 'launcher.gmcmProbe.resolved',
-            keyValues: getProbeDiagnosticKeyValues(diagnostics),
-          })
+          appEvent(
+            diagnostics.status === 'ready' ? 'debug' : diagnostics.status === 'warning' ? 'warning' : 'error',
+            copy.configuration.gmcmProbeTitle,
+          )
+            .description(getProbeNotificationDescription(diagnostics, copy))
+            .logMessage('launcher.gmcmProbe.resolved')
+            .debugDiagnostics(debugEnabled)
+            .context(getProbeDiagnosticKeyValues(diagnostics))
+            .emit({ notify: false })
         }
       } catch (nextError) {
         if (!disposed) {
           const diagnostics = createUnavailableProbeDiagnostics(nextError)
           setGmcmProbeDiagnostics(diagnostics)
-          reportAppEvent({
-            level: 'error',
-            title: copy.configuration.gmcmProbeTitle,
-            description: getProbeNotificationDescription(diagnostics, copy),
-            action: {
+          appEvent('error', copy.configuration.gmcmProbeTitle)
+            .description(getProbeNotificationDescription(diagnostics, copy))
+            .logMessage('launcher.gmcmProbe.resolveFailed')
+            .action({
               label: copy.actions.viewDetails,
               callback: handleNavigateToGmcmProbe,
-            },
-            debugDiagnosticsEnabled: true,
-            notify: false,
-            logMessage: 'launcher.gmcmProbe.resolveFailed',
-            keyValues: getProbeDiagnosticKeyValues(diagnostics),
-          })
+            })
+            .debugDiagnostics(true)
+            .context(getProbeDiagnosticKeyValues(diagnostics))
+            .emit({ notify: false })
         }
       } finally {
         if (!disposed) {
@@ -1509,27 +1800,32 @@ export function LauncherConfigurationPage({
     return () => {
       disposed = true
     }
-  }, [copy, debugEnabled, diagnosticsRestartNonce, gmcmParsingEnabled, gmcmPreferenceReady, handleNavigateToGmcmProbe, launcherPort])
-  const handleViewLogs = useCallback(() => {
-    setDebugToolsExpanded(true)
-    window.requestAnimationFrame(() => {
-      document.querySelector('[data-loading-section="launcher-debug-logs"]')?.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth',
-      })
-    })
-  }, [])
+  }, [
+    copy,
+    debugEnabled,
+    diagnosticsRestartNonce,
+    gmcmParsingEnabled,
+    gmcmPreferenceReady,
+    gmcmProbeAvailable,
+    handleNavigateToGmcmProbe,
+    launcherPort,
+  ])
+  const [logDialogOpen, setLogDialogOpen] = useState(false)
+  const handleViewLogs = () => {
+    // Android host: full-screen page; desktop keeps the dialog.
+    if (androidHost) {
+      useMobilePageStore.getState().openPage('logs')
+      return
+    }
+
+    setLogDialogOpen(true)
+  }
   const handleToggleForceOffline = useCallback(async () => {
     const nextForceOffline = !forceOffline
     setForceOfflineBusy(true)
 
     try {
       const diagnostics = await setLauncherNexusForceOffline(nextForceOffline)
-      await applyAppUiStatePatch({
-        launcher: {
-          forceOffline: nextForceOffline,
-        },
-      })
       setForceOffline(nextForceOffline)
       writeCachedLauncherConfigurationDiagnostics(diagnostics as LauncherNexusDiagnosticsResult, {
         apiKeySignature: diagnosticsApiKeySignature,
@@ -1543,17 +1839,12 @@ export function LauncherConfigurationPage({
     } finally {
       setForceOfflineBusy(false)
     }
-  }, [diagnosticsApiKeySignature, forceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
+  }, [diagnosticsApiKeySignature, forceOffline, setForceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
   const handleToggleForceNonPremium = useCallback(async () => {
     const nextForceNonPremium = !forceNonPremium
     setForceNonPremiumBusy(true)
 
     try {
-      await applyAppUiStatePatch({
-        launcher: {
-          forceNonPremium: nextForceNonPremium,
-        },
-      })
       setForceNonPremium(nextForceNonPremium)
       await account.refreshApiKeyStatus({
         force: true,
@@ -1564,12 +1855,33 @@ export function LauncherConfigurationPage({
     } finally {
       setForceNonPremiumBusy(false)
     }
-  }, [account, forceNonPremium])
+  }, [account, forceNonPremium, setForceNonPremium])
   const handleClearLauncherImageCache = () => {
-    void clearLauncherImageCache().catch(() => {
-      // Debug-only affordance: ignore desktop bridge failures here.
-    })
+    // Debug-only affordance: ignore desktop bridge failures here.
+    void ignoreError(clearLauncherImageCache(), 'launcherConfiguration.clearImageCache')
   }
+  const handleSetDevServerUrl = useCallback(
+    async (url: string | null) => {
+      setDevServerBusy(true)
+      try {
+        // Success path: the native host persists the override and recreates the
+        // activity, so the web app reloads against the new source and this page
+        // unmounts — there is no local state left to reconcile.
+        await setAndroidDevServerUrl(url)
+      } catch (error) {
+        publishNotification({
+          id: 'launcher-dev-server-save-failed',
+          level: 'error',
+          title: copy.configuration.devServerSaveFailed,
+          description: error instanceof Error ? error.message : String(error),
+          autoDismissMs: null,
+        })
+      } finally {
+        setDevServerBusy(false)
+      }
+    },
+    [copy.configuration.devServerSaveFailed],
+  )
 
   return (
     <section className="launcher-configuration-page">
@@ -1579,19 +1891,27 @@ export function LauncherConfigurationPage({
             <LoadingMotionReveal itemId="launcher-configuration-header" index={0}>
               <header className="launcher-configuration-page-header">
                 <div className="launcher-config-title-cluster">
-                  <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
-                  <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
+                  {androidHost ? null : (
+                    <>
+                      <div className="launcher-config-breadcrumb">{copy.settings.configurationBreadcrumb}</div>
+                      <h1 className="launcher-configuration-page-title">{copy.settings.configurationGameTitle}</h1>
+                    </>
+                  )}
                   <p className="launcher-config-header-status">{headerStatusLine}</p>
                 </div>
                 <div className="launcher-config-header-actions">
-                  <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
-                    <span className="launcher-config-env-tag">
-                      {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                    <span className="launcher-config-env-tag">
-                      {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
-                    </span>
-                  </div>
+                  {androidHost ? null : (
+                    <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
+                      <span className="launcher-config-env-tag">
+                        {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
+                      </span>
+                      <span className="launcher-config-env-tag">
+                        {smapiVersion
+                          ? copy.settings.configurationSmapiVersionTag(smapiVersion)
+                          : copy.settings.configurationVersionUnknown}
+                      </span>
+                    </div>
+                  )}
                   <div className="launcher-config-header-button-group">
                     <button
                       type="button"
@@ -1609,16 +1929,36 @@ export function LauncherConfigurationPage({
               </header>
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-settings-panel" index={1}>
-              <ConfigPathPanel settingsState={settingsState} copy={copy} browseLabel={rootCopy.controls.browse} />
+            <LoadingMotionReveal itemId="launcher-smapi-update" index={1}>
+              <ConfigSmapiUpdateCard
+                copy={copy}
+                gamePath={settingsState.settings.gamePath}
+                androidHost={androidHost}
+                onRuntimeInfoRefreshed={handleRuntimeInfoRefreshed}
+              />
             </LoadingMotionReveal>
 
-            <LoadingMotionReveal itemId="launcher-config-network" index={2}>
+            {/* The Android host manages game/mods/download paths inside its own
+               app data, so the desktop Paths & Storage panel has nothing to
+               show there. */}
+            {androidHost ? null : (
+              <LoadingMotionReveal itemId="launcher-settings-panel" index={2}>
+                <ConfigPathPanel
+                  settingsState={settingsState}
+                  copy={copy}
+                  browseLabel={rootCopy.controls.browse}
+                  androidHost={androidHost}
+                />
+              </LoadingMotionReveal>
+            )}
+
+            <LoadingMotionReveal itemId="launcher-config-network" index={3}>
               <ConfigNexusPanel
                 settingsState={settingsState}
                 account={account}
                 copy={copy}
                 routes={diagnosticRoutes}
+                androidHost={androidHost}
                 diagnosticsRefreshing={diagnosticsRefreshing}
                 onRefreshDiagnostics={handleRefreshDiagnostics}
               />
@@ -1626,49 +1966,60 @@ export function LauncherConfigurationPage({
           </main>
 
           <aside className="launcher-config-rail">
-            <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
-            <ConfigAccountCard
-              account={account}
-              premiumExpiryLabel={getPremiumExpiryLabel(account.apiKeyStatus, copy)}
-              onRefresh={() => void account.refreshApiKeyStatus({ force: true })}
-            />
-            <ConfigDownloadDefaults settingsState={settingsState} />
+            {/* Android host: the completion rail duplicates the page banner and
+               the account card duplicates the Nexus panel's connect section;
+               only the download defaults stay. */}
+            {androidHost ? null : <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />}
+            {androidHost ? null : (
+              <ConfigAccountCard account={account} onRefresh={() => void account.refreshApiKeyStatus({ force: true })} />
+            )}
+            <ConfigDownloadDefaults settingsState={settingsState} androidHost={androidHost} />
           </aside>
 
-          <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={3} className="launcher-config-wide-panel">
-            <ConfigGmcmProbePanel
-              copy={copy}
-              diagnostics={gmcmProbeDiagnostics}
-              refreshing={gmcmProbeRefreshing}
-              onRefreshDiagnostics={handleRefreshDiagnostics}
-              detailsOpen={gmcmProbeDetailsOpen}
-              onOpenDetails={handleOpenGmcmProbeDetails}
-              onCloseDetails={() => setGmcmProbeDetailsOpen(false)}
-              onDownloadDotnet={handleDownloadDotnet}
-              enabled={gmcmParsingEnabled}
-            />
-          </LoadingMotionReveal>
-          <div className="launcher-config-wide-panel">
-            <LauncherConfigurationMoreTools
-              debugEnabled={debugEnabled}
-              debugToolsExpanded={debugToolsExpanded}
-              forceNonPremium={forceNonPremium}
-              forceNonPremiumBusy={forceNonPremiumBusy}
-              forceOffline={forceOffline}
-              forceOfflineBusy={forceOfflineBusy}
-              bbcodePreviewExpanded={bbcodePreviewExpanded}
-              debugSimulationActive={debugSimulationActive}
-              onToggleDebugMode={onToggleDebugMode}
-              onToggleForceNonPremium={handleToggleForceNonPremium}
-              onToggleForceOffline={handleToggleForceOffline}
-              onClearLauncherImageCache={handleClearLauncherImageCache}
-              onStartDebugSimulation={downloads.startDebugSimulation}
-              setDebugToolsExpanded={setDebugToolsExpanded}
-              setBbcodePreviewExpanded={setBbcodePreviewExpanded}
-            />
-          </div>
+          {!gmcmProbeAvailable ? null : (
+            <LoadingMotionReveal itemId="launcher-config-gmcm-probe" index={4} className="launcher-config-wide-panel">
+              <ConfigGmcmProbePanel
+                copy={copy}
+                diagnostics={gmcmProbeDiagnostics}
+                refreshing={gmcmProbeRefreshing}
+                onRefreshDiagnostics={handleRefreshDiagnostics}
+                detailsOpen={gmcmProbeDetailsOpen}
+                onOpenDetails={handleOpenGmcmProbeDetails}
+                onCloseDetails={() => setGmcmProbeDetailsOpen(false)}
+                onDownloadDotnet={handleDownloadDotnet}
+                enabled={gmcmParsingEnabled}
+              />
+            </LoadingMotionReveal>
+          )}
+          {androidHost ? (
+            <div className="launcher-config-wide-panel">
+              <LauncherDevServerTools devServerUrl={devServerUrl} busy={devServerBusy} onSetDevServerUrl={handleSetDevServerUrl} />
+            </div>
+          ) : (
+            <div className="launcher-config-wide-panel">
+              <LauncherConfigurationMoreTools
+                debugEnabled={debugEnabled}
+                debugToolsExpanded={debugToolsExpanded}
+                forceNonPremium={forceNonPremium}
+                forceNonPremiumBusy={forceNonPremiumBusy}
+                forceOffline={forceOffline}
+                forceOfflineBusy={forceOfflineBusy}
+                bbcodePreviewExpanded={bbcodePreviewExpanded}
+                debugSimulationActive={debugSimulationActive}
+                onToggleDebugMode={onToggleDebugMode}
+                onToggleForceNonPremium={handleToggleForceNonPremium}
+                onToggleForceOffline={handleToggleForceOffline}
+                onClearLauncherImageCache={handleClearLauncherImageCache}
+                onStartDebugSimulation={downloads.startDebugSimulation}
+                setDebugToolsExpanded={setDebugToolsExpanded}
+                setBbcodePreviewExpanded={setBbcodePreviewExpanded}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      <LauncherLogDialog open={logDialogOpen} onClose={() => setLogDialogOpen(false)} />
     </section>
   )
 }

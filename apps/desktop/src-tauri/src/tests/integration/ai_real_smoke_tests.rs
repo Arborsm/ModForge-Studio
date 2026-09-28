@@ -80,6 +80,17 @@ fn kimi_real_backend_flow() {
         base_url: "https://api.kimi.com/coding/v1".into(),
         model: "kimi-for-coding".into(),
         credential_environment: None,
+        allow_insecure_http: false,
+        context_window_tokens: Some(128_000),
+        max_output_tokens: None,
+        temperature: None,
+        top_p: None,
+        frequency_penalty: None,
+        presence_penalty: None,
+        max_batch_bytes: None,
+        enable_reasoning: false,
+        reasoning_effort: None,
+        stream_translation: false,
         api_key: Some(key.clone()),
         clear_api_key: false,
     };
@@ -91,6 +102,17 @@ fn kimi_real_backend_flow() {
         base_url: "https://api.kimi.com/coding/v1".into(),
         model: "kimi-for-coding".into(),
         credential_environment: None,
+        allow_insecure_http: false,
+        context_window_tokens: None,
+        max_output_tokens: Some(4_096),
+        temperature: Some(0.3),
+        top_p: None,
+        frequency_penalty: None,
+        presence_penalty: None,
+        max_batch_bytes: None,
+        enable_reasoning: false,
+        reasoning_effort: None,
+        stream_translation: false,
         api_key: Some(key.clone()),
         clear_api_key: false,
     };
@@ -168,6 +190,8 @@ fn kimi_real_backend_flow() {
             )],
             usage_context: None,
             knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
         },
     )
     .expect("single Kimi translation should succeed");
@@ -186,6 +210,8 @@ fn kimi_real_backend_flow() {
             )],
             usage_context: None,
             knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
         },
     )
     .expect("Kimi Anthropic-compatible translation should succeed");
@@ -209,6 +235,8 @@ fn kimi_real_backend_flow() {
             ],
             usage_context: None,
             knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
         },
     )
     .expect("batched Kimi translation should succeed");
@@ -246,6 +274,8 @@ fn kimi_real_backend_flow() {
             items: vec![translation_item("private", private_marker)],
             usage_context: None,
             knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
         },
     )
     .expect("Kimi operational logging translation should succeed");
@@ -332,4 +362,167 @@ fn kimi_real_backend_flow() {
     assert!(load_ai_settings().unwrap().profiles.is_empty());
     assert!(settings::keychain_password(PROFILE_ID).is_none());
     assert!(settings::keychain_password(ANTHROPIC_PROFILE_ID).is_none());
+}
+
+/// The user's real DeepSeek profile id (preset `deepseek`, model
+/// `deepseek-v4-flash`, `https://api.deepseek.com`); its API key is read from
+/// the Windows keychain so the smoke test drives the real credential without
+/// any secret being embedded in the repo or the test logs.
+const REAL_DEEPSEEK_PROFILE_ID: &str = "ae8e94ef-6bc5-4a3f-bda8-a9b38b09a2c9";
+const DEEPSEEK_SMOKE_PROFILE_ID: &str = "modforge-deepseek-real-smoke";
+const DEEPSEEK_SMOKE_KEY_ENV: &str = "MODFORGE_TEST_DEEPSEEK_KEY";
+
+struct DeepSeekSmokeCleanup {
+    root: std::path::PathBuf,
+}
+
+impl Drop for DeepSeekSmokeCleanup {
+    fn drop(&mut self) {
+        let _ = save_ai_settings(SaveAiSettingsRequest {
+            default_profile_id: None,
+            profiles: Vec::new(),
+        });
+        let _ = fs::remove_dir_all(&self.root);
+        unsafe {
+            std::env::remove_var("MODFORGE_TEST_DATA_DIR");
+            std::env::remove_var(DEEPSEEK_SMOKE_KEY_ENV);
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires the real DeepSeek key in the Windows keychain and makes real DeepSeek API requests"]
+fn deepseek_real_backend_json_object_flow() {
+    let key = settings::keychain_password(REAL_DEEPSEEK_PROFILE_ID)
+        .expect("the real DeepSeek profile credential must be in the Windows keychain");
+    let root = std::env::temp_dir().join(format!(
+        "modforge-deepseek-real-smoke-{}-{}",
+        std::process::id(),
+        uuid::Uuid::new_v4()
+    ));
+    unsafe {
+        std::env::set_var("MODFORGE_TEST_DATA_DIR", &root);
+        std::env::set_var(DEEPSEEK_SMOKE_KEY_ENV, &key);
+    }
+    let _cleanup = DeepSeekSmokeCleanup { root: root.clone() };
+
+    let snapshot = save_ai_settings(SaveAiSettingsRequest {
+        default_profile_id: Some(DEEPSEEK_SMOKE_PROFILE_ID.into()),
+        profiles: vec![SaveAiProviderProfile {
+            id: DEEPSEEK_SMOKE_PROFILE_ID.into(),
+            name: "DeepSeek real smoke".into(),
+            preset_id: "deepseek".into(),
+            protocol: AiProtocol::OpenaiChatCompletions,
+            base_url: "https://api.deepseek.com".into(),
+            model: "deepseek-v4-flash".into(),
+            credential_environment: Some(DEEPSEEK_SMOKE_KEY_ENV.into()),
+            allow_insecure_http: false,
+            context_window_tokens: Some(64_000),
+            max_output_tokens: None,
+            temperature: None,
+            top_p: None,
+            frequency_penalty: None,
+            presence_penalty: None,
+            max_batch_bytes: None,
+            enable_reasoning: false,
+            reasoning_effort: None,
+            stream_translation: false,
+            api_key: None,
+            clear_api_key: false,
+        }],
+    })
+    .expect("saving the DeepSeek smoke profile should succeed");
+    assert_eq!(
+        snapshot.default_profile_id.as_deref(),
+        Some(DEEPSEEK_SMOKE_PROFILE_ID)
+    );
+    assert_eq!(
+        snapshot
+            .presets
+            .iter()
+            .find(|preset| preset.id == "deepseek")
+            .expect("deepseek preset must be in the snapshot")
+            .structured_output,
+        crate::domain::ai::types::AiStructuredOutputCapability::JsonObject
+    );
+
+    // Drive the provider layer directly (the sidecar host runtime) with the
+    // user's real DeepSeek credentials. The deepseek preset forces
+    // `response_format.type = "json_object"`, so success without any
+    // structured-output degradation proves the endpoint accepts json_object.
+    let profile = crate::domain::ai::settings::resolve_profile(Some(DEEPSEEK_SMOKE_PROFILE_ID))
+        .expect("resolving the DeepSeek smoke profile should succeed");
+    let job = crate::domain::ai::jobs::AiJobGuard::register("deepseek-real-json-object").unwrap();
+    let mut attempts = Vec::new();
+    let (items, _reasoning) = crate::domain::ai::providers::translate_observed(
+        &profile,
+        &crate::domain::ai::types::AiTranslateBatchRequest {
+            job_id: "deepseek-real-json-object".into(),
+            profile_id: Some(DEEPSEEK_SMOKE_PROFILE_ID.into()),
+            source_locale: Some("en".into()),
+            target_locale: "zh-Hans".into(),
+            items: vec![
+                AiTranslationItem {
+                    id: "greeting".into(),
+                    text: "Welcome to Pelican Town, {{player}}!".into(),
+                    format: AiTranslationFormat::StardewI18n,
+                    context: Some("DeepSeek real smoke greeting".into()),
+                },
+                AiTranslationItem {
+                    id: "quest".into(),
+                    text: "Bring {0} parsnips to the Community Center, %s.".into(),
+                    format: AiTranslationFormat::StardewI18n,
+                    context: Some("DeepSeek real smoke quest".into()),
+                },
+            ],
+            usage_context: None,
+            knowledge_policy: crate::domain::ai::types::KnowledgePolicy::default(),
+            skip_format_validation: false,
+            max_batch_bytes: None,
+        },
+        &job,
+        &mut |attempt| attempts.push(attempt),
+        &mut |_| {},
+    )
+    .expect("the DeepSeek json_object batch should translate successfully");
+    assert_eq!(items.len(), 2);
+    let greeting = items.iter().find(|item| item.id == "greeting").unwrap();
+    let quest = items.iter().find(|item| item.id == "quest").unwrap();
+    assert!(
+        greeting.translated_text.contains("{{player}}"),
+        "placeholder must survive the round trip: {}",
+        greeting.translated_text
+    );
+    assert!(
+        quest.translated_text.contains("{0}") && quest.translated_text.contains("%s"),
+        "placeholders must survive the round trip: {}",
+        quest.translated_text
+    );
+    for item in &items {
+        assert!(
+            !item.translated_text.contains('⟦'),
+            "sentinel tokens must be restored: {}",
+            item.translated_text
+        );
+    }
+    // The batch actually translated: the greeting is no longer English.
+    assert!(
+        !greeting.translated_text.contains("Welcome to Pelican Town"),
+        "the batch must actually translate: {}",
+        greeting.translated_text
+    );
+    // Every provider attempt was forced with json_object (no 400 degradation
+    // chain fired, otherwise `structured_output` would read "none").
+    assert!(
+        attempts
+            .iter()
+            .all(|attempt| attempt.structured_output.as_deref() == Some("json-object")),
+        "deepseek attempts must carry json-object forcing: {attempts:?}"
+    );
+    // The connection test (one more real call) resolves through the same path.
+    let probe = test_ai_profile(crate::domain::ai::types::AiProfileRequest {
+        profile_id: DEEPSEEK_SMOKE_PROFILE_ID.into(),
+    })
+    .expect("the DeepSeek connection test should succeed");
+    assert_eq!(probe.model, "deepseek-v4-flash");
 }

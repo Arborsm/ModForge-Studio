@@ -1,3 +1,8 @@
+/**
+ * @file Expands Stardew i18n template values into text-only AI translation items and reassembles results.
+ * @module features/translation-editor
+ */
+
 import type { AiTranslationItem, AiTranslationResultItem } from '@shared/contracts'
 import {
   applyStardewI18nTranslations,
@@ -7,6 +12,7 @@ import {
 
 const PART_SEPARATOR = '\u0000stardew:'
 
+/** Plan for expanding Stardew i18n items into plain-text AI items and merging results back. */
 export type StardewTranslationItemPlan = {
   items: AiTranslationItem[]
   originalId: (id: string) => string

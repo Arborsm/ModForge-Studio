@@ -1,3 +1,8 @@
+/**
+ * @file Condition builder model: chip types, catalog definitions, and helpers
+ * to parse, compact-label, and serialize event preconditions for the builder UI.
+ */
+
 import { splitEventPreconditions } from '../model/parser'
 import type { EventPatchHubEvent } from '../model/patchHub'
 import { EventPreconditionParser, formatEventPreconditionForHub, type ParsedEventPrecondition } from '../model/preconditionSemantics'
@@ -106,6 +111,7 @@ export const DEFAULT_CATALOG_ARGS: Record<string, string> = {
 export const WEEKDAY_CODES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 export const DAY_PRESETS = ['1', '7', '14', '21', '28'] as const
 
+/** Returns the catalog control kind (choice, range, number, text, etc.) for a precondition key. */
 export function catalogControlKind(key: string): CatalogControlKind {
   if (key === 'DayOfMonth' || key === 'NPCVisible') {
     return 'choice-text'
@@ -143,12 +149,14 @@ export function catalogControlKind(key: string): CatalogControlKind {
   return 'none'
 }
 
+/** Formats a game time integer (e.g. 600) as a clock label (e.g. "6:00"). */
 export function clockLabel(value: number) {
   const hours = Math.floor(value / 100)
   const minutes = value % 100
   return `${hours}:${String(minutes).padStart(2, '0')}`
 }
 
+/** Truncates a string to `maxLength` characters with an ellipsis suffix. */
 export function compactText(value: string, maxLength = 12) {
   const trimmed = value.trim()
   if (trimmed.length <= maxLength) {
@@ -197,6 +205,7 @@ function compactSeasonName(value: string) {
   return trimmed.replace(/季$/u, '')
 }
 
+/** Returns a compact weather name for chip labels (first word for English, full for CJK). */
 export function compactWeatherName(value: string) {
   const trimmed = value.trim()
   if (/^[A-Za-z\s]+$/u.test(trimmed)) {
@@ -213,6 +222,7 @@ function friendshipHeartCount(points: string) {
   return String(Math.max(0, Math.floor(numeric / 250)))
 }
 
+/** Snaps a game time value to the nearest half-hour within the 600–2400 range. */
 export function normalizeRangeValue(value: number) {
   const hours = Math.floor(value / 100)
   const minutes = value % 100
@@ -220,10 +230,12 @@ export function normalizeRangeValue(value: number) {
   return Math.min(2400, Math.max(600, hours * 100 + normalizedMinutes))
 }
 
+/** Quotes a GameStateQuery token, escaping backslashes and double quotes. */
 export function quoteQuery(value: string) {
   return `"${value.trim().replace(/\\/gu, '\\\\').replace(/"/gu, '\\"')}"`
 }
 
+/** Extracts the raw GameStateQuery string from a GameStateQuery chip, or empty string if not applicable. */
 export function gameStateQueryFromChip(chip: ConditionChip | undefined) {
   if (!chip?.code.startsWith('GameStateQuery')) {
     return ''
@@ -232,6 +244,7 @@ export function gameStateQueryFromChip(chip: ConditionChip | undefined) {
   return parsed.args.join(' ')
 }
 
+/** Extracts the event id (first key segment) from a hub event's full key. */
 export function initialEventId(event: EventPatchHubEvent) {
   return splitEventPreconditions(event.key)[0] ?? event.eventId
 }
@@ -247,7 +260,7 @@ function compactLabelForPrecondition(precondition: ParsedEventPrecondition, hubC
     case 'Weather':
       return compactWeatherName(hubCopy.preconditionWeatherName(first))
     case 'Friendship':
-      return `${compactName(first)} ${friendshipHeartCount(second)}${hubCopy.preconditionGroupLabels.environment === '触发环境' ? '心' : 'h'}`
+      return `${compactName(first)} ${friendshipHeartCount(second)}${hubCopy.heartUnit}`
     case 'Dating':
     case 'Spouse':
     case 'NpcVisibleHere':
@@ -276,6 +289,7 @@ function compactLabelForPrecondition(precondition: ParsedEventPrecondition, hubC
   }
 }
 
+/** Returns a compact label for a chip, parsing its code and shortening the precondition display. */
 export function compactLabelForChip(chip: ConditionChip, hubCopy: HubCopy) {
   if (chip.id.startsWith('weather:')) {
     return compactWeatherName(chip.label)
@@ -286,6 +300,7 @@ export function compactLabelForChip(chip: ConditionChip, hubCopy: HubCopy) {
   return compactLabelForPrecondition(parsed, hubCopy)
 }
 
+/** Builds the initial chip list from an event's existing preconditions. */
 export function initialChips(event: EventPatchHubEvent, hubCopy: HubCopy): ConditionChip[] {
   const parser = new EventPreconditionParser()
   return splitEventPreconditions(event.key)
@@ -305,10 +320,12 @@ export function initialChips(event: EventPatchHubEvent, hubCopy: HubCopy): Condi
     })
 }
 
+/** Returns the chip's code with a `!` prefix when negated. */
 export function chipCode(chip: ConditionChip) {
   return `${chip.negated ? '!' : ''}${chip.code}`
 }
 
+/** Returns the chip's natural-language label, applying negation when the chip is negated. */
 export function chipNatural(chip: ConditionChip, copy: ConditionBuilderCopy) {
   return chip.negated ? copy.negateLabel(chip.natural) : chip.natural
 }

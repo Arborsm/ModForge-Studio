@@ -1,10 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+/**
+ * @file CP Maker state hook: draft CRUD, patch management, asset I/O, and
+ * content.json/manifest.json generation for the active draft.
+ * @module features/cp-maker
+ */
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { CpMakerPort } from '@features/cp-maker/provider'
-import type { ConfigSchemaEntry, DraftPatch, CpMakerDraft, VirtualPreviewAsset, WorkspaceId } from '@features/cp-maker'
+import type {
+  ConfigSchemaEntry,
+  CpMakerDependency,
+  DraftPatch,
+  CpMakerDraft,
+  ProjectAssetRef,
+  VirtualPreviewAsset,
+  WorkspaceId,
+} from '@features/cp-maker'
+import type { DialogFilter } from '@shared/contracts/platform'
+import { appEvent } from '@platform/observability'
+import { EDITOR_ONLY_STATE_KEYS, readDisabledEntryKeys } from '../model/draftPort'
+import { duplicatePatchInArray, movePatchWithin } from '../model/patchOrder'
+import { mapPatchDraftToContentFields } from '../model/mapPatchDraft'
 import type { CpMakerDraftRecord, CpMakerDraftSummary, CpMakerExportResult } from '../model/cpMakerPort'
 
-// ─── Adapter: backend record ↔ frontend draft ─────────────────────────
+// Adapter: backend record ↔ frontend draft
 
 function parseConfigSchema(configSchemaDraft: Record<string, unknown>): ConfigSchemaEntry[] {
   return Object.entries(configSchemaDraft)
@@ -81,8 +99,18 @@ function stringDraftField(value: unknown, fallback = ''): string {
   return fallback
 }
 
-function formatMapWarp(warp: Record<string, unknown>): string {
-  return ['fromX', 'fromY', 'toMap', 'toX', 'toY'].map((field) => stringDraftField(warp[field])).join(' ')
+/** Sanitize an untrusted manifest dependency list from a persisted record. */
+function parseDependencies(value: unknown): CpMakerDependency[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
+    .map((entry) => ({
+      uniqueId: stringDraftField(entry['uniqueId']).trim(),
+      minimumVersion:
+        typeof entry['minimumVersion'] === 'string' && entry['minimumVersion'].trim() !== '' ? entry['minimumVersion'].trim() : undefined,
+      isRequired: entry['isRequired'] !== false,
+    }))
+    .filter((entry) => entry.uniqueId !== '')
 }
 
 function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] {
@@ -162,20 +190,15 @@ function backendToFrontend(record: CpMakerDraftRecord): CpMakerDraft {
       projectUniqueId: record.projectMetadata.projectUniqueId,
       gameRootPath: record.projectMetadata.gameRootPath,
       contentPackForUniqueId: record.projectMetadata.contentPackForUniqueId,
+      contentPackForMinimumVersion: record.projectMetadata.contentPackForMinimumVersion ?? undefined,
       minimumApiVersion: record.projectMetadata.minimumApiVersion ?? undefined,
       updateKeys: record.projectMetadata.updateKeys ?? undefined,
+      dependencies: parseDependencies(record.projectMetadata.dependencies),
     } as CpMakerDraft['projectMetadata'],
-    overlayTargets: record.overlayTargets.map(
-      (t: { uniqueId: string; displayName: string | null; required: boolean; source: 'scanned-mod' | 'manual' }) => ({
-        uniqueId: t.uniqueId,
-        displayName: t.displayName ?? null,
-        required: t.required,
-        source: t.source,
-      }),
-    ),
     configSchema: parseConfigSchema((record.configSchemaDraft as Record<string, unknown>) ?? {}),
     patches: parseChangeRegistry((record.serializedChangeRegistry as Record<string, unknown>) ?? {}),
-    virtualAssets: [], // virtual assets are managed separately and attached at export time
+    virtualAssets: [],
+    projectAssets: record.projectAssets ?? [],
     dynamicTokens: (record.dynamicTokens as Array<{ name: string; value: string; when?: Record<string, unknown> }> | undefined) ?? [],
     customLocations:
       (record.customLocations as Array<{ name: string; fromMapFile: string; migrateLegacyNames?: string[] }> | undefined) ?? [],
@@ -197,17 +220,23 @@ function frontendToBackend(draft: CpMakerDraft): CpMakerDraftRecord {
       projectUniqueId: draft.projectMetadata.projectUniqueId,
       gameRootPath: draft.projectMetadata.gameRootPath,
       contentPackForUniqueId: draft.projectMetadata.contentPackForUniqueId,
+      ...(draft.projectMetadata.contentPackForMinimumVersion
+        ? { contentPackForMinimumVersion: draft.projectMetadata.contentPackForMinimumVersion }
+        : {}),
       ...(draft.projectMetadata.minimumApiVersion ? { minimumApiVersion: draft.projectMetadata.minimumApiVersion } : {}),
       ...(draft.projectMetadata.updateKeys && draft.projectMetadata.updateKeys.length > 0
         ? { updateKeys: draft.projectMetadata.updateKeys }
         : {}),
+      ...(draft.projectMetadata.dependencies && draft.projectMetadata.dependencies.length > 0
+        ? {
+            dependencies: draft.projectMetadata.dependencies.map((dependency) => ({
+              uniqueId: dependency.uniqueId,
+              ...(dependency.minimumVersion ? { minimumVersion: dependency.minimumVersion } : {}),
+              isRequired: dependency.isRequired,
+            })),
+          }
+        : {}),
     },
-    overlayTargets: draft.overlayTargets.map((t) => ({
-      uniqueId: t.uniqueId,
-      displayName: t.displayName,
-      required: t.required,
-      source: t.source,
-    })),
     configSchemaDraft: serializeConfigSchema(draft.configSchema),
     serializedChangeRegistry: serializeChangeRegistry(draft.patches),
     dynamicTokens: draft.dynamicTokens.map((t) => ({
@@ -219,6 +248,7 @@ function frontendToBackend(draft: CpMakerDraft): CpMakerDraftRecord {
     aliasTokenNames: draft.aliasTokenNames,
     eventSourceSnapshotsByTarget: draft.eventSourceSnapshotsByTarget,
     i18nFiles: draft.i18nFiles,
+    projectAssets: draft.projectAssets,
     lastDraftSavedAt: draft.lastDraftSavedAt ?? null,
     lastExportedAt: draft.lastExportedAt ?? null,
     lastExportPath: draft.lastExportPath ?? null,
@@ -271,17 +301,22 @@ function buildConfigJsonAsset(configSchema: ConfigSchemaEntry[]): {
   }
 }
 
-// ─── content.json / manifest.json 前端生成 ───────────────────────────────
+// content.json / manifest.json frontend generation
 
+/** Builds the `manifest.json` string for a CP Maker draft. */
 export function buildManifestJson(draft: CpMakerDraft): string {
   const meta = draft.projectMetadata
+  const contentPackFor: Record<string, unknown> = { UniqueID: meta.contentPackForUniqueId }
+  if (meta.contentPackForMinimumVersion) {
+    contentPackFor['MinimumVersion'] = meta.contentPackForMinimumVersion
+  }
   const manifest: Record<string, unknown> = {
     Name: meta.projectName,
     Author: meta.projectAuthor,
     Version: meta.projectVersion,
     Description: meta.projectDescription,
     UniqueID: meta.projectUniqueId,
-    ContentPackFor: { UniqueID: meta.contentPackForUniqueId },
+    ContentPackFor: contentPackFor,
   }
   if (meta.minimumApiVersion) {
     manifest['MinimumApiVersion'] = meta.minimumApiVersion
@@ -289,10 +324,20 @@ export function buildManifestJson(draft: CpMakerDraft): string {
   if (meta.updateKeys && meta.updateKeys.length > 0) {
     manifest['UpdateKeys'] = meta.updateKeys
   }
+  if (meta.dependencies && meta.dependencies.length > 0) {
+    manifest['Dependencies'] = meta.dependencies.map((dependency) => {
+      const entry: Record<string, unknown> = { UniqueID: dependency.uniqueId, IsRequired: dependency.isRequired }
+      if (dependency.minimumVersion) {
+        entry['MinimumVersion'] = dependency.minimumVersion
+      }
+      return entry
+    })
+  }
 
   return `${JSON.stringify(manifest, null, 2)}\n`
 }
 
+/** Result of building `content.json` and its per-workspace include files. */
 export interface ContentBuildResult {
   contentJson: string
   includeFiles: Array<{ relativePath: string; content: string }>
@@ -323,6 +368,10 @@ const MOVE_ENTRY_KEY_MAP: Record<string, string> = {
   toPosition: 'ToPosition',
 }
 
+/**
+ * Builds `content.json` and per-workspace include files for a draft, merging
+ * EditData patches that share the same target and patch config.
+ */
 export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
   // enabled can be boolean or string token (e.g. "{{EnableMapEdit}}")
   // CP treats "false" (any case) as disabled; everything else is a token or enabled.
@@ -332,11 +381,11 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     return true
   })
 
-  // 按 workspace 分组 changes
   const workspaceChanges = new Map<string, Record<string, unknown>[]>()
 
-  // 合并同 Target + 同 Action + 同 PatchConfig (When/Enabled/Priority 等) 的 EditData patch
-  // 避免不同条件的 patch 被合并后丢失条件信息
+  // Merge EditData patches that share the same Target + Action + PatchConfig
+  // (When/Enabled/Priority etc.) so different-condition patches don't lose
+  // their conditions when combined.
   const editDataGroups = new Map<string, DraftPatch[]>()
   const standalonePatches: DraftPatch[] = []
 
@@ -366,7 +415,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     }
   }
 
-  // 合并 EditData
   for (const [, patches] of editDataGroups) {
     const ws = patches[0]!.workspace
     const changes = workspaceChanges.get(ws) ?? []
@@ -376,16 +424,21 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
       Target: patches[0]!.target,
     }
 
-    // 合并 Entries
     const entries: Record<string, unknown> = {}
-    // 合并 Fields (EntryKey -> { FieldName -> Value })
+    // Fields: EntryKey -> { FieldName -> Value }
     const fields: Record<string, Record<string, unknown>> = {}
-    // 收集 TextOperations
     const textOperations: unknown[] = []
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
       if (state?.['entries'] && typeof state['entries'] === 'object' && state['entries'] !== null) {
         Object.assign(entries, state['entries'])
+      }
+      // An entry the author switched off is parked in `disabledEntries`; drop it
+      // from the merge as well, so a draft that carries the key in both records
+      // (an import, or a patch written before the port owned the split) still
+      // exports the author's intent rather than the stale enabled copy.
+      for (const disabledKey of readDisabledEntryKeys(patch.editorState)) {
+        delete entries[disabledKey]
       }
       if (state?.['fields'] && typeof state['fields'] === 'object' && state['fields'] !== null) {
         const patchFields = state['fields'] as Record<string, Record<string, unknown>>
@@ -409,7 +462,7 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     if (textOperations.length > 0) {
       change['TextOperations'] = textOperations.map((op) => mapKeysToPascalCase(op as Record<string, unknown>, TEXT_OP_KEY_MAP))
     }
-    // 收集 MoveEntries（CP 格式为数组 { ID, BeforeId, AfterId, ToPosition }）
+    // MoveEntries (CP format: array of { ID, BeforeId, AfterId, ToPosition })
     const moveEntries: unknown[] = []
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
@@ -444,7 +497,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     workspaceChanges.set(ws, changes)
   }
 
-  // 独立 patch (EditImage, EditMap, Load)
   for (const patch of standalonePatches) {
     const changes = workspaceChanges.get(patch.workspace) ?? []
 
@@ -483,58 +535,26 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
       change['TargetField'] = patch.targetField
     }
     const state = patch.editorState as Record<string, unknown> | undefined
-    if (state) {
+    if (patch.action === 'EditMap') {
+      const contentFields = mapPatchDraftToContentFields(state, patch.fromFile)
+      Object.assign(change, contentFields)
+      // While the change-card model is active (changes non-empty), the file
+      // card is the only exit for FromFile. Drop the generic patch-level value
+      // when no file card exists, so a stale path cannot produce a region-less
+      // FromFile that copies the whole source map over the target.
+      const cardModelActive = Array.isArray(state?.['changes']) && (state['changes'] as unknown[]).length > 0
+      if (cardModelActive && contentFields['FromFile'] === undefined) {
+        delete change['FromFile']
+      }
+    }
+    if (state && patch.action !== 'EditMap') {
       for (const [k, v] of Object.entries(state)) {
-        if (k === 'entries') continue
-        // Map internal field names to CP field names
-        if (patch.action === 'EditMap' && k === 'properties') {
-          change['MapProperties'] = v
-        } else if (patch.action === 'EditMap' && k === 'warps') {
-          // Convert structured warps to CP's AddWarps string format
-          if (Array.isArray(v)) {
-            change['AddWarps'] = v
-              .filter((w): w is Record<string, unknown> => typeof w === 'object' && w !== null && !Array.isArray(w))
-              .map(formatMapWarp)
-          }
-        } else if (patch.action === 'EditMap' && k === 'npcWarps') {
-          // Convert structured npc warps to CP's AddNpcWarps string format
-          if (Array.isArray(v)) {
-            change['AddNpcWarps'] = v
-              .filter((w): w is Record<string, unknown> => typeof w === 'object' && w !== null && !Array.isArray(w))
-              .map(formatMapWarp)
-          }
-        } else if (patch.action === 'EditMap' && k === 'mapTiles') {
-          // Convert structured map tiles to CP's MapTiles format
-          if (Array.isArray(v)) {
-            change['MapTiles'] = v.map((t: Record<string, unknown>) => {
-              const mapPosValue = (val: unknown): number | string => {
-                if (typeof val === 'number') return val
-                if (typeof val === 'string') {
-                  const num = Number(val)
-                  return Number.isNaN(num) ? val : num
-                }
-                return 0
-              }
-              const tile: Record<string, unknown> = {
-                Layer: t['layer'],
-                Position: { X: mapPosValue(t['x']), Y: mapPosValue(t['y']) },
-              }
-              if (t['setTilesheet'] !== undefined && t['setTilesheet'] !== '') {
-                tile['SetTilesheet'] = t['setTilesheet']
-              }
-              if (t['setIndex'] !== undefined) {
-                tile['SetIndex'] = t['setIndex']
-              }
-              if (t['remove'] === true) {
-                tile['Remove'] = 'true'
-              }
-              if (t['setProperties'] && typeof t['setProperties'] === 'object') {
-                tile['SetProperties'] = t['setProperties']
-              }
-              return tile
-            })
-          }
-        } else if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
+        // Everything else in `editorState` is forwarded verbatim, so the
+        // editor-only records have to be named here or they land in the pack as
+        // fields Content Patcher does not understand.
+        if (k === 'entries' || EDITOR_ONLY_STATE_KEYS.includes(k)) continue
+        // Map internal field names to CP field names.
+        if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
           // Convert all area keys to CP PascalCase (e.g. x->X, width->Width) preserving extra fields
           const area = v as Record<string, unknown>
           const mapAreaValue = (val: unknown): number | string => {
@@ -568,6 +588,9 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     if (action === 'EditImage' && !change['FromFile']) {
       continue // CP requires FromFile for EditImage
     }
+    if (action === 'Load' && !change['Target']) {
+      continue // An unconfigured Load (empty target) has nothing to load into
+    }
     if (action === 'Load' && !change['FromFile']) {
       continue // CP requires FromFile for Load
     }
@@ -591,7 +614,6 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
     workspaceChanges.set(patch.workspace, changes)
   }
 
-  // 生成各 workspace 的 include 文件
   const includeFiles: Array<{ relativePath: string; content: string }> = []
   const allChanges: Record<string, unknown>[] = []
 
@@ -650,7 +672,7 @@ export function buildContentJson(draft: CpMakerDraft): ContentBuildResult {
   }
 }
 
-// ─── Hook ──────────────────────────────────────────────────────────────
+// Hook
 
 let nextPatchId = 0
 function generatePatchId() {
@@ -679,6 +701,11 @@ function isSameDefaultPatch(patch: DraftPatch, workspace: WorkspaceId, target: s
   return patch.target === target
 }
 
+/**
+ * CP Maker state hook: manages draft CRUD, patch lifecycle, config schema,
+ * virtual assets, project assets, metadata, import/export, and derived state
+ * for the active draft.
+ */
 export function useCpMaker() {
   const port: CpMakerPort = useCpMakerPort()
   const [drafts, setDrafts] = useState<CpMakerDraftSummary[]>([])
@@ -691,13 +718,11 @@ export function useCpMaker() {
   const [dirtyPatchIds, setDirtyPatchIds] = useState<Set<string>>(() => new Set())
   const isDirtyRef = useRef(false)
 
-  // 保持 ref 同步
   useEffect(() => {
     isDirtyRef.current = isDirty
   }, [isDirty])
 
-  // 加载草稿列表
-  const refreshDrafts = useCallback(async () => {
+  const refreshDrafts = async () => {
     try {
       const list = await port.listDrafts()
       setDrafts(list)
@@ -705,12 +730,15 @@ export function useCpMaker() {
       return list
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
+      appEvent('error', 'CP Maker draft refresh failed')
+        .error(error)
+        .context({ source: 'cp-maker', operation: 'refresh-drafts' })
+        .emit({ notify: false })
       setDraftsReady(true)
       return []
     }
-  }, [port])
+  }
 
-  // 初始加载草稿列表
   useEffect(() => {
     let cancelled = false
 
@@ -724,6 +752,10 @@ export function useCpMaker() {
       } catch (error) {
         if (!cancelled) {
           setDraftError(error instanceof Error ? error.message : String(error))
+          appEvent('error', 'CP Maker draft list failed')
+            .error(error)
+            .context({ source: 'cp-maker', operation: 'list-drafts' })
+            .emit({ notify: false })
           setDraftsReady(true)
         }
       }
@@ -734,80 +766,85 @@ export function useCpMaker() {
     }
   }, [port])
 
-  // 加载指定草稿
-  const loadDraft = useCallback(
-    async (storageKey: string): Promise<boolean> => {
-      setDraftLoading(true)
-      setDraftError(null)
-      try {
-        const record = await port.loadDraft(storageKey)
-        const draft = backendToFrontend(record)
-        activeDraftKeyRef.current = draft.draftStorageKey
-        setActiveDraft(draft)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        return true
-      } catch (error) {
-        setDraftError(error instanceof Error ? error.message : String(error))
-        activeDraftKeyRef.current = null
-        setActiveDraft(null)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        return false
-      } finally {
-        setDraftLoading(false)
-      }
-    },
-    [port],
-  )
+  const loadDraft = async (storageKey: string): Promise<boolean> => {
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const record = await port.loadDraft(storageKey)
+      const draft = backendToFrontend(record)
+      activeDraftKeyRef.current = draft.draftStorageKey
+      setActiveDraft(draft)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      return true
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+      appEvent('error', 'CP Maker draft load failed')
+        .error(error)
+        .context({ source: 'cp-maker', operation: 'load-draft' })
+        .emit({ notify: false })
+      activeDraftKeyRef.current = null
+      setActiveDraft(null)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      return false
+    } finally {
+      setDraftLoading(false)
+    }
+  }
 
-  // 创建新草稿
-  const createDraft = useCallback(
-    async (metadata: Partial<CpMakerDraft['projectMetadata']>): Promise<boolean> => {
-      setDraftLoading(true)
-      setDraftError(null)
-      try {
-        const newDraft: CpMakerDraft = {
-          draftStorageKey: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          projectMetadata: {
-            projectName: metadata.projectName ?? 'Untitled Mod',
-            projectDescription: metadata.projectDescription ?? '',
-            projectAuthor: metadata.projectAuthor ?? '',
-            projectVersion: metadata.projectVersion ?? '1.0.0',
-            projectUniqueId: metadata.projectUniqueId ?? `YourName.UntitledMod`,
-            gameRootPath: metadata.gameRootPath ?? null,
-            contentPackForUniqueId: metadata.contentPackForUniqueId ?? 'Pathoschild.ContentPatcher',
-          },
-          overlayTargets: [],
-          configSchema: [],
-          patches: [],
-          virtualAssets: [],
-          dynamicTokens: [],
-          customLocations: [],
-          aliasTokenNames: {},
-          eventSourceSnapshotsByTarget: {},
-          i18nFiles: [],
-        }
-        const record = frontendToBackend(newDraft)
-        await port.saveDraft(record)
-        activeDraftKeyRef.current = newDraft.draftStorageKey
-        setActiveDraft(newDraft)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        await refreshDrafts()
-        return true
-      } catch (error) {
-        setDraftError(error instanceof Error ? error.message : String(error))
-        return false
-      } finally {
-        setDraftLoading(false)
+  const createDraft = async (metadata: Partial<CpMakerDraft['projectMetadata']>): Promise<boolean> => {
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const newDraft: CpMakerDraft = {
+        draftStorageKey: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        projectMetadata: {
+          projectName: metadata.projectName ?? 'Untitled Mod',
+          projectDescription: metadata.projectDescription ?? '',
+          projectAuthor: metadata.projectAuthor ?? '',
+          projectVersion: metadata.projectVersion ?? '1.0.0',
+          projectUniqueId:
+            metadata.projectUniqueId ??
+            `${metadata.projectAuthor?.trim() || 'Author'}.${(metadata.projectName ?? 'UntitledMod').replace(/\s+/g, '')}`,
+          gameRootPath: metadata.gameRootPath ?? null,
+          contentPackForUniqueId: metadata.contentPackForUniqueId ?? 'Pathoschild.ContentPatcher',
+          ...(metadata.contentPackForMinimumVersion ? { contentPackForMinimumVersion: metadata.contentPackForMinimumVersion } : {}),
+          ...(metadata.minimumApiVersion ? { minimumApiVersion: metadata.minimumApiVersion } : {}),
+          ...(metadata.updateKeys && metadata.updateKeys.length > 0 ? { updateKeys: metadata.updateKeys } : {}),
+          ...(metadata.dependencies && metadata.dependencies.length > 0 ? { dependencies: metadata.dependencies } : {}),
+        },
+        configSchema: [],
+        patches: [],
+        virtualAssets: [],
+        projectAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
+        i18nFiles: [],
       }
-    },
-    [port, refreshDrafts],
-  )
+      const record = frontendToBackend(newDraft)
+      await port.saveDraft(record)
+      activeDraftKeyRef.current = newDraft.draftStorageKey
+      setActiveDraft(newDraft)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      await refreshDrafts()
+      return true
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+      appEvent('error', 'CP Maker draft creation failed')
+        .error(error)
+        .context({ source: 'cp-maker', operation: 'create-draft' })
+        .emit({ notify: false })
+      return false
+    } finally {
+      setDraftLoading(false)
+    }
+  }
 
-  // 保存草稿
-  const saveDraft = useCallback(async () => {
+  const saveDraft = async () => {
     if (!activeDraft) return false
     setDraftLoading(true)
     setDraftError(null)
@@ -820,14 +857,18 @@ export function useCpMaker() {
       return true
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
+      appEvent('error', 'CP Maker draft save failed')
+        .error(error)
+        .context({ source: 'cp-maker', operation: 'save-draft' })
+        .emit({ notify: false })
       return false
     } finally {
       setDraftLoading(false)
     }
-  }, [activeDraft, port, refreshDrafts])
+  }
 
-  // 放弃未保存修改：回滚到最近持久化的记录
-  const discardDraftChanges = useCallback(async () => {
+  // Discard unsaved changes: roll back to the most recently persisted record.
+  const discardDraftChanges = async () => {
     const storageKey = activeDraftKeyRef.current
     if (!storageKey) {
       setIsDirty(false)
@@ -849,94 +890,87 @@ export function useCpMaker() {
     } finally {
       setDraftLoading(false)
     }
-  }, [port])
+  }
 
-  // 删除草稿
-  const deleteDraft = useCallback(
-    async (storageKey: string) => {
-      try {
-        await port.deleteDraft(storageKey)
-        if (activeDraft?.draftStorageKey === storageKey) {
-          activeDraftKeyRef.current = null
-          setActiveDraft(null)
-          setIsDirty(false)
-          setDirtyPatchIds(new Set())
-        }
-        await refreshDrafts()
-      } catch (error) {
-        setDraftError(error instanceof Error ? error.message : String(error))
+  const deleteDraft = async (storageKey: string) => {
+    try {
+      await port.deleteDraft(storageKey)
+      if (activeDraft?.draftStorageKey === storageKey) {
+        activeDraftKeyRef.current = null
+        setActiveDraft(null)
+        setIsDirty(false)
+        setDirtyPatchIds(new Set())
       }
-    },
-    [activeDraft, port, refreshDrafts],
-  )
+      await refreshDrafts()
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+      appEvent('error', 'CP Maker draft deletion failed')
+        .error(error)
+        .context({ source: 'cp-maker', operation: 'delete-draft' })
+        .emit({ notify: false })
+    }
+  }
 
   /** Clear the in-memory active draft without deleting stored drafts. */
-  const clearActiveDraft = useCallback(() => {
+  const clearActiveDraft = () => {
     activeDraftKeyRef.current = null
     setActiveDraft(null)
     setIsDirty(false)
     setDirtyPatchIds(new Set())
     setDraftError(null)
-  }, [])
+  }
 
-  // 复制草稿
-  const copyDraft = useCallback(
-    async (storageKey: string) => {
-      setDraftLoading(true)
-      try {
-        const record = await port.copyDraft(storageKey)
-        const copied = backendToFrontend(record)
-        activeDraftKeyRef.current = copied.draftStorageKey
-        setActiveDraft(copied)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        await refreshDrafts()
-      } catch (error) {
-        setDraftError(error instanceof Error ? error.message : String(error))
-      } finally {
-        setDraftLoading(false)
+  const copyDraft = async (storageKey: string) => {
+    setDraftLoading(true)
+    try {
+      const record = await port.copyDraft(storageKey)
+      const copied = backendToFrontend(record)
+      activeDraftKeyRef.current = copied.draftStorageKey
+      setActiveDraft(copied)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      await refreshDrafts()
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setDraftLoading(false)
+    }
+  }
+
+  // Patch management
+
+  const addPatchWithReturn = (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
+    const existingPatch = activeDraft?.patches.find((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))
+    if (existingPatch) {
+      return existingPatch.id
+    }
+
+    const id = generatePatchId()
+    const updatedAt = Date.now()
+    setActiveDraft((current) => {
+      if (!current) return current
+      if (current.patches.some((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))) {
+        return current
       }
-    },
-    [port, refreshDrafts],
-  )
-
-  // ── Patch 管理 ──
-
-  const addPatchWithReturn = useCallback(
-    (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
-      const existingPatch = activeDraft?.patches.find((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))
-      if (existingPatch) {
-        return existingPatch.id
+      const newPatch: DraftPatch = {
+        id,
+        workspace,
+        target: action === 'Include' ? '' : target,
+        action,
+        logName: action === 'Include' ? `Include → ${fromFile ?? ''}` : `${action} → ${target}`,
+        enabled: true,
+        updatedAt,
+        editorState: {},
+        ...(fromFile ? { fromFile } : {}),
       }
+      return { ...current, patches: [...current.patches, newPatch] }
+    })
+    setIsDirty(true)
+    setDirtyPatchIds((current) => new Set(current).add(id))
+    return id
+  }
 
-      const id = generatePatchId()
-      const updatedAt = Date.now()
-      setActiveDraft((current) => {
-        if (!current) return current
-        if (current.patches.some((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))) {
-          return current
-        }
-        const newPatch: DraftPatch = {
-          id,
-          workspace,
-          target: action === 'Include' ? '' : target,
-          action,
-          logName: action === 'Include' ? `Include → ${fromFile ?? ''}` : `${action} → ${target}`,
-          enabled: true,
-          updatedAt,
-          editorState: {},
-          ...(fromFile ? { fromFile } : {}),
-        }
-        return { ...current, patches: [...current.patches, newPatch] }
-      })
-      setIsDirty(true)
-      setDirtyPatchIds((current) => new Set(current).add(id))
-      return id
-    },
-    [activeDraft],
-  )
-
-  const removePatch = useCallback((patchId: string) => {
+  const removePatch = (patchId: string) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -950,7 +984,7 @@ export function useCpMaker() {
       next.delete(patchId)
       return next
     })
-  }, [])
+  }
 
   const updatePatch = useCallback((patchId: string, patch: Partial<DraftPatch>) => {
     const updatedAt = Date.now()
@@ -965,16 +999,34 @@ export function useCpMaker() {
     setDirtyPatchIds((current) => new Set(current).add(patchId))
   }, [])
 
-  const getPatchesForWorkspace = useCallback(
-    (workspaceId: WorkspaceId) => {
-      return activeDraft?.patches.filter((p) => p.workspace === workspaceId) ?? []
-    },
-    [activeDraft],
-  )
+  /** Moves one patch one position in the draft's export order; a boundary move is a no-op. `within` skips non-matching patches. */
+  const reorderPatch = (patchId: string, delta: -1 | 1, within?: (patch: DraftPatch) => boolean) => {
+    if (!activeDraft) return
+    const nextPatches = movePatchWithin(activeDraft.patches, patchId, delta, within)
+    if (nextPatches === activeDraft.patches) return
+    setActiveDraft((current) => (current ? { ...current, patches: nextPatches } : current))
+    setIsDirty(true)
+    setDirtyPatchIds((current) => new Set(current).add(patchId))
+  }
 
-  // ── Config Schema 管理 ──
+  /** Deep-copies a patch right after the original with a fresh id, so the copy joins the export order. */
+  const duplicatePatch = (patchId: string) => {
+    if (!activeDraft) return
+    const id = generatePatchId()
+    const nextPatches = duplicatePatchInArray(activeDraft.patches, patchId, id)
+    if (nextPatches === activeDraft.patches) return
+    setActiveDraft((current) => (current ? { ...current, patches: nextPatches } : current))
+    setIsDirty(true)
+    setDirtyPatchIds((current) => new Set(current).add(id))
+  }
 
-  const addConfigEntry = useCallback((entry: ConfigSchemaEntry) => {
+  const getPatchesForWorkspace = (workspaceId: WorkspaceId) => {
+    return activeDraft?.patches.filter((p) => p.workspace === workspaceId) ?? []
+  }
+
+  // Config Schema management
+
+  const addConfigEntry = (entry: ConfigSchemaEntry) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -983,9 +1035,9 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  const removeConfigEntry = useCallback((key: string) => {
+  const removeConfigEntry = (key: string) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -994,9 +1046,9 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  const updateConfigEntry = useCallback((key: string, patch: Partial<ConfigSchemaEntry>) => {
+  const updateConfigEntry = (key: string, patch: Partial<ConfigSchemaEntry>) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -1005,31 +1057,37 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── CustomLocations 管理 ──
+  /** Replaces the whole ConfigSchema at once, for editors that manage their own row list. */
+  const setConfigSchema = (entries: ConfigSchemaEntry[]) => {
+    setActiveDraft((current) => (current ? { ...current, configSchema: entries } : current))
+    setIsDirty(true)
+  }
 
-  const setCustomLocations = useCallback((locations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>) => {
+  // CustomLocations management
+
+  const setCustomLocations = (locations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>) => {
     setActiveDraft((current) => {
       if (!current) return current
       return { ...current, customLocations: locations }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── DynamicTokens 管理 ──
+  // DynamicTokens management
 
-  const setDynamicTokens = useCallback((tokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>) => {
+  const setDynamicTokens = (tokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>) => {
     setActiveDraft((current) => {
       if (!current) return current
       return { ...current, dynamicTokens: tokens }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── AliasTokenNames 管理 ──
+  // AliasTokenNames management
 
-  const addAliasTokenName = useCallback((alias: string, tokenName: string) => {
+  const addAliasTokenName = (alias: string, tokenName: string) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -1038,9 +1096,9 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  const removeAliasTokenName = useCallback((alias: string) => {
+  const removeAliasTokenName = (alias: string) => {
     setActiveDraft((current) => {
       if (!current) return current
       const next = { ...current.aliasTokenNames }
@@ -1048,16 +1106,53 @@ export function useCpMaker() {
       return { ...current, aliasTokenNames: next }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  const setI18nFiles = useCallback((files: Array<{ locale: string; rawJson: string }>) => {
+  const setAliasTokenNames = (aliases: Record<string, string>) => {
+    setActiveDraft((current) => (current ? { ...current, aliasTokenNames: aliases } : current))
+    setIsDirty(true)
+  }
+
+  const setI18nFiles = (files: Array<{ locale: string; rawJson: string }>) => {
     setActiveDraft((current) => (current ? { ...current, i18nFiles: files } : current))
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── Virtual Asset 管理 ──
+  /** Merges entries into one locale's i18n file, creating the file when missing; existing keys always win. */
+  const upsertI18nEntries = (locale: string, entries: Record<string, string>) => {
+    setActiveDraft((current) => {
+      if (!current) return current
+      const files = [...current.i18nFiles]
+      const index = files.findIndex((file) => file.locale === locale)
+      // No-op only when the file already exists and nothing new arrives;
+      // otherwise an empty merge still bootstraps the file.
+      if (index >= 0 && Object.keys(entries).length === 0) return current
+      const existing: Record<string, string> = {}
+      if (index >= 0) {
+        try {
+          const parsed = JSON.parse(files[index]!.rawJson) as unknown
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            Object.assign(existing, parsed)
+          }
+        } catch {
+          // An unreadable file is rebuilt from the incoming entries.
+        }
+      }
+      const merged = { ...entries, ...existing }
+      const rawJson = `${JSON.stringify(merged, null, 2)}\n`
+      if (index >= 0) {
+        files[index] = { locale, rawJson }
+      } else {
+        files.push({ locale, rawJson })
+      }
+      return { ...current, i18nFiles: files }
+    })
+    setIsDirty(true)
+  }
 
-  const addVirtualAsset = useCallback((asset: VirtualPreviewAsset) => {
+  // Virtual Asset management
+
+  const addVirtualAsset = (asset: VirtualPreviewAsset) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -1066,9 +1161,9 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  const removeVirtualAsset = useCallback((relativePath: string) => {
+  const removeVirtualAsset = (relativePath: string) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -1077,11 +1172,117 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── Metadata ──
+  const readProjectAsset = useCallback(
+    async (relativePath: string) => {
+      if (!activeDraft) throw new Error('No active draft is available.')
+      return port.readProjectAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
+    },
+    [activeDraft, port],
+  )
 
-  const updateMetadata = useCallback((patch: Partial<CpMakerDraft['projectMetadata']>) => {
+  const loadProjectMapAsset = useCallback(
+    async (relativePath: string) => {
+      if (!activeDraft) throw new Error('No active draft is available.')
+      return port.loadProjectMapAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
+    },
+    [activeDraft, port],
+  )
+
+  const writeProjectAsset = async (
+    asset: Pick<VirtualPreviewAsset, 'relativePath' | 'mediaType' | 'bytesBase64'>,
+    sourceType: ProjectAssetRef['sourceType'] = 'edited',
+  ) => {
+    if (!activeDraft) throw new Error('No active draft is available.')
+    const saved = await port.writeProjectAsset({
+      draftStorageKey: activeDraft.draftStorageKey,
+      relativePath: asset.relativePath,
+      mediaType: asset.mediaType,
+      bytesBase64: asset.bytesBase64,
+      sourceType,
+    })
+    setActiveDraft((current) =>
+      current
+        ? {
+            ...current,
+            projectAssets: [
+              ...current.projectAssets.filter((entry) => entry.relativePath.toLowerCase() !== saved.relativePath.toLowerCase()),
+              saved,
+            ].sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
+          }
+        : current,
+    )
+    return saved
+  }
+
+  const writeProjectAssets = async (
+    assets: Array<Pick<VirtualPreviewAsset, 'relativePath' | 'mediaType' | 'bytesBase64'>>,
+    sourceType: ProjectAssetRef['sourceType'] = 'edited',
+  ) => {
+    if (!activeDraft) throw new Error('No active draft is available.')
+    const saved = await port.writeProjectAssets({
+      draftStorageKey: activeDraft.draftStorageKey,
+      assets: assets.map((asset) => ({ ...asset, sourceType })),
+    })
+    const savedPaths = new Set(saved.map((asset) => asset.relativePath.toLowerCase()))
+    setActiveDraft((current) =>
+      current
+        ? {
+            ...current,
+            projectAssets: [...current.projectAssets.filter((entry) => !savedPaths.has(entry.relativePath.toLowerCase())), ...saved].sort(
+              (left, right) => left.relativePath.localeCompare(right.relativePath),
+            ),
+          }
+        : current,
+    )
+    return saved
+  }
+
+  const applyPersistedAssetMutation = (record: CpMakerDraftRecord) => {
+    const persisted = backendToFrontend(record)
+    const persistedPatches = new Map(persisted.patches.map((patch) => [patch.id, patch]))
+    setActiveDraft((current) =>
+      current
+        ? {
+            ...current,
+            projectAssets: persisted.projectAssets,
+            customLocations: persisted.customLocations,
+            patches: current.patches.map((patch) => {
+              const saved = persistedPatches.get(patch.id)
+              return saved ? { ...patch, fromFile: saved.fromFile } : patch
+            }),
+          }
+        : current,
+    )
+    return persisted
+  }
+
+  const importProjectAssets = async (sourcePaths: string[], destinationDirectory = 'assets') => {
+    if (!activeDraft) throw new Error('No active draft is available.')
+    const saved = await port.importProjectAssets({
+      draftStorageKey: activeDraft.draftStorageKey,
+      sourcePaths,
+      destinationDirectory,
+    })
+    return applyPersistedAssetMutation(saved)
+  }
+
+  const renameProjectAsset = async (relativePath: string, newRelativePath: string) => {
+    if (!activeDraft) throw new Error('No active draft is available.')
+    const saved = await port.renameProjectAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath, newRelativePath })
+    return applyPersistedAssetMutation(saved)
+  }
+
+  const deleteProjectAsset = async (relativePath: string) => {
+    if (!activeDraft) throw new Error('No active draft is available.')
+    const saved = await port.deleteProjectAsset({ draftStorageKey: activeDraft.draftStorageKey, relativePath })
+    return applyPersistedAssetMutation(saved)
+  }
+
+  // Metadata
+
+  const updateMetadata = (patch: Partial<CpMakerDraft['projectMetadata']>) => {
     setActiveDraft((current) => {
       if (!current) return current
       return {
@@ -1090,100 +1291,93 @@ export function useCpMaker() {
       }
     })
     setIsDirty(true)
-  }, [])
+  }
 
-  // ── Import ──
+  // Import
 
-  const importPack = useCallback(
-    async (modDirectoryPath: string) => {
-      setDraftLoading(true)
-      setDraftError(null)
-      try {
-        const importedRecord = await port.importPack(modDirectoryPath)
-        const record = await port.saveDraft(importedRecord)
-        const draft = backendToFrontend(record)
-        activeDraftKeyRef.current = draft.draftStorageKey
-        setActiveDraft(draft)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        await refreshDrafts()
-        return draft
-      } catch (error) {
-        setDraftError(error instanceof Error ? error.message : String(error))
-        throw error
-      } finally {
-        setDraftLoading(false)
-      }
-    },
-    [port, refreshDrafts],
-  )
+  const importPack = async (modDirectoryPath: string) => {
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const importedRecord = await port.importPack(modDirectoryPath)
+      const record = await port.saveDraft(importedRecord)
+      const draft = backendToFrontend(record)
+      activeDraftKeyRef.current = draft.draftStorageKey
+      setActiveDraft(draft)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      await refreshDrafts()
+      return draft
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+      throw error
+    } finally {
+      setDraftLoading(false)
+    }
+  }
 
-  // ── Export ──
+  // Export
 
-  const exportPack = useCallback(
-    async (outputPath: string): Promise<CpMakerExportResult> => {
-      if (!activeDraft) {
-        throw new Error('No active draft to export.')
-      }
-      const manifestJson = buildManifestJson(activeDraft)
-      const { contentJson, includeFiles } = buildContentJson(activeDraft)
+  const exportPack = async (outputPath: string): Promise<CpMakerExportResult> => {
+    if (!activeDraft) {
+      throw new Error('No active draft to export.')
+    }
+    const manifestJson = buildManifestJson(activeDraft)
+    const { contentJson, includeFiles } = buildContentJson(activeDraft)
 
-      // Include 文件作为 virtual assets 传入
-      const includeAssets = includeFiles.map((file) => ({
-        relativePath: file.relativePath,
-        mediaType: 'application/json',
-        bytesBase64: encodeTextToBase64(file.content),
-      }))
+    const includeAssets = includeFiles.map((file) => ({
+      relativePath: file.relativePath,
+      mediaType: 'application/json',
+      bytesBase64: encodeTextToBase64(file.content),
+    }))
 
-      // config.json 默认值文件（当 ConfigSchema 存在时）
-      const configAssets = activeDraft.configSchema.length > 0 ? [buildConfigJsonAsset(activeDraft.configSchema)] : []
+    const configAssets = activeDraft.configSchema.length > 0 ? [buildConfigJsonAsset(activeDraft.configSchema)] : []
 
-      const result = await port.exportPack({
-        output_path: outputPath,
-        manifest_json: manifestJson,
-        content_json: contentJson,
-        virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
-        i18n_files: activeDraft.i18nFiles,
-      })
-      const exportedDraft: CpMakerDraft = {
-        ...activeDraft,
-        lastDraftSavedAt: Date.now(),
-        lastExportedAt: Date.now(),
-        lastExportPath: outputPath,
-      }
-      try {
-        await port.saveDraft(frontendToBackend(exportedDraft))
-        activeDraftKeyRef.current = exportedDraft.draftStorageKey
-        setActiveDraft(exportedDraft)
-        setIsDirty(false)
-        setDirtyPatchIds(new Set())
-        await refreshDrafts()
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error)
-        setDraftError(`Export succeeded, but export metadata could not be saved: ${detail}`)
-        throw new Error(`Export succeeded, but export metadata could not be saved: ${detail}`)
-      }
-      return result
-    },
-    [activeDraft, port, refreshDrafts],
-  )
+    const result = await port.exportPack({
+      draft_storage_key: activeDraft.draftStorageKey,
+      output_path: outputPath,
+      manifest_json: manifestJson,
+      content_json: contentJson,
+      virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
+      i18n_files: activeDraft.i18nFiles,
+    })
+    const exportedDraft: CpMakerDraft = {
+      ...activeDraft,
+      lastDraftSavedAt: Date.now(),
+      lastExportedAt: Date.now(),
+      lastExportPath: outputPath,
+    }
+    try {
+      await port.saveDraft(frontendToBackend(exportedDraft))
+      activeDraftKeyRef.current = exportedDraft.draftStorageKey
+      setActiveDraft(exportedDraft)
+      setIsDirty(false)
+      setDirtyPatchIds(new Set())
+      await refreshDrafts()
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      setDraftError(`Export succeeded, but export metadata could not be saved: ${detail}`)
+      throw new Error(`Export succeeded, but export metadata could not be saved: ${detail}`)
+    }
+    return result
+  }
 
-  // ── Derived ──
+  // Derived
 
-  const patchCountByWorkspace = useMemo(() => {
+  const patchCountByWorkspace = (() => {
     const counts: Partial<Record<WorkspaceId, number>> = {}
     for (const patch of activeDraft?.patches ?? []) {
       counts[patch.workspace] = (counts[patch.workspace] ?? 0) + 1
     }
     return counts
-  }, [activeDraft?.patches])
+  })()
 
   return {
     // Draft CRUD
     drafts,
     draftsReady,
     activeDraft,
-    getActiveDraftKey: useCallback(() => activeDraftKeyRef.current, []),
+    getActiveDraftKey: () => activeDraftKeyRef.current,
     draftLoading,
     draftError,
     isDirty,
@@ -1198,11 +1392,14 @@ export function useCpMaker() {
     copyDraft,
     refreshDrafts,
     chooseDirectory: (title?: string) => port.chooseDirectory(title),
+    chooseFiles: (title?: string, filters?: readonly DialogFilter[]) => port.chooseFiles(title, filters),
 
-    // Patch 管理
+    // Patch management
     addPatch: addPatchWithReturn,
     removePatch,
     updatePatch,
+    reorderPatch,
+    duplicatePatch,
     getPatchesForWorkspace,
 
     // Config Schema
@@ -1210,11 +1407,22 @@ export function useCpMaker() {
     addConfigEntry,
     removeConfigEntry,
     updateConfigEntry,
+    setConfigSchema,
 
     // Virtual Assets
     virtualAssets: activeDraft?.virtualAssets ?? [],
     addVirtualAsset,
     removeVirtualAsset,
+
+    // Persisted project assets
+    projectAssets: activeDraft?.projectAssets ?? [],
+    readProjectAsset,
+    loadProjectMapAsset,
+    writeProjectAsset,
+    writeProjectAssets,
+    importProjectAssets,
+    renameProjectAsset,
+    deleteProjectAsset,
 
     // CustomLocations
     customLocations: activeDraft?.customLocations ?? [],
@@ -1228,10 +1436,12 @@ export function useCpMaker() {
     aliasTokenNames: activeDraft?.aliasTokenNames ?? {},
     addAliasTokenName,
     removeAliasTokenName,
+    setAliasTokenNames,
 
     // Project translations
     i18nFiles: activeDraft?.i18nFiles ?? [],
     setI18nFiles,
+    upsertI18nEntries,
 
     // Metadata
     updateMetadata,

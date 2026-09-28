@@ -1,4 +1,11 @@
-export type BuildingLocationSeedGroup = 'merchants' | 'houses' | 'farm' | 'other'
+/**
+ * Layer a world building is listed under.
+ *
+ * Farm buildings are deliberately absent: those come from `Data/Buildings` via
+ * `createConstructibleBuildingGroups`, not from map warps, and the browser
+ * renders them from that source instead.
+ */
+export type BuildingLocationSeedGroup = 'merchants' | 'houses' | 'other'
 
 export type BuildingLocationSeed = {
   group: BuildingLocationSeedGroup
@@ -11,17 +18,10 @@ export type BuildingLocationSeed = {
   allowOutdoor?: boolean
 }
 
-export const BUILDING_LOCATION_SEED_GROUP_LABELS: Record<BuildingLocationSeedGroup, string> = {
-  merchants: 'Merchants',
-  houses: 'Houses',
-  farm: 'Farm Buildings',
-  other: 'Other Buildings',
-}
-
+/** Render order of the world-building layers; the browser titles them from the dictionary. */
 export const BUILDING_LOCATION_SEED_GROUP_ORDER: Record<BuildingLocationSeedGroup, number> = {
   merchants: 0,
   houses: 1,
-  farm: 2,
   other: 3,
 }
 
@@ -71,7 +71,6 @@ export const BUILDING_LOCATION_SEED_GROUPS: Record<BuildingLocationSeedGroup, Bu
     { group: 'houses', name: 'trailer', label: 'Trailer', locationName: 'Trailer' },
     { group: 'houses', name: 'treehouse', label: 'Treehouse', locationName: 'LeoTreeHouse' },
   ],
-  farm: [],
   other: [
     { group: 'other', name: 'community-center', label: 'Community Center', locationName: 'CommunityCenter' },
     { group: 'other', name: 'dog-pen', label: 'Dog Pen', mapAssetName: 'Maps/Town-DogHouse', allowOutdoor: true },

@@ -1,3 +1,6 @@
+/**
+ * @file Semantic search settings panel: manages retrieval mode, model download/validation, index rebuild, and remote configuration.
+ */
 import { useEffect, useId, useRef, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { BUILTIN_SEMANTIC_MODEL_ID, useLocalization } from '@entities/localization'
@@ -13,11 +16,14 @@ import type {
   SaveAiSemanticRemoteProfile,
 } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
+import { isTimeoutError, withLoadTimeout } from '@shared/lib/async/withLoadTimeout'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent, ignoreError } from '@platform/observability'
 
 const SEMANTIC_VERIFY_NOTIFICATION = 'semantic-model-verify'
 const SEMANTIC_TEST_NOTIFICATION = 'semantic-remote-test'
+const SEMANTIC_LOAD_TIMEOUT_MS = 20_000
 
 const BUILTIN_MODEL_ID = BUILTIN_SEMANTIC_MODEL_ID
 const SEMANTIC_MODES: AiSemanticSearchMode[] = ['lexical', 'builtin', 'local-onnx', 'remote-openai']
@@ -56,12 +62,12 @@ function bytes(value: number | null | undefined) {
   return `${amount} B`
 }
 
+/** Semantic search settings panel component: manages retrieval mode, model status, index health, and remote configuration. */
 export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
   const localization = useLocalization()
   const rootCopy = useSettingsMenuCopy().ai
   const copy = rootCopy.semantic
   const notificationCopy = useNotificationCopy().ai
-  const publish = useNotificationPublisher()
   const mounted = useRef(true)
   const refreshGeneration = useRef(0)
   const pausedJob = useRef<string | null>(null)
@@ -71,6 +77,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const [savedSettings, setSavedSettings] = useState<AiSemanticSettingsSnapshot | null>(null)
   const [model, setModel] = useState<AiSemanticModelStatus | null>(null)
   const [index, setIndex] = useState<AiSemanticIndexStatus>(pendingIndexStatus('lexical'))
+  const [indexFailed, setIndexFailed] = useState(false)
   const [progress, setProgress] = useState<AiSemanticProgress | null>(null)
   const [downloadPaused, setDownloadPaused] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -113,8 +120,13 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
 
   const refresh = async () => {
     const generation = ++refreshGeneration.current
+    if (mounted.current) setError(null)
+    setIndexFailed(false)
     try {
-      const [nextSettings, nextModel] = await Promise.all([localization.loadSemanticSettings(), localization.inspectSemanticModel()])
+      const [nextSettings, nextModel] = await withLoadTimeout(
+        Promise.all([localization.loadSemanticSettings(), localization.inspectSemanticModel()]),
+        SEMANTIC_LOAD_TIMEOUT_MS,
+      )
       if (!mounted.current || generation !== refreshGeneration.current) return
       setSettings(nextSettings)
       setSavedSettings(nextSettings)
@@ -132,21 +144,29 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
           credentialEnvironment: active.credentialEnvironment,
         })
       setRemoteCredentialSource(active?.resolvedCredentialSource ?? null)
-      void localization
-        .inspectSemanticIndex([])
+      void withLoadTimeout(localization.inspectSemanticIndex([]), SEMANTIC_LOAD_TIMEOUT_MS)
         .then((nextIndex) => {
-          if (mounted.current && generation === refreshGeneration.current) setIndex(nextIndex)
+          if (mounted.current && generation === refreshGeneration.current) {
+            setIndex(nextIndex)
+            setIndexFailed(false)
+          }
         })
-        .catch(() => undefined)
+        .catch(() => {
+          // Index status query failed/timed out: degrade to "unknown" and expose a retry entry,
+          // rather than swallowing the error or pretending the index is empty.
+          if (mounted.current && generation === refreshGeneration.current) setIndexFailed(true)
+        })
     } catch (cause) {
-      if (mounted.current && generation === refreshGeneration.current) setError(copy.loadError)
+      if (mounted.current && generation === refreshGeneration.current) {
+        setError(isTimeoutError(cause) ? copy.loadTimeout : copy.loadError)
+      }
       throw cause
     }
   }
 
   useEffect(() => {
     mounted.current = true
-    void refresh().catch(() => undefined)
+    void ignoreError(refresh(), 'semanticSearch.initialRefresh')
     let disposed = false
     let disposeSemantic: (() => void) | undefined
     let disposeOfficial: (() => void) | undefined
@@ -157,15 +177,14 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
         if (value.kind === 'download' && value.phase === 'complete') setDownloadPaused(false)
         const activeIndex = activeIndexJob.current
         if (value.kind === 'index' && activeIndex?.jobId === value.jobId) {
-          publish({
-            id: activeIndex.noticeId,
-            level: 'info',
-            title: copy.phaseLabels[value.phase] ?? copy.indexing,
-            description: copy.indexProgress(value.downloadedBytes, value.totalBytes, value.percentage),
-            autoDismissMs: null,
-            progress: value.percentage,
-            loading: true,
-          })
+          appEvent('info', copy.phaseLabels[value.phase] ?? copy.indexing)
+            .description(copy.indexProgress(value.downloadedBytes, value.totalBytes, value.percentage))
+            .noticeId(activeIndex.noticeId)
+            .autoDismiss(null)
+            .progress(value.percentage)
+            .loading()
+            .context({ source: 'settings-semantic-search', operation: 'download-model' })
+            .emit()
         }
       })
       .then((value) => {
@@ -178,15 +197,14 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
         const activeOfficialCorpus = activeOfficialCorpusJob.current
         if (activeOfficialCorpus?.jobId === value.jobId) {
           const percentage = value.total > 0 ? (value.completed / value.total) * 100 : 0
-          publish({
-            id: activeOfficialCorpus.noticeId,
-            level: 'info',
-            title: copy.rebuildingCorpus,
-            description: copy.indexProgress(value.completed, value.total, percentage),
-            autoDismissMs: null,
-            progress: percentage,
-            loading: true,
-          })
+          appEvent('info', copy.rebuildingCorpus)
+            .description(copy.indexProgress(value.completed, value.total, percentage))
+            .noticeId(activeOfficialCorpus.noticeId)
+            .autoDismiss(null)
+            .progress(percentage)
+            .loading()
+            .context({ source: 'settings-semantic-search', operation: 'rebuild-corpus' })
+            .emit()
         }
       })
       .then((value) => {
@@ -199,7 +217,7 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       disposeSemantic?.()
       disposeOfficial?.()
     }
-  }, [localization, copy.indexProgress, copy.indexing, copy.loadError, copy.phaseLabels, copy.rebuildingCorpus, publish])
+  }, [localization, copy.indexProgress, copy.indexing, copy.loadError, copy.phaseLabels, copy.rebuildingCorpus])
 
   const run = async (
     name: string,
@@ -220,14 +238,13 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     dismissNotification(noticeId)
     if (options?.runningTitle) {
       const hasProgress = Boolean(options.progressJobId || options.officialCorpusJobId)
-      publish({
-        id: noticeId,
-        level: 'info',
-        title: options.runningTitle,
-        autoDismissMs: null,
-        progress: hasProgress ? 0 : null,
-        loading: hasProgress,
-      })
+      appEvent('info', options.runningTitle)
+        .noticeId(noticeId)
+        .autoDismiss(null)
+        .progress(hasProgress ? 0 : null)
+        .loading(hasProgress)
+        .context({ source: 'settings-semantic-search', operation: 'run-action' })
+        .emit()
     }
     try {
       await action()
@@ -235,22 +252,21 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       if (!mounted.current) return
       if (options?.runningTitle || options?.successTitle) {
         dismissNotification(noticeId)
-        publish({
-          id: noticeId,
-          level: 'success',
-          title: options.successTitle ?? copy.actionSuccess,
-        })
+        appEvent('success', options.successTitle ?? copy.actionSuccess)
+          .noticeId(noticeId)
+          .context({ source: 'settings-semantic-search', operation: 'run-action' })
+          .emit()
       }
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : copy.actionError
       if (mounted.current) setError(detail)
       dismissNotification(noticeId)
-      publish({
-        id: noticeId,
-        level: 'error',
-        title: copy.actionError,
-        description: detail || notificationCopy.failureDescriptions.unknown,
-      })
+      appEvent('error', copy.actionError)
+        .description(detail || notificationCopy.failureDescriptions.unknown)
+        .noticeId(noticeId)
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'run-action' })
+        .emit()
     } finally {
       if (activeIndexJob.current?.jobId === options?.progressJobId) activeIndexJob.current = null
       if (activeOfficialCorpusJob.current?.jobId === options?.officialCorpusJobId) activeOfficialCorpusJob.current = null
@@ -279,14 +295,13 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     setError(null)
     dismissNotification(noticeId)
     activeOfficialCorpusJob.current = { jobId: corpusJobId, noticeId }
-    publish({
-      id: noticeId,
-      level: 'info',
-      title: copy.rebuildingAll,
-      autoDismissMs: null,
-      progress: 0,
-      loading: true,
-    })
+    appEvent('info', copy.rebuildingAll)
+      .noticeId(noticeId)
+      .autoDismiss(null)
+      .progress(0)
+      .loading()
+      .context({ source: 'settings-semantic-search', operation: 'rebuild-all' })
+      .emit()
     try {
       const gameDirectory = await resolveOfficialCorpusGameDirectory()
       if (!gameDirectory) throw new Error(copy.corpusDirectoryMissing)
@@ -294,34 +309,32 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       if (!mounted.current) return
       if (activeOfficialCorpusJob.current?.jobId === corpusJobId) activeOfficialCorpusJob.current = null
       activeIndexJob.current = { jobId: semanticJobId, noticeId }
-      publish({
-        id: noticeId,
-        level: 'info',
-        title: copy.indexing,
-        autoDismissMs: null,
-        progress: 0,
-        loading: true,
-      })
+      appEvent('info', copy.indexing)
+        .noticeId(noticeId)
+        .autoDismiss(null)
+        .progress(0)
+        .loading()
+        .context({ source: 'settings-semantic-search', operation: 'rebuild-index' })
+        .emit()
       await localization.rebuildSemanticIndex({ jobId: semanticJobId, scopeIds: [], confirmRemoteUpload: confirmRemote })
       if (!mounted.current) return
       await refresh()
       if (!mounted.current) return
       dismissNotification(noticeId)
-      publish({
-        id: noticeId,
-        level: 'success',
-        title: copy.actionSuccess,
-      })
+      appEvent('success', copy.actionSuccess)
+        .noticeId(noticeId)
+        .context({ source: 'settings-semantic-search', operation: 'rebuild-all' })
+        .emit()
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : copy.actionError
       if (mounted.current) setError(detail)
       dismissNotification(noticeId)
-      publish({
-        id: noticeId,
-        level: 'error',
-        title: copy.actionError,
-        description: detail || notificationCopy.failureDescriptions.unknown,
-      })
+      appEvent('error', copy.actionError)
+        .description(detail || notificationCopy.failureDescriptions.unknown)
+        .noticeId(noticeId)
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'rebuild-all' })
+        .emit()
     } finally {
       if (activeOfficialCorpusJob.current?.jobId === corpusJobId) activeOfficialCorpusJob.current = null
       if (activeIndexJob.current?.jobId === semanticJobId) activeIndexJob.current = null
@@ -331,15 +344,24 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
 
   if (!settings || !model)
     return (
-      <section className="settings-semantic" aria-busy="true" aria-live="polite">
+      <section className="settings-semantic" aria-busy={error ? 'false' : 'true'} aria-live="polite">
         <div className="settings-ai-tab-body">
           <div className="settings-semantic-loading" role="status">
             <div className="settings-semantic-loading-head">
-              <span className="settings-semantic-loading-spinner" aria-hidden="true" />
+              {error ? null : <span className="settings-semantic-loading-spinner" aria-hidden="true" />}
               <div>
                 <strong>{error ?? copy.loading}</strong>
-                <p>{copy.loadingHint}</p>
+                <p>{error ? copy.loadTimeoutHint : copy.loadingHint}</p>
               </div>
+              {error ? (
+                <button
+                  type="button"
+                  className="settings-window-btn settings-window-btn-primary"
+                  onClick={() => void ignoreError(refresh(), 'semanticSearch.retryRefresh')}
+                >
+                  {copy.retry}
+                </button>
+              ) : null}
             </div>
             <p className="settings-window-group-label">{copy.mode}</p>
             <div className="settings-semantic-mode-grid settings-semantic-loading-modes" aria-hidden="true">
@@ -397,24 +419,22 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
   const verify = async () => {
     if (mode !== 'builtin' && mode !== 'local-onnx') {
       setError(copy.verificationError)
-      publish({
-        id: SEMANTIC_VERIFY_NOTIFICATION,
-        level: 'error',
-        title: copy.actionError,
-        description: copy.verificationError,
-      })
+      appEvent('error', copy.actionError)
+        .description(copy.verificationError)
+        .noticeId(SEMANTIC_VERIFY_NOTIFICATION)
+        .context({ source: 'settings-semantic-search', operation: 'verify-model' })
+        .emit()
       return
     }
     setBusy('verify')
     setError(null)
     dismissNotification(SEMANTIC_VERIFY_NOTIFICATION)
-    publish({
-      id: SEMANTIC_VERIFY_NOTIFICATION,
-      level: 'info',
-      title: copy.verificationRunning,
-      description: copy.verificationRunningDescription,
-      autoDismissMs: null,
-    })
+    appEvent('info', copy.verificationRunning)
+      .description(copy.verificationRunningDescription)
+      .noticeId(SEMANTIC_VERIFY_NOTIFICATION)
+      .autoDismiss(null)
+      .context({ source: 'settings-semantic-search', operation: 'verify-model' })
+      .emit()
     try {
       const result = await localization.verifySemanticModel({
         mode,
@@ -425,23 +445,22 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       setVerification(result)
       setVerificationOpen(true)
       dismissNotification(SEMANTIC_VERIFY_NOTIFICATION)
-      publish({
-        id: SEMANTIC_VERIFY_NOTIFICATION,
-        level: 'success',
-        title: copy.verificationTitle,
-        description: copy.verificationPassed,
-      })
+      appEvent('success', copy.verificationTitle)
+        .description(copy.verificationPassed)
+        .noticeId(SEMANTIC_VERIFY_NOTIFICATION)
+        .context({ source: 'settings-semantic-search', operation: 'verify-model' })
+        .emit()
       await refresh()
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : copy.verificationError
       if (mounted.current) setError(detail)
       dismissNotification(SEMANTIC_VERIFY_NOTIFICATION)
-      publish({
-        id: SEMANTIC_VERIFY_NOTIFICATION,
-        level: 'error',
-        title: copy.verificationError,
-        description: detail || notificationCopy.failureDescriptions.unknown,
-      })
+      appEvent('error', copy.verificationError)
+        .description(detail || notificationCopy.failureDescriptions.unknown)
+        .noticeId(SEMANTIC_VERIFY_NOTIFICATION)
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'verify-model' })
+        .emit()
     } finally {
       if (mounted.current) setBusy(null)
     }
@@ -453,30 +472,41 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     setBusy('download')
     setError(null)
     dismissNotification('semantic-download')
-    publish({ id: 'semantic-download', level: 'info', title: copy.downloading, autoDismissMs: null })
+    appEvent('info', copy.downloading)
+      .noticeId('semantic-download')
+      .autoDismiss(null)
+      .context({ source: 'settings-semantic-search', operation: 'download-model' })
+      .emit()
     try {
       await localization.downloadSemanticModel({ jobId, modelId: BUILTIN_MODEL_ID })
       if (!mounted.current) return
       setProgress(null)
       await refresh()
       dismissNotification('semantic-download')
-      publish({ id: 'semantic-download', level: 'success', title: copy.downloadComplete })
+      appEvent('success', copy.downloadComplete)
+        .noticeId('semantic-download')
+        .context({ source: 'settings-semantic-search', operation: 'download-model' })
+        .emit()
     } catch (cause) {
       if (pausedJob.current === jobId) {
         if (mounted.current) setDownloadPaused(true)
         dismissNotification('semantic-download')
-        publish({ id: 'semantic-download', level: 'warning', title: copy.paused, description: copy.partRetained })
+        appEvent('warning', copy.paused)
+          .description(copy.partRetained)
+          .noticeId('semantic-download')
+          .context({ source: 'settings-semantic-search', operation: 'download-model' })
+          .emit()
         return
       }
       const detail = cause instanceof Error ? cause.message : copy.actionError
       if (mounted.current) setError(detail)
       dismissNotification('semantic-download')
-      publish({
-        id: 'semantic-download',
-        level: 'error',
-        title: copy.actionError,
-        description: detail || notificationCopy.failureDescriptions.unknown,
-      })
+      appEvent('error', copy.actionError)
+        .description(detail || notificationCopy.failureDescriptions.unknown)
+        .noticeId('semantic-download')
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'download-model' })
+        .emit()
     } finally {
       if (mounted.current) setBusy(null)
     }
@@ -493,7 +523,12 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     setBusy('probe')
     setError(null)
     dismissNotification('semantic-probe')
-    publish({ id: 'semantic-probe', level: 'info', title: copy.probeRunning, autoDismissMs: null, loading: true })
+    appEvent('info', copy.probeRunning)
+      .noticeId('semantic-probe')
+      .autoDismiss(null)
+      .loading()
+      .context({ source: 'settings-semantic-search', operation: 'probe-search' })
+      .emit()
     try {
       const result = await localization.probeSemanticSearch({
         query,
@@ -504,21 +539,20 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
       if (!mounted.current) return
       setProbeResult(result)
       dismissNotification('semantic-probe')
-      publish({
-        id: 'semantic-probe',
-        level: 'success',
-        title: copy.probeMeta(copy.retrievalModes[result.retrievalMode], result.totalCandidates, result.elapsedMs),
-      })
+      appEvent('success', copy.probeMeta(copy.retrievalModes[result.retrievalMode], result.totalCandidates, result.elapsedMs))
+        .noticeId('semantic-probe')
+        .context({ source: 'settings-semantic-search', operation: 'probe-search' })
+        .emit()
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : copy.actionError
       if (mounted.current) setError(detail)
       dismissNotification('semantic-probe')
-      publish({
-        id: 'semantic-probe',
-        level: 'error',
-        title: copy.actionError,
-        description: detail,
-      })
+      appEvent('error', copy.actionError)
+        .description(detail)
+        .noticeId('semantic-probe')
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'probe-search' })
+        .emit()
     } finally {
       if (mounted.current) setBusy(null)
     }
@@ -529,31 +563,29 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
     setBusy('test')
     setError(null)
     dismissNotification(SEMANTIC_TEST_NOTIFICATION)
-    publish({
-      id: SEMANTIC_TEST_NOTIFICATION,
-      level: 'info',
-      title: rootCopy.testingConnection,
-      autoDismissMs: null,
-    })
+    appEvent('info', rootCopy.testingConnection)
+      .noticeId(SEMANTIC_TEST_NOTIFICATION)
+      .autoDismiss(null)
+      .context({ source: 'settings-semantic-search', operation: 'test-remote-profile' })
+      .emit()
     try {
       const result = await localization.testSemanticRemoteProfile(remoteDraft.id)
       if (!mounted.current) return
       dismissNotification(SEMANTIC_TEST_NOTIFICATION)
-      publish({
-        id: SEMANTIC_TEST_NOTIFICATION,
-        level: 'success',
-        title: copy.testSuccess(result.latencyMs, result.dimensions),
-      })
+      appEvent('success', copy.testSuccess(result.latencyMs, result.dimensions))
+        .noticeId(SEMANTIC_TEST_NOTIFICATION)
+        .context({ source: 'settings-semantic-search', operation: 'test-remote-profile' })
+        .emit()
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : copy.actionError
       if (mounted.current) setError(detail)
       dismissNotification(SEMANTIC_TEST_NOTIFICATION)
-      publish({
-        id: SEMANTIC_TEST_NOTIFICATION,
-        level: 'error',
-        title: copy.actionError,
-        description: detail,
-      })
+      appEvent('error', copy.actionError)
+        .description(detail)
+        .noticeId(SEMANTIC_TEST_NOTIFICATION)
+        .error(cause)
+        .context({ source: 'settings-semantic-search', operation: 'test-remote-profile' })
+        .emit()
     } finally {
       if (mounted.current) setBusy(null)
     }
@@ -701,7 +733,18 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                     </div>
                   ) : null}
                 </div>
-                {mode !== 'lexical' ? (
+                {indexFailed ? (
+                  <div className="settings-semantic-health-degraded" role="status">
+                    <span>{copy.indexLoadError}</span>
+                    <button
+                      type="button"
+                      className="settings-window-btn"
+                      onClick={() => void ignoreError(refresh(), 'semanticSearch.indexRetry')}
+                    >
+                      {copy.retry}
+                    </button>
+                  </div>
+                ) : mode !== 'lexical' ? (
                   <div className="settings-semantic-health-metrics" role="group" aria-label={copy.indexCoverage}>
                     <div className="settings-semantic-health-metric">
                       <strong>{index.coveragePercentage.toFixed(1)}%</strong>
@@ -927,12 +970,14 @@ export function SemanticSearchSection({ onDirtyChange }: { onDirtyChange?: (dirt
                   <div>
                     <p className="settings-semantic-section-label">{copy.step3Title}</p>
                     <p className="settings-semantic-inline-note">
-                      {copy.indexDesc(
-                        index.indexedRecords,
-                        index.sourceRecords,
-                        index.pendingRecords,
-                        verification?.fingerprint ?? model.revision ?? '',
-                      )}
+                      {indexFailed
+                        ? copy.indexLoadError
+                        : copy.indexDesc(
+                            index.indexedRecords,
+                            index.sourceRecords,
+                            index.pendingRecords,
+                            verification?.fingerprint ?? model.revision ?? '',
+                          )}
                     </p>
                   </div>
                   <div className="settings-semantic-actions">

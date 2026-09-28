@@ -1,4 +1,6 @@
-// Template → 结构化渲染描述
+/**
+ * @file Generates structured render descriptions for templates.
+ */
 
 import type { CommandSchema, UIControlType, OptionItem } from './commandSchema'
 import type { EventWorkflowCopy } from '@locales/api'

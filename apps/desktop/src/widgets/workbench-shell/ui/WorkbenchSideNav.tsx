@@ -1,7 +1,12 @@
+/**
+ * @file Workbench side navigation: displays the home page and feature area entries grouped by registered modules.
+ */
 import {
   Beaker,
   BookOpen,
   BookOpenCheck,
+  Bug,
+  CalendarClock,
   Castle,
   ChevronDown,
   ChevronLeft,
@@ -10,15 +15,22 @@ import {
   GitMerge,
   Home,
   Languages,
+  Images,
   LockKeyhole,
+  Mail,
   Map,
+  MessagesSquare,
+  Music,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   RotateCcw,
+  Settings,
   Users,
 } from 'lucide-react'
-import { useEditorCopy, useViewMenuCopy } from '@locales/provider'
+import type { ReactNode } from 'react'
+import { useEditorCopy, useLocale, useViewMenuCopy } from '@locales/provider'
+import { resolveModuleLabel, usePluginLocaleStore } from '@features/compat-plugins'
 import { cx } from '@shared/lib/helper'
 import type { WorkbenchLocation, WorkbenchModuleRegistration, WorkbenchNavigationSection } from '@shared/contracts'
 
@@ -28,14 +40,22 @@ const ICONS = {
   characters: Users,
   buildings: Castle,
   items: Package,
+  audio: Music,
   package: Package,
   languages: Languages,
   files: FileText,
   beaker: Beaker,
   'book-open-check': BookOpenCheck,
   'book-open': BookOpen,
+  dialogue: MessagesSquare,
+  schedule: CalendarClock,
+  mail: Mail,
+  bug: Bug,
+  settings: Settings,
+  images: Images,
 } as const
 
+/** Expand/collapse state for each side navigation section. */
 export type WorkbenchSideNavSectionState = {
   browseOpen: boolean
   authoringOpen: boolean
@@ -44,6 +64,7 @@ export type WorkbenchSideNavSectionState = {
   devOpen: boolean
 }
 
+/** Props for the workbench side navigation. */
 export type WorkbenchSideNavProps = {
   collapsed: boolean
   hasActiveProject: boolean
@@ -59,6 +80,8 @@ export type WorkbenchSideNavProps = {
   onModuleOpen: (moduleId: string) => void
   sectionState: WorkbenchSideNavSectionState
   onSectionStateChange: (state: WorkbenchSideNavSectionState) => void
+  /** Extra head tools (e.g. the global expert-mode toggle) rendered beside history. */
+  headTools?: ReactNode
 }
 
 const SECTIONS: readonly WorkbenchNavigationSection[] = ['authoring', 'browse', 'translation', 'tools', 'development']
@@ -79,9 +102,12 @@ export default function WorkbenchSideNav({
   onModuleOpen,
   sectionState,
   onSectionStateChange,
+  headTools,
 }: WorkbenchSideNavProps) {
   const navCopy = useEditorCopy().workbenchNavigation
   const viewMenuCopy = useViewMenuCopy()
+  const locale = useLocale()
+  const pluginBundles = usePluginLocaleStore((state) => state.bundles)
   const sectionMeta = {
     browse: { label: navCopy.shellNavBrowseGroup, stateKey: 'browseOpen' as const, dataSection: 'browse' },
     authoring: { label: navCopy.shellNavAuthoringGroup, stateKey: 'authoringOpen' as const, dataSection: 'authoring' },
@@ -131,6 +157,7 @@ export default function WorkbenchSideNav({
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
+            {headTools}
           </div>
         ) : null}
         <button
@@ -183,7 +210,7 @@ export default function WorkbenchSideNav({
               <div className="workbench-side-nav-section-bd">
                 {entries.map((registration) => {
                   const Icon = ICONS[registration.navigation.icon]
-                  const label = navCopy.moduleLabels[registration.navigation.labelKey]
+                  const label = resolveModuleLabel(registration, navCopy.moduleLabels, pluginBundles, locale)
                   const active = location.kind === 'module' && location.moduleId === registration.id
                   const locked = projectSection && !hasActiveProject
                   return (

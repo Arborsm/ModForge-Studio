@@ -1,1 +1,1 @@
-export { WorkbenchPage } from './ui/WorkbenchPage'
+export { preloadWorkbenchExperience, WorkbenchPage } from './ui/WorkbenchPage'

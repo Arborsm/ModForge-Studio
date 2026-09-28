@@ -1,3 +1,8 @@
+/**
+ * @file Builds the event timeline read model: scene summary, flat command
+ * entries, and grouped "beats" that pair dialogue with supporting commands.
+ */
+
 import type { EventCommand, EventScript } from './types'
 
 export const EVENT_SETUP_ENTRY_ID = 'setup'
@@ -23,6 +28,7 @@ export type EventTimelineBeat = {
   supportingEntries: EventTimelineEntry[]
 }
 
+/** Builds a one-line summary of the event scene setup (music, camera, actor count). */
 export function buildEventSceneSummary(event: EventScript, labels: EventTimelineLabels) {
   return [
     `${labels.music}: ${event.scene.musicCue ?? 'none'}`,
@@ -31,6 +37,7 @@ export function buildEventSceneSummary(event: EventScript, labels: EventTimeline
   ].join(' | ')
 }
 
+/** Flattens an event into timeline entries: a setup entry followed by one per command. */
 export function buildEventTimelineEntries(event: EventScript | null, labels: EventTimelineLabels): EventTimelineEntry[] {
   if (!event) {
     return []
@@ -75,6 +82,7 @@ function isPrimaryTimelineEntry(entry: EventTimelineEntry) {
   return false
 }
 
+/** Groups timeline entries into beats, each led by a dialogue/message/choice command with its supporting commands. */
 export function buildEventTimelineBeats(event: EventScript | null, labels: EventTimelineLabels): EventTimelineBeat[] {
   const entries = buildEventTimelineEntries(event, labels)
   if (entries.length === 0) {

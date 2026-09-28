@@ -10,26 +10,52 @@ import {
   Clock,
   Filter,
   LayoutGrid,
+  ListFilter,
   RefreshCw,
   Search,
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { type ComponentType, type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/helper'
 import { LoadingMotionFallback, LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@platform/host'
-import { reportAppEvent } from '@platform/observability'
+import { appEvent } from '@platform/observability'
+import { openAndroidInAppBrowser } from '@platform/android'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
-import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
+import {
+  hasLauncherCredentials,
+  useLauncherDiscover,
+  useLauncherPort,
+  useLauncherRemoteModDetail,
+  parseLauncherModIdQuery,
+} from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
 import { LauncherBlockedState, LauncherEmptyState, LauncherModDetailPanel } from '@features/launcher'
-import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
+import {
+  applyAppUiStatePatch,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+  useLauncherMobileTopLeading,
+  useLauncherOverlayDismissStore,
+} from '@shared/lib/app-state'
 import { LauncherDiscoverCard } from './LauncherDiscoverCard'
+import { LauncherDiscoverFilterSheet } from './LauncherDiscoverFilterSheet'
 import { formatCompactNumber } from './launcherDiscoverFormat'
 import type { LauncherDiscoverSearchRequest } from '../model/launcherDiscoverSearchRequest'
+import {
+  CATEGORY_OPTIONS,
+  DOWNLOAD_PRESETS,
+  ENDORSEMENT_PRESETS,
+  FILE_SIZE_PRESETS,
+  LANGUAGE_OPTIONS,
+  PAGE_SIZE_VALUES,
+  SORT_VALUES,
+  TIME_RANGE_VALUES,
+  type RangePreset,
+} from '../model/launcherDiscoverOptions'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -38,6 +64,10 @@ type LauncherDiscoverPageProps = {
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   searchRequest?: LauncherDiscoverSearchRequest | null
+  /** False while the discover route is hidden (cached pages stay mounted). */
+  routeActive?: boolean
+  /** True inside the Android WebView launcher host; the rail retires and search moves to the top bar. */
+  androidHost?: boolean
 }
 
 type DiscoverOption<T extends string | number> = {
@@ -45,63 +75,11 @@ type DiscoverOption<T extends string | number> = {
   label: string
 }
 
-const CATEGORY_OPTIONS = [
-  'Gameplay Mechanics',
-  'Interiors',
-  'Items',
-  'Livestock and Animals',
-  'Locations',
-  'Maps',
-  'Miscellaneous',
-  'Modding Tools',
-  'New Characters',
-  'Pets / Horses',
-  'Player',
-  'Portraits',
-  'User Interface',
-  'Visuals and Graphics',
-]
-
-const LANGUAGE_OPTIONS = ['Any', 'English', 'Chinese', 'Japanese', 'Spanish', 'German', 'French']
-
-const TIME_RANGE_VALUES = ['all', 'day', 'week', 'month', 'year'] as const
-const SORT_VALUES = ['newest', 'updated', 'trending', 'downloads', 'endorsements', 'name'] as const
-const PAGE_SIZE_VALUES = [20, 40, 80] as const
-
 type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'limits'
 type DiscoverItem = ReturnType<typeof useLauncherDiscover>['items'][number]
 type DiscoverFilters = ReturnType<typeof useLauncherDiscover>['filters']
-type RangePresetKey = 'any' | 'lt10kb' | '10to100kb' | 'gt100kb' | '10kPlus' | '100kPlus' | '500kPlus' | '1kPlus' | '5kPlus'
 
 const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
-
-type RangePreset = {
-  key: RangePresetKey
-  label: string
-  min: string
-  max: string
-}
-
-const FILE_SIZE_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: 'lt10kb', label: '< 10 KB', min: '', max: '10240' },
-  { key: '10to100kb', label: '10-100 KB', min: '10240', max: '102400' },
-  { key: 'gt100kb', label: '> 100 KB', min: '102400', max: '' },
-]
-
-const DOWNLOAD_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
-  { key: '100kPlus', label: '100K+', min: '100000', max: '' },
-  { key: '500kPlus', label: '500K+', min: '500000', max: '' },
-]
-
-const ENDORSEMENT_PRESETS: RangePreset[] = [
-  { key: 'any', label: 'Any', min: '', max: '' },
-  { key: '1kPlus', label: '1K+', min: '1000', max: '' },
-  { key: '5kPlus', label: '5K+', min: '5000', max: '' },
-  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
-]
 
 function parseTagTokens(value: string) {
   return value
@@ -133,19 +111,34 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 }
 
 const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
+const LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID = 'launcher-discover-mod-id-not-found'
+
+/**
+ * Android in-app browser lands on the Files tab — the page that actually lists
+ * downloadable files — instead of the mod overview the external browser opens.
+ */
+function toLauncherModFilesPageUrl(modUrl: string) {
+  try {
+    const url = new URL(modUrl)
+    url.searchParams.set('tab', 'files')
+    return url.toString()
+  } catch {
+    return modUrl
+  }
+}
 
 function getDiscoverPaginationItems(page: number, totalPages: number, capacity: number) {
   if (totalPages <= 0) {
     return []
   }
 
-  //页码全部能塞下时直接铺开 1..totalPages。
+  // When all pages fit within capacity, lay out 1..totalPages directly.
   if (totalPages <= capacity) {
     return Array.from({ length: totalPages }, (_, index) => index + 1)
   }
 
-  //塞不下时按容量压缩：首尾各占 1 个槽，省略号各占 1 个槽，剩下的槽围绕当前页居中铺开。
-  //两侧是否需要省略号取决于当前页位置，capacity 始终被填满。
+  // When pages exceed capacity, compress: first and last each take 1 slot, ellipses each take 1 slot, remaining slots spread centered around the current page.
+  // Whether ellipses are needed on each side depends on the current page position; capacity is always filled.
   const slotsForCenter = Math.max(1, capacity - 2 /* first + last */ - 2 /* two ellipses */)
 
   let start = page - Math.floor(slotsForCenter / 2)
@@ -581,6 +574,43 @@ function createDiscoverRemoteDetail(item: DiscoverItem): LauncherDiscoverDetail 
   }
 }
 
+function createModIdRemoteDetail(modId: number): LauncherDiscoverDetail {
+  return {
+    modId,
+    title: `Nexus #${modId}`,
+    summary: null,
+    description: null,
+    author: null,
+    version: null,
+    modUrl: `https://www.nexusmods.com/stardewvalley/mods/${modId}`,
+    imageUrl: null,
+    galleryImages: [],
+    updatedAt: null,
+    fileSize: null,
+    category: null,
+    downloads: null,
+    endorsements: null,
+    tags: [],
+    directDownloadEnabled: null,
+    supportsVortex: null,
+    primaryFileId: null,
+    primaryFileName: null,
+    primaryFileVersion: null,
+    primaryFileCategory: null,
+    primaryFileSize: null,
+    primaryFileSizeBytes: null,
+    primaryFileScanned: null,
+    primaryFileScanStatus: null,
+    primaryFileChangelog: [],
+    requiredLoader: null,
+    gameVersion: null,
+    archiveType: null,
+    updateRisk: null,
+    requirements: [],
+    files: [],
+  }
+}
+
 function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverDetail): LauncherDiscoverDetail {
   return {
     ...detail,
@@ -600,16 +630,40 @@ function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverD
 
 function LauncherDiscoverDetailPanel({
   item,
+  modId,
   onClose,
   onQueueDownload,
+  onOpenExternalPage,
+  onModIdNotFound,
 }: {
-  item: DiscoverItem
+  item: DiscoverItem | null
+  modId: number | null
   onClose: () => void
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onOpenExternalPage?: (url: string) => void
+  onModIdNotFound: (modId: number) => void
 }) {
-  const remoteDetail = useLauncherRemoteModDetail(item.modId, { includeFiles: false })
-  const fallbackDetail = createDiscoverRemoteDetail(item)
-  const displayedDetail = remoteDetail.detail ? mergeDiscoverRemoteDetail(item, remoteDetail.detail) : fallbackDetail
+  const remoteDetail = useLauncherRemoteModDetail(item?.modId ?? modId, { includeFiles: false })
+  const fallbackDetail = item ? createDiscoverRemoteDetail(item) : modId ? createModIdRemoteDetail(modId) : null
+  const displayedDetail = item
+    ? remoteDetail.detail
+      ? mergeDiscoverRemoteDetail(item, remoteDetail.detail)
+      : fallbackDetail
+    : (remoteDetail.detail ?? fallbackDetail)
+
+  // Direct mod-id opens have no catalog item to fall back to: when the remote
+  // lookup fails, let the page close the panel and surface a notification
+  // instead of leaving the user stuck on an empty detail drawer.
+  const modIdNotFound = !item && modId != null && remoteDetail.state === 'error'
+  useEffect(() => {
+    if (modIdNotFound && modId != null) {
+      onModIdNotFound(modId)
+    }
+  }, [modId, modIdNotFound, onModIdNotFound])
+
+  if (modIdNotFound) {
+    return null
+  }
 
   return (
     <LauncherModDetailPanel
@@ -624,15 +678,39 @@ function LauncherDiscoverDetailPanel({
       onSetCover={() => undefined}
       onClearCover={() => undefined}
       onQueueDownload={onQueueDownload}
+      onOpenExternalPage={onOpenExternalPage}
     />
   )
 }
 
+/**
+ * Placeholder card shown in place of real results while a page is in flight
+ * (Android host). Modern feed apps render card-shaped skeletons instead of a
+ * blocking overlay so the layout stays stable and the scroll position is kept.
+ */
+function DiscoverCardSkeleton() {
+  return (
+    <div className="launcher-discover-card-skeleton" aria-hidden="true">
+      <div className="launcher-discover-card-skeleton-cover" />
+      <div className="launcher-discover-card-skeleton-body">
+        <span className="launcher-discover-card-skeleton-line launcher-discover-card-skeleton-line-title" />
+        <span className="launcher-discover-card-skeleton-line launcher-discover-card-skeleton-line-meta" />
+      </div>
+    </div>
+  )
+}
+
+const DISCOVER_INITIAL_SKELETON_COUNT = 6
+const DISCOVER_APPEND_SKELETON_COUNT = 2
+
 export function LauncherDiscoverPage({
+  settings,
   onQueueDownload,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
   searchRequest,
+  routeActive = true,
+  androidHost = false,
 }: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
@@ -677,6 +755,9 @@ export function LauncherDiscoverPage({
       searchRequest={searchRequest}
       initialToolbarState={hydratedToolbarState}
       launcherUiStateReady={launcherUiStateReady}
+      routeActive={routeActive}
+      androidHost={androidHost}
+      downloadCredentialsReady={hasLauncherCredentials(settings)}
     />
   )
 }
@@ -688,6 +769,9 @@ function LauncherDiscoverPageContent({
   searchRequest,
   initialToolbarState,
   launcherUiStateReady,
+  routeActive = true,
+  androidHost = false,
+  downloadCredentialsReady = false,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToDiagnostics?: () => void
@@ -695,10 +779,40 @@ function LauncherDiscoverPageContent({
   searchRequest?: LauncherDiscoverSearchRequest | null
   initialToolbarState: LauncherDiscoverToolbarState
   launcherUiStateReady: boolean
+  routeActive?: boolean
+  androidHost?: boolean
+  /** True when a Nexus API key is set, so the quick action can auto-download. */
+  downloadCredentialsReady?: boolean
 }) {
   const copy = useEditorCopy().launcher
+  const launcherPort = useLauncherPort()
   const discover = useLauncherDiscover(initialToolbarState)
-  const [filtersHidden, setFiltersHidden] = useState(initialToolbarState.filtersHidden)
+
+  // Android host: the mod-page action and the not-signed-in quick action open
+  // the built-in in-app browser at the Files tab instead of the external browser.
+  const openModDownloadPageInApp = (modUrl: string) => {
+    void openAndroidInAppBrowser(toLauncherModFilesPageUrl(modUrl)).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-discover', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
+
+  // Detail-panel outbound links (footer page button, dependency rows) keep the
+  // plain mod page URL — only download-intent actions jump to the Files tab.
+  const openModPageInApp = (modUrl: string) => {
+    void openAndroidInAppBrowser(modUrl).catch((error: unknown) => {
+      appEvent('error', copy.downloads.inAppBrowserOpenFailedTitle)
+        .description(copy.downloads.inAppBrowserOpenFailedDetail(error instanceof Error ? error.message : String(error)))
+        .context({ source: 'launcher-discover', operation: 'open-in-app-browser' })
+        .emit()
+    })
+  }
+  // Phone widths start with the filter rail collapsed; users can still expand it.
+  const [filtersHidden, setFiltersHidden] = useState(
+    () => initialToolbarState.filtersHidden || window.matchMedia('(max-width: 640px)').matches,
+  )
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [openSection, setOpenSection] = useState<DiscoverAccordionSection>(DEFAULT_DISCOVER_OPEN_SECTION)
   const [blockedDetailsExpanded, setBlockedDetailsExpanded] = useState(false)
@@ -706,6 +820,7 @@ function LauncherDiscoverPageContent({
   const [jumpPageDraft, setJumpPageDraft] = useState('')
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
   const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
+  const [detailModId, setDetailModId] = useState<number | null>(null)
   const [advancedLimitId, setAdvancedLimitId] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState(discover.query)
   const handledSearchRequestIdRef = useRef<number | null>(null)
@@ -757,7 +872,10 @@ function LauncherDiscoverPageContent({
     discover.sort,
     discover.ascending ? 'asc' : 'desc',
     discover.timeRange,
-    discover.page,
+    // Desktop pagination remounts the wall per page so the reveal replays; the
+    // Android infinite feed appends into the same wall — a page- or items-keyed
+    // remount would re-animate every card on each fetch (the visible "flash").
+    ...(androidHost ? [] : [discover.page]),
     discover.pageSize,
     discover.filters.titleQuery,
     discover.filters.descriptionQuery,
@@ -767,6 +885,7 @@ function LauncherDiscoverPageContent({
     discover.filters.language,
     discover.filters.tagsInclude,
     discover.filters.tagsExclude,
+    androidHost ? 'feed' : discover.page,
     discover.filters.includeAdult ? 'adult' : 'standard',
     discover.filters.minFileSize,
     discover.filters.maxFileSize,
@@ -774,7 +893,7 @@ function LauncherDiscoverPageContent({
     discover.filters.maxDownloads,
     discover.filters.minEndorsements,
     discover.filters.maxEndorsements,
-    discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|'),
+    ...(androidHost ? [] : [discover.items.map((item) => `${item.modId}:${item.modUrl}`).join('|')]),
   ].join('\u0000')
 
   //Measure the pagination pages container and a single page button to compute
@@ -819,19 +938,25 @@ function LauncherDiscoverPageContent({
   }, [discover.items.length])
 
   useEffect(() => {
+    // Android host: the infinite feed shows skeleton cards at the tail while a
+    // page appends, so the progress banner is redundant — on a phone it drops
+    // over the content on every single scroll fetch.
+    if (androidHost) {
+      return
+    }
     if (discover.state === 'loading') {
-      publishNotification({
-        id: LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.discover.title,
-        description: loadingDescription,
-        autoDismissMs: null,
-      })
+      appEvent('info', copy.discover.title)
+        .description(loadingDescription)
+        .noticeId(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
+        .autoDismiss(null)
+        .context({ source: 'launcher-discover', operation: 'load-discover-page' })
+        .emit()
       return
     }
 
     dismissNotification(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
   }, [
+    androidHost,
     copy.discover.loadingPage,
     copy.discover.loadingResults,
     copy.discover.title,
@@ -866,6 +991,11 @@ function LauncherDiscoverPageContent({
     setOpenSection(DEFAULT_DISCOVER_OPEN_SECTION)
     discover.resetFilters()
     discover.setQuery(query)
+
+    const modId = parseLauncherModIdQuery(query)
+    if (modId != null) {
+      openModIdDetail(modId)
+    }
   })
 
   useEffect(() => {
@@ -898,12 +1028,10 @@ function LauncherDiscoverPageContent({
         },
       },
     }).catch((error) => {
-      reportAppEvent({
-        level: 'error',
-        title: 'Failed to save launcher discover toolbar state',
-        description: error instanceof Error ? error.message : String(error),
-        notify: false,
-      })
+      appEvent('error', 'Failed to save launcher discover toolbar state')
+        .error(error)
+        .context({ source: 'launcher-discover', operation: 'save-toolbar-state' })
+        .emit({ notify: false })
     })
   }, [discover.ascending, discover.pageSize, discover.sort, discover.timeRange, filtersHidden, launcherUiStateReady])
 
@@ -958,14 +1086,161 @@ function LauncherDiscoverPageContent({
     }
   }
   const submitDiscoverSearch = () => {
-    if (!searchDirty || discoverBlocked || discoverRequestFailed) {
+    if (discoverBlocked || discoverRequestFailed) {
       return
     }
-    discover.setQuery(normalizedSearchDraft)
+
+    if (searchDirty) {
+      discover.setQuery(normalizedSearchDraft)
+    }
+
+    const modId = parseLauncherModIdQuery(normalizedSearchDraft)
+    if (modId != null) {
+      openModIdDetail(modId)
+    }
   }
 
+  const notifyModIdNotFound = (modId: number) => {
+    appEvent('warning', copy.discover.modIdNotFoundTitle)
+      .description(copy.discover.modIdNotFoundDetail(modId))
+      .noticeId(LAUNCHER_DISCOVER_MOD_ID_NOTIFICATION_ID)
+      .autoDismiss(5_000)
+      .context({ source: 'launcher-discover', operation: 'find-mod-by-id' })
+      .emit()
+  }
+
+  const handleModIdDetailNotFound = (modId: number) => {
+    setDetailModId(null)
+    notifyModIdNotFound(modId)
+  }
+
+  const openModIdDetail = (modId: number) => {
+    if (launcherPort.isRemoteModIdInvalid(modId)) {
+      handleModIdDetailNotFound(modId)
+      return
+    }
+    if (detailModId === modId) {
+      return
+    }
+
+    setDetailItem(null)
+    setDetailModId(modId)
+  }
+
+  // The downloads manager floats inside the window frame, so it cannot stack
+  // above the body-portal detail drawer; pages close their drawer on request.
+  const launcherOverlayDismissEpoch = useLauncherOverlayDismissStore((state) => state.dismissEpoch)
+  const launcherOverlayDismissEpochRef = useRef(launcherOverlayDismissEpoch)
+  useEffect(() => {
+    if (launcherOverlayDismissEpochRef.current === launcherOverlayDismissEpoch) {
+      return
+    }
+    launcherOverlayDismissEpochRef.current = launcherOverlayDismissEpoch
+    setDetailModId(null)
+    setDetailItem(null)
+  }, [launcherOverlayDismissEpoch])
+
+  // Cached launcher routes stay mounted while hidden; close the body-portal
+  // detail drawer as soon as the discover route leaves the active page.
+  useEffect(() => {
+    if (routeActive === false) {
+      setDetailModId(null)
+      setDetailItem(null)
+    }
+  }, [routeActive])
+
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  // Android host feeds the wall by appending each fetched page so the phone
+  // scrolls infinitely instead of paginating; desktop keeps page switches.
+  const [feedItems, setFeedItems] = useState<DiscoverItem[]>([])
+  const [feedPage, setFeedPage] = useState(1)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const discoverScrollHostRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    if (discover.page <= 1) {
+      setFeedItems(discover.items)
+      setFeedPage(1)
+      return
+    }
+    if (discover.page > feedPage) {
+      setFeedPage(discover.page)
+      setFeedItems((current) => {
+        const seen = new Set(current.map((item) => item.modId))
+        return [...current, ...discover.items.filter((item) => !seen.has(item.modId))]
+      })
+    }
+  }, [androidHost, discover.items, discover.page, feedPage])
+
+  // Infinite scroll: when the sentinel under the wall approaches the viewport,
+  // fetch the next page. goToNextPage guards its own concurrency (no-op while
+  // a request is in flight or the last page is reached). The generous
+  // rootMargin prefetches roughly two phone screens ahead so the feed rarely
+  // sits waiting at the bottom; while a page is in flight the wall shows
+  // skeleton cards at the feed tail instead of a bottom spinner.
+  useEffect(() => {
+    if (!androidHost) {
+      return
+    }
+    const viewport = resultsViewportRef.current
+    const sentinel = loadMoreRef.current
+    if (!viewport || !sentinel) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && discover.state === 'ready' && discover.hasMore) {
+          discover.goToNextPage()
+        }
+      },
+      { root: viewport, rootMargin: '1800px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [androidHost, discover])
+
+  // The Android host pins the page size to the mock's fixed 20 per page.
+  useEffect(() => {
+    if (androidHost && discover.pageSize !== 20) {
+      discover.setPageSize(20)
+    }
+  }, [androidHost, discover])
+
+  const mobileTopSearch = (
+    <div className="mobile-top-search" role="search">
+      <Search className="mobile-top-search-icon" aria-hidden="true" />
+      <input
+        className="mobile-top-search-input"
+        value={searchDraft}
+        onChange={(event) => setSearchDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            submitDiscoverSearch()
+          }
+        }}
+        placeholder={copy.discover.searchPlaceholder}
+        aria-label={copy.discover.searchPlaceholder}
+        spellCheck={false}
+        disabled={discoverBlocked || discoverRequestFailed}
+      />
+      <button
+        type="button"
+        className="mobile-top-search-filter"
+        aria-label={copy.discover.mobile.sheetTitle}
+        aria-expanded={filterSheetOpen}
+        onClick={() => setFilterSheetOpen(true)}
+      >
+        <ListFilter className="h-3 w-3" aria-hidden="true" />
+      </button>
+    </div>
+  )
+  useLauncherMobileTopLeading(mobileTopSearch, androidHost && routeActive)
+
   return (
-    <section className="launcher-discover-page">
+    <section className="launcher-discover-page" ref={discoverScrollHostRef}>
       <LoadingMotionReveal itemId="launcher-discover-console" index={0} as="header" className="launcher-discover-console panel-surface">
         <div className="launcher-discover-console-top">
           <div className="launcher-discover-console-heading">
@@ -974,134 +1249,136 @@ function LauncherDiscoverPageContent({
             </div>
             <p className="launcher-discover-console-subtitle">{copy.discover.resultRange(rangeStart, rangeEnd, formattedResultCount)}</p>
           </div>
-          <div className="launcher-discover-console-toolbar">
-            <div className="launcher-discover-toolbar-group">
-              <label className="launcher-discover-searchbar" data-guide="launcher-discover-search">
-                <input
-                  className="launcher-discover-searchbar-input"
-                  value={searchDraft}
-                  onChange={(event) => setSearchDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      submitDiscoverSearch()
-                    }
-                  }}
-                  placeholder={copy.discover.searchPlaceholder}
-                  aria-label={copy.discover.searchPlaceholder}
-                  spellCheck={false}
-                  disabled={discoverBlocked || discoverRequestFailed}
-                />
+          {androidHost ? null : (
+            <div className="launcher-discover-console-toolbar">
+              <div className="launcher-discover-toolbar-group">
+                <label className="launcher-discover-searchbar" data-guide="launcher-discover-search">
+                  <input
+                    className="launcher-discover-searchbar-input"
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        submitDiscoverSearch()
+                      }
+                    }}
+                    placeholder={copy.discover.searchPlaceholder}
+                    aria-label={copy.discover.searchPlaceholder}
+                    spellCheck={false}
+                    disabled={discoverBlocked || discoverRequestFailed}
+                  />
+                  <button
+                    type="button"
+                    className="launcher-discover-searchbar-button"
+                    onClick={submitDiscoverSearch}
+                    aria-label={copy.discover.searchAction}
+                    title={copy.discover.searchAction}
+                    disabled={!searchDirty || discoverBlocked || discoverRequestFailed}
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </label>
                 <button
                   type="button"
-                  className="launcher-discover-searchbar-button"
-                  onClick={submitDiscoverSearch}
-                  aria-label={copy.discover.searchAction}
-                  title={copy.discover.searchAction}
-                  disabled={!searchDirty || discoverBlocked || discoverRequestFailed}
+                  className={cx('launcher-discover-filters-toggle', !effectiveFiltersHidden && 'launcher-discover-filters-toggle-active')}
+                  onClick={() => setFiltersHidden((current) => !current)}
+                  disabled={discoverBlocked || discoverRequestFailed}
+                  aria-label={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
+                  title={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
                 >
-                  <Search className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
                 </button>
-              </label>
+              </div>
+
+              <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+              <div className="launcher-discover-console-actions launcher-discover-toolbar-group" data-guide="launcher-discover-toolbar">
+                <DiscoverMenu
+                  label={copy.discover.timeRangeLabel}
+                  value={discover.timeRange}
+                  options={timeRangeOptions}
+                  open={effectiveOpenMenuId === 'time'}
+                  disabled={discoverBlocked}
+                  icon={Clock}
+                  onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
+                  onSelect={(value) => {
+                    discover.setTimeRange(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+                <DiscoverMenu
+                  label={copy.discover.sortLabel}
+                  value={discover.sort}
+                  options={sortOptions}
+                  open={effectiveOpenMenuId === 'sort'}
+                  disabled={discoverBlocked}
+                  icon={ArrowDownUp}
+                  onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
+                  onSelect={(value) => {
+                    discover.setSort(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+                <DiscoverMenu
+                  label={copy.discover.pageSizeLabel}
+                  value={discover.pageSize}
+                  options={pageSizeOptions}
+                  open={effectiveOpenMenuId === 'size'}
+                  disabled={discoverBlocked}
+                  icon={LayoutGrid}
+                  onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
+                  onSelect={(value) => {
+                    discover.setPageSize(value)
+                    setOpenMenuId(null)
+                  }}
+                />
+              </div>
+
               <button
                 type="button"
-                className={cx('launcher-discover-filters-toggle', !effectiveFiltersHidden && 'launcher-discover-filters-toggle-active')}
-                onClick={() => setFiltersHidden((current) => !current)}
-                disabled={discoverBlocked || discoverRequestFailed}
-                aria-label={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
-                title={effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}
-              >
-                <Filter className="h-4 w-4" />
-              </button>
-            </div>
-
-            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
-
-            <div className="launcher-discover-console-actions launcher-discover-toolbar-group" data-guide="launcher-discover-toolbar">
-              <DiscoverMenu
-                label={copy.discover.timeRangeLabel}
-                value={discover.timeRange}
-                options={timeRangeOptions}
-                open={effectiveOpenMenuId === 'time'}
-                disabled={discoverBlocked}
-                icon={Clock}
-                onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
-                onSelect={(value) => {
-                  discover.setTimeRange(value)
-                  setOpenMenuId(null)
-                }}
-              />
-              <DiscoverMenu
-                label={copy.discover.sortLabel}
-                value={discover.sort}
-                options={sortOptions}
-                open={effectiveOpenMenuId === 'sort'}
-                disabled={discoverBlocked}
-                icon={ArrowDownUp}
-                onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
-                onSelect={(value) => {
-                  discover.setSort(value)
-                  setOpenMenuId(null)
-                }}
-              />
-              <DiscoverMenu
-                label={copy.discover.pageSizeLabel}
-                value={discover.pageSize}
-                options={pageSizeOptions}
-                open={effectiveOpenMenuId === 'size'}
-                disabled={discoverBlocked}
-                icon={LayoutGrid}
-                onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
-                onSelect={(value) => {
-                  discover.setPageSize(value)
-                  setOpenMenuId(null)
-                }}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="launcher-discover-icon-button launcher-discover-order-button"
-              onClick={() => discover.setAscending(!discover.ascending)}
-              aria-label={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
-              title={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
-              disabled={discoverBlocked}
-            >
-              {discover.ascending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-            </button>
-
-            <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
-
-            <div className="launcher-discover-toolbar-group">
-              <button
-                type="button"
-                className="launcher-discover-icon-button"
-                aria-label={copy.discover.gridViewLabel}
-                title={copy.discover.gridViewLabel}
+                className="launcher-discover-icon-button launcher-discover-order-button"
+                onClick={() => discover.setAscending(!discover.ascending)}
+                aria-label={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
+                title={discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
                 disabled={discoverBlocked}
               >
-                <LayoutGrid className="h-4 w-4" />
+                {discover.ascending ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
               </button>
-              <button
-                type="button"
-                className="launcher-discover-icon-button"
-                onClick={discover.refresh}
-                aria-label={copy.actions.refresh}
-                title={copy.actions.refresh}
-                disabled={discoverBlocked}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
+
+              <span className="launcher-discover-toolbar-divider" aria-hidden="true" />
+
+              <div className="launcher-discover-toolbar-group">
+                <button
+                  type="button"
+                  className="launcher-discover-icon-button launcher-discover-desktop-only"
+                  aria-label={copy.discover.gridViewLabel}
+                  title={copy.discover.gridViewLabel}
+                  disabled={discoverBlocked}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="launcher-discover-icon-button launcher-discover-desktop-only"
+                  onClick={discover.refresh}
+                  aria-label={copy.actions.refresh}
+                  title={copy.actions.refresh}
+                  disabled={discoverBlocked}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </LoadingMotionReveal>
 
       <LoadingMotionReveal
         itemId="launcher-discover-shell"
         index={1}
-        className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}
+        className={cx('launcher-discover-shell', (androidHost || effectiveFiltersHidden) && 'launcher-discover-shell-filters-hidden')}
       >
-        {!effectiveFiltersHidden ? (
+        {!androidHost && !effectiveFiltersHidden ? (
           <aside
             className={cx(
               'launcher-discover-sidebar panel-surface panel-surface-muted',
@@ -1333,17 +1610,11 @@ function LauncherDiscoverPageContent({
           {discoverBlocked ? (
             <LauncherBlockedState
               className="launcher-discover-blocked-state"
-              eyebrow={copy.discover.title}
-              title={copy.discover.blockedTitle}
-              detail={copy.discover.blockedDetail}
-              issueLabel={copy.discover.blockedIssueLabel}
+              scene="discover"
+              variant="blocked"
               issueSummary={primaryBlockedReason}
               detailsText={blockedReasonText}
               detailsExpanded={effectiveBlockedDetailsExpanded}
-              detailsToggleLabel={
-                effectiveBlockedDetailsExpanded ? copy.discover.blockedDetailsCollapseAction : copy.discover.blockedDetailsExpandAction
-              }
-              copyLabel={copy.discover.blockedCopyLogsAction}
               onToggleDetails={() => setBlockedDetailsExpanded((current) => !current)}
               onCopyDetails={() => {
                 if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
@@ -1379,10 +1650,8 @@ function LauncherDiscoverPageContent({
           {discoverRequestFailed ? (
             <LauncherBlockedState
               className="launcher-discover-blocked-state"
-              eyebrow={copy.discover.title}
-              title={copy.discover.errorTitle}
-              detail={copy.discover.errorDetail}
-              issueLabel={copy.discover.blockedIssueLabel}
+              scene="discover"
+              variant="error"
               issueSummary={discover.error ?? copy.discover.empty}
               tone="error"
               primaryAction={
@@ -1422,14 +1691,14 @@ function LauncherDiscoverPageContent({
                 ref={resultsViewportRef}
                 className={cx(
                   'launcher-discover-results-viewport',
-                  discover.state === 'loading' && 'launcher-discover-results-viewport-loading',
+                  !androidHost && discover.state === 'loading' && 'launcher-discover-results-viewport-loading',
                 )}
                 aria-busy={discover.state === 'loading' ? 'true' : undefined}
-                onWheelCapture={discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
+                onWheelCapture={!androidHost && discover.state === 'loading' ? (event) => event.preventDefault() : undefined}
               >
                 <div className="launcher-discover-wall-shell">
                   <div key={resultsRevealKey} className="launcher-discover-wall">
-                    {discover.items.map((item, index) => (
+                    {(androidHost ? feedItems : discover.items).map((item, index) => (
                       <LoadingMotionRevealItem
                         key={`${item.modId}:${item.modUrl}`}
                         index={Math.floor(index / 4) + 1}
@@ -1438,8 +1707,19 @@ function LauncherDiscoverPageContent({
                       >
                         <LauncherDiscoverCard
                           item={item}
-                          onOpenDetails={() => setDetailItem(item)}
-                          onQueueDownload={() =>
+                          onOpenDetails={() => {
+                            setDetailModId(null)
+                            setDetailItem(item)
+                          }}
+                          onOpenModPageInApp={androidHost ? () => openModDownloadPageInApp(item.modUrl) : undefined}
+                          onQueueDownload={() => {
+                            // Not signed in on the Android host: queueing would only create a
+                            // failed item, so the quick action opens the download page instead.
+                            if (androidHost && !downloadCredentialsReady) {
+                              openModDownloadPageInApp(item.modUrl)
+                              return
+                            }
+
                             onQueueDownload({
                               modId: item.modId,
                               title: item.title,
@@ -1447,12 +1727,18 @@ function LauncherDiscoverPageContent({
                               version: null,
                               source: 'discover',
                             })
-                          }
+                          }}
                         />
                       </LoadingMotionRevealItem>
                     ))}
+                    {androidHost && discover.state === 'loading'
+                      ? Array.from(
+                          { length: feedItems.length > 0 ? DISCOVER_APPEND_SKELETON_COUNT : DISCOVER_INITIAL_SKELETON_COUNT },
+                          (_, index) => <DiscoverCardSkeleton key={`discover-skeleton:${index}`} />,
+                        )
+                      : null}
                   </div>
-                  {discover.state === 'loading' ? (
+                  {!androidHost && discover.state === 'loading' ? (
                     <div
                       className="launcher-discover-loading-overlay"
                       role="status"
@@ -1464,9 +1750,19 @@ function LauncherDiscoverPageContent({
                     </div>
                   ) : null}
                 </div>
+
+                {/* The infinite-scroll sentinel lives inside the scrolling
+                 viewport so the observer fires when it approaches the fold. */}
+                {androidHost ? (
+                  <div ref={loadMoreRef} className="launcher-discover-load-more" data-guide="launcher-discover-load-more">
+                    {!discover.hasMore && feedItems.length > 0 ? (
+                      <span className="launcher-discover-load-more-end">{copy.discover.mobile.endOfResults}</span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
-              {discover.items.length ? (
+              {!androidHost && discover.items.length ? (
                 <div ref={paginationRef} className="launcher-discover-pagination">
                   <button
                     type="button"
@@ -1544,8 +1840,27 @@ function LauncherDiscoverPageContent({
             </div>
           ) : null}
 
-          {detailItem ? (
-            <LauncherDiscoverDetailPanel item={detailItem} onClose={() => setDetailItem(null)} onQueueDownload={onQueueDownload} />
+          {androidHost && routeActive ? (
+            <LauncherDiscoverFilterSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} discover={discover} />
+          ) : null}
+          {detailModId != null ? (
+            <LauncherDiscoverDetailPanel
+              item={null}
+              modId={detailModId}
+              onClose={() => setDetailModId(null)}
+              onQueueDownload={onQueueDownload}
+              onOpenExternalPage={androidHost ? openModPageInApp : undefined}
+              onModIdNotFound={handleModIdDetailNotFound}
+            />
+          ) : detailItem ? (
+            <LauncherDiscoverDetailPanel
+              item={detailItem}
+              modId={null}
+              onClose={() => setDetailItem(null)}
+              onQueueDownload={onQueueDownload}
+              onOpenExternalPage={androidHost ? openModPageInApp : undefined}
+              onModIdNotFound={handleModIdDetailNotFound}
+            />
           ) : null}
         </div>
       </LoadingMotionReveal>

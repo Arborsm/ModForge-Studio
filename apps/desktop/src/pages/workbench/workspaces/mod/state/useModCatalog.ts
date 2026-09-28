@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import { inspectModArchive, loadModProject, scanModProjects, type ModProjectDetail, type ModProjectSummary } from '@entities/mod/api'
-import { chooseDirectory, chooseModArchiveFile } from '@platform/host'
+import { chooseArchiveFile, chooseDirectory } from '@platform/host'
 import { useModCopy } from '@locales/provider'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 
@@ -115,20 +115,16 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
     [externalProject, projects],
   )
 
-  const filteredProjects = useMemo(
-    () =>
-      allProjects.filter((project) => {
-        if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
-        if (compatibleOnly && project.status === 'incompatible') return false
-        if (i18nOnly && project.i18nEntryCount === 0) return false
-        if (!deferredQuery) return true
-        return [project.name, project.author ?? '', project.uniqueId ?? '', project.folderName, project.absolutePath]
-          .join(' ')
-          .toLowerCase()
-          .includes(deferredQuery)
-      }),
-    [allProjects, compatibleOnly, contentPatcherOnly, deferredQuery, i18nOnly],
-  )
+  const filteredProjects = allProjects.filter((project) => {
+    if (contentPatcherOnly && project.pluginKind !== 'content-patcher') return false
+    if (compatibleOnly && project.status === 'incompatible') return false
+    if (i18nOnly && project.i18nEntryCount === 0) return false
+    if (!deferredQuery) return true
+    return [project.name, project.author ?? '', project.uniqueId ?? '', project.folderName, project.absolutePath]
+      .join(' ')
+      .toLowerCase()
+      .includes(deferredQuery)
+  })
 
   const openProjectDirectory = async () => {
     const selected = await chooseDirectory(copy.selectProjectFolder)
@@ -149,7 +145,7 @@ export function useModCatalog({ directoryInfo, mode }: UseModCatalogOptions) {
   }
 
   const openProjectArchive = async () => {
-    const selected = await chooseModArchiveFile(copy.selectModArchive)
+    const selected = await chooseArchiveFile(copy.selectModArchive)
     if (!selected) return null
     setLoading(true)
     try {

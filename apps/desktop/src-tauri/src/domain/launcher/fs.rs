@@ -1,3 +1,5 @@
+//! Filesystem helpers for the launcher domain: project discovery, JSON reading, path sanitization.
+
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::infrastructure::game_formats::json_relaxed;
 use anyhow::Context;
@@ -74,8 +76,7 @@ pub(crate) fn discover_project_roots(path: &Path) -> anyhow::Result<Vec<PathBuf>
 }
 
 pub(crate) fn read_json_file(path: &Path) -> anyhow::Result<Value> {
-    json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
-        .map(|(_, value)| value)
+    json_relaxed::read_json_file_labeled(path).map(|(_, value)| value)
 }
 
 pub(crate) fn sanitize_file_name(value: &str) -> String {

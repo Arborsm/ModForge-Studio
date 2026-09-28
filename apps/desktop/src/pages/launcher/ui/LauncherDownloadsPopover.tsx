@@ -67,7 +67,6 @@ export function LauncherDownloadsPopover({ downloads, onInstallArchives }: Launc
                 <LauncherDownloadRow
                   key={item.id}
                   item={item}
-                  statusLabel={copy.states[item.status]}
                   onRetry={() => downloads.retryItem(item.id)}
                   onRemove={() => downloads.removeItem(item.id)}
                   onInstall={() => (item.archivePath ? onInstallArchives([item.archivePath]) : undefined)}

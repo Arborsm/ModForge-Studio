@@ -1,9 +1,15 @@
+/**
+ * @file Tauri platform adapter — wires `@tauri-apps/api` into the `PlatformPorts` contract for macOS/Windows.
+ * @module platform/tauri
+ */
+
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import type { OpenDialogOptions, PlatformPorts, SaveDialogOptions } from '@shared/contracts'
+import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
 
 function canUseTauriHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -12,24 +18,6 @@ function canUseTauriHost() {
 function assertTauriHost() {
   if (!canUseTauriHost()) {
     throw new Error('This feature is only available in the Tauri desktop host.')
-  }
-}
-
-function createBrowserStorage() {
-  return {
-    getItem(key: string) {
-      return typeof window === 'undefined' ? null : window.localStorage.getItem(key)
-    },
-    setItem(key: string, value: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, value)
-      }
-    },
-    removeItem(key: string) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(key)
-      }
-    },
   }
 }
 
@@ -57,6 +45,7 @@ async function saveFileDialog(options?: SaveDialogOptions) {
   })
 }
 
+/** Builds the `PlatformPorts` instance backed by the Tauri webview API. */
 export function createTauriPlatformPorts(): PlatformPorts {
   return {
     fileSystem: {
@@ -66,6 +55,21 @@ export function createTauriPlatformPorts(): PlatformPorts {
       },
       toAssetUrl(filePath: string, protocol?: string) {
         return convertFileSrc(filePath, protocol)
+      },
+      resolvePluginUrl(pluginId: string, relativePath: string, epoch?: number) {
+        // Mirrors the URL forms the Rust `plugin` scheme handler expects (same
+        // convention as convertFileSrc): Windows WebView2 serves custom schemes
+        // as `http://plugin.localhost/...`, macOS/Linux as
+        // `plugin://localhost/...`. Path segments are encoded individually so
+        // the handler's segment-based parsing keeps working.
+        //
+        // When `epoch` is set, a `__v<N>/` segment is inserted after the plugin
+        // id so hot-reload bypasses the webview module cache (the entry and all
+        // relative sub-imports resolve under the versioned path). The host
+        // handler strips the prefix before resolving the on-disk path.
+        const pathSegments = relativePath.split('/').filter(Boolean)
+        const segments = [pluginId, ...(epoch !== undefined ? [`__v${epoch}`] : []), ...pathSegments].map(encodeURIComponent).join('/')
+        return navigator.userAgent.includes('Windows') ? `http://plugin.localhost/${segments}` : `plugin://localhost/${segments}`
       },
     },
     desktopWindow: {
@@ -131,14 +135,7 @@ export function createTauriPlatformPorts(): PlatformPorts {
     dialog: {
       open: openDialog,
       saveFile: saveFileDialog,
-      async chooseDirectory(title?: string) {
-        const selected = await openDialog({ title, directory: true, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
-      async chooseFile(options?: OpenDialogOptions) {
-        const selected = await openDialog({ ...options, directory: false, multiple: false })
-        return typeof selected === 'string' ? selected : null
-      },
+      ...createDialogChoosers(openDialog),
     },
     hostEvents: {
       canUseHost: canUseTauriHost,

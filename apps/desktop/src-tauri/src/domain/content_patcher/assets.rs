@@ -1,11 +1,16 @@
-use super::project::{normalize_relative_path, resolve_include_relative_path};
-use super::schema::{parse_json_file, parse_json_str};
+//! Content Patcher asset loading: base game assets, patch assets, virtual preview assets and image utilities.
+
+use super::project::{normalize_relative_path, resolve_pack_relative_path};
+use super::schema::parse_json_file;
 use super::types::{
     ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot, VirtualPreviewAsset,
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use crate::infrastructure::game_formats::tbin::{MapDocument, parse_tbin_map};
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path, normalize_separators};
+use crate::infrastructure::game_formats::json_relaxed::parse_json_str;
+use crate::infrastructure::game_formats::map::MapDocument;
+use crate::infrastructure::game_formats::parse_map_asset;
+use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;
 use anyhow::{Context, bail};
 use base64::Engine;
@@ -95,9 +100,20 @@ fn target_looks_like_map(target: &str) -> bool {
 }
 
 fn target_looks_like_image(target: &str) -> bool {
+    let mut segments = target.split('/');
+    let Some(root) = segments.next() else {
+        return false;
+    };
+    if root.eq_ignore_ascii_case("Characters") {
+        // `Characters/Dialogue/*` and `Characters/Schedules/*` are data assets, not
+        // textures, even though they share the `Characters` prefix with sprite sheets.
+        return !segments.next().is_some_and(|sub| {
+            sub.eq_ignore_ascii_case("Dialogue") || sub.eq_ignore_ascii_case("Schedules")
+        });
+    }
     matches!(
-        target.split('/').next(),
-        Some("TileSheets" | "LooseSprites" | "Maps" | "Portraits" | "Characters" | "Minigames")
+        root,
+        "TileSheets" | "LooseSprites" | "Maps" | "Portraits" | "Minigames"
     )
 }
 
@@ -140,11 +156,12 @@ pub fn infer_target_asset_kind(
     "json".to_string()
 }
 
-fn resolve_from_file_relative_path(
-    source_path: &str,
-    from_file: &str,
-) -> anyhow::Result<(PathBuf, String)> {
-    let relative_from = resolve_include_relative_path(Path::new(source_path), from_file)?;
+/// Resolves a patch `FromFile` path against the content pack root. Content Patcher
+/// resolves these paths relative to `content.json` even when the patch is declared in
+/// an included file, so the declaring source path is intentionally not part of the
+/// resolution.
+fn resolve_from_file_relative_path(from_file: &str) -> anyhow::Result<(PathBuf, String)> {
+    let relative_from = resolve_pack_relative_path(from_file)?;
     let normalized_from = normalize_relative_path(&relative_from);
     Ok((relative_from, normalized_from))
 }
@@ -283,11 +300,12 @@ pub struct LoadedBaseImageAsset {
 
 fn describe_base_image_source(game_root_path: &str, candidate: &Path) -> String {
     let root = clean_input_path(game_root_path);
-    let relative = candidate
-        .strip_prefix(&root)
-        .map(normalize_path)
-        .unwrap_or_else(|_| normalize_path(candidate))
-        .replace('\\', "/");
+    let relative = normalize_separators(
+        &candidate
+            .strip_prefix(&root)
+            .map(normalize_path)
+            .unwrap_or_else(|_| normalize_path(candidate)),
+    );
     format!("Game content -> {relative}")
 }
 
@@ -357,7 +375,7 @@ fn create_empty_map_document(target: &str) -> MapDocument {
             .filter(|value| !value.is_empty())
             .unwrap_or(target)
             .to_string(),
-        format: "xnb".to_string(),
+        format: crate::infrastructure::game_formats::map::MapFormat::Xnb,
         source_path: format!("Content/{target}.xnb"),
         relative_path: format!("Content/{target}.xnb"),
         width: 0,
@@ -366,10 +384,17 @@ fn create_empty_map_document(target: &str) -> MapDocument {
         tile_height: 16,
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
+        tmx_version: None,
+        tiled_version: None,
+        next_layer_id: Some(1),
+        next_object_id: Some(1),
+        infinite: false,
         properties: std::collections::HashMap::new(),
         tilesets: Vec::new(),
         layers: Vec::new(),
         object_groups: Vec::new(),
+        layer_order: Vec::new(),
+        preserved_xml: Vec::new(),
     }
 }
 
@@ -415,10 +440,9 @@ pub fn load_base_map_asset(
 
 pub fn load_json_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<Value> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let raw_json = String::from_utf8(bytes).with_context(|| {
@@ -442,10 +466,9 @@ pub fn load_json_patch_asset(
 
 pub fn load_image_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<RgbaImage> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let image = image::load_from_memory(&bytes).with_context(|| {
@@ -466,14 +489,13 @@ pub fn load_image_patch_asset(
 
 pub fn load_map_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
-    source_path: &str,
     from_file: &str,
 ) -> anyhow::Result<LoadedMapAsset> {
-    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let virtual_path = PathBuf::from(&normalized_from);
-        let document = parse_tbin_map(&bytes, &virtual_path, &normalized_from)?;
+        let document = parse_map_asset(&bytes, &virtual_path, &normalized_from)?;
         let debug = build_map_debug_summary(&document);
         return Ok(LoadedMapAsset { document, debug });
     }
@@ -481,7 +503,7 @@ pub fn load_map_patch_asset(
     let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
     let bytes = std::fs::read(&absolute_from)
         .with_context(|| format!("Failed to read map patch asset {}", absolute_from.display()))?;
-    let document = parse_tbin_map(&bytes, &absolute_from, from_file)?;
+    let document = parse_map_asset(&bytes, &absolute_from, from_file)?;
     let debug = build_map_debug_summary(&document);
 
     Ok(LoadedMapAsset { document, debug })

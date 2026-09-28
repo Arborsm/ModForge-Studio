@@ -1,17 +1,28 @@
+/** @file Circular progress ring with accessible role and configurable size, stroke, and colors. */
+
 import type { CSSProperties, ReactNode } from 'react'
 import { cx } from '@shared/lib/helper'
 
 type ProgressRingProps = {
+  /** Progress percentage, clamped to 0–100. */
   progress: number
+  /** Accessible label for the progressbar role. */
   label: string
+  /** Ring diameter in pixels, defaults to 32. */
   size?: number
+  /** Ring stroke width in pixels, defaults to 3. */
   strokeWidth?: number
+  /** Extra class applied to the ring wrapper. */
   className?: string
+  /** Indicator ring color, defaults to the accent token. */
   indicatorColor?: string
+  /** Track ring color, defaults to a translucent accent tint. */
   trackColor?: string
+  /** Optional center content rendered inside the ring. */
   children?: ReactNode
 }
 
+/** Circular progress indicator with an accessible progressbar role and optional center content. */
 export function ProgressRing({
   progress,
   label,

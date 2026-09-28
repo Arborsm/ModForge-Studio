@@ -77,4 +77,95 @@
       border-radius: 8px;
     }
   }
+
+  /* Phone widths: Android conventions — always-visible search bar, wrapping
+     action rows, compact overflow trigger, single-column content. */
+  @media (max-width: 640px) {
+    .launcher-library-console {
+      padding: 0.625rem 0.75rem;
+      gap: 0.5rem;
+    }
+
+    .launcher-library-console-top {
+      grid-template-columns: 1fr;
+      gap: 0.625rem;
+    }
+
+    .launcher-library-console-actions {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      row-gap: 0.5rem;
+    }
+
+    .launcher-library-console-actions,
+    .launcher-library-console-right,
+    .launcher-library-edit-bar-right {
+      justify-self: stretch;
+    }
+
+    /* The search field is a permanent full-width bar, not a collapsed pill. */
+    .launcher-library-search {
+      --launcher-search-width: 100%;
+      width: 100%;
+      max-width: 100%;
+      order: -1;
+      flex: 0 0 100%;
+      border-color: color-mix(in srgb, var(--border-color) 92%, transparent);
+      background: var(--bg-panel);
+    }
+
+    .launcher-library-search input {
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      padding: 0 0.5rem 0 0;
+    }
+
+    .launcher-library-actions-menu-shell {
+      width: auto;
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+
+    .launcher-library-actions-menu-shell > .launcher-library-icon-button {
+      width: 2.25rem;
+      border-radius: 62.4375rem;
+    }
+
+    .launcher-library-grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+
+    /* The pack drawer follows the Android drawer convention: hidden while
+       closed, a left overlay with scrim while open — never a pushing column. */
+    .launcher-library-shell,
+    .launcher-library-shell-sidebar-open,
+    .launcher-library-shell-sidebar-collapsed {
+      grid-template-columns: minmax(0, 1fr);
+      position: relative;
+    }
+
+    .launcher-library-shell-sidebar-collapsed .launcher-library-sidebar {
+      display: none;
+    }
+
+    .launcher-library-shell-sidebar-open .launcher-library-sidebar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: min(78vw, 300px);
+      z-index: 60;
+      border-radius: 0 0.75rem 0.75rem 0;
+      box-shadow: 1.25rem 0 2.5rem rgba(15, 23, 42, 0.28);
+    }
+
+    .launcher-library-shell-sidebar-open::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: color-mix(in srgb, black 32%, transparent);
+      pointer-events: none;
+    }
+  }
 }

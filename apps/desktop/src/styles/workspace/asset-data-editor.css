@@ -1,0 +1,390 @@
+/*
+ * Shell shared by every three-pane asset authoring editor (characters,
+ * buildings, …): source pane on the left, schema form in the middle, preview
+ * and validation on the right.
+ *
+ * Only the chrome lives here. Anything that renders domain content — sprite
+ * canvases, footprint grids, gift-taste rows — belongs in the workspace's own
+ * stylesheet.
+ */
+
+@layer components {
+  .asset-editor {
+    @apply bg-surface-app flex h-full min-h-0 flex-col;
+  }
+
+  .asset-editor-header {
+    @apply bg-surface-panel flex shrink-0 items-center justify-between gap-3 px-5 py-3;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .asset-editor-title {
+    @apply text-text-primary text-base font-bold;
+  }
+
+  .asset-editor-subtitle {
+    @apply text-text-secondary text-xs;
+  }
+
+  .asset-editor-body {
+    @apply grid min-h-0 flex-1 overflow-hidden;
+    grid-template-columns: 17.5rem minmax(0, 1fr) 22rem;
+  }
+
+  @media (max-width: 88rem) {
+    .asset-editor-body {
+      grid-template-columns: 15rem minmax(0, 1fr) 19rem;
+    }
+  }
+
+  @media (max-width: 68rem) {
+    .asset-editor-body {
+      @apply overflow-y-auto;
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: min-content;
+    }
+
+    .asset-source-pane,
+    .asset-preview-pane {
+      @apply border-0;
+      max-height: 26rem;
+    }
+  }
+
+  .asset-editor-scroll {
+    @apply min-h-0 min-w-0 overflow-y-auto p-5;
+  }
+
+  .asset-editor-main {
+    @apply mx-auto my-0 grid min-w-0 gap-4;
+    max-width: 60rem;
+  }
+
+  /* --- Left pane: entry source --- */
+
+  .asset-source-pane {
+    @apply bg-surface-panel flex min-h-0 min-w-0 flex-col;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .asset-source-head {
+    @apply flex items-center justify-between gap-2 px-3.5 pt-3 pb-2;
+  }
+
+  .asset-source-title {
+    @apply text-text-primary text-body font-bold;
+  }
+
+  .asset-source-controls {
+    @apply grid gap-2 px-3.5 pt-0 pb-3;
+  }
+
+  .asset-source-search {
+    @apply text-text-tertiary relative flex items-center gap-1.5;
+  }
+
+  .asset-source-search .control-input {
+    @apply w-full;
+  }
+
+  .asset-source-modes {
+    @apply bg-surface-panel-muted rounded-field grid gap-1 p-0.5;
+    grid-auto-flow: column;
+  }
+
+  .asset-source-mode {
+    @apply text-text-secondary rounded-lg px-2 py-1.5 text-xs font-semibold;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .asset-source-mode:hover {
+    @apply text-text-primary bg-surface-hover;
+  }
+
+  .asset-source-mode.is-active {
+    @apply text-accent bg-accent-soft;
+  }
+
+  .asset-source-list {
+    @apply min-h-0 flex-1 overflow-y-auto px-2 pt-0 pb-3;
+  }
+
+  .asset-source-group + .asset-source-group {
+    @apply mt-3;
+  }
+
+  .asset-source-group-head {
+    @apply text-text-tertiary bg-surface-panel text-meta tracking-ui sticky flex items-center justify-between gap-2 px-1.5 pt-1.5 pb-1.5 font-bold uppercase;
+    top: 0;
+    z-index: 1;
+  }
+
+  .asset-source-group-count {
+    @apply tabular-nums;
+  }
+
+  .asset-source-empty {
+    @apply text-text-secondary m-0 px-1.5 py-2 text-xs;
+  }
+
+  .asset-source-row {
+    @apply rounded-field flex w-full items-center gap-2 px-2 py-1.5 text-left;
+    transition: background-color 0.15s ease;
+  }
+
+  .asset-source-row:hover {
+    @apply bg-surface-hover;
+  }
+
+  .asset-source-row.is-active {
+    @apply bg-accent-soft;
+  }
+
+  .asset-source-row-text {
+    @apply grid min-w-0 flex-1;
+  }
+
+  .asset-source-row-name {
+    @apply text-text-primary text-body overflow-hidden font-semibold whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .asset-source-row-key {
+    @apply text-text-tertiary text-meta overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .asset-source-row-action {
+    @apply text-text-tertiary h-3.5 w-3.5 shrink-0;
+  }
+
+  /* --- Right pane: preview and validation --- */
+
+  .asset-preview-pane {
+    @apply bg-surface-panel flex min-h-0 min-w-0 flex-col gap-3.5 overflow-y-auto p-3.5;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .asset-preview-head {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  /* --- Cards --- */
+
+  .asset-editor-card {
+    @apply bg-surface-panel grid gap-3.5 rounded-xl p-4;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .asset-editor-card-title {
+    @apply text-text-primary text-body inline-flex items-center gap-2 font-bold;
+  }
+
+  /* --- Patch meta --- */
+
+  .asset-editor-meta-grid {
+    @apply grid gap-3;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  @media (max-width: 44rem) {
+    .asset-editor-meta-grid {
+      @apply items-stretch;
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .asset-editor-target-display {
+    @apply text-text-secondary flex min-h-10 items-center overflow-hidden rounded-lg px-3 py-0 text-xs whitespace-nowrap;
+    border: 1px dashed color-mix(in srgb, var(--border-color) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 70%, transparent);
+    text-overflow: ellipsis;
+  }
+
+  .asset-editor-enabled-toggle {
+    @apply text-text-secondary inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs whitespace-nowrap;
+  }
+
+  /* --- Entry selector --- */
+
+  .asset-editor-entries {
+    @apply grid gap-2 pt-3;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .asset-editor-entries-head {
+    @apply flex items-baseline justify-between gap-2;
+  }
+
+  .asset-editor-entries-count {
+    @apply text-text-tertiary text-meta;
+  }
+
+  .asset-editor-entry-chips {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+
+  .asset-editor-entry-chip {
+    @apply text-text-secondary cursor-pointer overflow-hidden rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
+    max-width: 16rem;
+    text-overflow: ellipsis;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .asset-editor-entry-chip:hover {
+    @apply text-text-primary;
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--border-color));
+  }
+
+  .asset-editor-entry-chip.is-active {
+    @apply text-text-primary;
+    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel));
+  }
+
+  .asset-editor-remove-entry {
+    @apply text-danger;
+  }
+
+  /* --- Companion asset cards --- */
+
+  .asset-editor-assets {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+
+  .asset-editor-asset-card {
+    @apply bg-surface-panel grid gap-2 rounded-xl px-4 py-3.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .asset-editor-asset-head {
+    @apply text-text-primary flex items-center gap-2;
+  }
+
+  .asset-editor-asset-title {
+    @apply text-body min-w-0 flex-1 overflow-hidden font-bold whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .asset-editor-asset-target {
+    @apply text-text-secondary text-meta overflow-hidden font-mono whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Label-plus-badge row of a texture card; also the shape of the file row. */
+  .asset-editor-asset-row,
+  .asset-editor-asset-file {
+    @apply text-meta flex flex-wrap items-center gap-1.5;
+  }
+
+  .asset-editor-asset-file-label {
+    @apply text-text-tertiary;
+  }
+
+  .asset-editor-asset-file-value {
+    @apply text-text-secondary min-w-0 overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .asset-editor-asset-hint {
+    @apply text-text-tertiary text-meta m-0;
+  }
+
+  .asset-editor-badge {
+    @apply text-caption inline-flex items-center rounded-full px-2 py-0.5 font-bold whitespace-nowrap;
+  }
+
+  .asset-editor-badge.is-ok {
+    @apply text-success;
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+  }
+
+  .asset-editor-badge.is-missing {
+    @apply text-danger;
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+  }
+
+  .asset-editor-badge.is-warn {
+    @apply text-warning;
+    background: color-mix(in srgb, var(--warning) 16%, transparent);
+  }
+
+  /* --- Summary rail --- */
+
+  .asset-editor-summary-list {
+    @apply m-0 grid gap-2;
+  }
+
+  .asset-editor-summary-chip {
+    @apply grid gap-0.5 rounded-lg px-2.5 py-2;
+    border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 65%, transparent);
+  }
+
+  .asset-editor-summary-chip dt {
+    @apply text-text-tertiary text-caption font-semibold;
+  }
+
+  .asset-editor-summary-chip dd {
+    @apply text-text-primary m-0 overflow-hidden text-xs font-semibold;
+    text-overflow: ellipsis;
+  }
+
+  .asset-editor-summary-chip dd.is-unset {
+    @apply text-text-tertiary font-medium;
+  }
+
+  /* --- Empty state --- */
+
+  .asset-editor-empty {
+    @apply flex flex-col items-center justify-center gap-2.5 px-6 py-12 text-center;
+    min-height: 60%;
+  }
+
+  .asset-editor-empty-icon {
+    @apply text-text-tertiary h-10 w-10 opacity-60;
+  }
+
+  .asset-editor-empty-title {
+    @apply text-text-primary font-bold;
+    font-size: 0.9375rem;
+  }
+
+  .asset-editor-empty-hint {
+    @apply text-text-secondary text-xs;
+    max-width: 26rem;
+  }
+
+  /* --- Create / remove dialogs --- */
+
+  .asset-editor-add-form {
+    @apply grid gap-2.5;
+  }
+
+  .asset-editor-add-section {
+    @apply grid gap-2 pt-2;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+  }
+
+  .asset-editor-add-grid {
+    @apply grid gap-2;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .asset-editor-prefix-button {
+    @apply justify-self-start;
+  }
+
+  .asset-editor-remove-message {
+    @apply text-text-secondary text-body m-0;
+  }
+}

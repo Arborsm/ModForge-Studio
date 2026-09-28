@@ -32,7 +32,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
   if (entry.id === EVENT_SETUP_ENTRY_ID) {
     return {
       icon: Settings2,
-      iconClassName: 'text-(--accent)',
+      iconClassName: 'text-accent',
       accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_75%,white_25%)]',
     }
   }
@@ -44,13 +44,13 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'warp':
       return {
         icon: ArrowRightLeft,
-        iconClassName: 'text-(--warning)',
+        iconClassName: 'text-warning',
         accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_72%,white_28%)]',
       }
     case 'faceDirection':
       return {
         icon: Compass,
-        iconClassName: 'text-(--warning)',
+        iconClassName: 'text-warning',
         accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_60%,white_40%)]',
       }
     case 'playSound':
@@ -59,7 +59,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'stopMusic':
       return {
         icon: AudioLines,
-        iconClassName: 'text-(--success)',
+        iconClassName: 'text-success',
         accentClassName: 'bg-[color-mix(in_srgb,var(--success)_72%,white_28%)]',
       }
     case 'viewport':
@@ -67,7 +67,7 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'changeToTemporaryMap':
       return {
         icon: Map,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
       }
     case 'animate':
@@ -75,61 +75,61 @@ function getEntryAppearance(entry: EventTimelineEntry) {
     case 'showFrame':
       return {
         icon: PlayCircle,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_58%,white_42%)]',
       }
     case 'question':
     case 'quickQuestion':
       return {
         icon: ListChecks,
-        iconClassName: 'text-(--accent)',
+        iconClassName: 'text-accent',
         accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
       }
     case 'fork':
     case 'switchEvent':
       return {
         icon: GitBranch,
-        iconClassName: 'text-(--danger)',
+        iconClassName: 'text-danger',
         accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
       }
     case 'pause':
       return {
         icon: TimerReset,
-        iconClassName: 'text-(--text-secondary)',
+        iconClassName: 'text-text-secondary',
         accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
       }
     default:
       if (entry.kind === 'dialogue' || entry.kind === 'message') {
         return {
           icon: MessageSquareText,
-          iconClassName: 'text-(--warning)',
+          iconClassName: 'text-warning',
           accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_74%,white_26%)]',
         }
       }
       if (entry.kind === 'choice') {
         return {
           icon: ListChecks,
-          iconClassName: 'text-(--accent)',
+          iconClassName: 'text-accent',
           accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
         }
       }
       if (entry.kind === 'branch') {
         return {
           icon: GitBranch,
-          iconClassName: 'text-(--danger)',
+          iconClassName: 'text-danger',
           accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
         }
       }
       if (entry.kind === 'timing') {
         return {
           icon: TimerReset,
-          iconClassName: 'text-(--text-secondary)',
+          iconClassName: 'text-text-secondary',
           accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
         }
       }
       return {
         icon: CircleDot,
-        iconClassName: 'text-(--text-secondary)',
+        iconClassName: 'text-text-secondary',
         accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_42%,white_58%)]',
       }
   }
@@ -223,7 +223,7 @@ export function EventTimelinePanel({
                   entryRefs.current[entry.id] = node
                 }}
                 className={cx(
-                  'grid w-full grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--border-color) px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[color-mix(in_srgb,var(--bg-active)_65%,transparent)]',
+                  'grid w-full grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border-subtle px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[color-mix(in_srgb,var(--bg-active)_65%,transparent)]',
                   isSelected && 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]',
                   isCurrent && 'bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-panel))]',
                 )}
@@ -235,7 +235,7 @@ export function EventTimelinePanel({
                 <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={cx(
-                      'inline-flex h-7 min-w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+                      'inline-flex h-7 min-w-7 items-center justify-center rounded-full text-caption-px font-semibold text-white',
                       appearance.accentClassName,
                     )}
                   >
@@ -245,12 +245,12 @@ export function EventTimelinePanel({
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-(--text-primary)">{getEntryPrimaryText(entry)}</p>
-                  <p className="truncate text-[11px] text-(--text-secondary)">{getEntrySecondaryText(entry, labels.noDetail)}</p>
+                  <p className="text-text-primary truncate text-sm font-medium">{getEntryPrimaryText(entry)}</p>
+                  <p className="text-text-secondary text-meta-px truncate">{getEntrySecondaryText(entry, labels.noDetail)}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold tracking-[0.14em] text-(--text-tertiary) uppercase">
+                  <span className="text-text-tertiary text-caption-px tracking-ui-wider font-semibold uppercase">
                     {entry.id === EVENT_SETUP_ENTRY_ID ? labels.setupBadge : entry.kind}
                   </span>
                   {isCurrent ? <span className="dock-chip">{labels.current}</span> : null}
@@ -260,7 +260,7 @@ export function EventTimelinePanel({
           })}
         </div>
       ) : (
-        <div className="flex min-h-33 items-center justify-center rounded-2xl border border-dashed border-(--border-color) px-4 py-5 text-sm text-(--text-secondary)">
+        <div className="border-border-subtle text-text-secondary flex min-h-33 items-center justify-center rounded-2xl border border-dashed px-4 py-5 text-sm">
           {labels.empty}
         </div>
       )}

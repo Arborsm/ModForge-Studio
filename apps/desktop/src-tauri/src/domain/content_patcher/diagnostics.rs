@@ -1,3 +1,5 @@
+//! Content Patcher diagnostic error message builders.
+
 pub(crate) fn unsupported_project_error(path: &str) -> String {
     format!("No Content Patcher project could be loaded from {path}")
 }

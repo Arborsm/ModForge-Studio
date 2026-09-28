@@ -1,3 +1,8 @@
+/**
+ * @file Core parser for Stardew event scripts: splits keys/preconditions,
+ * parses scene setup and commands, and builds the display graph for timelines.
+ */
+
 import type { EventAssetSummary } from '@entities/game/api'
 import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from '@entities/event'
 import type {
@@ -184,6 +189,11 @@ function formatActorMoveGroups(args: string[]) {
   }
 
   return groups
+}
+
+/** True when a Content Patcher target names a location event asset (Data/Events/<Location>). */
+export function isEventAssetTarget(target: string): boolean {
+  return /^Data\/Events\/[^/]+$/iu.test(target.trim())
 }
 
 /** Splits an event data key into event id and precondition segments. */

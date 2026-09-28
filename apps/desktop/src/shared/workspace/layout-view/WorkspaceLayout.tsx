@@ -1,3 +1,8 @@
+/**
+ * @file Dock-based workspace layout component — manages panel placement, resize interactions, and state persistence.
+ * @module shared/workspace
+ */
+
 import {
   forwardRef,
   useEffect,
@@ -22,6 +27,7 @@ import { WorkspacePanelShell } from './WorkspacePanelShell'
 
 export type { WorkspaceLayoutHandle, WorkspacePanelArea, WorkspacePanelConfig } from '@shared/contracts'
 
+/** Props for the `WorkspaceLayout` component. */
 type WorkspaceLayoutProps = {
   panels: WorkspacePanelConfig[]
   storageKey: string
@@ -29,6 +35,7 @@ type WorkspaceLayoutProps = {
   onPersistStateChange?: (storageKey: string, state: WorkspaceStoredState) => void
 }
 
+/** Internal state of an active pointer-drag resize interaction (edge or split). */
 type ResizeInteraction = {
   kind: 'edge' | 'split'
   rail: WorkspaceResizeRail
@@ -42,6 +49,13 @@ function areStoredStatesEqual(left: WorkspaceStoredState, right: WorkspaceStored
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
+/**
+ * Dock-based workspace layout with resizable panels and persisted proportions.
+ *
+ * Renders panels into left/center/right/bottom dock areas, handles edge and split
+ * resize via pointer events, and persists chrome state through `onPersistStateChange`.
+ * Exposes a `resetLayout` imperative handle via `WorkspaceLayoutHandle`.
+ */
 export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayoutProps>(function WorkspaceLayout(
   { panels, storageKey, persistedState = null, onPersistStateChange },
   ref,

@@ -1,14 +1,82 @@
 export * from './model'
+export * from './model/lighting'
 export { resolveTilesetImagePath } from './lib/assets'
+export {
+  GAME_SHEET_PROPERTY,
+  gameSheetImagePath,
+  gameSheetImageSourceTbin,
+  gameSheetImageSourceTmx,
+  gameSheetKeyOfTileset,
+} from './lib/gameSheets'
+export { getMapContentBounds, getMapPreviewBounds, hasVisibleMapContent } from './lib/mapContentBounds'
+export type { MapContentBounds, MapContentBoundsOptions, MapPreviewBoundsOptions } from './lib/mapContentBounds'
 export { normalizeMapName } from './lib/mapNames'
+export { asMapPropertyString, unwrapMapPropertyValue } from './lib/properties'
+export {
+  AMBIENT_LIGHT_PROPERTY_KEY,
+  AMBIENT_NIGHT_LIGHT_PROPERTY_KEY,
+  DAY_TILES_PROPERTY_KEY,
+  DOORS_PROPERTY_KEY,
+  MAP_PROPERTY_CATEGORY_KEYS,
+  MAP_PROPERTY_CATEGORY_ORDER,
+  MUSIC_PROPERTY_KEY,
+  NIGHT_TILES_PROPERTY_KEY,
+  OUTDOORS_PROPERTY_KEY,
+  WARP_PROPERTY_KEY,
+  mapPropertyCategory,
+  type MapPropertyCategory,
+} from './lib/properties'
+export { GAME_MUSIC_COMMON_CUES } from './lib/musicCues'
+export {
+  GAME_CLOCK_END_UNLIMITED,
+  GAME_CLOCK_HOUR_MAX,
+  GAME_CLOCK_HOUR_MIN,
+  GAME_CLOCK_MAX_VALUE,
+  GAME_CLOCK_MINUTE_STEPS,
+  buildGameClockStepperValues,
+  formatGameClockValue,
+  isGameClockNextDay,
+  isValidGameClockValue,
+  parseMapMusicProperty,
+  serializeMapMusicProperty,
+  type MapMusicProperty,
+} from './lib/musicProperty'
 export {
   formatObjectPreviewMeta,
   getObjectDisplayName,
   getObjectInteractionTag,
   getObjectPropertyKeys,
+  isLightMarkerObject,
   rankObjectForPreview,
 } from './lib/mapObjectHelpers'
-export { getActionTargetMap, getPortalTargetMapFromProperties } from './lib/portalTargets'
+export { getActionTargetMap, getPortalTargetMapFromProperties, parsePortalTargetMapFromAction } from './lib/portalTargets'
+export {
+  CELL_OVERLAY_COLORS,
+  CELL_OVERLAY_PROPERTY_KEYS,
+  CELL_OVERLAY_RULES,
+  applyCellOverlayRule,
+  cellOverlayRule,
+  deriveCellOverlayCells,
+  paintCellOverlayCells,
+  type CellOverlayRule,
+} from './lib/cellProperties'
+export {
+  extractAnimationGroups,
+  expandAnimationGroup,
+  removeAnimationGroupAnimations,
+  type AnimationGroup,
+  type TileRegion,
+} from './lib/animationGroups'
+export { deriveCellOverlayView, type CellOverlayCell } from './lib/cellOverlayView'
+export { paintCellOverlayObjects, writeCellPropertyObjects, type CellPropertyWriteStats } from './lib/cellOverlayObjects'
+export {
+  collectCellActions,
+  formatActionWarp,
+  formatTouchActionWarp,
+  parseCellWarpAction,
+  writeCellAction,
+  type CellActionEntry,
+} from './lib/cellActions'
 export {
   FLIPPED_DIAGONALLY_FLAG,
   FLIPPED_HORIZONTALLY_FLAG,
@@ -19,7 +87,35 @@ export {
   stripTileGidFlags,
 } from './lib/tileFlags'
 export { findTilesetForGid } from './lib/tilesets'
+export { gidAtCell } from './lib/cells'
+export {
+  cellFromSheetPointer,
+  isFavoriteSelection,
+  mergeFavoriteSelections,
+  normalizeSelectionRect,
+  pushFavoriteSelection,
+  pushRecentSelection,
+  removeFavoriteSelection,
+  removeRecentSelection,
+  rememberTilesetSelection,
+  selectionRectForSelection,
+  tilesetSelectionFromRect,
+  type NormalizedSelectionRect,
+  type TilesetSelectionRect,
+} from './lib/paletteSelection'
 export { isExteriorWarp, parseWarpEntries, parseWarpProperty } from './lib/warps'
+export {
+  collectWarpEntries,
+  parseDoorGroups,
+  parseRawGroups,
+  parseWarpGroups,
+  serializeDoorGroups,
+  serializeRawGroups,
+  serializeWarpGroups,
+  type DoorGroup,
+  type WarpGroup,
+  type WarpSourceEntry,
+} from './lib/warps'
 export {
   buildWorldAtlas,
   getExteriorWarpTargetNames,
@@ -29,7 +125,51 @@ export {
 } from './lib/world'
 export { buildAtlasWorldOverlaySprites, buildBuildingDataIndex, buildStageWorldOverlaySprites } from './model/worldStatePreview'
 export type { StageBuildingDataEntry, StageWorldOverlaySprite } from './model/worldStatePreview'
+export { createMapTileRect } from './model/tileSelection'
+export type { MapInspectorHighlight, MapTileRect } from './model/tileSelection'
+export {
+  VANILLA_TILESHEET_TILE_SIZE,
+  VANILLA_TILESHEETS,
+  findTilesheetByKey,
+  getTilesheetCatalog,
+  parseTilesheetCatalogJson,
+  registerCustomTilesheets,
+  subscribeTilesheetCatalog,
+  unregisterCustomTilesheets,
+  vanillaTilesheetHasEvenSplit,
+  vanillaTilesheetSplit,
+  type TilesheetCatalogParseResult,
+  type VanillaTilesheetEntry,
+  type VanillaTilesheetGroup,
+} from './model/vanillaTilesheets'
+export {
+  BUNDLED_MAP_OBJECTS_SOURCE,
+  GAME_FURNITURE_SOURCE,
+  MAP_OBJECT_CATEGORIES,
+  PROJECT_MAP_OBJECTS_SOURCE,
+  getMapObjects,
+  mapObjectDisplayName,
+  parseMapObjectsJson,
+  registerMapObjects,
+  subscribeMapObjects,
+  unregisterMapObjects,
+  type MapCatalogObject,
+  type MapCatalogObjectFrameInfo,
+  type MapCatalogObjectRect,
+  type MapObjectCategory,
+  type MapObjectsParseResult,
+} from './model/mapObjects'
 export { MapViewport } from './ui/MapViewport'
+export { MapTilesetPalette } from './ui/MapTilesetPalette'
+export type { MapTilesetPaletteSelection } from './ui/MapTilesetPalette'
+export { SheetGridCanvas } from './ui/SheetGridCanvas'
+export type { SheetGridZoomState, SheetGridCanvasHandle } from './ui/SheetGridCanvas'
+export { ViewportZoomToolbar } from './ui/ViewportZoomToolbar'
+export { MapTilesheetPicker } from './ui/MapTilesheetPicker'
+export type { MapTilesheetPickerProjectOption, MapTilesheetPickerProps } from './ui/MapTilesheetPicker'
+export { MapTilesheetGallery } from './ui/MapTilesheetGallery'
+export { MapLayerThumbnail } from './ui/MapLayerThumbnail'
+export { loadMapThumbnail } from './ui/mapThumbnail'
 export { default as MapWorldStatePreviewOverlay } from './ui/MapWorldStatePreviewOverlay'
 export type { MapViewportHandle } from './ui/MapViewport'
 export type { WarpEntry } from './lib/warps'

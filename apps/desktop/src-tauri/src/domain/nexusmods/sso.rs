@@ -1,3 +1,6 @@
+//! Nexus Mods SSO (Single Sign-On) WebSocket flow: connects to the Nexus SSO
+//! service, opens the browser authorization URL, and resolves the API key.
+
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -7,19 +10,14 @@ use tungstenite::{Message, WebSocket, connect};
 
 use super::rest_api;
 use crate::AppHandle;
-use crate::domain::launcher::{paths, settings as launcher_settings};
 use crate::support::logging::{LogEvent, targets};
 use anyhow::bail;
-
-// ---- Constants ----
 
 const SSO_WEBSOCKET_URL: &str = "wss://sso.nexusmods.com";
 const SSO_AUTH_URL_BASE: &str = "https://www.nexusmods.com/sso";
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 const AUTHORIZATION_TIMEOUT: Duration = Duration::from_secs(120);
 const SSO_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
-
-// ---- Public types ----
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,8 +56,6 @@ pub(crate) struct SsoStartResult {
     pub sso_id: String,
     pub status: SsoConnectionStatus,
 }
-
-// ---- Internal state ----
 
 struct SsoState {
     status: SsoConnectionStatus,
@@ -135,9 +131,13 @@ fn store_session_connection_token(generation: u64, connection_token: String) -> 
     true
 }
 
-// ---- Public API ----
-
-pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
+/// Starts the SSO flow. The `save_api_key` callback persists the freshly
+/// authorized API key; the launcher domain provides it so the nexusmods domain
+/// never writes launcher settings itself (R4).
+pub(crate) fn start_sso(
+    app: &AppHandle,
+    save_api_key: impl Fn(&str) -> anyhow::Result<()> + Send + 'static,
+) -> anyhow::Result<String> {
     let mut state = sso_state().lock().expect("sso mutex");
 
     if running_flag().load(Ordering::Relaxed) {
@@ -184,17 +184,13 @@ pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
                 }
 
                 let validation_result = rest_api::validate_user(&api_key);
+                // Persisting the authorized key is best-effort: the SSO flow
+                // itself already succeeded, so a settings write failure must
+                // not fail the authorization.
+                let _ = save_api_key(&api_key);
                 let mut state = sso_state().lock().expect("sso mutex");
                 if state.generation != generation || state.sso_id.as_deref() != Some(tid.as_str()) {
                     return;
-                }
-                if let Ok(path) = paths::launcher_settings_path() {
-                    if let Ok(mut settings) =
-                        launcher_settings::load_or_create_settings_at_path(&path)
-                    {
-                        settings.nexus_api_key = Some(api_key.clone());
-                        let _ = launcher_settings::save_settings_at_path(&path, &settings);
-                    }
                 }
                 state.status = SsoConnectionStatus::Authorized;
                 state.error_kind = None;
@@ -225,8 +221,11 @@ pub(crate) fn start_sso(app: &AppHandle) -> anyhow::Result<String> {
     Ok(sso_id)
 }
 
-pub(crate) fn start_sso_with_status(app: &AppHandle) -> anyhow::Result<SsoStartResult> {
-    let sso_id = start_sso(app)?;
+pub(crate) fn start_sso_with_status(
+    app: &AppHandle,
+    save_api_key: impl Fn(&str) -> anyhow::Result<()> + Send + 'static,
+) -> anyhow::Result<SsoStartResult> {
+    let sso_id = start_sso(app, save_api_key)?;
     std::thread::sleep(std::time::Duration::from_millis(100));
     let status = get_sso_status().status;
     Ok(SsoStartResult { sso_id, status })
@@ -254,8 +253,6 @@ pub(crate) fn get_sso_status() -> SsoSnapshot {
         sso_id: state.sso_id.clone(),
     }
 }
-
-// ---- SSO flow (background thread) ----
 
 fn run_sso_flow(
     _app: &AppHandle,

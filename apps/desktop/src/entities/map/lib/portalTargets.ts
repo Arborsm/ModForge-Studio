@@ -1,8 +1,14 @@
+/**
+ * @file Portal target map resolution: parses warp/door action strings and
+ * map properties to determine the destination map name for portal overlays.
+ */
+
 import { asMapPropertyString } from './properties'
 import { stripTileGidFlags } from './tileFlags'
 import { findTilesetForGid } from './tilesets'
 import type { MapDocument, MapPropertyValue } from './types'
 
+/** Parses the destination map name from a warp/door action string (e.g. `Warp 12 34 Farm`). */
 export function parsePortalTargetMapFromAction(rawAction: string) {
   const tokens = rawAction.trim().split(/\s+/u)
   if (!tokens.length) {
@@ -31,6 +37,7 @@ export function parsePortalTargetMapFromAction(rawAction: string) {
   return null
 }
 
+/** Resolves the portal destination map from `Action` or `TouchAction` map properties. */
 export function getPortalTargetMapFromProperties(properties: Record<string, MapPropertyValue>) {
   for (const propertyName of ['Action', 'TouchAction']) {
     const rawAction = asMapPropertyString(properties[propertyName]).trim()
@@ -47,6 +54,7 @@ export function getPortalTargetMapFromProperties(properties: Record<string, MapP
   return null
 }
 
+/** Resolves the action target map for a tile GID by inspecting its tileset's tile properties. */
 export function getActionTargetMap(rawGid: number, sourceDocument: Pick<MapDocument, 'tilesets'>) {
   const baseGid = stripTileGidFlags(rawGid)
   if (baseGid === 0) {

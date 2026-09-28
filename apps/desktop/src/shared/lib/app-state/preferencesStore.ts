@@ -1,9 +1,12 @@
+/** @file Global preferences store (theme, locale, window chrome, loading motion, palette) backed by app UI state persistence. */
+
 import { create } from 'zustand'
 import type { AppUiState, ThemeId, WindowBorderTone, WindowBorderWeight, WindowCloseBehavior } from '@shared/contracts'
 import type { LoadingMotionPreference } from '@shared/lib/loading-motion'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import type { LocaleCode, ThemeMode } from '@locales/model'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from './appUiState'
+import { normalizeMapEditorPalettePreferences, type MapEditorPalettePreferences } from './mapEditorPalettePreferences'
 import { DEFAULT_THEME_ID, normalizeThemeId } from './theme'
 
 type PreferencesStateValues = {
@@ -19,9 +22,15 @@ type PreferencesStateValues = {
   loadingMotionPreference: LoadingMotionPreference
   windowCloseBehavior: WindowCloseBehavior
   rememberCloseChoice: boolean
+  expertMode: boolean
+  forceOffline: boolean
+  forceNonPremium: boolean
 }
 
+/** Public preferences state shape: reactive values plus setter actions consumed by UI components. */
 export type PreferencesState = PreferencesStateValues & {
+  mapEditorPalette: MapEditorPalettePreferences
+  setMapEditorPalette: (patch: Partial<MapEditorPalettePreferences>) => void
   setTheme: (theme: ThemeMode) => void
   setThemeId: (themeId: string) => void
   setLocale: (locale: LocaleCode) => void
@@ -33,6 +42,9 @@ export type PreferencesState = PreferencesStateValues & {
   setLoadingMotionPreference: (preference: LoadingMotionPreference) => void
   setWindowCloseBehavior: (behavior: WindowCloseBehavior) => void
   setRememberCloseChoice: (remember: boolean) => void
+  setExpertMode: (enabled: boolean) => void
+  setForceOffline: (enabled: boolean) => void
+  setForceNonPremium: (enabled: boolean) => void
 }
 
 type PreferencesStoreSeed = Partial<PreferencesStateValues>
@@ -107,6 +119,9 @@ function readPreferencesFromAppUiState(state: AppUiState): PreferencesStateValue
     loadingMotionPreference: normalizeLoadingMotionPreference(state.appearance.loadingMotion),
     windowCloseBehavior: normalizeWindowCloseBehavior(state.shell.windowCloseBehavior),
     rememberCloseChoice: typeof state.shell.rememberCloseChoice === 'boolean' ? state.shell.rememberCloseChoice : false,
+    expertMode: state.workspace.expertMode,
+    forceOffline: state.launcher.forceOffline,
+    forceNonPremium: state.launcher.forceNonPremium,
   }
 }
 
@@ -136,10 +151,33 @@ function persistAppUiStatePatch(patch: Parameters<typeof applyAppUiStatePatch>[0
   })
 }
 
+/** Storage key of the map-editor palette preference slice under `workspace.modules`. */
+export const MAP_EDITOR_PALETTE_PREFERENCES_KEY = 'map-editor/palette'
+
+function readMapEditorPalettePreferences(): MapEditorPalettePreferences {
+  const stored = getAppUiStateSnapshot().workspace.modules[MAP_EDITOR_PALETTE_PREFERENCES_KEY]
+  return normalizeMapEditorPalettePreferences(isRecord(stored) ? stored.value : undefined)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function persistMapEditorPalettePreferences(preferences: MapEditorPalettePreferences) {
+  persistAppUiStatePatch({ workspace: { modules: { [MAP_EDITOR_PALETTE_PREFERENCES_KEY]: { value: preferences } } } })
+}
+
 const initialPreferencesState = readPreferencesFromAppUiState(getAppUiStateSnapshot())
 
+/** Zustand store that mirrors persisted preferences and syncs DOM theme/locale attributes. */
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   ...initialPreferencesState,
+  mapEditorPalette: readMapEditorPalettePreferences(),
+  setMapEditorPalette: (patch) => {
+    const next = normalizeMapEditorPalettePreferences({ ...get().mapEditorPalette, ...patch })
+    set({ mapEditorPalette: next })
+    persistMapEditorPalettePreferences(next)
+  },
   setTheme: (theme) => {
     set({ theme })
     syncDocumentPreferences({ ...get(), theme })
@@ -188,6 +226,18 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   setRememberCloseChoice: (rememberCloseChoice) => {
     set({ rememberCloseChoice })
     patchShellPreference({ rememberCloseChoice })
+  },
+  setExpertMode: (expertMode) => {
+    set({ expertMode })
+    persistAppUiStatePatch({ workspace: { expertMode } })
+  },
+  setForceOffline: (forceOffline) => {
+    set({ forceOffline })
+    persistAppUiStatePatch({ launcher: { forceOffline } })
+  },
+  setForceNonPremium: (forceNonPremium) => {
+    set({ forceNonPremium })
+    persistAppUiStatePatch({ launcher: { forceNonPremium } })
   },
 }))
 
@@ -269,7 +319,7 @@ export function syncPreferencesStoreFromAppUiState(
     desktopHost,
   }
 
-  usePreferencesStore.setState(next)
+  usePreferencesStore.setState({ ...next, mapEditorPalette: readMapEditorPalettePreferences() })
   syncDocumentPreferences(next)
 }
 
@@ -280,6 +330,6 @@ export function resetPreferencesStoreForTest(seed: PreferencesStoreSeed = {}) {
     ...readPreferencesFromAppUiState(getAppUiStateSnapshot()),
     ...seed,
   }
-  usePreferencesStore.setState(next)
+  usePreferencesStore.setState({ ...next, mapEditorPalette: readMapEditorPalettePreferences() })
   syncDocumentPreferences(next)
 }

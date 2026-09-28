@@ -1,4 +1,6 @@
-// 流式时间轴 — 卡片列表 + 间隙插入 + 拖拽排序
+/**
+ * @file Streaming timeline component: card list with gap insertion and drag-to-reorder.
+ */
 
 import { useCallback, useEffect, useRef } from 'react'
 import { GitFork, Plus, ListPlus } from 'lucide-react'
@@ -9,7 +11,8 @@ import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { ScriptCard } from './ScriptCard'
 import type { EventResourceRegistry } from './eventResourceRegistry'
-import type { EventWorkflowCopy, ScriptEditorCopy } from '@locales/api'
+import type { ScriptEditorCopy } from '@locales/api'
+import { useEventStageCopy } from '@locales/provider'
 import {
   getInlineDelayCandidate,
   getVisiblePlaybackCommandIndex,
@@ -19,11 +22,7 @@ import {
 
 export type ScriptTimelineProps = {
   commands: EventCommand[]
-  locale?: 'zh-CN' | 'en-US'
-  copy: ScriptEditorCopy
-  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
-  currentPlaybackCommandId?: string | null
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
   onUpdateArgs: (commandIndex: number, argIndex: number, values: string[]) => void
   onSetInlineDelay: (commandIndex: number, pauseCommandIndex: number | null, valueMs: number) => void
@@ -45,18 +44,14 @@ function GapInsertButton({ index, label, onClick }: { index: number; label: stri
 function SortableScriptCard({
   cmd,
   index,
+  allCommands,
   selected,
-  playing,
   expanded,
   showLineNumber,
   cardView,
-  locale,
-  copy,
-  workflowCopy,
   resourceRegistry,
   inlineDelay,
   onSelect,
-  onToggleExpand,
   onUpdateArg,
   onUpdateArgs,
   onSetInlineDelay,
@@ -70,18 +65,15 @@ function SortableScriptCard({
 }: {
   cmd: EventCommand
   index: number
+  /** The exact command list the timeline renders; used to fold a playing `pause` onto its host card. */
+  allCommands: EventCommand[]
   selected: boolean
-  playing: boolean
   expanded: boolean
   showLineNumber: boolean
   cardView: 'compact' | 'comfortable'
-  locale: 'zh-CN' | 'en-US'
-  copy: ScriptEditorCopy
-  workflowCopy: EventWorkflowCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay: InlineDelayCandidate | null
   onSelect: () => void
-  onToggleExpand: () => void
   onUpdateArg: (argIndex: number, value: string) => void
   onUpdateArgs: (argIndex: number, values: string[]) => void
   onSetInlineDelay: (pauseCommandIndex: number | null, valueMs: number) => void
@@ -94,6 +86,22 @@ function SortableScriptCard({
   branchLabel?: string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cmd.id })
+  // Per-card playback subscription: only the previously/currently playing cards
+  // re-render when playback advances, instead of the whole timeline. The fold
+  // check reads the rendered list (not the store's currentScript, which is only
+  // synced lazily once editing starts).
+  const copy = useEventStageCopy().workflow.scriptEditor
+  const playing = useEditorStore((state) => {
+    const playbackId = state.playbackCommandId
+    if (!playbackId) {
+      return false
+    }
+    if (cmd.id === playbackId) {
+      return true
+    }
+    const playbackIndex = allCommands.findIndex((command) => command.id === playbackId)
+    return playbackIndex > 0 && shouldFoldPauseIntoPrevious(allCommands, playbackIndex) && allCommands[playbackIndex - 1]?.id === cmd.id
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -112,29 +120,20 @@ function SortableScriptCard({
       ) : null}
       <div className={branchLabel ? 'branch' : undefined}>
         <ScriptCard
-          command={cmd}
-          index={index}
-          selected={selected}
-          playing={playing}
-          expanded={expanded}
-          showLineNumber={showLineNumber}
-          cardView={cardView}
-          locale={locale}
-          copy={copy}
-          workflowCopy={workflowCopy}
-          resourceRegistry={resourceRegistry}
-          onSelect={onSelect}
-          onToggleExpand={onToggleExpand}
-          onUpdateArg={onUpdateArg}
-          onUpdateArgs={onUpdateArgs}
-          inlineDelay={inlineDelay}
-          onSetInlineDelay={onSetInlineDelay}
-          onRemoveInlineDelay={onRemoveInlineDelay}
-          onEnterPickMode={onEnterPickMode}
-          onDuplicate={onDuplicate}
-          onDelete={onDelete}
-          onPlayFromHere={onPlayFromHere}
+          data={{ command: cmd, index, resourceRegistry, inlineDelay }}
+          state={{ selected, playing, expanded, showLineNumber, cardView }}
           dragHandleProps={{ ...attributes, ...listeners }}
+          actions={{
+            select: onSelect,
+            updateArg: onUpdateArg,
+            updateArgs: onUpdateArgs,
+            setInlineDelay: onSetInlineDelay,
+            removeInlineDelay: onRemoveInlineDelay,
+            enterPickMode: onEnterPickMode,
+            duplicate: onDuplicate,
+            deleteCommand: onDelete,
+            playFromHere: onPlayFromHere,
+          }}
         />
       </div>
     </div>
@@ -156,17 +155,14 @@ function getBranchLabel(previousCommand: EventCommand | undefined, command: Even
 
 export function ScriptTimeline({
   commands,
-  locale = 'zh-CN',
-  copy,
-  workflowCopy,
   resourceRegistry,
-  currentPlaybackCommandId = null,
   onUpdateArg,
   onUpdateArgs,
   onSetInlineDelay,
   onRemoveInlineDelay,
   onEnterPickMode,
 }: ScriptTimelineProps) {
+  const copy = useEventStageCopy().workflow.scriptEditor
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
   const expandedCards = useEditorStore((s) => s.expandedCards)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -191,17 +187,28 @@ export function ScriptTimeline({
 
   // Only scroll when the playback position actually moves — not on every edit
   // that mutates `commands` (which would jolt the view on each keystroke).
-  const lastPlaybackIdRef = useRef<string | null>(null)
+  // Store subscription keeps this off the render path entirely; the rendered
+  // command list comes from the prop mirror (store currentScript is lazy).
+  const commandsRef = useRef(commands)
   useEffect(() => {
-    if (currentPlaybackCommandId === lastPlaybackIdRef.current) return
-    lastPlaybackIdRef.current = currentPlaybackCommandId
-    const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
-    if (playbackCommandIndex == null) return
-    const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
-    if (typeof el?.scrollIntoView === 'function') {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [commands, currentPlaybackCommandId])
+    commandsRef.current = commands
+  })
+  useEffect(() => {
+    let lastPlaybackId: string | null = null
+    return useEditorStore.subscribe((state) => {
+      const playbackId = state.playbackCommandId
+      if (playbackId === lastPlaybackId) return
+      lastPlaybackId = playbackId
+      const playbackCommandIndex = getVisiblePlaybackCommandIndex(commandsRef.current, playbackId)
+      if (playbackCommandIndex == null) return
+      const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
+      if (typeof el?.scrollIntoView === 'function') {
+        // Keep the playing command vertically centered so the author always sees
+        // the surrounding beats; `center` clamps naturally at both list ends.
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+  }, [])
 
   // Keyboard navigation — uses getState() inside listener so we don't need
   // commands in deps and avoid re-registering on every store update.
@@ -290,7 +297,6 @@ export function ScriptTimeline({
     .map((cmd, index) => ({ cmd, index }))
     .filter(({ index }) => !shouldFoldPauseIntoPrevious(commands, index))
   const sortableIds = visibleCommandEntries.map(({ cmd }) => cmd.id)
-  const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -301,19 +307,15 @@ export function ScriptTimeline({
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
+                allCommands={commands}
                 branchLabel={getBranchLabel(visibleCommandEntries[visibleIndex - 1]?.cmd, cmd, copy)}
                 selected={selectedCommandIndex === i}
-                playing={playbackCommandIndex === i}
                 expanded={expandedCards.has(cmd.id)}
                 showLineNumber={showLineNumbers}
                 cardView={cardView}
-                locale={locale}
-                copy={copy}
-                workflowCopy={workflowCopy}
                 resourceRegistry={resourceRegistry}
                 inlineDelay={getInlineDelayCandidate(commands, i)}
                 onSelect={() => handleSelect(i)}
-                onToggleExpand={() => useEditorStore.getState().toggleCardExpanded(cmd.id)}
                 onUpdateArg={(argIndex, value) => onUpdateArg(i, argIndex, value)}
                 onUpdateArgs={(argIndex, values) => onUpdateArgs(i, argIndex, values)}
                 onSetInlineDelay={(pauseCommandIndex, valueMs) => onSetInlineDelay(i, pauseCommandIndex, valueMs)}
@@ -334,12 +336,12 @@ export function ScriptTimeline({
         {commands.length === 0 && (
           <div className="script-empty">
             <ListPlus className="h-7 w-7 opacity-40" />
-            <p className="text-sm font-medium text-(--text-secondary)">{copy.emptyTitle}</p>
-            <p className="text-[11px]">{copy.emptyHint}</p>
+            <p className="text-text-secondary text-sm font-medium">{copy.emptyTitle}</p>
+            <p className="text-meta-px">{copy.emptyHint}</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md bg-(--accent) px-3 py-1.5 text-xs font-medium text-(--text-inverse) transition-opacity hover:opacity-90"
+              className="bg-accent text-text-inverse mt-1 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               {copy.emptyAction}

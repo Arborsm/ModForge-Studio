@@ -1,3 +1,5 @@
+//! Launcher trace logging helpers for structured `launcher.<action>` debug events.
+
 use crate::support::logging::{LogEvent, targets};
 
 pub(crate) const LAUNCHER_TRACE_TARGET: &str = targets::LAUNCHER_TRACE;

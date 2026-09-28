@@ -1,3 +1,8 @@
+/**
+ * @file Persistence and lookup helpers for guide completion progress, stored
+ * inside the generic app UI state module bag.
+ * @module features/guide
+ */
 import type { AppUiState, GuideDefinition } from '@shared/contracts'
 
 /**

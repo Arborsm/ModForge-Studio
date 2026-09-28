@@ -1,3 +1,5 @@
+//! Content Patcher types: project snapshots, patch plans, result assets and preview inputs.
+
 use super::context::SimulationContext;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

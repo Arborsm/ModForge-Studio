@@ -1,8 +1,12 @@
+/**
+ * @file Dev-only mock for the event patch editor, wiring a fixture draft to
+ * the real EventPatchEditor with a dev asset bridge.
+ * @module dev
+ */
 import { useEffect, useMemo, useState } from 'react'
-import type { CpMakerDraft, DraftPatch } from '@features/cp-maker'
+import { createAssetDraftPort, type CpMakerDraft, type DraftPatch, type EditorResources } from '@features/cp-maker'
 import { EventPatchEditor } from '@pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor'
 import { LocaleProvider } from '@locales/provider'
-import { localeBundles } from '@locales'
 import { detectDefaultGameDirectory, loadImageDataUrl } from '@entities/game/api'
 import { detectDefaultGameDirectoryFromDevBridge, loadImageDataUrlFromDevBridge } from '@entities/game/api/devAssetBridge'
 import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
@@ -56,10 +60,10 @@ function createDraft(patch: DraftPatch): CpMakerDraft {
       gameRootPath: null,
       contentPackForUniqueId: 'Pathoschild.ContentPatcher',
     },
-    overlayTargets: [],
     configSchema: [],
     patches: [patch],
     virtualAssets: [],
+    projectAssets: [],
     dynamicTokens: [],
     customLocations: [],
     aliasTokenNames: {},
@@ -68,6 +72,7 @@ function createDraft(patch: DraftPatch): CpMakerDraft {
   }
 }
 
+/** Dev scenario rendering the event patch editor against a mock draft. */
 export function DevEventPatchEditorMock() {
   const [gameRootPath, setGameRootPath] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search)
@@ -85,7 +90,6 @@ export function DevEventPatchEditorMock() {
     }
   }, [gameRootPath, patch])
   const locale = 'en-US'
-  const copy = localeBundles[locale].editor
   const assetLoader = useMemo(() => createEventStagePreviewDevAssetLoader(), [])
 
   useEffect(() => {
@@ -125,27 +129,39 @@ export function DevEventPatchEditorMock() {
     }
   }, [gameRootPath])
 
+  const resources: EditorResources = {
+    locale,
+    theme: 'dark',
+    accentColor: '#3b82f6',
+    gameRootPath,
+    directoryInfo: null,
+    playerAppearanceProfile: null,
+    onOpenPlayerAppearanceWindow: () => {},
+  }
+  const draftPort = createAssetDraftPort({
+    draft,
+    activePatchId: patch.id,
+    onPatchChange: (_patchId, patchUpdate) => {
+      setPatch((current) => ({ ...current, ...patchUpdate, editorState: patchUpdate.editorState ?? current.editorState }))
+    },
+    onAddVirtualAsset: () => {},
+    onRemoveVirtualAsset: () => {},
+    onSaveDraft: () => {},
+    onReloadDraft: () => {},
+    onOpenConfig: () => {},
+    isDirty: false,
+    selectedEntryKey: null,
+    onPatchAdd: () => undefined,
+    onPatchReorder: () => {},
+    onPatchDuplicate: () => {},
+    onPatchRemove: () => {},
+    onSelectEntry: () => {},
+  })
+
   return (
     <LocaleProvider locale={locale}>
-      <div className="h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
-        <EventPatchEditor
-          patch={patch}
-          draft={draft}
-          locale={locale}
-          theme="dark"
-          accentColor="#3b82f6"
-          viewportLabels={copy.viewportLabels}
-          gameRootPath={gameRootPath}
-          assetLoader={assetLoader}
-          onAddVirtualAsset={() => {}}
-          onPatchChange={(_patchId, patchUpdate) => {
-            setPatch((current) => ({
-              ...current,
-              ...patchUpdate,
-              editorState: patchUpdate.editorState ?? current.editorState,
-            }))
-          }}
-        />
+      <div className="bg-surface-app text-text-primary h-screen w-screen overflow-hidden">
+        <EventPatchEditor patch={patch} schema={null} draftPort={draftPort} resources={resources} assetLoader={assetLoader} />
       </div>
     </LocaleProvider>
   )

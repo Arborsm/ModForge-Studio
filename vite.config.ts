@@ -45,7 +45,7 @@ export default defineConfig({
     },
     tasks: {
       dev: {
-        command: 'node ./scripts/desktop-host-dispatch.cjs dev',
+        command: 'node apps/desktop/scripts/dev/desktop-host-dispatch.cjs dev',
         cache: false,
       },
     },

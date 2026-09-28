@@ -1,16 +1,23 @@
-﻿import { describe, expect, test } from 'vite-plus/test'
+import { describe, expect, test } from 'vite-plus/test'
 import { parseEventCommand } from '@entities/event/model/parser'
 import {
   applyFarmerSingleAnimationCommand,
   applyMoveCommand,
   applyWarpCommand,
 } from '@entities/event/model/stage/eventStagePlaybackCommands'
+import { continuePlayback } from '@entities/event/model/stage/eventStagePlayback'
 import {
   createInitialPlaybackState,
   createItemAboveActorEffect,
   createItemAtTileEffect,
 } from '@entities/event/model/stage/eventStageShared'
 import type { EventScript } from '@entities/event/model/types'
+import type { EventStageCopy } from '@locales/api'
+
+const copy = {
+  playbackHaltedTitle: 'Playback halted',
+  playbackHaltedDetail: 'Event loop detected',
+} as unknown as EventStageCopy
 
 function eventWithScript(rawScript: string, actorName = 'Abigail'): EventScript {
   const rawSegments = rawScript.split('/')
@@ -98,5 +105,35 @@ describe('event stage playback movement commands', () => {
     expect(effect?.baseX).toBe(35 * 64)
     expect(effect?.baseY).toBe(12 * 64)
     expect(effect?.scale).toBe(4)
+  })
+})
+
+describe('event stage playback viewport commands', () => {
+  test('viewport move starts a timed camera pan and holds the script for its duration', () => {
+    const event = eventWithScript('spring/follow/Abigail 12 45 2/viewport move 4 3 2000/message "done"')
+    const initial = createInitialPlaybackState(event, 'Town')
+    const expectedTarget = initial.focusTile
+      ? { tileX: initial.focusTile.tileX + 4, tileY: initial.focusTile.tileY + 3 }
+      : { tileX: 4, tileY: 3 }
+
+    const state = continuePlayback(initial, { '900001': event }, copy)
+
+    expect(state.cameraPan?.toTile).toEqual(expectedTarget)
+    expect(state.cameraPan?.fromTile).toEqual(initial.focusTile ?? expectedTarget)
+    expect(state.cameraPan?.durationMs).toBe(2000)
+    expect(state.waitingMs).toBe(2000)
+    expect(state.focusTile).toEqual(initial.focusTile)
+    expect(state.currentEntry?.tone).toBe('command')
+  })
+
+  test('absolute viewport snaps instantly without starting a pan', () => {
+    const event = eventWithScript('spring/follow/Abigail 12 45 2/viewport 47 87/message "done"')
+    const initial = createInitialPlaybackState(event, 'Town')
+
+    const state = continuePlayback(initial, { '900001': event }, copy)
+
+    expect(state.cameraPan).toBeNull()
+    expect(state.focusTile).toEqual({ tileX: 47, tileY: 87 })
+    expect(state.waitingMs).toBeNull()
   })
 })

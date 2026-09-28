@@ -2,9 +2,13 @@ export {
   NotificationProvider,
   clearNotifications,
   dismissNotification,
+  expireNotificationToast,
+  markNotificationRead,
+  markNotificationsSeen,
   publishNotification,
-  useNotificationPublisher,
 } from './notifications'
+export { useNotificationLog, useUnreadNotificationCount } from './notifications'
+export { NotificationCenter } from './NotificationCenter'
 export { setNotificationSoundEnabled } from './notificationSounds'
 export type {
   NotificationAction,

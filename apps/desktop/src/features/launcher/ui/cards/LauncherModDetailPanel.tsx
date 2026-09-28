@@ -1,4 +1,8 @@
-import { AlertTriangle, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
+/**
+ * @file Launcher mod detail drawer: hero, tabbed detail/file/changelog/
+ * dependency views, AI translation, config panel, and download queueing.
+ */
+import { AlertTriangle, ArrowLeft, ExternalLink, FolderOpen, ImageIcon, Languages, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorCopy } from '@locales/provider'
@@ -18,6 +22,7 @@ import { ChangelogList, DependencyTree, DetailDataLoading, DetailSection, FileLi
 import { normalizeVersion, type DependencyTreeNode, type FileListItem, type LauncherDetailTab } from './launcherModDetailData'
 import { useLauncherModDetailViewModel } from './useLauncherModDetailViewModel'
 import { useLauncherAiTranslation } from './useLauncherAiTranslation'
+import { TranslationProgressRing } from './TranslationProgressRing'
 
 function shouldDeferDetailContent() {
   return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
@@ -35,6 +40,9 @@ type LauncherModDetailPanelProps = {
   packName?: string | null
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
   onSearchDependency?: (query: string) => void
+  /** Hosts with an in-app browser pass their opener here so outbound Nexus
+   * links stay inside the launcher; falls back to the port's external URL. */
+  onOpenExternalPage?: (url: string) => void
   remoteLoading?: boolean
   remoteFilesDeferred?: boolean
   libraryMods?: LauncherLibraryItem[]
@@ -52,6 +60,7 @@ export function LauncherModDetailPanel({
   packName,
   onQueueDownload,
   onSearchDependency,
+  onOpenExternalPage,
   remoteLoading = false,
   remoteFilesDeferred = false,
   libraryMods = [],
@@ -67,6 +76,7 @@ export function LauncherModDetailPanel({
   const [pendingConfigLeave, setPendingConfigLeave] = useState<{ kind: 'close' } | { kind: 'tab'; tab: LauncherDetailTab } | null>(null)
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
   const [showAiTranslation, setShowAiTranslation] = useState(true)
+  const [reasoningExpanded, setReasoningExpanded] = useState(false)
   const [expandedDependencyNodeIds, setExpandedDependencyNodeIds] = useState<Set<string>>(new Set())
   const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
   const deferDetailContent = shouldDeferDetailContent()
@@ -81,12 +91,10 @@ export function LauncherModDetailPanel({
     open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && deferredFilesModId ? deferredFilesModId : null
   const fetchedRemoteWithFiles = useLauncherRemoteModDetail(shouldFetchDeferredFiles, {
     includeFiles: true,
-    notify: false,
   })
   const deferredFilesLoading = Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
   const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
-  const showRemoteLoading =
-    remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') || deferredFilesLoading
+  const showRemoteLoading = remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading')
   const { remoteDependencyDetails, loadRemoteDependencyDetail } = useLauncherDependencyDetails({
     detailContentKey,
     launcherPort,
@@ -158,9 +166,30 @@ export function LauncherModDetailPanel({
     full: fullDescription,
     changelog: changelogItems,
   })
-  const visibleOverview = showAiTranslation ? (aiTranslation.translation?.overview ?? overviewDescription) : overviewDescription
-  const visibleFullDescription = showAiTranslation ? (aiTranslation.translation?.full ?? fullDescription) : fullDescription
-  const visibleChangelog = showAiTranslation ? (aiTranslation.translation?.changelog ?? changelogItems) : changelogItems
+  // During streaming translation, prefer rendering the partial translation
+  // (show as it generates); replaced by the authoritative structured result
+  // once it settles.
+  const visibleOverview = showAiTranslation
+    ? (aiTranslation.streamPreview?.overview ?? aiTranslation.translation?.overview ?? overviewDescription)
+    : overviewDescription
+  const visibleFullDescription = showAiTranslation
+    ? (aiTranslation.streamPreview?.full ?? aiTranslation.translation?.full ?? fullDescription)
+    : fullDescription
+  const visibleChangelog = showAiTranslation
+    ? (aiTranslation.streamPreview?.changelog ?? aiTranslation.translation?.changelog ?? changelogItems)
+    : changelogItems
+  // Partial translation on screen = streaming in progress; the per-field
+  // fade-in animation only applies within this window, with no animation on settle.
+  const aiStreaming = aiTranslation.streamPreview !== null
+  // The streaming session (state === 'loading') spans all batches of the whole
+  // job; the momentary fallback where streamPreview is cleared between batches
+  // does not remove the .is-ai-arrived class, so the fade-in plays only once
+  // for the entire session.
+  const aiStreamingSession = aiTranslation.state === 'loading'
+  // Field-level "arrived" flag: set the first time the translation differs
+  // from the source; already-shown content does not re-trigger the animation.
+  const overviewArrived = visibleOverview !== overviewDescription
+  const fullArrived = visibleFullDescription !== fullDescription
 
   useEffect(() => {
     setShowAiTranslation(true)
@@ -242,7 +271,11 @@ export function LauncherModDetailPanel({
   const openRemotePage = () => {
     const url = remote?.modUrl ?? mod?.modUrl
     if (url) {
-      void launcherPort.openUrl({ url })
+      if (onOpenExternalPage) {
+        onOpenExternalPage(url)
+      } else {
+        void launcherPort.openUrl({ url })
+      }
     }
   }
 
@@ -275,7 +308,11 @@ export function LauncherModDetailPanel({
   const handleOpenDependencyPage = (item: DependencyTreeNode) => {
     const url = item.url ?? (item.modId ? `https://www.nexusmods.com/stardewvalley/mods/${item.modId}` : null)
     if (url) {
-      void launcherPort.openUrl({ url })
+      if (onOpenExternalPage) {
+        onOpenExternalPage(url)
+      } else {
+        void launcherPort.openUrl({ url })
+      }
     }
   }
 
@@ -304,6 +341,14 @@ export function LauncherModDetailPanel({
     loadRemoteDependencyDetail(item.modId)
   }
 
+  // The panel portals to body, so the top bar cannot match it as a descendant;
+  // flag the body to let phone chrome hide the search slot while detail is open.
+  useEffect(() => {
+    if (!open) return
+    document.body.classList.add('launcher-mod-detail-open')
+    return () => document.body.classList.remove('launcher-mod-detail-open')
+  }, [open])
+
   if (!open) {
     return null
   }
@@ -324,6 +369,20 @@ export function LauncherModDetailPanel({
         aria-label={displayName}
         data-guide="launcher-mod-detail"
       >
+        {/* Phone widths render the drawer as a full-screen page with a back header. */}
+        <header className="launcher-mod-detail-page-head">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={handleClose}
+            aria-label={launcherCopy.actions.closeDialog}
+            title={launcherCopy.actions.closeDialog}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="launcher-mod-detail-page-head-title">{displayName}</h2>
+        </header>
+
         {showRemoteLoading ? (
           <div className="launcher-mod-detail-loading-overlay" role="status">
             <div className="launcher-mod-detail-loading-card">
@@ -451,8 +510,15 @@ export function LauncherModDetailPanel({
                         </div>
                       </div>
                     )}
-                    <div className="launcher-mod-detail-hero-summary">
-                      <NexusModsBbcode source={visibleOverview} />
+                    <div
+                      className={cx(
+                        'launcher-mod-detail-hero-summary',
+                        aiStreaming && 'is-ai-streaming',
+                        aiStreamingSession && overviewArrived && 'is-ai-arrived',
+                      )}
+                    >
+                      {/* Stable key (mod-level, not text content): streaming commits only update text in place without remounting the whole block; animation is triggered once by .is-ai-arrived */}
+                      <NexusModsBbcode key={`ai-overview:${detailContentKey}`} source={visibleOverview} />
                     </div>
                   </div>
 
@@ -508,7 +574,7 @@ export function LauncherModDetailPanel({
                           {detailCopy.aiOriginal}
                         </button>
                       </div>
-                    ) : (
+                    ) : aiTranslation.corpusState === 'ready' ? (
                       <Tooltip label={aiTranslation.state === 'loading' ? detailCopy.aiTranslating : detailCopy.aiTranslate}>
                         <button
                           type="button"
@@ -517,20 +583,78 @@ export function LauncherModDetailPanel({
                           onClick={() => aiTranslation.translate(false)}
                           aria-label={detailCopy.aiTranslate}
                         >
-                          <Languages className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                          <TranslationProgressRing
+                            visible={aiTranslation.state === 'loading'}
+                            progress={aiTranslation.streamProgress}
+                            label={
+                              aiTranslation.state === 'loading' && aiTranslation.streamProgress
+                                ? detailCopy.aiTranslatingProgress(
+                                    aiTranslation.streamProgress.completed,
+                                    aiTranslation.streamProgress.total,
+                                  )
+                                : detailCopy.aiTranslating
+                            }
+                          >
+                            <Languages className="h-3.5 w-3.5" />
+                          </TranslationProgressRing>
+                        </button>
+                      </Tooltip>
+                    ) : aiTranslation.corpusState === 'warming' ? (
+                      <Tooltip label={detailCopy.aiCorpusWarming}>
+                        <button type="button" className="icon-button h-8 w-8" disabled aria-label={detailCopy.aiCorpusWarming}>
+                          <Languages className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip label={detailCopy.aiCorpusWarmupFailed}>
+                        <button type="button" className="icon-button h-8 w-8" disabled aria-label={detailCopy.aiCorpusWarmupFailed}>
+                          <Languages className="h-3.5 w-3.5" />
                         </button>
                       </Tooltip>
                     )}
+                    {aiTranslation.corpusState !== 'ready' ? (
+                      <span
+                        className={cx('launcher-mod-detail-ai-corpus-status', aiTranslation.corpusState === 'error' && 'is-error')}
+                        role="status"
+                      >
+                        {aiTranslation.corpusState === 'warming' ? detailCopy.aiCorpusWarming : detailCopy.aiCorpusWarmupFailed}
+                      </span>
+                    ) : null}
                     {aiTranslation.translation ? (
                       <Tooltip label={detailCopy.aiRefresh}>
                         <button
                           type="button"
                           className="icon-button h-8 w-8"
-                          disabled={aiTranslation.state === 'loading'}
+                          disabled={aiTranslation.state === 'loading' || aiTranslation.corpusState !== 'ready'}
                           onClick={() => aiTranslation.translate(true)}
                           aria-label={detailCopy.aiRefresh}
                         >
-                          <RefreshCw className={cx('h-3.5 w-3.5', aiTranslation.state === 'loading' && 'animate-spin')} />
+                          <TranslationProgressRing
+                            visible={aiTranslation.state === 'loading'}
+                            progress={aiTranslation.streamProgress}
+                            label={
+                              aiTranslation.state === 'loading' && aiTranslation.streamProgress
+                                ? detailCopy.aiTranslatingProgress(
+                                    aiTranslation.streamProgress.completed,
+                                    aiTranslation.streamProgress.total,
+                                  )
+                                : detailCopy.aiTranslating
+                            }
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </TranslationProgressRing>
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                    {aiTranslation.corpusState === 'error' ? (
+                      <Tooltip label={detailCopy.aiCorpusRetry}>
+                        <button
+                          type="button"
+                          className="icon-button h-8 w-8"
+                          onClick={() => void aiTranslation.retryCorpus()}
+                          aria-label={detailCopy.aiCorpusRetry}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
                         </button>
                       </Tooltip>
                     ) : null}
@@ -544,8 +668,47 @@ export function LauncherModDetailPanel({
                   hidden={selectedTab !== 'description'}
                   aria-hidden={selectedTab !== 'description'}
                 >
-                  <div className="launcher-mod-detail-description">
-                    {selectedTab === 'description' ? <NexusModsBbcode source={visibleFullDescription} /> : null}
+                  <div
+                    className={cx(
+                      'launcher-mod-detail-description',
+                      aiStreaming && 'is-ai-streaming',
+                      aiStreamingSession && fullArrived && 'is-ai-arrived',
+                    )}
+                  >
+                    {selectedTab === 'description' ? (
+                      // Stable key: .nexusmods-bbcode is the scroll container;
+                      // keying by text content would remount the container on
+                      // every commit, resetting scrollTop and pulling the
+                      // reading position back to the top. A fixed key keeps the
+                      // DOM alive and lets browser scroll anchoring hold the
+                      // anchor point.
+                      <NexusModsBbcode key={`ai-full:${detailContentKey}`} source={visibleFullDescription} />
+                    ) : null}
+                    {selectedTab === 'description' && (aiTranslation.reasoning.length > 0 || aiTranslation.streamingReasoning) ? (
+                      <section className="launcher-mod-detail-ai-reasoning">
+                        <button
+                          type="button"
+                          className="launcher-mod-detail-ai-reasoning-toggle"
+                          aria-expanded={reasoningExpanded}
+                          onClick={() => setReasoningExpanded((current) => !current)}
+                        >
+                          <span>{detailCopy.aiReasoningChain}</span>
+                          <small>{reasoningExpanded ? detailCopy.aiReasoningChainHide : detailCopy.aiReasoningChainShow}</small>
+                        </button>
+                        {reasoningExpanded ? (
+                          <div className="launcher-mod-detail-ai-reasoning-body" role="region" aria-label={detailCopy.aiReasoningChain}>
+                            {aiTranslation.reasoning.map((text, index) => (
+                              <pre key={index} className="launcher-mod-detail-ai-reasoning-entry">
+                                {text}
+                              </pre>
+                            ))}
+                            {aiTranslation.streamingReasoning ? (
+                              <pre className="launcher-mod-detail-ai-reasoning-entry is-streaming">{aiTranslation.streamingReasoning}</pre>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : null}
                     {selectedTab === 'description' ? (
                       <button type="button" className="control-button" onClick={() => setDescriptionReaderOpen(true)}>
                         {detailCopy.readFullDescription}
@@ -566,7 +729,7 @@ export function LauncherModDetailPanel({
                         deferredFilesLoading ? (
                           <DetailDataLoading label={detailCopy.filesLoading} />
                         ) : (
-                          <ChangelogList items={visibleChangelog} emptyLabel={detailCopy.changelogEmpty} />
+                          <ChangelogList items={visibleChangelog} emptyLabel={detailCopy.changelogEmpty} streaming={aiStreaming} />
                         )
                       ) : null}
                     </div>
@@ -702,8 +865,15 @@ export function LauncherModDetailPanel({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <article className="launcher-mod-detail-reader-body">
-                  <NexusModsBbcode source={visibleFullDescription} />
+                <article
+                  className={cx(
+                    'launcher-mod-detail-reader-body',
+                    aiStreaming && 'is-ai-streaming',
+                    aiStreamingSession && fullArrived && 'is-ai-arrived',
+                  )}
+                >
+                  {/* Stable key: the body node persists across streaming commits, the scroll anchor is not replaced, and the reading position does not jump */}
+                  <NexusModsBbcode key={`ai-reader:${detailContentKey}`} source={visibleFullDescription} />
                 </article>
               </div>
             ) : null}
@@ -726,7 +896,7 @@ export function LauncherModDetailPanel({
                 id={configLeaveDialogTitleId}
               />
               <DialogBody>
-                <p className="text-sm text-(--text-secondary)">{detailCopy.config.unsavedMessage}</p>
+                <p className="text-text-secondary text-sm">{detailCopy.config.unsavedMessage}</p>
               </DialogBody>
               <DialogFooter>
                 <DialogAction onClick={() => setPendingConfigLeave(null)} disabled={configLeaveGuard?.saving}>

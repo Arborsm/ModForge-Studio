@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test'
 
 describe('electron dev identity helpers', () => {
   it('builds a desktop entry keyed by the dev app id instead of an absolute icon path', async () => {
-    const { appDesktopId, buildDevDesktopEntry } = await import('../../../scripts/electronDevIdentity.mjs')
+    const { appDesktopId, buildDevDesktopEntry } = await import('../../../scripts/dev/electronDevIdentity.mjs')
 
     const entry = buildDevDesktopEntry({
       electronPath: '/opt/Electron/electron',
@@ -19,7 +19,7 @@ describe('electron dev identity helpers', () => {
   })
 
   it('quotes desktop Exec arguments without changing paths that contain spaces', async () => {
-    const { buildDevDesktopEntry } = await import('../../../scripts/electronDevIdentity.mjs')
+    const { buildDevDesktopEntry } = await import('../../../scripts/dev/electronDevIdentity.mjs')
 
     const entry = buildDevDesktopEntry({
       electronPath: '/opt/Electron Dev/electron',
@@ -31,7 +31,7 @@ describe('electron dev identity helpers', () => {
   })
 
   it('builds a systemd app scope that libksysguard can map back to the desktop entry', async () => {
-    const { buildElectronScopeSpawnArgs } = await import('../../../scripts/electronDevIdentity.mjs')
+    const { buildElectronScopeSpawnArgs } = await import('../../../scripts/dev/electronDevIdentity.mjs')
 
     expect(buildElectronScopeSpawnArgs('/cache/modforge-studio', ['--flag'], { pid: 4242 })).toEqual([
       '--user',
@@ -45,7 +45,7 @@ describe('electron dev identity helpers', () => {
   })
 
   it('checks both the user systemd socket and systemd-run before enabling scope launch', async () => {
-    const { systemdUserScopeAvailable } = await import('../../../scripts/electronDevIdentity.mjs')
+    const { systemdUserScopeAvailable } = await import('../../../scripts/dev/electronDevIdentity.mjs')
     const fsModule = {
       statSync: vi.fn(() => ({
         isSocket: () => true,

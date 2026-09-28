@@ -1,5 +1,7 @@
-export type WorkspaceId = 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items'
+/** Identifier of a CP Maker authoring workspace. */
+export type WorkspaceId = 'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items' | 'dialogue' | 'schedules' | 'mail'
 
+/** One entry in the pack's `config.json` schema. */
 export interface ConfigSchemaEntry {
   key: string
   defaultValue: unknown
@@ -10,6 +12,7 @@ export interface ConfigSchemaEntry {
   section?: string
 }
 
+/** One change entry in a draft's `Changes` list. */
 export interface DraftPatch {
   id: string
   workspace: WorkspaceId
@@ -28,13 +31,15 @@ export interface DraftPatch {
   targetField?: string[]
 }
 
-export interface CpMakerOverlayTarget {
+/** One entry of the manifest `Dependencies` list, as SMAPI reads it. */
+export interface CpMakerDependency {
   uniqueId: string
-  displayName: string | null
-  required: boolean
-  source: 'scanned-mod' | 'manual'
+  minimumVersion?: string
+  /** SMAPI treats a dependency without `IsRequired` as required. */
+  isRequired: boolean
 }
 
+/** Complete in-memory CP Maker draft with patches, assets, and metadata. */
 export interface CpMakerDraft {
   draftStorageKey: string
   lastDraftSavedAt?: number | null
@@ -53,13 +58,15 @@ export interface CpMakerDraft {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    contentPackForMinimumVersion?: string
     minimumApiVersion?: string
     updateKeys?: string[]
+    dependencies?: CpMakerDependency[]
   }
-  overlayTargets: CpMakerOverlayTarget[]
   configSchema: ConfigSchemaEntry[]
   patches: DraftPatch[]
   virtualAssets: VirtualPreviewAsset[]
+  projectAssets: ProjectAssetRef[]
   dynamicTokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>
   customLocations: Array<{
     name: string
@@ -71,6 +78,18 @@ export interface CpMakerDraft {
   i18nFiles: Array<{ locale: string; rawJson: string }>
 }
 
+/** Lightweight reference to a persisted project asset. */
+export interface ProjectAssetRef {
+  relativePath: string
+  mediaType: string
+  sizeBytes: number
+  sha256: string
+  storageKey: string
+  sourceType: 'imported' | 'generated' | 'edited'
+  dependencies: Array<{ relativePath: string; kind: string }>
+}
+
+/** Virtual asset bundled into preview/export flows before it exists on disk. */
 export interface VirtualPreviewAsset {
   relativePath: string
   mediaType: string

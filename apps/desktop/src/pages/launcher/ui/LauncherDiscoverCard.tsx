@@ -96,10 +96,16 @@ type LauncherDiscoverCardProps = {
   item: LauncherDiscoverCardItem
   onOpenDetails: () => void
   onQueueDownload: () => void
+  /**
+   * Android host override for the mod-page action (cover overlay + double-click):
+   * opens the mod's Nexus page in the built-in in-app browser instead of the
+   * external browser. Absent on desktop hosts, which keep `openLauncherUrl`.
+   */
+  onOpenModPageInApp?: () => void
 }
 
 /** Renders one Nexus discover result card with cover fallback, delayed details click, and quick download action. */
-export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: LauncherDiscoverCardProps) {
+export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload, onOpenModPageInApp }: LauncherDiscoverCardProps) {
   const copy = useEditorCopy().launcher
   const image = useLauncherImage(item.imageUrl)
   const coverMonogram = getLauncherCardMonogram(item.title)
@@ -128,6 +134,11 @@ export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: L
     if (singleClickTimeoutRef.current !== null) {
       window.clearTimeout(singleClickTimeoutRef.current)
       singleClickTimeoutRef.current = null
+    }
+
+    if (onOpenModPageInApp) {
+      onOpenModPageInApp()
+      return
     }
 
     void openLauncherUrl({ url: item.modUrl })

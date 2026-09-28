@@ -1,10 +1,11 @@
 use crate::domain::cp_maker::storage::{
     copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir, draft_file_path_at_dir,
     list_cp_maker_drafts_at_dir, load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
+    save_cp_maker_draft_preserving_project_assets_at_dir,
 };
 use crate::domain::cp_maker::types::{
     CopyCpMakerDraftRequest, CpMakerDraftRecord, CpMakerEventSourceSnapshot,
-    CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget, CpMakerOverlayTargetSource,
+    CpMakerExportFingerprint, CpMakerMetadata, ProjectAssetRef, ProjectAssetSource,
 };
 use crate::test_support::create_temp_dir;
 use serde_json::json;
@@ -22,15 +23,11 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
             project_unique_id: "ModForge.BuilderDraft".to_string(),
             game_root_path: Some("E:\\Games\\Stardew Valley".to_string()),
             content_pack_for_unique_id: "Pathoschild.ContentPatcher".to_string(),
+            content_pack_for_minimum_version: None,
             minimum_api_version: None,
             update_keys: Vec::new(),
+            dependencies: Vec::new(),
         },
-        overlay_targets: vec![CpMakerOverlayTarget {
-            unique_id: "Pathoschild.ContentPatcher".to_string(),
-            display_name: Some("Content Patcher".to_string()),
-            required: false,
-            source: CpMakerOverlayTargetSource::ScannedMod,
-        }],
         config_schema_draft: json!({
             "Season": {
                 "AllowValues": "spring, summer, fall, winter"
@@ -59,6 +56,7 @@ fn sample_draft(draft_storage_key: &str) -> CpMakerDraftRecord {
             },
         )]),
         i18n_files: Vec::new(),
+        project_assets: Vec::new(),
         last_draft_saved_at: None,
         last_exported_at: Some(1_710_000_000_000),
         last_export_path: Some("E:\\Exports\\Builder Draft".to_string()),
@@ -139,7 +137,6 @@ fn copies_cp_maker_drafts_with_a_new_storage_key() {
 
     assert_ne!(copied.draft_storage_key, source.draft_storage_key);
     assert_eq!(copied.project_metadata, source.project_metadata);
-    assert_eq!(copied.overlay_targets, source.overlay_targets);
     assert_eq!(copied.config_schema_draft, source.config_schema_draft);
     assert_eq!(
         copied.serialized_change_registry,
@@ -179,6 +176,59 @@ fn deletes_cp_maker_drafts_and_reports_missing_records_explicitly() {
         message.contains("[draftStorageKey=draft-delete]"),
         "{message}"
     );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn full_draft_save_preserves_project_assets_written_by_asset_commands() {
+    let root = create_temp_dir("cp-maker-save-preserves-assets");
+    let stale_snapshot = sample_draft("draft-assets");
+    save_cp_maker_draft_at_dir(&root, stale_snapshot.clone()).expect("save initial draft");
+
+    // An asset command lands after the stale snapshot was taken and persists
+    // the new ref transactionally (import/write/rename/delete all do this).
+    let asset_ref = ProjectAssetRef {
+        relative_path: "assets/imported.png".to_string(),
+        media_type: "image/png".to_string(),
+        size_bytes: 42,
+        sha256: "ab".repeat(32),
+        storage_key: "assets/imported.png".to_string(),
+        source_type: ProjectAssetSource::Imported,
+        dependencies: Vec::new(),
+    };
+    let mut with_asset = load_cp_maker_draft_at_dir(&root, "draft-assets").expect("load draft");
+    with_asset.project_assets.push(asset_ref.clone());
+    save_cp_maker_draft_at_dir(&root, with_asset).expect("persist asset ref");
+
+    // The in-flight full-draft save still holds the pre-import snapshot; it must
+    // not drop the ref whose file was already written.
+    let saved = save_cp_maker_draft_preserving_project_assets_at_dir(&root, stale_snapshot)
+        .expect("save stale draft");
+    assert_eq!(saved.project_assets, vec![asset_ref.clone()]);
+    let reloaded = load_cp_maker_draft_at_dir(&root, "draft-assets").expect("reload draft");
+    assert_eq!(reloaded.project_assets, vec![asset_ref]);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn full_draft_save_keeps_incoming_assets_for_a_new_draft() {
+    let root = create_temp_dir("cp-maker-save-new-draft-assets");
+    let mut draft = sample_draft("draft-new");
+    draft.project_assets.push(ProjectAssetRef {
+        relative_path: "assets/seed.png".to_string(),
+        media_type: "image/png".to_string(),
+        size_bytes: 7,
+        sha256: "cd".repeat(32),
+        storage_key: "assets/seed.png".to_string(),
+        source_type: ProjectAssetSource::Imported,
+        dependencies: Vec::new(),
+    });
+
+    let saved = save_cp_maker_draft_preserving_project_assets_at_dir(&root, draft.clone())
+        .expect("save new draft");
+    assert_eq!(saved.project_assets, draft.project_assets);
 
     fs::remove_dir_all(root).expect("cleanup");
 }

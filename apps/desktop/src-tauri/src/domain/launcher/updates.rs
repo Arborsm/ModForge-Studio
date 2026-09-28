@@ -1,5 +1,6 @@
+//! Launcher mod update checking: SMAPI lookup, Nexus GraphQL fallback, caching, and progress emission.
+
 use super::library::scan_library_at_path;
-use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
@@ -14,12 +15,17 @@ use super::update_cache::{
     mark_launcher_updates_check_in_progress_at_path, normalize_launcher_updates_cache_key,
     record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
 };
+pub(crate) use super::versions::version_is_newer;
 use crate::AppHandle;
+use crate::domain::app_paths::{
+    current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path,
+};
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
     RemoteModDetail, load_remote_mod_detail_from_public_graphql,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
@@ -28,7 +34,6 @@ use crate::support::logging::{LogEvent, targets};
 use anyhow::{Context, bail};
 use reqwest::blocking::Client;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
-use semver::Version;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 #[cfg(target_os = "windows")]
@@ -188,7 +193,10 @@ fn parse_version_triplet(value: &str) -> Option<String> {
     Some(parts.into_iter().take(3).collect::<Vec<_>>().join("."))
 }
 
-fn resolve_update_check_game_root(settings: &LauncherSettings, mods_path: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_update_check_game_root(
+    settings: &LauncherSettings,
+    mods_path: &str,
+) -> Option<PathBuf> {
     settings
         .game_path
         .as_deref()
@@ -346,7 +354,6 @@ pub(crate) fn build_smapi_update_payload_with_versions(
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 pub(crate) fn build_smapi_update_payload(candidates: &[UpdateCheckCandidate]) -> Value {
     build_smapi_update_payload_with_versions(candidates, &default_smapi_runtime_versions())
 }
@@ -592,9 +599,10 @@ fn load_remote_mod_details_batch(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .is_some();
+    let nexus_context = NexusRequestContext::new(settings.nexus_api_key.clone());
     let detail_count_before_graphql = details.len();
     if can_use_graphql {
-        match load_remote_mod_details_from_graphql(client, settings, &mod_ids) {
+        match load_remote_mod_details_from_graphql(client, &nexus_context, &mod_ids) {
             Ok(graphql_details) if !graphql_details.is_empty() => {
                 details.extend(graphql_details);
             }
@@ -632,8 +640,12 @@ fn load_remote_mod_details_batch(
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id, false)
-        {
+        match load_remote_mod_detail_from_public_graphql(
+            client,
+            &nexus_context,
+            candidate.mod_id,
+            false,
+        ) {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);
@@ -747,15 +759,6 @@ fn save_incremental_launcher_updates_cache(
         },
     );
     Ok(partial_result)
-}
-
-fn version_is_newer(current: &str, latest: &str) -> bool {
-    let current_clean = current.trim().trim_start_matches('v');
-    let latest_clean = latest.trim().trim_start_matches('v');
-    match (Version::parse(current_clean), Version::parse(latest_clean)) {
-        (Ok(current_version), Ok(latest_version)) => latest_version > current_version,
-        _ => latest_clean != current_clean,
-    }
 }
 
 pub(crate) fn build_launcher_update_summary(
@@ -1165,6 +1168,10 @@ pub(crate) fn check_launcher_updates_blocking(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/domain/launcher/updates_tests.rs"]
+mod updates_tests;
 
 #[cfg(test)]
 #[path = "../../tests/integration/launcher_update_suppression_tests.rs"]

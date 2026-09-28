@@ -1,3 +1,5 @@
+//! Content Patcher project loader: manifest validation, include-tree resolution and snapshot assembly.
+
 use super::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};
 use super::diagnostics::{
     include_outside_root_error, missing_file_error, non_content_patcher_manifest_error,
@@ -8,7 +10,9 @@ use super::types::{
     ContentPatcherIncludeEdge, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary,
     ContentPatcherSourceFile,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{
+    clean_input_path, game_path_to_pathbuf, normalize_path, normalize_separators,
+};
 use anyhow::Context;
 use anyhow::bail;
 use serde_json::{Map, Value};
@@ -19,11 +23,11 @@ use std::path::{Component, Path, PathBuf};
 const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
 
 pub(crate) fn normalize_relative_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    normalize_separators(&path.to_string_lossy())
 }
 
 fn normalize_include_path(from_file: &str) -> PathBuf {
-    PathBuf::from(from_file.replace('\\', "/"))
+    game_path_to_pathbuf(from_file)
 }
 
 fn is_content_patcher_manifest(manifest: &Value) -> bool {
@@ -36,15 +40,16 @@ fn canonicalize_path(path: &Path) -> anyhow::Result<PathBuf> {
         .with_context(|| format!("Failed to resolve path {}", normalize_path(path)))
 }
 
-pub(crate) fn resolve_include_relative_path(
-    source_rel_path: &Path,
-    from_file: &str,
-) -> anyhow::Result<PathBuf> {
-    let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
+/// Resolves a Content Patcher relative file path against the content pack root.
+///
+/// Content Patcher always resolves local paths (patch `FromFile`, `Include` targets)
+/// relative to the content pack folder containing `content.json`, even when the path
+/// is declared inside an included file.
+pub(crate) fn resolve_pack_relative_path(from_file: &str) -> anyhow::Result<PathBuf> {
     let include_path = normalize_include_path(from_file);
     let mut normalized = PathBuf::new();
 
-    for component in source_parent.components().chain(include_path.components()) {
+    for component in include_path.components() {
         match component {
             Component::CurDir => {}
             Component::Normal(segment) => normalized.push(segment),
@@ -97,7 +102,7 @@ fn collect_include_edges(
             continue;
         };
 
-        let included_rel_path = resolve_include_relative_path(source_rel_path, &from_file)?;
+        let included_rel_path = resolve_pack_relative_path(&from_file)?;
         let include_candidate_abs_path = root_canonical.join(&included_rel_path);
         if !include_candidate_abs_path.is_file() {
             bail!(

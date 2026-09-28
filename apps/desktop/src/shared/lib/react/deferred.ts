@@ -1,3 +1,5 @@
+/** @file Deferred scheduling helpers (animation frame / timeout) with cancellation support. */
+
 /** Cancels deferred work when it has not run yet. */
 export type DeferredCancel = () => void
 /** Supported scheduling strategies for low-priority UI work. */

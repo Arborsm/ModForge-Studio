@@ -1,3 +1,6 @@
+/**
+ * @file AI usage statistics panel: displays KPIs, provider/failure distribution, and detail records within a time range.
+ */
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { usePlatformPorts } from '@app/providers/usePlatformPorts'
@@ -7,7 +10,8 @@ import type { AiUsageQuery, AiUsageRecordPage, AiUsageSummary } from '@shared/co
 import { cx } from '@shared/lib/helper'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
+import { appEvent } from '@platform/observability'
 
 const NOTICE_ID = 'ai-usage-error'
 const day = 24 * 60 * 60 * 1000
@@ -50,11 +54,11 @@ function startOfToday() {
   return value.getTime()
 }
 
+/** AI usage statistics panel component: loads summaries and details by time range and filter conditions. */
 export function AiUsageSection() {
   const localization = useLocalization()
   const { dialog } = usePlatformPorts()
   const copy = useSettingsMenuCopy().ai.usage
-  const publish = useNotificationPublisher()
   const [range, setRange] = useState<'today' | '7' | '30' | 'custom'>('7')
   const [from, setFrom] = useState(startOfToday() - 6 * day)
   const [to, setTo] = useState(startOfToday() + day)
@@ -109,13 +113,13 @@ export function AiUsageSection() {
       setError(copy.loadError)
       setReady(true)
       setLoading(false)
-      publish({
-        id: NOTICE_ID,
-        level: 'error',
-        title: copy.loadError,
-        description: copy.actionError,
-        action: { label: copy.retry, callback: () => actionRef.current(), tone: 'primary' },
-      })
+      appEvent('error', copy.loadError)
+        .description(copy.actionError)
+        .noticeId(NOTICE_ID)
+        .action({ label: copy.retry, callback: () => actionRef.current(), tone: 'primary' })
+        .error(cause)
+        .context({ source: 'settings-ai-usage', operation: 'load-usage' })
+        .emit()
     }
   }
   actionRef.current = () => void load()
@@ -137,18 +141,30 @@ export function AiUsageSection() {
     try {
       dismissNotification(NOTICE_ID)
       if (options) {
-        publish({ id: NOTICE_ID, level: 'info', title: options.runningTitle, autoDismissMs: null })
+        appEvent('info', options.runningTitle)
+          .noticeId(NOTICE_ID)
+          .autoDismiss(null)
+          .context({ source: 'settings-ai-usage', operation: 'run-action' })
+          .emit()
       }
       await action()
       await load()
       if (options) {
         dismissNotification(NOTICE_ID)
-        publish({ id: NOTICE_ID, level: 'success', title: options.successTitle })
+        appEvent('success', options.successTitle)
+          .noticeId(NOTICE_ID)
+          .context({ source: 'settings-ai-usage', operation: 'run-action' })
+          .emit()
       }
-    } catch {
+    } catch (cause) {
       setError(copy.actionError)
       dismissNotification(NOTICE_ID)
-      publish({ id: NOTICE_ID, level: 'error', title: copy.actionError, description: copy.actionError })
+      appEvent('error', copy.actionError)
+        .description(copy.actionError)
+        .noticeId(NOTICE_ID)
+        .error(cause)
+        .context({ source: 'settings-ai-usage', operation: 'run-action' })
+        .emit()
     }
   }
   const operations = [...new Set([...summary.daily.map((row) => row.operation), ...page.records.map((record) => record.operation)])]

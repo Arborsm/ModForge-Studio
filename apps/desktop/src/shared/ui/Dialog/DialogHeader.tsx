@@ -1,8 +1,11 @@
+/** @file Dialog header, body, footer, and action button components for the standard dialog chrome. */
+
 import { X } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useId } from 'react'
 import { cx } from '@shared/lib/helper'
 
+/** Tint applied to the header icon (default, danger, warning). */
 export type DialogHeaderTone = 'default' | 'danger' | 'warning'
 
 type DialogHeaderProps = {

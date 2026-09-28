@@ -1,3 +1,5 @@
+/** @file Read-only list showing which mods contribute patches to a given asset. */
+
 type ModSourceEntry = {
   modId: string
   modName: string
@@ -13,9 +15,10 @@ type ModSourceListProps = {
   variant?: 'card' | 'flat'
 }
 
+/** Lists the mod sources that patch a given asset, in card or flat layout. */
 export function ModSourceList({ sources, emptyLabel = 'No mod source recorded.', variant = 'card' }: ModSourceListProps) {
   if (!sources.length) {
-    return <p className="text-sm text-(--text-secondary)">{emptyLabel}</p>
+    return <p className="text-text-secondary text-sm">{emptyLabel}</p>
   }
 
   if (variant === 'flat') {
@@ -24,14 +27,14 @@ export function ModSourceList({ sources, emptyLabel = 'No mod source recorded.',
         {sources.map((source) => (
           <div
             key={`${source.modId}:${source.key}:${source.patchIds.join(',')}`}
-            className="flex flex-col gap-1 border-b border-(--border-color)/50 py-2.5 last:border-b-0"
+            className="border-border-subtle/50 flex flex-col gap-1 border-b py-2.5 last:border-b-0"
           >
             <div className="flex items-center justify-between gap-3">
-              <p className="truncate text-xs font-bold text-(--text-primary)">{source.modName}</p>
+              <p className="text-text-primary truncate text-xs font-bold">{source.modName}</p>
               <span className="dock-chip shrink-0">{source.patchIds.length}</span>
             </div>
-            <p className="truncate text-xs text-(--text-secondary)">{source.modPath}</p>
-            <div className="mt-1 flex flex-col gap-0.5 text-xs text-(--text-tertiary)">
+            <p className="text-text-secondary truncate text-xs">{source.modPath}</p>
+            <div className="text-text-tertiary mt-1 flex flex-col gap-0.5 text-xs">
               <p className="truncate">Target: {source.targets.join(' / ') || source.key}</p>
               <p className="truncate">Patch: {source.patchIds.join(', ') || 'n/a'}</p>
             </div>
@@ -47,12 +50,12 @@ export function ModSourceList({ sources, emptyLabel = 'No mod source recorded.',
         <div key={`${source.modId}:${source.key}:${source.patchIds.join(',')}`} className="panel-list-card px-3 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-(--text-primary)">{source.modName}</p>
-              <p className="truncate text-xs text-(--text-secondary)">{source.modPath}</p>
+              <p className="text-text-primary truncate text-sm font-semibold">{source.modName}</p>
+              <p className="text-text-secondary truncate text-xs">{source.modPath}</p>
             </div>
             <span className="dock-chip shrink-0">{source.patchIds.length}</span>
           </div>
-          <div className="mt-3 space-y-1.5 text-xs text-(--text-secondary)">
+          <div className="text-text-secondary mt-3 space-y-1.5 text-xs">
             <p>Target: {source.targets.join(' / ') || source.key}</p>
             <p>Patch: {source.patchIds.join(', ') || 'n/a'}</p>
           </div>

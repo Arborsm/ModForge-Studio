@@ -1,13 +1,6 @@
 /**
- * Shared loading motion contract for page-level presentation.
- *
- * Lifecycle stages, motion style/intensity/speed, preference shape, page
- * reveal metadata, and anchor declarations — all pure data, no rendering.
+ * @file Shared loading motion contract for page-level presentation — lifecycle stages, motion style/intensity/speed, preference shape, page reveal metadata, and anchor declarations.
  */
-
-/* ------------------------------------------------------------------ */
-/*  Lifecycle stages                                                   */
-/* ------------------------------------------------------------------ */
 
 /**
  * The five lifecycle stages a page-level loading presentation passes through.
@@ -24,16 +17,8 @@
  */
 export type LoadingMotionStage = 'idle' | 'entering' | 'loading' | 'ready' | 'exiting'
 
-/* ------------------------------------------------------------------ */
-/*  Style identifiers                                                  */
-/* ------------------------------------------------------------------ */
-
 /** Stable internal id for each motion style. */
 export type LoadingMotionStyleId = 'bounceIn' | 'layeredFadeIn' | 'slideInPush' | 'softFadeIn' | 'quietSimplify'
-
-/* ------------------------------------------------------------------ */
-/*  Intensity identifiers                                              */
-/* ------------------------------------------------------------------ */
 
 /**
  * Stable internal id for each motion intensity level.
@@ -44,17 +29,9 @@ export type LoadingMotionStyleId = 'bounceIn' | 'layeredFadeIn' | 'slideInPush' 
  */
 export type LoadingMotionIntensityId = 'light' | 'standard' | 'strong'
 
-/* ------------------------------------------------------------------ */
-/*  Speed identifiers                                                 */
-/* ------------------------------------------------------------------ */
-
 export type LoadingMotionSpeedId = 'slow' | 'standard' | 'fast'
 
 export type LoadingMotionSpeedMode = 'preset' | 'custom'
-
-/* ------------------------------------------------------------------ */
-/*  Preference and resolved config                                     */
-/* ------------------------------------------------------------------ */
 
 /**
  * User-persisted loading motion preference.
@@ -94,10 +71,6 @@ export type ResolvedLoadingMotionConfig = {
   anchors: readonly [string, string?]
 }
 
-/* ------------------------------------------------------------------ */
-/*  Reveal metadata                                                    */
-/* ------------------------------------------------------------------ */
-
 /**
  * Metadata for a single revealable item within a page.
  *
@@ -112,10 +85,6 @@ export type RevealItemMetadata = {
   priority?: number
   ready?: boolean
 }
-
-/* ------------------------------------------------------------------ */
-/*  Page anchor declaration                                            */
-/* ------------------------------------------------------------------ */
 
 /**
  * Page-declared anchor components.

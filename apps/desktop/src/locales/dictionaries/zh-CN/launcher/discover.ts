@@ -25,8 +25,10 @@ const discover: LauncherDiscoverCopy = {
   errorDetail: '发现请求已发出，但返回内容当前不可用。你可以重试，或稍后再次检查。',
   consoleTitle: 'Nexus 模组',
   resultRange: (start, end, total) => `显示 ${start} - ${end} / ${total} 个结果`,
-  searchPlaceholder: '搜索 Nexus 模组',
+  searchPlaceholder: '搜索模组，或输入 Nexus 模组 ID',
   searchAction: '搜索',
+  modIdNotFoundTitle: '未找到对应 ID 的模组',
+  modIdNotFoundDetail: (modId) => `没有找到 ID 为 ${modId} 的模组，已显示常规搜索结果。`,
   showFilters: '显示筛选',
   hideFilters: '隐藏筛选',
   timeRangeLabel: '时间范围',
@@ -121,6 +123,20 @@ const discover: LauncherDiscoverCopy = {
   pageLabel: (page) => `第 ${page} 页`,
   jumpToPage: '跳转到',
   pageUnit: '页',
+  mobile: {
+    sheetTitle: '筛选与排序',
+    apply: '应用',
+    timeGroupLabel: '时间',
+    sortGroupLabel: '排序',
+    categoryGroupLabel: '分类',
+    languageGroupLabel: '语言',
+    sizeGroupLabel: '文件大小',
+    anyLanguage: '任意语言',
+    ascendingChip: '升序',
+    descendingChip: '降序',
+    recheckAction: '重新检查',
+    endOfResults: '已经到底啦',
+  },
 }
 
 export default discover

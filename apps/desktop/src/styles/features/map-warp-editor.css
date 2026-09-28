@@ -1,0 +1,172 @@
+@layer components {
+  .map-warp-editor {
+    @apply grid;
+    gap: 0.625rem;
+  }
+
+  .map-warp-editor-heading {
+    @apply flex items-center justify-between;
+    gap: 0.5rem;
+  }
+
+  .map-warp-editor-heading > div {
+    @apply grid min-w-0;
+    gap: 0.125rem;
+  }
+
+  .map-warp-editor-heading strong {
+    @apply text-text-primary text-meta;
+  }
+
+  .map-warp-editor-heading span,
+  .map-warp-editor-empty {
+    @apply text-text-tertiary text-caption;
+  }
+
+  .map-warp-editor-heading .icon-button,
+  .map-warp-source-row .icon-button,
+  .map-warp-destination-point .icon-button {
+    width: 1.875rem;
+    height: 1.875rem;
+  }
+
+  .map-warp-list {
+    @apply grid overflow-y-auto;
+    max-height: 11rem;
+    border-block: 1px solid var(--border-color);
+  }
+
+  .map-warp-list > button {
+    @apply text-text-secondary grid min-w-0 items-center;
+    min-height: 2rem;
+    grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+    gap: 0.375rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    padding: 0 0.375rem;
+    text-align: left;
+  }
+
+  .map-warp-list > button:last-child {
+    border-bottom: 0;
+  }
+
+  .map-warp-list > button:hover,
+  .map-warp-list > button.is-active {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .map-warp-list > button.is-active {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  .map-warp-list > button strong {
+    @apply text-meta overflow-hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-warp-list > button span,
+  .map-warp-list > button small {
+    @apply text-caption font-mono;
+    white-space: nowrap;
+  }
+
+  .map-warp-list > button small {
+    @apply text-text-tertiary;
+  }
+
+  .map-warp-entry {
+    @apply grid;
+    gap: 0.625rem;
+  }
+
+  .map-warp-source-row {
+    @apply grid items-center;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.25rem;
+  }
+
+  .map-warp-source-row > div,
+  .map-warp-destination-row {
+    @apply grid min-w-0;
+    gap: 0.25rem;
+  }
+
+  .map-warp-source-row span,
+  .map-warp-destination-row > span {
+    @apply text-text-tertiary text-caption;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
+
+  .map-warp-source-row strong,
+  .map-warp-destination-point strong {
+    @apply text-text-primary text-meta font-mono;
+  }
+
+  .map-warp-destination-trigger {
+    @apply w-full min-w-0;
+    justify-content: flex-start;
+  }
+
+  .map-warp-destination-trigger span {
+    @apply overflow-hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-warp-destination-point {
+    @apply flex items-center justify-between;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+  }
+
+  .map-warp-editor-empty {
+    @apply m-0;
+    border-block: 1px solid var(--border-color);
+    padding: 0.75rem 0;
+    text-align: center;
+  }
+
+  .map-warp-destination-picker {
+    @apply grid overflow-hidden;
+    height: min(16rem, 45vh);
+    min-height: 11rem;
+    grid-template-rows: auto minmax(0, 1fr);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-viewport);
+  }
+
+  .map-warp-destination-picker > header {
+    @apply bg-surface-panel-muted grid;
+    gap: 0.125rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 0.625rem;
+  }
+
+  .map-warp-destination-picker > header strong {
+    @apply text-text-primary text-meta;
+  }
+
+  .map-warp-destination-picker > header span {
+    @apply text-text-secondary text-caption;
+  }
+
+  .map-warp-destination-picker > .map-viewport-root {
+    min-height: 0;
+  }
+
+  .map-warp-destination-state {
+    @apply text-text-secondary flex items-center justify-center;
+    gap: 0.5rem;
+    padding: 1rem;
+    font-size: 0.6875rem;
+    text-align: center;
+  }
+
+  .map-warp-destination-state.is-error {
+    @apply text-danger;
+  }
+}

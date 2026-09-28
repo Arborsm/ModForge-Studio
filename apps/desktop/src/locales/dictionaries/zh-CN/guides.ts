@@ -21,7 +21,7 @@ const guides: GuidesCopy = {
         },
         'nav-tabs': {
           title: '页面导航',
-          description: '在模组库、发现、更新和配置之间切换。徽章会提示可用更新和下载进度。',
+          description: '在模组库、发现、更新和诊断之间切换。徽章会提示可用更新和下载进度。',
         },
         'library-toolbar': {
           title: '搜索与视图',
@@ -80,10 +80,10 @@ const guides: GuidesCopy = {
       },
     },
     'launcher-configuration': {
-      title: '启动器配置',
+      title: '启动器诊断',
       steps: {
         welcome: {
-          title: '配置启动器',
+          title: '诊断启动器',
           description: '游戏路径、Nexus 账号和诊断选项都在这里维护。',
         },
         'config-game': {
@@ -131,6 +131,40 @@ const guides: GuidesCopy = {
         'translation-knowledge': {
           title: '知识与语料',
           description: '沉淀术语和常用译法，让每次翻译都复用已有成果。',
+        },
+      },
+    },
+    'workbench-map': {
+      title: '地图编辑器',
+      steps: {
+        welcome: {
+          title: '地图编辑器',
+          description: '编辑星露谷物语地图：绘制图块、添加传送门和门、管理图层，并将改动导出为 Content Patcher 补丁或直接编辑地图素材。',
+        },
+        'map-catalog-card': {
+          title: '选择游戏地图',
+          description: '点击地图卡片创建补丁，或使用"导入并编辑文件"直接编辑地图文件。',
+        },
+        'map-layer-list': {
+          title: '选择图层',
+          description: '地图由多个图层组成（Back、Buildings、Front 等）。选择要绘制的图层。',
+        },
+        'map-tileset-palette': {
+          title: '选择图块',
+          description: '在调色板标签页中从图块表选择一个图块或图块区域作为画笔。',
+        },
+        'map-canvas': {
+          title: '在画布上绘制',
+          description: '在画布上拖拽以用选中的图块绘制。使用工具栏切换画笔、填充、橡皮擦等工具。',
+        },
+        'map-inspector-map': {
+          title: '添加传送门和门',
+          description:
+            'Inspector > 内容 标签页管理传送入口、门和昼夜替换条目；点「添加」后在对话框里直接点选格子完成创建。音乐和环境光在编辑器顶栏。',
+        },
+        'map-save-button': {
+          title: '保存改动',
+          description: '按 Ctrl+S 或点击保存按钮，将改动写回补丁或地图素材。',
         },
       },
     },

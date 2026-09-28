@@ -1,9 +1,14 @@
+/**
+ * @file Discover toolbar persisted state: sort/filter/page-size options and
+ * normalization from localStorage input.
+ */
 export const LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY = 'modforge:launcher-discover-toolbar:v1'
 
 const DISCOVER_SORT_OPTIONS = ['newest', 'updated', 'trending', 'downloads', 'endorsements', 'name'] as const
 const DISCOVER_TIME_RANGE_OPTIONS = ['all', 'day', 'week', 'month', 'year'] as const
 const DISCOVER_PAGE_SIZE_OPTIONS = [20, 40, 80] as const
 
+/** Persisted discover toolbar state shape. */
 export type LauncherDiscoverToolbarState = {
   sort: (typeof DISCOVER_SORT_OPTIONS)[number]
   ascending: boolean
@@ -12,6 +17,7 @@ export type LauncherDiscoverToolbarState = {
   filtersHidden: boolean
 }
 
+/** Default toolbar state used when no persisted value exists or input is invalid. */
 export const DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE: LauncherDiscoverToolbarState = {
   sort: 'newest',
   ascending: false,
@@ -69,6 +75,7 @@ function parseDiscoverPageSize(value: number | string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+/** Normalizes raw localStorage input into a valid toolbar state, falling back to defaults for invalid fields. */
 export function normalizeLauncherDiscoverToolbarState(input?: LauncherDiscoverToolbarStateInput | null): LauncherDiscoverToolbarState {
   const ascending = parseOptionalBoolean(input?.ascending)
   const filtersHidden = parseOptionalBoolean(input?.filtersHidden)

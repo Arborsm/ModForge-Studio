@@ -12,22 +12,28 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { useLocalization } from '@entities/localization'
 import { useAi } from '@entities/ai'
 import { useAiLocalizationCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type { AiLocalizationScope, AiSemanticSearchMode, LocalizationScopeSettings } from '@shared/contracts'
 import { cx } from '@shared/lib/helper'
 import { CompactSelect } from '@shared/ui/CompactSelect'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { KnowledgeCenterView, type KnowledgeTab } from './KnowledgeCenterView'
 import { OfficialCorpusView } from './OfficialCorpusView'
 import { QualityHistoryView } from './QualityHistoryView'
 import { isString, useAiLocalizationPersistentState } from '../model/localizationPageState'
+import { errorDetail } from '../model/errorDetail'
 
 type Tab = 'overview' | 'glossary' | 'memory' | 'style' | 'official' | 'quality'
+
+const PROFILE_NOTICE = 'ai-localization-profile-error'
+const TRANSFER_NOTICE = 'ai-localization-transfer-error'
+const OVERVIEW_NOTICE = 'ai-localization-overview-error'
 
 const supportedLocales = [
   'en-US',
@@ -54,7 +60,6 @@ export type AiLocalizationViewProps = {
 export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: AiLocalizationViewProps) {
   const copy = useAiLocalizationCopy()
   const localization = useLocalization()
-  const publish = useNotificationPublisher()
   const [storedTab, setTab] = useAiLocalizationPersistentState('tab', 'overview', isString)
   const tab: Tab = ['overview', 'glossary', 'memory', 'style', 'official', 'quality'].includes(storedTab)
     ? (storedTab as Tab)
@@ -121,8 +126,17 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
     : scopes
 
   const refreshScopes = () => setScopeRetryToken((value) => value + 1)
-  const failProfileAction = () => {
-    publish({ id: 'ai-localization-profile-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
+  const failProfileAction = (error: unknown) => {
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization', operation: 'profile-action' })
+      .emit({ notify: false })
+    appEvent('error', copy.knowledgeError)
+      .description(errorDetail(error))
+      .noticeId(PROFILE_NOTICE)
+      .error(error)
+      .context({ source: 'ai-localization', operation: 'profile-action' })
+      .emit()
   }
   const createProfile = async () => {
     const name = newProfileName.trim()
@@ -133,8 +147,9 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
       setNewProfileName('')
       refreshScopes()
       setScopeId(snapshot.scope.id)
-    } catch {
-      failProfileAction()
+      dismissNotification(PROFILE_NOTICE)
+    } catch (error) {
+      failProfileAction(error)
     }
   }
   const startRenameProfile = (scope: AiLocalizationScope) => {
@@ -148,8 +163,9 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
       await localization.renameProfile(scope.id, name)
       setRenamingScopeId(null)
       refreshScopes()
-    } catch {
-      failProfileAction()
+      dismissNotification(PROFILE_NOTICE)
+    } catch (error) {
+      failProfileAction(error)
     }
   }
   const deleteProfile = async (scope: AiLocalizationScope) => {
@@ -160,8 +176,9 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
         setScopeId(scopes.find((item) => item.kind === 'global')?.id ?? '')
       }
       refreshScopes()
-    } catch {
-      failProfileAction()
+      dismissNotification(PROFILE_NOTICE)
+    } catch (error) {
+      failProfileAction(error)
     }
   }
 
@@ -187,8 +204,18 @@ export function AiLocalizationView({ gameDirectory = null, onOpenAiSettings }: A
           query: null,
         })
       }
-    } catch {
-      publish({ id: 'ai-localization-transfer-error', level: 'error', title: copy.knowledgeError, description: copy.knowledgeError })
+      dismissNotification(TRANSFER_NOTICE)
+    } catch (error) {
+      appEvent('error', copy.knowledgeError)
+        .error(error)
+        .context({ source: 'ai-localization', operation: 'transfer-knowledge' })
+        .emit({ notify: false })
+      appEvent('error', copy.knowledgeError)
+        .description(errorDetail(error))
+        .noticeId(TRANSFER_NOTICE)
+        .error(error)
+        .context({ source: 'ai-localization', operation: 'transfer-knowledge' })
+        .emit()
     }
   }
 
@@ -490,15 +517,31 @@ function AiLocalizationOverview({
   const [settings, setSettings] = useState<LocalizationScopeSettings | null>(null)
   const [engineOptions, setEngineOptions] = useState<Array<{ value: string; label: string }>>([])
   const [reviewOptions, setReviewOptions] = useState<Array<{ value: string; label: string }>>([])
-  const [statsError, setStatsError] = useState(false)
-  const [corpusReadinessError, setCorpusReadinessError] = useState(false)
-  const [semanticReadinessError, setSemanticReadinessError] = useState(false)
-  const [settingsError, setSettingsError] = useState(false)
   const [retryToken, setRetryToken] = useState(0)
   const runLoad = useLatestTask('ai-localization-overview')
   const runReadinessLoad = useLatestTask('ai-localization-overview-readiness')
   const runSemanticReadinessLoad = useLatestTask('ai-localization-overview-semantic-readiness')
   const runSettingsLoad = useLatestTask('ai-localization-overview-settings')
+  const overviewFailures = useRef(new Set<'stats' | 'corpus' | 'semantic' | 'settings'>())
+  const failOverview = (key: 'stats' | 'corpus' | 'semantic' | 'settings', error: unknown) => {
+    overviewFailures.current.add(key)
+    appEvent('error', copy.knowledgeError)
+      .error(error)
+      .context({ source: 'ai-localization-overview', operation: key })
+      .emit({ notify: false })
+    publishNotification({
+      id: OVERVIEW_NOTICE,
+      level: 'error',
+      eyebrow: copy.projectMessage,
+      title: copy.knowledgeError,
+      description: errorDetail(error),
+      action: { label: copy.retry, callback: () => setRetryToken((value) => value + 1), tone: 'primary' },
+    })
+  }
+  const clearOverviewFailure = (key: 'stats' | 'corpus' | 'semantic' | 'settings') => {
+    overviewFailures.current.delete(key)
+    if (overviewFailures.current.size === 0) dismissNotification(OVERVIEW_NOTICE)
+  }
 
   useEffect(() => {
     if (!scope) return
@@ -509,15 +552,15 @@ function AiLocalizationOverview({
         localization.listReviewRuns({ scopeId: scope.id, offset: 0, limit: 20 }),
       ])
       if (!task.isCurrent()) return
-      setStatsError(false)
       setStats({
         glossary: glossary.total,
         memory: memory.total,
         reviews: reviews.records.filter((review) => review.summary.critical > 0).length,
         critical: reviews.records.reduce((total, review) => total + review.summary.critical, 0),
       })
+      clearOverviewFailure('stats')
     }).catch((taskError) => {
-      if (!(taskError instanceof TaskCancelledError)) setStatsError(true)
+      if (!(taskError instanceof TaskCancelledError)) failOverview('stats', taskError)
     })
   }, [localization, retryToken, runLoad, scope, sourceLocale, targetLocale])
 
@@ -540,14 +583,11 @@ function AiLocalizationOverview({
         corpusInspected: true,
         corpusReady: Boolean(corpus?.indexed),
       }))
-      setCorpusReadinessError(
-        (knownResult.status === 'rejected' && detectedResult.status === 'rejected' && !gameDirectory) ||
-          (directories.length > 0 && corpusStatuses.length === 0),
-      )
+      clearOverviewFailure('corpus')
     }).catch((taskError) => {
       if (!(taskError instanceof TaskCancelledError)) {
         setReadiness((current) => ({ ...current, corpusInspected: true }))
-        setCorpusReadinessError(true)
+        failOverview('corpus', taskError)
       }
     })
   }, [gameDirectory, localization, retryToken, runReadinessLoad, scope])
@@ -564,11 +604,11 @@ function AiLocalizationOverview({
         semanticMode: settings.mode,
         semanticReady: settings.mode === 'lexical' || Boolean(modelResult?.available),
       }))
-      setSemanticReadinessError(false)
+      clearOverviewFailure('semantic')
     }).catch((taskError) => {
       if (!(taskError instanceof TaskCancelledError)) {
         setReadiness((current) => ({ ...current, semanticInspected: true }))
-        setSemanticReadinessError(true)
+        failOverview('semantic', taskError)
       }
     })
   }, [localization, retryToken, runSemanticReadinessLoad, scope])
@@ -592,9 +632,9 @@ function AiLocalizationOverview({
         { value: '', label: copy.noDefault },
         ...generative.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
       ])
-      setSettingsError(false)
+      clearOverviewFailure('settings')
     }).catch((taskError) => {
-      if (!(taskError instanceof TaskCancelledError)) setSettingsError(true)
+      if (!(taskError instanceof TaskCancelledError)) failOverview('settings', taskError)
     })
   }, [ai, copy.noDefault, localization, retryToken, runSettingsLoad, scope])
 
@@ -603,9 +643,9 @@ function AiLocalizationOverview({
     try {
       const snapshot = await localization.saveScopeSettings(settings)
       setSettings(snapshot.settings)
-      setSettingsError(false)
-    } catch {
-      setSettingsError(true)
+      clearOverviewFailure('settings')
+    } catch (error) {
+      failOverview('settings', error)
     }
   }
 
@@ -663,14 +703,6 @@ function AiLocalizationOverview({
 
   return (
     <div className="ai-localization-overview">
-      {statsError || settingsError || corpusReadinessError || semanticReadinessError ? (
-        <div className="settings-ai-error" role="alert">
-          <span>{copy.knowledgeError}</span>
-          <button type="button" className="control-button" onClick={() => setRetryToken((value) => value + 1)}>
-            {copy.retry}
-          </button>
-        </div>
-      ) : null}
       <section className="ai-localization-overview-section">
         <div className="ai-localization-metric-row">
           <button type="button" className="ai-localization-metric" onClick={() => onOpenKnowledge('glossary')}>

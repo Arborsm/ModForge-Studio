@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import type { ItemBrowseCategory, ItemTextureAssetState, ItemWorkspaceEntry } from '../entities/item'
+import type { ItemBrowseCategory, ItemTextureAssetState, ItemWorkspaceEntry } from '@entities/item'
 
 export type ItemsCopy = import('@locales/api').ItemsPanelCopy
 
@@ -21,6 +21,8 @@ export type ItemWorkspaceProps = {
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
   onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>) => void
+  /** Continues with this item in the authoring page; omitted where no host can route there. */
+  onOpenItemInAuthoring?: (item: ItemWorkspaceEntry) => void
 }
 
 export type Tone = 'neutral' | 'positive' | 'danger' | 'accent'

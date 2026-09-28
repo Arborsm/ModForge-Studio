@@ -1,3 +1,4 @@
+use modforge_studio_desktop_lib::validation::pathing;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -40,15 +41,13 @@ pub(crate) fn write_bytes_file(path: &Path, content: &[u8]) {
 
 #[allow(dead_code)]
 pub(crate) fn installed_game_root() -> PathBuf {
-    crate::infrastructure::fs::pathing::clean_input_path(
-        r"E:\SteamLibrary\steamapps\common\Stardew Valley",
-    )
+    pathing::clean_input_path(r"E:\SteamLibrary\steamapps\common\Stardew Valley")
 }
 
 #[allow(dead_code)]
 pub(crate) fn resolve_game_root() -> PathBuf {
     std::env::var_os("SDV_GAME_PATH")
         .map(PathBuf::from)
-        .map(|path| crate::infrastructure::fs::pathing::clean_input_path(&path.to_string_lossy()))
+        .map(|path| pathing::clean_input_path(&path.to_string_lossy()))
         .unwrap_or_else(installed_game_root)
 }

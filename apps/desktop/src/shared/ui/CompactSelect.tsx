@@ -1,3 +1,5 @@
+/** @file Compact popover select with keyboard navigation and floating-ui positioning. */
+
 import {
   useEffect,
   useCallback,
@@ -11,22 +13,38 @@ import {
 import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import { cx } from '@shared/lib/helper'
 
+/** One selectable option in a CompactSelect, with optional description and disabled state. */
 export type CompactSelectOption<TValue extends string | number> = {
+  /** Option value handed to `onChange`. */
   value: TValue
+  /** Visible option label. */
   label: string
+  /** Secondary line under the label. */
   description?: string
+  /** Renders the option non-interactive. */
   disabled?: boolean
 }
 
 type CompactSelectProps<TValue extends string | number> = {
+  /** Currently selected value. */
   value: TValue
+  /** Options to display. */
   options: readonly CompactSelectOption<TValue>[]
+  /** Called with the value of the picked option. */
   onChange: (value: TValue) => void
+  /** Accessible label for the trigger. */
   ariaLabel: string
+  /** Shown on the trigger when the value matches no option; without it the first option is displayed instead. */
+  placeholder?: string
+  /** Extra class on the root wrapper. */
   className?: string
+  /** Extra class on the trigger button. */
   triggerClassName?: string
+  /** Extra class on the popover menu. */
   menuClassName?: string
+  /** Renders the trigger non-interactive. */
   disabled?: boolean
+  /** Popover placement relative to the trigger. */
   placement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end'
 }
 
@@ -42,6 +60,7 @@ export function CompactSelect<TValue extends string | number>({
   options,
   onChange,
   ariaLabel,
+  placeholder,
   className,
   triggerClassName,
   menuClassName,
@@ -50,9 +69,9 @@ export function CompactSelect<TValue extends string | number>({
 }: CompactSelectProps<TValue>) {
   const [open, setOpen] = useState(false)
   const listboxId = useId()
-  const selectedOption = options.find((option) => Object.is(option.value, value)) ?? options[0] ?? null
+  const selectedOption = options.find((option) => Object.is(option.value, value)) ?? (placeholder == null ? options[0] : null) ?? null
   const enabled = !disabled && options.length > 0
-  const triggerLabel = selectedOption ? `${ariaLabel}: ${selectedOption.label}` : ariaLabel
+  const triggerLabel = selectedOption ? `${ariaLabel}: ${selectedOption.label}` : placeholder ? `${ariaLabel}: ${placeholder}` : ariaLabel
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -183,7 +202,9 @@ export function CompactSelect<TValue extends string | number>({
         onClick={() => setOpen((current) => (enabled ? !current : false))}
         onKeyDown={handleTriggerKeyDown}
       >
-        <span className="compact-select__value">{selectedOption?.label ?? ''}</span>
+        <span className={cx('compact-select__value', !selectedOption && placeholder != null && 'is-placeholder')}>
+          {selectedOption?.label ?? placeholder ?? ''}
+        </span>
         <span className="compact-select__chevron" aria-hidden />
       </button>
 

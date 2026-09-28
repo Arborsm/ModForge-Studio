@@ -13,6 +13,17 @@ import type {
 } from '../model'
 
 export type {
+  AssetAuthoringCopy,
+  AssetEnumLabelKey,
+  AssetFieldLabel,
+  AssetFieldLabelKey,
+  AssetGroupLabelKey,
+  AssetIssueMessageKey,
+  AssetIssueParams,
+  AssetPickerKindKey,
+  AssetTextCategoryKey,
+  ResourceBrowserCopy,
+  ResourceBrowserKindKey,
   BuildingsPanelCopy,
   CharactersPanelCopy,
   AppMode,
@@ -36,6 +47,7 @@ export type {
   ThemeMode,
   ViewMenuCopy,
   MapPanelCopy,
+  AudioPanelCopy,
   ViewportLabels,
   ScriptEditorCopy,
   WorkspaceTone,

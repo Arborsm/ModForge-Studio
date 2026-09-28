@@ -39,6 +39,7 @@ use crate::domain::nexusmods::mod_detail::{
     RemoteModDetail, enrich_remote_mod_detail_with_gallery_images,
     parse_public_mod_detail_graphql_response,
 };
+use crate::domain::nexusmods::request::NexusRequestContext;
 use crate::domain::nexusmods::updates::{
     build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
@@ -777,7 +778,7 @@ fn launcher_updates_cache_returns_unexpired_entry_for_matching_mods_path() {
 
     let loaded = load_cached_launcher_updates_at_path(
         &cache_path,
-        "C:/Games/Stardew Valley/Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         1_799_999,
     )
     .expect("load launcher updates cache");
@@ -828,15 +829,24 @@ fn launcher_updates_cache_invalidates_only_the_matching_mods_path() {
     save_launcher_updates_cache_at_path(&cache_path, &second, 2_000, 1_800_000)
         .expect("save second launcher updates cache entry");
 
-    invalidate_launcher_updates_cache_at_path(&cache_path, Some("C:/Games/Stardew Valley/Mods"))
-        .expect("invalidate launcher updates cache");
+    invalidate_launcher_updates_cache_at_path(
+        &cache_path,
+        Some(normalized_mods_path(r"C:\Games\Stardew Valley\Mods").as_str()),
+    )
+    .expect("invalidate launcher updates cache");
 
-    let first_loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 50_000)
-            .expect("load invalidated launcher updates cache");
-    let second_loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"D:\Games\Stardew Valley\Mods", 50_000)
-            .expect("load remaining launcher updates cache");
+    let first_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        50_000,
+    )
+    .expect("load invalidated launcher updates cache");
+    let second_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"D:\Games\Stardew Valley\Mods"),
+        50_000,
+    )
+    .expect("load remaining launcher updates cache");
 
     assert_eq!(first_loaded, None);
     assert_eq!(second_loaded, Some(second));
@@ -854,9 +864,12 @@ fn launcher_updates_cache_preserves_incomplete_entries_for_incremental_progress(
     save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
         .expect("save incomplete launcher updates cache");
 
-    let loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 60_000)
-            .expect("load incomplete launcher updates cache");
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        60_000,
+    )
+    .expect("load incomplete launcher updates cache");
 
     assert_eq!(loaded, Some(cached));
 
@@ -873,20 +886,23 @@ fn launcher_updates_cache_clears_interrupted_check_markers_without_discarding_la
         .expect("save launcher updates cache");
     mark_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         120_000,
     )
     .expect("mark launcher updates check in progress");
 
     clear_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        Some(r"C:\Games\Stardew Valley\Mods"),
+        Some(normalized_mods_path(r"C:\Games\Stardew Valley\Mods").as_str()),
     )
     .expect("clear launcher updates check in progress");
 
-    let loaded =
-        load_cached_launcher_updates_at_path(&cache_path, r"C:\Games\Stardew Valley\Mods", 600_000)
-            .expect("load cached launcher updates");
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
+        600_000,
+    )
+    .expect("load cached launcher updates");
 
     assert_eq!(loaded, Some(cached));
 
@@ -906,21 +922,23 @@ fn inspect_launcher_updates_cache_reports_fresh_entry_and_in_progress_state() {
         .expect("save launcher updates cache");
     mark_launcher_updates_check_in_progress_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         120_000,
     )
     .expect("mark launcher updates check in progress");
 
     let inspection = inspect_launcher_updates_cache_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         600_000,
     )
     .expect("inspect launcher updates cache");
 
     assert_eq!(
         inspection.cache_key,
-        normalize_launcher_updates_cache_key(r"C:\Games\Stardew Valley\Mods")
+        normalize_launcher_updates_cache_key(&normalized_mods_path(
+            r"C:\Games\Stardew Valley\Mods"
+        ))
     );
     assert_eq!(
         inspection.entry_state,
@@ -948,7 +966,7 @@ fn inspect_launcher_updates_cache_reports_expired_entry_state() {
 
     let inspection = inspect_launcher_updates_cache_at_path(
         &cache_path,
-        r"C:\Games\Stardew Valley\Mods",
+        &normalized_mods_path(r"C:\Games\Stardew Valley\Mods"),
         1_900_000,
     )
     .expect("inspect expired launcher updates cache");
@@ -1709,12 +1727,11 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
 
 #[test]
 fn can_use_nexus_graphql_requires_api_key() {
-    assert!(!can_use_nexus_graphql(&LauncherSettings::default()));
+    assert!(!can_use_nexus_graphql(&NexusRequestContext::default()));
 
-    assert!(can_use_nexus_graphql(&LauncherSettings {
-        nexus_api_key: Some("nexus-key".to_string()),
-        ..LauncherSettings::default()
-    }));
+    assert!(can_use_nexus_graphql(&NexusRequestContext::new(Some(
+        "nexus-key".to_string()
+    ))));
 }
 
 #[test]
@@ -2008,11 +2025,15 @@ fn inspect_archive_detects_manifest_roots_and_builds_tree() {
     let archive_path = root.join("bundle.zip");
     create_zip_from_directory(&source, &archive_path);
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect archive");
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect archive");
     assert_eq!(result.archive_file_name, "bundle.zip");
     assert_eq!(result.total_files, 4);
     assert_eq!(
-        result.mod_roots,
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
         vec!["ModA".to_string(), "Nested/ModB".to_string()]
     );
 
@@ -2055,8 +2076,15 @@ fn inspect_archive_detects_manifest_at_archive_root() {
     let archive_path = root.join("root.zip");
     create_zip_from_directory(&source, &archive_path);
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect archive");
-    assert_eq!(result.mod_roots, vec![".".to_string()]);
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect archive");
+    assert_eq!(
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
+        vec![".".to_string()]
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -2241,8 +2269,15 @@ fn inspect_archive_detects_chinese_root_from_gbk_zip() {
         &[(&format!("{folder_name}/manifest.json"), manifest.as_bytes())],
     );
 
-    let result = inspect_archive_at_path(&archive_path).expect("inspect gbk zip archive");
-    assert_eq!(result.mod_roots, vec![folder_name.to_string()]);
+    let result = inspect_archive_at_path(&archive_path, None).expect("inspect gbk zip archive");
+    assert_eq!(
+        result
+            .mod_roots
+            .iter()
+            .map(|root| root.path.clone())
+            .collect::<Vec<_>>(),
+        vec![folder_name.to_string()]
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

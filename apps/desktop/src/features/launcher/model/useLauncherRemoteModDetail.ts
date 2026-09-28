@@ -1,11 +1,12 @@
+/**
+ * @file useLauncherRemoteModDetail hook: loads and caches remote Nexus mod
+ * detail for the discover/library detail panels.
+ */
 import { useEffect, useState } from 'react'
+import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useLauncherPort } from './launcherPortContext'
-import { useEditorCopy } from '@locales/provider'
-import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 
 import type { LauncherDiscoverDetail, LauncherViewState } from './types'
-
-const LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID = 'launcher-remote-mod-detail'
 
 type RemoteModDetailState = {
   requestKey: string | null
@@ -16,14 +17,12 @@ type RemoteModDetailState = {
 
 type UseLauncherRemoteModDetailOptions = {
   includeFiles?: boolean
-  notify?: boolean
 }
 
+/** Loads remote Nexus mod detail by mod id, with loading/error state and unavailable-mod short-circuit. */
 export function useLauncherRemoteModDetail(modId: number | null, options: UseLauncherRemoteModDetailOptions = {}) {
   const launcherPort = useLauncherPort()
-  const copy = useEditorCopy().launcher
   const includeFiles = options.includeFiles
-  const notify = options.notify ?? true
   const requestKey = modId ? `${modId}:${includeFiles === false ? 'meta' : 'files'}` : null
   const [requestState, setRequestState] = useState<RemoteModDetailState>({
     requestKey: null,
@@ -31,50 +30,30 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
     state: 'idle',
     error: null,
   })
+  const runDetailTask = useLatestTask('launcher-remote-mod-detail')
 
   useEffect(() => {
-    if (!modId) {
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
+    void runDetailTask(async (scope) => {
+      if (!modId) {
+        return
       }
-      return
-    }
-    if (launcherPort.isRemoteModIdInvalid(modId)) {
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
+      if (launcherPort.isRemoteModIdInvalid(modId)) {
+        setRequestState({
+          requestKey,
+          detail: null,
+          state: 'error',
+          error: `Nexus mod ${modId} is unavailable.`,
+        })
+        return
       }
-      setRequestState({
-        requestKey,
-        detail: null,
-        state: 'error',
-        error: `Nexus mod ${modId} is unavailable.`,
-      })
-      return
-    }
 
-    let cancelled = false
-    if (notify) {
-      publishNotification({
-        id: LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.actions.viewDetails,
-        description: `Nexus #${modId}`,
-        autoDismissMs: null,
-        progress: 18,
-      })
-    }
-
-    void launcherPort
-      .loadRemoteModDetail({
-        modId,
-        ...(includeFiles === undefined ? {} : { includeFiles }),
-      })
-      .then((result) => {
-        if (cancelled) {
+      try {
+        const result = await launcherPort.loadRemoteModDetail({
+          modId,
+          ...(includeFiles === undefined ? {} : { includeFiles }),
+        })
+        if (!scope.isCurrent()) {
           return
-        }
-        if (notify) {
-          dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
         }
         setRequestState({
           requestKey,
@@ -82,13 +61,9 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
           state: 'ready',
           error: null,
         })
-      })
-      .catch((nextError) => {
-        if (cancelled) {
+      } catch (nextError) {
+        if (nextError instanceof TaskCancelledError || !scope.isCurrent()) {
           return
-        }
-        if (notify) {
-          dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
         }
         setRequestState({
           requestKey,
@@ -96,15 +71,11 @@ export function useLauncherRemoteModDetail(modId: number | null, options: UseLau
           state: 'error',
           error: nextError instanceof Error ? nextError.message : 'Failed to load launcher remote mod detail.',
         })
-      })
-
-    return () => {
-      cancelled = true
-      if (notify) {
-        dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
       }
-    }
-  }, [copy.actions.viewDetails, includeFiles, modId, notify, launcherPort, requestKey])
+    }).catch((error) => {
+      if (!(error instanceof TaskCancelledError)) throw error
+    })
+  }, [includeFiles, modId, launcherPort, requestKey, runDetailTask])
 
   if (!modId) {
     return {

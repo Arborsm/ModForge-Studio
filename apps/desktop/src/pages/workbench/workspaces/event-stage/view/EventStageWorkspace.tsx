@@ -1,18 +1,22 @@
 import { Camera, Code2, Music2, MapPin, OctagonX, UserPlus, UserRound, Volume2 } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { EFFECT_VIEWPORT_BASE_HEIGHT, EFFECT_VIEWPORT_BASE_WIDTH, EVENT_STAGE_INITIAL_ZOOM, toActorKey } from '@entities/event'
+import { EVENT_STAGE_INITIAL_ZOOM, resolveFadeOverlayAlpha, toActorKey } from '@entities/event'
+import type { FadeOverlayState, ScreenFlashState } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
-import { getActorSpriteFrameHeight, getStageEffectPlayback, getStageEffectSortValue } from '@entities/event'
+import { getActorSpriteFrameHeight } from '@entities/event'
+import { resolveSpriteFrameGeometry } from '@entities/character'
 import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
-import { useEventStageCopy } from '@locales/provider'
+import { useEditorCopy, useEventStageCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { useEventStageWorkspace } from '../state/useEventStageWorkspace'
+import { useEventStageAnimationEffect } from '../state/eventStageAnimationClock'
 import { type GameDirectoryInfo, type MapAssetContent } from '@entities/game/api'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import { MapViewport, type MapViewportHandle } from '@entities/map'
 import { EventStageActorSprite } from './EventStageActorSprite'
+import { EventStageScreenEffectSprite, EventStageWorldEffectSprite } from './EventStageEffectSprite'
 import { EventStagePlaybackToolbar } from './EventStagePlaybackToolbar'
 import type { TileHoverInfo } from '@entities/map'
 import { cx } from '@shared/lib/helper'
@@ -20,73 +24,97 @@ import type { EventStageAssetImageLoader } from '@entities/event'
 
 export type EventStageWorkspaceChromeMode = 'workspace' | 'console'
 
-type EventStageWorkspaceProps = {
-  locale: LocaleCode
-  directoryInfo: GameDirectoryInfo | null
-  viewportLabels: ViewportLabels
-  theme: ThemeMode
-  accentColor: string
-  parsedEventAsset: ParsedEventAsset | null
-  selectedEvent: EventScript | null
-  eventStatusMessage: string
-  playerAppearanceProfile: PlayerAppearanceProfile | null
-  onSelectTimelineEntry: (entryId: string) => void
-  onPlaybackCommandChange: (commandId: string | null) => void
-  onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
-  onOpenPlayerAppearanceWindow: () => void
-  className?: string
-  hideHeader?: boolean
-  chromeMode?: EventStageWorkspaceChromeMode
-  additionalViewportOverlay?: ReactNode
-  hideViewportStatus?: boolean
-  onTileClick?: (tileX: number, tileY: number) => void
-  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
-  conditionBuilderLabel?: string
-  mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
-  imageResourceLoader?: EventStageAssetImageLoader
-  onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
+function EventStageFadeOverlay({ fadeOverlay }: { fadeOverlay: FadeOverlayState }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEventStageAnimationEffect((nowMs) => {
+    if (ref.current) {
+      ref.current.style.opacity = String(resolveFadeOverlayAlpha(fadeOverlay, nowMs))
+    }
+  })
+  return <div ref={ref} className="pointer-events-none absolute inset-0" style={{ backgroundColor: fadeOverlay.color }} />
 }
 
-export default function EventStageWorkspace({
-  locale,
-  directoryInfo,
-  viewportLabels,
-  theme,
-  accentColor,
-  parsedEventAsset,
-  selectedEvent,
-  eventStatusMessage,
-  playerAppearanceProfile,
-  onSelectTimelineEntry,
-  onPlaybackCommandChange,
-  onStageSeekReady,
-  onOpenPlayerAppearanceWindow,
-  className,
-  hideHeader: _hideHeader,
-  chromeMode = 'workspace',
-  additionalViewportOverlay,
-  hideViewportStatus = false,
-  onTileClick,
-  onContextMenuAction,
-  conditionBuilderLabel,
-  mapAssetLoader,
-  imageResourceLoader,
-  onActorAssetsChange,
-}: EventStageWorkspaceProps) {
+function EventStageFlashOverlay({ flashOverlay }: { flashOverlay: ScreenFlashState }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEventStageAnimationEffect((nowMs) => {
+    const node = ref.current
+    if (!node) {
+      return
+    }
+    const elapsedMs = Math.max(0, nowMs - flashOverlay.startedAtMs)
+    const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, flashOverlay.durationMs)))
+    node.style.opacity = String(flashOverlay.alpha * (1 - progress))
+  })
+  return <div ref={ref} className="pointer-events-none absolute inset-0" style={{ backgroundColor: flashOverlay.color }} />
+}
+
+type EventStageWorkspaceProps = {
+  environment: {
+    locale: LocaleCode
+    directoryInfo: GameDirectoryInfo | null
+    theme: ThemeMode
+    accentColor: string
+  }
+  eventData: {
+    parsedEventAsset: ParsedEventAsset | null
+    selectedEvent: EventScript | null
+    eventStatusMessage: string
+    playerAppearanceProfile: PlayerAppearanceProfile | null
+  }
+  chrome?: {
+    className?: string
+    hideHeader?: boolean
+    chromeMode?: EventStageWorkspaceChromeMode
+    additionalViewportOverlay?: ReactNode
+    hideViewportStatus?: boolean
+  }
+  loaders?: {
+    mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
+    imageResourceLoader?: EventStageAssetImageLoader
+  }
+  actions: {
+    selectTimelineEntry: (entryId: string) => void
+    playbackCommandChange: (commandId: string | null) => void
+    stageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
+    openPlayerAppearanceWindow: () => void
+    tileClick?: (tileX: number, tileY: number) => void
+    contextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
+    actorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
+  }
+}
+
+export default function EventStageWorkspace({ environment, eventData, chrome, loaders, actions }: EventStageWorkspaceProps) {
+  const { locale, directoryInfo, theme, accentColor } = environment
+  const { parsedEventAsset, selectedEvent, eventStatusMessage, playerAppearanceProfile } = eventData
+  const {
+    className,
+    hideHeader: _hideHeader,
+    chromeMode = 'workspace',
+    additionalViewportOverlay,
+    hideViewportStatus = false,
+  } = chrome ?? {}
+  const { mapAssetLoader, imageResourceLoader } = loaders ?? {}
+  const {
+    selectTimelineEntry: onSelectTimelineEntry,
+    playbackCommandChange: onPlaybackCommandChange,
+    stageSeekReady: onStageSeekReady,
+    openPlayerAppearanceWindow: onOpenPlayerAppearanceWindow,
+    tileClick: onTileClick,
+    contextMenuAction: onContextMenuAction,
+    actorAssetsChange: onActorAssetsChange,
+  } = actions
   const copy = useEventStageCopy()
+  const conditionBuilderLabel = useEditorCopy().studioDesk.eventPatchHub.conditionBuilderAction
   const consoleChrome = chromeMode === 'console'
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const mapViewportRef = useRef<MapViewportHandle | null>(null)
   const {
     actorAssets,
-    animationNowMs,
     autoPlay,
     currentDialogueActor,
     currentDialogueActorAsset,
     currentDialoguePortrait,
     effectAssets,
-    fadeOverlayOpacity,
-    flashOverlayOpacity,
     focusWorldPoint,
     handleSelectChoice,
     handleZoomChange,
@@ -105,12 +133,12 @@ export default function EventStageWorkspace({
     visibleLayerIds,
     visibleObjectGroupIds,
     viewportZoom,
+    worldLighting,
     worldOverlaySprites,
   } = useEventStageWorkspace({
     copy,
     locale,
     directoryInfo,
-    viewportLabels,
     parsedEventAsset,
     selectedEvent,
     playerAppearanceProfile,
@@ -146,6 +174,19 @@ export default function EventStageWorkspace({
     mapViewportRef.current?.centerView()
   }, [])
 
+  // Smooth camera pan for `viewport move x y duration`: interpolate per frame
+  // and drive the viewport scroll directly; the engine settles focusTile when done.
+  useEventStageAnimationEffect((nowMs) => {
+    const pan = playbackState.cameraPan
+    if (!pan || !mapDocument) {
+      return
+    }
+    const progress = Math.min(1, Math.max(0, (nowMs - pan.startedAtMs) / pan.durationMs))
+    const tileX = pan.fromTile.tileX + (pan.toTile.tileX - pan.fromTile.tileX) * progress
+    const tileY = pan.fromTile.tileY + (pan.toTile.tileY - pan.fromTile.tileY) * progress
+    mapViewportRef.current?.centerOnWorldPoint((tileX + 0.5) * mapDocument.tileWidth, (tileY + 0.5) * mapDocument.tileHeight)
+  })
+
   const worldStageEffects = useMemo(
     () => playbackState.stageEffects.filter((effect) => effect.space === 'world'),
     [playbackState.stageEffects],
@@ -154,124 +195,45 @@ export default function EventStageWorkspace({
     () => playbackState.stageEffects.filter((effect) => effect.space === 'screen'),
     [playbackState.stageEffects],
   )
-  const visibleSortedActors = useMemo(
-    () =>
-      Object.values(playbackState.actors)
-        .filter((actor) => actor.visible)
-        .sort((left, right) => left.tileY - right.tileY),
-    [playbackState.actors],
-  )
-  const worldEffectEntries = useMemo(
-    () =>
-      worldStageEffects.map((effect) => ({
-        effect,
-        asset: effectAssets[effect.textureName],
-      })),
-    [effectAssets, worldStageEffects],
-  )
-  const screenEffectEntries = useMemo(
-    () =>
-      screenStageEffects.map((effect) => ({
-        effect,
-        asset: effectAssets[effect.textureName],
-      })),
-    [effectAssets, screenStageEffects],
-  )
-  const actorRenderEntries = useMemo(
-    () =>
-      visibleSortedActors.map((actor) => {
-        const asset = actorAssets[toActorKey(actor.actorName)]
-        const frameWidth = 16
-        const frameHeight = getActorSpriteFrameHeight(actor.actorName)
-        const spriteColumns =
-          asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth)) : 4
+  const visibleSortedActors = Object.values(playbackState.actors)
+    .filter((actor) => actor.visible)
+    .sort((left, right) => left.tileY - right.tileY)
+  const worldEffectEntries = worldStageEffects.map((effect) => ({
+    effect,
+    asset: effectAssets[effect.textureName],
+  }))
+  const screenEffectEntries = screenStageEffects.map((effect) => ({
+    effect,
+    asset: effectAssets[effect.textureName],
+  }))
+  const actorRenderEntries = visibleSortedActors.map((actor) => {
+    const asset = actorAssets[toActorKey(actor.actorName)]
+    const baseWidth = asset?.characterMetadata?.size.x ?? 16
+    const baseHeight = asset?.characterMetadata?.size.y ?? getActorSpriteFrameHeight(actor.actorName)
+    const { frameWidth, frameHeight, spriteColumns } = resolveSpriteFrameGeometry(
+      baseWidth,
+      baseHeight,
+      asset?.spriteSheetWidth ?? null,
+      asset?.spriteSheetHeight ?? null,
+      asset?.spriteImage ?? null,
+    )
 
-        return {
-          actor,
-          asset,
-          frameWidth,
-          frameHeight,
-          spriteColumns,
-        }
-      }),
-    [actorAssets, visibleSortedActors],
-  )
+    return {
+      actor,
+      asset,
+      frameWidth,
+      frameHeight,
+      spriteColumns,
+    }
+  })
 
-  const mapOverlay = useMemo(() => {
+  const mapOverlay = (() => {
     if (!mapDocument) {
       return null
     }
 
     const gamePixelScale = mapDocument.tileWidth / 64
-    const worldEffects = worldEffectEntries
-      .map(({ effect, asset }) => {
-        const playback = getStageEffectPlayback(effect, animationNowMs)
-        const isLoading = asset?.loading
 
-        if (isLoading) {
-          const pixelX = (effect.baseX + playback.offsetX) * gamePixelScale * viewportZoom
-          const pixelY = (effect.baseY + playback.offsetY) * gamePixelScale * viewportZoom
-          const width = effect.sourceWidth * playback.scale * gamePixelScale * viewportZoom
-          const height = effect.sourceHeight * playback.scale * gamePixelScale * viewportZoom
-
-          return (
-            <div
-              key={effect.id}
-              className="absolute"
-              style={{
-                transform: `translate(${pixelX}px, ${pixelY}px)`,
-                width: `${width}px`,
-                height: `${height}px`,
-                zIndex: getStageEffectSortValue(effect),
-              }}
-            >
-              <ImageSkeleton overlay rounded={false} />
-            </div>
-          )
-        }
-
-        if (!playback.visible || !asset?.url) {
-          return null
-        }
-
-        const frameX = effect.sourceX + playback.frameIndex * effect.sourceWidth
-        const pixelX = (effect.baseX + playback.offsetX) * gamePixelScale * viewportZoom
-        const pixelY = (effect.baseY + playback.offsetY) * gamePixelScale * viewportZoom
-        const width = effect.sourceWidth * playback.scale * gamePixelScale * viewportZoom
-        const height = effect.sourceHeight * playback.scale * gamePixelScale * viewportZoom
-        const flipScale = effect.flip ? -1 : 1
-
-        return (
-          <div
-            key={effect.id}
-            className="absolute"
-            style={{
-              transform: `translate(${pixelX}px, ${pixelY}px)`,
-              width: `${width}px`,
-              height: `${height}px`,
-              zIndex: getStageEffectSortValue(effect),
-              opacity: playback.opacity,
-            }}
-          >
-            <div
-              style={{
-                width: `${effect.sourceWidth}px`,
-                height: `${effect.sourceHeight}px`,
-                transform: effect.flip
-                  ? `translateX(${width}px) scale(${flipScale * (width / effect.sourceWidth)}, ${height / effect.sourceHeight}) rotate(${playback.rotation}rad)`
-                  : `scale(${width / effect.sourceWidth}, ${height / effect.sourceHeight}) rotate(${playback.rotation}rad)`,
-                transformOrigin: 'top left',
-                backgroundImage: `url("${asset.url}")`,
-                backgroundPosition: `-${frameX}px -${effect.sourceY}px`,
-                backgroundRepeat: 'no-repeat',
-                imageRendering: 'pixelated',
-                filter: effect.color ? `drop-shadow(0 0 10px ${effect.color})` : undefined,
-              }}
-            />
-          </div>
-        )
-      })
-      .filter((item) => item !== null)
     return (
       <div className="absolute inset-0">
         <MapWorldStatePreviewOverlay
@@ -280,13 +242,20 @@ export default function EventStageWorkspace({
           sprites={worldOverlaySprites}
           textureAssets={effectAssets}
         />
-        {worldEffects}
+        {worldEffectEntries.map(({ effect, asset }) => (
+          <EventStageWorldEffectSprite
+            key={effect.id}
+            effect={effect}
+            asset={asset}
+            gamePixelScale={gamePixelScale}
+            viewportZoom={viewportZoom}
+          />
+        ))}
         {actorRenderEntries.map(({ actor, asset, frameWidth, frameHeight, spriteColumns }) => (
           <EventStageActorSprite
             key={actor.id}
             actor={actor}
             asset={asset}
-            animationNowMs={animationNowMs}
             frameWidth={frameWidth}
             frameHeight={frameHeight}
             spriteColumns={spriteColumns}
@@ -298,127 +267,45 @@ export default function EventStageWorkspace({
         ))}
       </div>
     )
-  }, [actorRenderEntries, animationNowMs, effectAssets, mapDocument, viewportZoom, worldEffectEntries, worldOverlaySprites])
+  })()
 
-  const screenEffectsOverlay = useMemo(() => {
-    const effects = screenEffectEntries
-      .map(({ effect, asset }) => {
-        const playback = getStageEffectPlayback(effect, animationNowMs)
-        const isLoading = asset?.loading
-
-        if (isLoading) {
-          const width = effect.sourceWidth * playback.scale
-          const height = effect.sourceHeight * playback.scale
-          const leftPercent = ((effect.baseX + playback.offsetX) / EFFECT_VIEWPORT_BASE_WIDTH) * 100
-          const topPercent = ((effect.baseY + playback.offsetY) / EFFECT_VIEWPORT_BASE_HEIGHT) * 100
-
-          return (
-            <div
-              key={effect.id}
-              className="absolute"
-              style={{
-                left: `${leftPercent}%`,
-                top: `${topPercent}%`,
-                width: `${width}px`,
-                height: `${height}px`,
-                zIndex: getStageEffectSortValue(effect),
-              }}
-            >
-              <ImageSkeleton overlay rounded={false} />
-            </div>
-          )
-        }
-
-        if (!playback.visible || !asset?.url) {
-          return null
-        }
-
-        const frameX = effect.sourceX + playback.frameIndex * effect.sourceWidth
-        const width = effect.sourceWidth * playback.scale
-        const height = effect.sourceHeight * playback.scale
-        const leftPercent = ((effect.baseX + playback.offsetX) / EFFECT_VIEWPORT_BASE_WIDTH) * 100
-        const topPercent = ((effect.baseY + playback.offsetY) / EFFECT_VIEWPORT_BASE_HEIGHT) * 100
-        const flipScale = effect.flip ? -1 : 1
-
-        return (
-          <div
-            key={effect.id}
-            className="absolute"
-            style={{
-              left: `${leftPercent}%`,
-              top: `${topPercent}%`,
-              width: `${width}px`,
-              height: `${height}px`,
-              zIndex: getStageEffectSortValue(effect),
-              opacity: playback.opacity,
-            }}
-          >
-            <div
-              style={{
-                width: `${effect.sourceWidth}px`,
-                height: `${effect.sourceHeight}px`,
-                transform: effect.flip
-                  ? `translateX(${width}px) scale(${flipScale * (width / effect.sourceWidth)}, ${height / effect.sourceHeight}) rotate(${playback.rotation}rad)`
-                  : `scale(${width / effect.sourceWidth}, ${height / effect.sourceHeight}) rotate(${playback.rotation}rad)`,
-                transformOrigin: 'top left',
-                backgroundImage: `url("${asset.url}")`,
-                backgroundPosition: `-${frameX}px -${effect.sourceY}px`,
-                backgroundRepeat: 'no-repeat',
-                imageRendering: 'pixelated',
-                filter: effect.color ? `drop-shadow(0 0 12px ${effect.color})` : undefined,
-              }}
-            />
-          </div>
-        )
-      })
-      .filter((item) => item !== null)
-
-    if (effects.length === 0) {
+  const screenEffectsOverlay = (() => {
+    if (screenEffectEntries.length === 0) {
       return null
     }
 
-    return <div className="pointer-events-none absolute inset-0 overflow-hidden">{effects}</div>
-  }, [animationNowMs, screenEffectEntries])
+    return (
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {screenEffectEntries.map(({ effect, asset }) => (
+          <EventStageScreenEffectSprite key={effect.id} effect={effect} asset={asset} />
+        ))}
+      </div>
+    )
+  })()
 
   const viewportOverlay = (
     <div className="absolute inset-0">
-      {playbackState.ambientOverlayColor ? (
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ backgroundColor: playbackState.ambientOverlayColor, opacity: 0.14, mixBlendMode: 'screen' }}
-        />
-      ) : null}
-      {playbackState.fadeOverlay ? (
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ backgroundColor: playbackState.fadeOverlay.color, opacity: fadeOverlayOpacity }}
-        />
-      ) : null}
-      {flashOverlayOpacity > 0 && playbackState.flashOverlay ? (
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ backgroundColor: playbackState.flashOverlay.color, opacity: flashOverlayOpacity }}
-        />
-      ) : null}
+      {playbackState.fadeOverlay ? <EventStageFadeOverlay fadeOverlay={playbackState.fadeOverlay} /> : null}
+      {playbackState.flashOverlay ? <EventStageFlashOverlay flashOverlay={playbackState.flashOverlay} /> : null}
       {screenEffectsOverlay}
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         {!hideViewportStatus ? (
           <div className="flex justify-between gap-3">
-            <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-(--text-primary) uppercase shadow-(--shadow-panel)">
+            <div className="text-text-primary shadow-panel text-meta-px tracking-ui-wider pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 font-semibold uppercase">
               {selectedEvent?.eventId ?? labels.scene}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {playbackStatusChips.map((chip) => (
                 <div
                   key={chip.id}
-                  className="pointer-events-none rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-(--text-primary) shadow-(--shadow-panel)"
+                  className="border-border-subtle text-text-primary shadow-panel text-meta-px pointer-events-none rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1"
                 >
-                  <span className="font-semibold tracking-[0.14em] text-(--text-secondary) uppercase">{chip.label}</span>{' '}
+                  <span className="text-text-secondary tracking-ui-wider font-semibold uppercase">{chip.label}</span>{' '}
                   <span>{chip.value}</span>
                 </div>
               ))}
               {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
-                <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-(--text-primary) shadow-(--shadow-panel)">
+                <div className="text-text-primary shadow-panel text-meta-px pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1">
                   {labels.branch}
                 </div>
               ) : null}
@@ -444,14 +331,14 @@ export default function EventStageWorkspace({
                         ? 'border-[color-mix(in_srgb,var(--danger)_36%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg-panel))]'
                         : notice.tone === 'visual'
                           ? 'border-[color-mix(in_srgb,var(--warning)_34%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]'
-                          : 'border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
+                          : 'border-border-subtle bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
 
                   return (
                     <div
                       key={notice.id}
-                      className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-(--shadow-panel) backdrop-blur ${toneClassName}`}
+                      className={`panel-list-card shadow-panel flex items-center gap-3 px-3 py-2 backdrop-blur ${toneClassName}`}
                     >
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-(--border-color) bg-(--bg-elevated)">
+                      <div className="border-border-subtle bg-surface-elevated relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border">
                         {notice.icon && iconAsset?.loading ? (
                           <ImageSkeleton overlay rounded={false} />
                         ) : notice.icon && iconAsset?.url ? (
@@ -469,18 +356,18 @@ export default function EventStageWorkspace({
                             }}
                           />
                         ) : NoticeSymbolIcon ? (
-                          <span className="flex h-full items-center justify-center text-(--text-secondary)">
+                          <span className="text-text-secondary flex h-full items-center justify-center">
                             <NoticeSymbolIcon className="h-5 w-5" />
                           </span>
                         ) : (
-                          <span className="flex h-full items-center justify-center text-[10px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">
+                          <span className="text-text-secondary text-caption-px tracking-ui-wider flex h-full items-center justify-center font-semibold uppercase">
                             HUD
                           </span>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">{notice.title}</p>
-                        <p className="truncate text-sm text-(--text-primary)">{notice.detail}</p>
+                        <p className="text-text-secondary tracking-ui-wider truncate text-xs font-semibold uppercase">{notice.title}</p>
+                        <p className="text-text-primary truncate text-sm">{notice.detail}</p>
                       </div>
                     </div>
                   )
@@ -495,13 +382,13 @@ export default function EventStageWorkspace({
         {playbackState.pendingChoice ? (
           <div className="panel-overlay-card pointer-events-auto w-full max-w-3xl">
             <p className="panel-section-title">{labels.choose}</p>
-            <p className="mt-2 text-base font-semibold text-(--text-primary)">{playbackState.pendingChoice.question}</p>
+            <p className="text-text-primary mt-2 text-base font-semibold">{playbackState.pendingChoice.question}</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {playbackState.pendingChoice.choices.map((choice, index) => (
                 <button
                   key={`${choice.id}:${index}`}
                   type="button"
-                  className="panel-list-card panel-list-card-interactive px-4 py-3 text-left text-sm text-(--text-primary)"
+                  className="event-stage-choice-button panel-list-card panel-list-card-interactive text-text-primary px-4 py-3 text-left text-sm"
                   onClick={() => handleSelectChoice(index)}
                 >
                   {choice.label}
@@ -509,9 +396,10 @@ export default function EventStageWorkspace({
               ))}
             </div>
           </div>
-        ) : playbackState.currentEntry ? (
+        ) : playbackState.currentEntry &&
+          (playbackState.currentEntry.tone === 'dialogue' || playbackState.currentEntry.tone === 'message') ? (
           <div className="panel-overlay-card pointer-events-none flex w-full max-w-4xl items-end gap-4">
-            <div className="relative hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-(--border-color) bg-(--bg-panel) sm:block">
+            <div className="border-border-subtle bg-surface-panel relative hidden h-64 w-64 shrink-0 overflow-hidden rounded-2xl border sm:block">
               {currentDialogueActorAsset?.loading ? (
                 <ImageSkeleton overlay rounded={false} />
               ) : currentDialogueActorAsset?.portraitUrl ? (
@@ -519,30 +407,35 @@ export default function EventStageWorkspace({
                   <div
                     aria-label={currentDialogueActor?.actorName ?? playbackState.currentEntry.title}
                     style={{
-                      width: `${currentDialoguePortrait.frameWidth}px`,
-                      height: `${currentDialoguePortrait.frameHeight}px`,
-                      transform: `scale(${96 / currentDialoguePortrait.frameWidth})`,
-                      transformOrigin: 'top left',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      // The game draws the full 64x64 portrait frame (head and
+                      // shoulders) at an integer 4x scale inside the dialogue
+                      // box; scaling the sheet with backgroundSize keeps pixels crisp.
+                      width: `${currentDialoguePortrait.frameWidth * 4}px`,
+                      height: `${currentDialoguePortrait.frameHeight * 4}px`,
                       backgroundImage: `url("${currentDialogueActorAsset.portraitUrl}")`,
-                      backgroundPosition: `-${currentDialoguePortrait.frameX}px -${currentDialoguePortrait.frameY}px`,
+                      backgroundPosition: `-${currentDialoguePortrait.frameX * 4}px -${currentDialoguePortrait.frameY * 4}px`,
+                      backgroundSize: `${(currentDialogueActorAsset.portraitSheetWidth ?? 0) * 4}px ${(currentDialogueActorAsset.portraitSheetHeight ?? 0) * 4}px`,
                       backgroundRepeat: 'no-repeat',
                       imageRendering: 'pixelated',
                     }}
                   />
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold tracking-[0.16em] text-(--text-secondary) uppercase">
+                <div className="text-text-secondary text-meta-px tracking-ui-wider flex h-full items-center justify-center text-center font-semibold uppercase">
                   {playbackState.currentEntry.title}
                 </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="panel-section-title">{playbackState.currentEntry.title}</p>
-              <p className="mt-2 text-base leading-7 text-(--text-primary)">{playbackState.currentEntry.detail}</p>
+              <p className="text-text-primary mt-2 text-base leading-7">{playbackState.currentEntry.detail}</p>
             </div>
           </div>
         ) : consoleChrome ? null : (
-          <div className="pointer-events-none rounded-full border border-(--border-color) bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-(--text-secondary) shadow-(--shadow-panel)">
+          <div className="border-border-subtle text-text-secondary shadow-panel pointer-events-none rounded-full border bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm">
             {labels.sceneIdle}
           </div>
         )}
@@ -553,10 +446,10 @@ export default function EventStageWorkspace({
 
   if (!parsedEventAsset) {
     return (
-      <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', className)}>
-        <div className="flex h-full items-center justify-center p-8 text-center text-sm text-(--text-secondary)">
+      <div className={cx('bg-surface-panel rounded-panel h-full', className)}>
+        <div className="text-text-secondary flex h-full items-center justify-center p-8 text-center text-sm">
           <div className="space-y-3">
-            <p className="text-base font-semibold text-(--text-primary)">{labels.empty}</p>
+            <p className="text-text-primary text-base font-semibold">{labels.empty}</p>
             <p>{eventStatusMessage}</p>
           </div>
         </div>
@@ -565,9 +458,9 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className={cx('bg-(--bg-panel) rounded-[1.125rem] h-full', consoleChrome && 'event-stage-console-surface', className)}>
+    <div className={cx('bg-surface-panel rounded-panel h-full', consoleChrome && 'event-stage-console-surface', className)}>
       <div className={cx('event-stage-body min-h-0 h-full overflow-hidden', !consoleChrome && 'p-3')}>
-        <div className="relative h-full">
+        <div className="event-stage-viewport-shell relative h-full">
           <MapViewport
             ref={mapViewportRef}
             key={
@@ -575,58 +468,50 @@ export default function EventStageWorkspace({
                 ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
                 : `empty:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
             }
-            locale={locale}
-            mapDocument={mapDocument}
-            visibleLayerIds={visibleLayerIds}
-            visibleObjectGroupIds={visibleObjectGroupIds}
-            theme={theme}
-            accentColor={accentColor}
-            showGrid={showGrid}
-            showStatsChips={false}
-            initialZoom={EVENT_STAGE_INITIAL_ZOOM}
-            mapOverlay={mapOverlay}
-            viewportOverlay={viewportOverlay}
-            focusWorldPoint={focusWorldPoint}
-            onZoomChange={handleZoomChange}
-            onHoverChange={setHoverInfo}
-            onTileClick={onTileClick}
-            contextMenuEnabled={Boolean(onContextMenuAction)}
-            contextMenuExtraItems={
-              onContextMenuAction && hoverInfo ? (
-                <>
-                  <ContextMenu.Separator className="context-menu-separator" />
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
-                    {conditionBuilderLabel ?? labels.scene}
-                  </ContextMenu.Item>
-                  <ContextMenu.Separator className="context-menu-separator" />
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.addActorHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <Camera className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.setCameraHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="context-menu-item"
-                    onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
-                  >
-                    <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
-                    {labels.addWarpHere(hoverInfo.tileX, hoverInfo.tileY)}
-                  </ContextMenu.Item>
-                </>
-              ) : null
-            }
+            mapState={{ mapDocument, visibleLayerIds, visibleObjectGroupIds }}
+            display={{ locale, theme, accentColor, showGrid, showStatsChips: false }}
+            overlays={{ mapOverlay, viewportOverlay }}
+            lighting={{ worldLighting, gameRootPath: directoryInfo?.rootPath ?? null }}
+            fit={{ initialZoom: EVENT_STAGE_INITIAL_ZOOM, focusWorldPoint }}
+            actions={{ onZoomChange: handleZoomChange, onHoverChange: setHoverInfo, onTileClick }}
+            contextMenu={{
+              enabled: Boolean(onContextMenuAction),
+              extraItems:
+                onContextMenuAction && hoverInfo ? (
+                  <>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
+                      {conditionBuilderLabel}
+                    </ContextMenu.Item>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.addActorHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Camera className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.setCameraHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
+                      {labels.addWarpHere(hoverInfo.tileX, hoverInfo.tileY)}
+                    </ContextMenu.Item>
+                  </>
+                ) : null,
+            }}
           />
           {!mapDocument && additionalViewportOverlay ? (
             <div className="pointer-events-none absolute inset-0 z-18">{additionalViewportOverlay}</div>

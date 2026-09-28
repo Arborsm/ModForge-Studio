@@ -1,11 +1,13 @@
-use super::paths::{launcher_backup_dir, launcher_settings_path};
+//! Launcher runtime: game/SMAPI process spawning, path and URL opening, and runtime info resolution.
+
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
-    LauncherGameLaunchResult, LauncherGameLaunchTarget, LauncherRuntimeInfo, LauncherSettings,
-    OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    LauncherGameLaunchResult, LauncherGameLaunchTarget, LauncherLogPage, LauncherRuntimeInfo,
+    LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest, ReadLauncherLogRequest,
 };
 use crate::AppHandle;
+use crate::domain::app_paths::{launcher_backup_dir, launcher_settings_path};
 use crate::infrastructure::fs::pathing::{
     clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
 };
@@ -18,8 +20,10 @@ use anyhow::{Context, bail};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+/// Win32 process creation flags for the game executable. Kept platform-agnostic
+/// so the settings-to-flag decision can be unit-tested on non-Windows CI.
+pub(crate) const CREATE_NO_WINDOW: u32 = 0x08000000;
+pub(crate) const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
 fn resolve_game_launch_target(
     settings: &LauncherSettings,
@@ -81,10 +85,36 @@ where
     })
 }
 
-fn spawn_launcher_process(path: &Path) -> anyhow::Result<()> {
+/// Process-spawn options for the game executable, derived from launcher settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LauncherProcessOptions {
+    /// Win32 creation flag applied when spawning the game (Windows only; unused
+    /// elsewhere). The two console modes are mutually exclusive: either the game
+    /// runs without any console (`CREATE_NO_WINDOW`) or it gets its own dedicated
+    /// console window (`CREATE_NEW_CONSOLE`). Never spawn without a flag on
+    /// Windows, which would inherit ModForge's console and mix SMAPI output into
+    /// the app's own command-line window.
+    pub windows_creation_flags: u32,
+}
+
+impl LauncherProcessOptions {
+    pub(crate) fn from_settings(settings: &LauncherSettings) -> Self {
+        Self {
+            windows_creation_flags: if settings.show_console_window {
+                CREATE_NEW_CONSOLE
+            } else {
+                CREATE_NO_WINDOW
+            },
+        }
+    }
+}
+
+fn spawn_launcher_process(path: &Path, options: LauncherProcessOptions) -> anyhow::Result<()> {
     let mut command = Command::new(path);
     #[cfg(target_os = "windows")]
-    command.creation_flags(CREATE_NO_WINDOW);
+    command.creation_flags(options.windows_creation_flags);
+    #[cfg(not(target_os = "windows"))]
+    let _ = options;
 
     command
         .spawn()
@@ -98,7 +128,10 @@ pub fn launch_launcher_game(_app: AppHandle) -> anyhow::Result<LauncherGameLaunc
         (|| {
             let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
-            launch_game_with_runner(&settings, spawn_launcher_process)
+            let process_options = LauncherProcessOptions::from_settings(&settings);
+            launch_game_with_runner(&settings, |path| {
+                spawn_launcher_process(path, process_options)
+            })
         })(),
         |error| error.to_string(),
     )
@@ -273,3 +306,25 @@ fn open_path_in_shell(path: &Path) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Reads the tail of the current desktop host log file for the in-app log viewer.
+/// A missing log file (fresh install, nothing logged yet) yields an empty page.
+pub fn read_launcher_log(request: ReadLauncherLogRequest) -> anyhow::Result<LauncherLogPage> {
+    let max_lines = request.max_lines.clamp(1, 2_000) as usize;
+    let config = crate::support::logging::log_file_config()?;
+    let path = config.directory.join(format!("{}.log", config.file_name));
+    let content = std::fs::read_to_string(&path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len() as u64;
+    let start = usize::try_from(total_lines.saturating_sub(max_lines as u64)).unwrap_or(0);
+    let page = lines[start..].iter().map(|line| line.to_string()).collect();
+    Ok(LauncherLogPage {
+        lines: page,
+        total_lines,
+        truncated: start > 0,
+    })
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/domain/launcher/runtime_tests.rs"]
+mod runtime_tests;

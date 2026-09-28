@@ -1,3 +1,8 @@
+/**
+ * @file Map runtime types: workspace status, resource preload state, and other
+ * transient runtime models for the map workspace viewport.
+ */
+
 import type { MapDocument } from './mapTypes'
 
 export type WorkspaceStatus = {

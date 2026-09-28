@@ -1,3 +1,8 @@
+/**
+ * @file Map viewport component: the core interactive canvas for editing map
+ * documents — tile painting, object placement, overlay rendering, and pan/zoom.
+ */
+
 import {
   forwardRef,
   useCallback,
@@ -11,27 +16,36 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react'
-import { getObjectInteractionTag } from '@entities/map'
+import { isLightMarkerObject, stripTileGidFlags } from '@entities/map'
+import { createMapTileRect, type MapTileRect } from '../model/tileSelection'
 import { resolveTilesetImagePath } from '../lib/assets'
+import { getMapContentBounds, getMapPreviewBounds, type MapContentBounds } from '../lib/mapContentBounds'
 import type { LocaleCode, ThemeMode } from '@locales/api'
+import { appEvent } from '@platform/observability'
 import { useEditorCopy } from '@locales/provider'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import { PAN_ZOOM_TOOLBAR_ZOOM_FACTOR, PAN_ZOOM_WHEEL_INTENSITY } from '@shared/lib/viewports'
-import type { FocusedMapObjectTarget, TileHoverInfo, ViewportWorldPoint } from '@entities/map'
+import type {
+  CellOverlayCell,
+  FocusedMapObjectTarget,
+  MapInspectorHighlight,
+  MapObject,
+  TileHoverInfo,
+  ViewportWorldPoint,
+} from '@entities/map'
 import type { MapDocument } from '@entities/map'
 import {
   VIEWPORT_OVERPAN,
   VIEWPORT_PADDING,
   buildHoverInfo,
   clampZoom,
-  drawAtlasPortal,
-  drawWarpRoute,
   getCanvasRenderScale,
   getCanvasViewportRect,
   getDefaultViewportState,
-  getGroupColor,
   getObjectBounds,
-  getObjectDisplayLabel,
+  getRasterAlphaBounds,
+  getTransparentTileGids,
+  hitTestMapObject,
   isForegroundTileLayer,
   loadImage,
   rasterizeTileLayers,
@@ -43,31 +57,136 @@ import {
   MapViewportContextMenu,
   MapViewportEmptyState,
   MapViewportImageError,
+  MapViewportLightingOverlay,
   MapViewportStatsChips,
 } from './MapViewportChrome'
+import { bakeWorldLightingCanvas, preloadWorldLightingTextures } from './worldLightingOverlay'
+import { drawMapCanvas } from './mapViewportCanvasDraw'
+import { GAME_TILE_SIZE, type WorldLightingState } from '../model/lighting'
+
+/** TileData rule objects whose rectangle markers overlay-driven editors hide from the canvas. */
+function isRuleTileDataObject(object: MapObject) {
+  return object.name === 'TileData' && !isLightMarkerObject(object)
+}
 
 type MapViewportProps = {
-  locale: LocaleCode
-  mapDocument: MapDocument | null
-  visibleLayerIds: number[]
-  visibleObjectGroupIds: number[]
-  onHoverChange?: (info: TileHoverInfo | null) => void
-  onAtlasPortalOpen?: (targetMapName: string) => void
-  theme: ThemeMode
-  accentColor: string
-  showGrid: boolean
-  onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
-  showStatsChips?: boolean
-  mapOverlay?: ReactNode
-  scaleMapOverlayWithViewport?: boolean
-  viewportOverlay?: ReactNode
-  focusWorldPoint?: ViewportWorldPoint | null
-  contextMenuEnabled?: boolean
-  contextMenuExtraItems?: ReactNode
-  onExportPng?: () => void
-  onAddObjectHere?: (tileX: number, tileY: number) => void
-  onTileClick?: (tileX: number, tileY: number) => void
-  initialZoom?: number | null
+  mapState: {
+    mapDocument: MapDocument | null
+    visibleLayerIds: number[]
+    visibleObjectGroupIds: number[]
+    /**
+     * When true, skips rectangle rendering and hit-testing for `TileData`
+     * objects that are not light markers — their rules are presented through
+     * the overlay mode instead. Defaults to false; other consumers are
+     * unaffected.
+     */
+    hideRuleTileDataObjects?: boolean
+  }
+  display: {
+    locale: LocaleCode
+    theme: ThemeMode
+    accentColor: string
+    showGrid: boolean
+    showStatsChips?: boolean
+  }
+  overlays?: {
+    mapOverlay?: ReactNode
+    scaleMapOverlayWithViewport?: boolean
+    mapOverlayLayer?: 'between' | 'top'
+    viewportOverlay?: ReactNode
+  }
+  lighting?: {
+    /** Static world lightmap (time-of-day base + light glows); baked to a multiply overlay over the map. */
+    worldLighting?: WorldLightingState | null
+    /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+    gameRootPath?: string | null
+  }
+  editing?: {
+    /**
+     * Paint preview: a semi-transparent ghost of the current palette selection
+     * rendered at the hovered tile position while a brush/stamp tool is active.
+     * Null clears the preview. The tileset image is resolved from the document's
+     * tilesets by the viewport (it already loads them for rendering).
+     */
+    paintPreview?: {
+      tilesetName: string
+      startIndex: number
+      width: number
+      height: number
+    } | null
+    /**
+     * Tileset hover preview: a full-sheet image rendered centered over the
+     * entire viewport with a dimming backdrop while the user hovers a sheet
+     * card in the palette gallery. `mode` true keeps the overlay backdrop
+     * always visible (gallery open); `imageSrc` controls the preview image.
+     */
+    tilesetPreview?: { imageSrc: string | null; mode?: boolean } | null
+    /**
+     * Cell-rule overlay coloring: colored tiles of the active layer's cell
+     * properties, drawn over the map (cell index → display rule). Usually active
+     * only while the overlay paint mode is on; the object markers render above it.
+     */
+    cellOverlay?: { layerId: number; width: number; height: number; cells: Record<number, CellOverlayCell> } | null
+    /**
+     * Day/night swap highlight: cells with registered DayTiles/NightTiles
+     * properties, drawn as purple dashed borders over the map. Independent of
+     * the cellOverlay paint mode; null or empty clears the highlight.
+     */
+    dayNightHighlight?: { width: number; height: number; cells: Array<{ x: number; y: number }> } | null
+    /** Persisted tile rectangle drawn over the map when no drag is active. */
+    selectedTileRect?: MapTileRect | null
+    /**
+     * Inspector hover highlight: tile rectangles drawn as dashed accent frames
+     * (independent of the active layer) plus object-group markers stroked with
+     * the accent color. Null or empty clears the highlight.
+     */
+    inspectorHighlight?: MapInspectorHighlight | null
+  }
+  contextMenu?: {
+    enabled?: boolean
+    /** Adds editor-specific commands using the tile under the context-menu pointer. */
+    extraItems?: ReactNode | ((hover: TileHoverInfo | null) => ReactNode)
+  }
+  fit?: {
+    focusWorldPoint?: ViewportWorldPoint | null
+    initialZoom?: number | null
+    includeHiddenLayers?: boolean
+    fitContentBounds?: boolean
+    fitContentOptions?: {
+      mode?: 'content' | 'preview'
+      includeObjects?: boolean
+      paddingTiles?: number
+      minimumCoverageRatio?: number
+      targetAspectRatio?: number
+      ignoreTransparentTiles?: boolean
+      includeHiddenLayers?: boolean
+    }
+    fitBounds?: MapContentBounds | null
+    fitPadding?: number
+    maxFitZoom?: number | null
+    minimumFitViewportSize?: number
+    viewportOverpan?: number
+  }
+  /** Enables dragging object-layer markers on the canvas. Coordinates are tile units. */
+  objectDrag?: {
+    onStart: (objectId: number) => void
+    onPreview: (objectId: number, tileX: number, tileY: number) => void
+    onEnd: () => void
+  }
+  actions?: {
+    onHoverChange?: (info: TileHoverInfo | null) => void
+    onAtlasPortalOpen?: (targetMapName: string) => void
+    onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
+    onExportPng?: () => void
+    onAddObjectHere?: (tileX: number, tileY: number) => void
+    onTileClick?: (tileX: number, tileY: number) => void
+    /** Enables a left-button tile stroke and commits its unique points on pointerup. */
+    onTileStroke?: (points: readonly { tileX: number; tileY: number }[]) => void
+    /** Receives the accumulated unique points while a tile stroke drags, for live previews. */
+    onTileStrokeLive?: (points: readonly { tileX: number; tileY: number }[]) => void
+    /** Enables left-button rectangle selection and receives the committed tile bounds. */
+    onTileRectSelect?: (rect: MapTileRect) => void
+  }
 }
 
 type TilesetImageState = {
@@ -87,6 +206,8 @@ export type MapViewportHandle = {
   centerView: () => void
   resetPan: () => void
   focusObject: (target: FocusedMapObjectTarget) => void
+  /** Scrolls so the given world pixel point lands at the viewport center. */
+  centerOnWorldPoint: (worldX: number, worldY: number) => void
   exportPng: () => Promise<string>
 }
 
@@ -105,6 +226,27 @@ type LeftPressState = {
   button: number
 }
 
+type ObjectDragState = {
+  pointerId: number
+  objectId: number
+  grabOffsetX: number
+  grabOffsetY: number
+}
+
+type TileRectDragState = {
+  pointerId: number
+  startTileX: number
+  startTileY: number
+  currentTileX: number
+  currentTileY: number
+}
+
+type TileStrokeDragState = {
+  pointerId: number
+  points: TilePoint[]
+  keys: Set<string>
+}
+
 type TilePoint = {
   tileX: number
   tileY: number
@@ -114,6 +256,74 @@ type PickFlashState = TilePoint & {
   token: number
 }
 
+/** Positions the hover-highlight element directly; display:none when tile is null. Pure DOM writes, no React state. */
+function positionHoverTileElement(
+  element: HTMLDivElement | null,
+  tile: TilePoint | null,
+  tileWidth: number,
+  tileHeight: number,
+  zoom: number,
+) {
+  if (!element) {
+    return
+  }
+  if (!tile) {
+    element.style.display = 'none'
+    return
+  }
+  element.style.display = 'block'
+  element.style.left = `${tile.tileX * tileWidth * zoom}px`
+  element.style.top = `${tile.tileY * tileHeight * zoom}px`
+  element.style.width = `${tileWidth * zoom}px`
+  element.style.height = `${tileHeight * zoom}px`
+}
+
+/** Positions the paint-preview ghost tile at the hovered tile, sized to the palette selection rect. */
+function positionPaintPreviewElement(
+  element: HTMLDivElement | null,
+  tile: TilePoint | null,
+  tileWidth: number,
+  tileHeight: number,
+  zoom: number,
+  selectionWidth: number,
+  selectionHeight: number,
+) {
+  if (!element) {
+    return
+  }
+  if (!tile) {
+    element.style.display = 'none'
+    return
+  }
+  element.style.display = 'block'
+  element.style.left = `${tile.tileX * tileWidth * zoom}px`
+  element.style.top = `${tile.tileY * tileHeight * zoom}px`
+  element.style.width = `${selectionWidth * tileWidth * zoom}px`
+  element.style.height = `${selectionHeight * tileHeight * zoom}px`
+}
+
+/** Positions the tile-rect selection element directly from a tile-space rect. Pure DOM writes, no React state. */
+function positionTileRectElement(
+  element: HTMLDivElement | null,
+  rect: MapTileRect | null,
+  tileWidth: number,
+  tileHeight: number,
+  zoom: number,
+) {
+  if (!element) {
+    return
+  }
+  if (!rect) {
+    element.style.display = 'none'
+    return
+  }
+  element.style.display = 'block'
+  element.style.left = `${rect.x * tileWidth * zoom}px`
+  element.style.top = `${rect.y * tileHeight * zoom}px`
+  element.style.width = `${rect.width * tileWidth * zoom}px`
+  element.style.height = `${rect.height * tileHeight * zoom}px`
+}
+
 type ZoomAnchor = {
   viewportX: number
   viewportY: number
@@ -121,35 +331,87 @@ type ZoomAnchor = {
   worldY: number
 }
 
+function sameContentBounds(left: MapContentBounds | null | undefined, right: MapContentBounds | null | undefined) {
+  return (
+    left === right ||
+    (left != null &&
+      right != null &&
+      left.x === right.x &&
+      left.y === right.y &&
+      left.width === right.width &&
+      left.height === right.height)
+  )
+}
+
+function includeContentBounds(current: MapContentBounds | null, next: MapContentBounds | null) {
+  if (!next) {
+    return current
+  }
+
+  if (!current) {
+    return next
+  }
+
+  const left = Math.min(current.x, next.x)
+  const top = Math.min(current.y, next.y)
+  const right = Math.max(current.x + current.width, next.x + next.width)
+  const bottom = Math.max(current.y + current.height, next.y + next.height)
+  return { x: left, y: top, width: right - left, height: bottom - top }
+}
+
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
-  {
-    locale,
-    mapDocument,
-    visibleLayerIds,
-    visibleObjectGroupIds,
+  { mapState, display, overlays, lighting, editing, contextMenu, fit, objectDrag, actions },
+  ref,
+) {
+  const { mapDocument, visibleLayerIds, visibleObjectGroupIds, hideRuleTileDataObjects = false } = mapState
+  const { locale, theme, accentColor, showGrid, showStatsChips = true } = display
+  const { mapOverlay, scaleMapOverlayWithViewport = false, mapOverlayLayer = 'between', viewportOverlay } = overlays ?? {}
+  const { worldLighting = null, gameRootPath = null } = lighting ?? {}
+  const {
+    paintPreview = null,
+    tilesetPreview = null,
+    cellOverlay,
+    dayNightHighlight = null,
+    selectedTileRect = null,
+    inspectorHighlight = null,
+  } = editing ?? {}
+  const { enabled: contextMenuEnabled = true, extraItems: contextMenuExtraItems } = contextMenu ?? {}
+  const {
+    focusWorldPoint,
+    initialZoom = null,
+    includeHiddenLayers = false,
+    fitContentBounds = false,
+    fitContentOptions = {},
+    fitBounds: fitBoundsOverride = null,
+    fitPadding = VIEWPORT_PADDING,
+    maxFitZoom = null,
+    minimumFitViewportSize = 96,
+    viewportOverpan = VIEWPORT_OVERPAN,
+  } = fit ?? {}
+  const {
     onHoverChange,
     onAtlasPortalOpen,
-    theme,
-    accentColor,
-    showGrid,
     onZoomChange,
-    showStatsChips = true,
-    mapOverlay,
-    scaleMapOverlayWithViewport = false,
-    viewportOverlay,
-    focusWorldPoint,
-    contextMenuEnabled = true,
-    contextMenuExtraItems,
     onExportPng,
     onAddObjectHere,
     onTileClick,
-    initialZoom = null,
-  },
-  ref,
-) {
+    onTileStroke,
+    onTileStrokeLive,
+    onTileRectSelect,
+  } = actions ?? {}
   const labels = useEditorCopy().viewportLabels
   const initialDefaultViewportState = useMemo(() => getDefaultViewportState(mapDocument), [mapDocument])
   const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
+  const defaultFocusWorldPoint = useMemo(
+    () =>
+      !fitContentBounds && initialDefaultViewportState
+        ? {
+            worldX: initialDefaultViewportState.worldX,
+            worldY: initialDefaultViewportState.worldY,
+          }
+        : null,
+    [fitContentBounds, initialDefaultViewportState],
+  )
   const frameRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -158,17 +420,24 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const [contextMenuHover, setContextMenuHover] = useState<TileHoverInfo | null>(null)
   const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
+  // Cached viewport.getBoundingClientRect() — updated on scroll, resize and
+  // after layout-affecting renders. pointermove reads this instead of calling
+  // getBoundingClientRect every frame, which forces a synchronous layout
+  // flush (reflow) and is a major source of jank during fast mouse travel.
+  const viewportRectRef = useRef<DOMRect | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
   const leftPressStateRef = useRef<LeftPressState | null>(null)
+  const [tileRectDrag, setTileRectDrag] = useState<TileRectDragState | null>(null)
+  const tileRectDragRef = useRef<TileRectDragState | null>(null)
+  // ref-driven tile-rect selection: pointermove updates tileRectDragRef and
+  // schedules a rAF that repositions the selection box via direct DOM writes,
+  // so dragging costs zero React renders until pointerup commits the rect.
+  const tileRectElementRef = useRef<HTMLDivElement | null>(null)
+  const tileRectRafIdRef = useRef<number | null>(null)
+  const tileStrokeDragRef = useRef<TileStrokeDragState | null>(null)
+  const objectDragStateRef = useRef<ObjectDragState | null>(null)
   const pendingZoomAnchorRef = useRef<ZoomAnchor | null>(null)
-  const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(
-    initialDefaultViewportState
-      ? {
-          worldX: initialDefaultViewportState.worldX,
-          worldY: initialDefaultViewportState.worldY,
-        }
-      : null,
-  )
+  const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(defaultFocusWorldPoint)
   const wheelZoomFrameRef = useRef<number | null>(null)
   const pendingWheelDeltaRef = useRef(0)
   const zoomRef = useRef(1)
@@ -179,13 +448,49 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     loading: false,
   })
   const [manualZoom, setManualZoom] = useState(() => resolvedInitialZoom)
-  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit'))
+  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() =>
+    fitContentBounds ? 'fit' : initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit',
+  )
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [viewportScroll, setViewportScroll] = useState({ left: 0, top: 0 })
   const [refreshToken, setRefreshToken] = useState(0)
+  // Animation clock lives in a ref so the rAF loop can advance it without
+  // triggering React re-renders 60 times per second. The rasterize + canvas
+  // draw functions read this ref directly and are invoked from the same rAF
+  // callback, keeping animation playback entirely off the React render path.
+  const animationTimeRef = useRef(0)
+  const [renderedContentBounds, setRenderedContentBounds] = useState<MapContentBounds | null | undefined>(undefined)
   const [highlightedObjectTarget, setHighlightedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
-  const [hoveredTile, setHoveredTile] = useState<TilePoint | null>(null)
+  // Ref-driven hover highlight: positioned via direct DOM writes on pointermove
+  // so mouse travel costs zero React renders. lastHoverTileRef keeps the tile
+  // for repositioning after zoom/document changes.
+  const hoverTileElementRef = useRef<HTMLDivElement | null>(null)
+  const paintPreviewElementRef = useRef<HTMLDivElement | null>(null)
+  const lastHoverTileRef = useRef<TilePoint | null>(null)
+  // rAF-coalesced hover updates: pointermove stores the latest event and
+  // schedules a single rAF that runs buildHoverInfo + onHoverChange at most
+  // once per frame. A tile-coordinate debounce skips the expensive hit
+  // detection when the pointer stays within the same tile.
+  const pendingHoverEventRef = useRef<PointerEvent<HTMLDivElement> | null>(null)
+  const hoverRafIdRef = useRef<number | null>(null)
   const [pickFlash, setPickFlash] = useState<PickFlashState | null>(null)
+  const tilesetLoadKey = mapDocument
+    ? JSON.stringify({
+        sourcePath: mapDocument.sourcePath,
+        tilesets: mapDocument.tilesets.map((tileset) => ({
+          firstGid: tileset.firstGid,
+          imagePath: tileset.imagePath,
+          imageSource: tileset.imageSource,
+          tileWidth: tileset.tileWidth,
+          tileHeight: tileset.tileHeight,
+          tileCount: tileset.tileCount,
+          columns: tileset.columns,
+          imageWidth: tileset.imageWidth,
+          imageHeight: tileset.imageHeight,
+        })),
+      })
+    : null
+  const tilesetLoadDocument = useMemo(() => mapDocument, [tilesetLoadKey])
 
   useLayoutEffect(() => {
     const frame = frameRef.current
@@ -198,6 +503,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         width: frame.clientWidth,
         height: frame.clientHeight,
       })
+      const viewport = viewportRef.current
+      viewportRectRef.current = viewport ? viewport.getBoundingClientRect() : null
     })
 
     resizeObserver.observe(frame)
@@ -205,24 +512,26 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       width: frame.clientWidth,
       height: frame.clientHeight,
     })
+    const viewport = viewportRef.current
+    viewportRectRef.current = viewport ? viewport.getBoundingClientRect() : null
 
     return () => resizeObserver.disconnect()
   }, [])
 
   useEffect(() => {
-    if (!mapDocument) {
+    if (!tilesetLoadDocument) {
       return
     }
 
     let disposed = false
 
-    setTilesetImageState((current) => ({ ...current, sourcePath: mapDocument.sourcePath, loading: true }))
+    setTilesetImageState((current) => ({ ...current, sourcePath: tilesetLoadDocument.sourcePath, loading: true }))
 
     void (async () => {
       try {
         const results = await Promise.allSettled(
-          mapDocument.tilesets.map(async (tileset) => {
-            const imagePath = resolveTilesetImagePath(mapDocument, tileset)
+          tilesetLoadDocument.tilesets.map(async (tileset) => {
+            const imagePath = resolveTilesetImagePath(tilesetLoadDocument, tileset, gameRootPath)
             if (!imagePath) {
               return null
             }
@@ -249,15 +558,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         }
 
         setTilesetImageState({
-          sourcePath: mapDocument.sourcePath,
+          sourcePath: tilesetLoadDocument.sourcePath,
           items: Object.fromEntries(entries),
           error: errors.length > 0 ? errors.join('\n') : null,
           loading: false,
         })
       } catch (error) {
         if (!disposed) {
+          appEvent('warning', 'Failed to load map tileset images')
+            .error(error)
+            .context({ source: 'map-viewport', operation: 'load-tileset-images' })
+            .emit({ notify: false })
           setTilesetImageState({
-            sourcePath: mapDocument.sourcePath,
+            sourcePath: tilesetLoadDocument.sourcePath,
             items: {},
             error: error instanceof Error ? error.message : String(error),
             loading: false,
@@ -269,11 +582,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => {
       disposed = true
     }
-  }, [labels.failedToLoadTilesetImage, locale, mapDocument])
+  }, [gameRootPath, labels.failedToLoadTilesetImage, locale, tilesetLoadDocument])
 
   const tilesetImages = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.items : {}),
     [mapDocument, tilesetImageState],
+  )
+  const sortedTilesets = useMemo(
+    () => (mapDocument ? [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid) : []),
+    [mapDocument],
   )
   const imageError = useMemo(
     () => (mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath ? tilesetImageState.error : null),
@@ -283,12 +600,34 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     () => Boolean(mapDocument && tilesetImageState.sourcePath === mapDocument.sourcePath && tilesetImageState.loading),
     [mapDocument, tilesetImageState],
   )
-  const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds])
-  const visibleObjectGroupIdSet = useMemo(() => new Set(visibleObjectGroupIds), [visibleObjectGroupIds])
-  const visibleLayers = useMemo(
-    () => (mapDocument ? mapDocument.layers.filter((layer) => layer.visible && visibleLayerIdSet.has(layer.id)) : []),
-    [mapDocument, visibleLayerIdSet],
+  // Callers rebuild these id arrays every render; key the memoized sets on
+  // their contents so downstream layer memos and the raster-bake effect only
+  // recompute when visibility actually changes.
+  const visibleLayerIdsKey = visibleLayerIds.join('')
+  const visibleObjectGroupIdsKey = visibleObjectGroupIds.join('')
+  const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIdsKey ? visibleLayerIdsKey.split('').map(Number) : []), [visibleLayerIdsKey])
+  const visibleObjectGroupIdSet = useMemo(
+    () => new Set(visibleObjectGroupIdsKey ? visibleObjectGroupIdsKey.split('').map(Number) : []),
+    [visibleObjectGroupIdsKey],
   )
+  const visibleLayers = useMemo(
+    () =>
+      mapDocument ? mapDocument.layers.filter((layer) => (includeHiddenLayers || layer.visible) && visibleLayerIdSet.has(layer.id)) : [],
+    [includeHiddenLayers, mapDocument, visibleLayerIdSet],
+  )
+  // Pre-compute the set of animated-tile gids (firstGid + tileId) so the
+  // viewport-visibility scan below stays a cheap Set lookup instead of
+  // re-reading every tileset's animation table per tile.
+  const animatedTileGidSet = useMemo(() => {
+    if (!mapDocument) return null
+    const set = new Set<number>()
+    for (const tileset of mapDocument.tilesets) {
+      for (const tileId of Object.keys(tileset.animations)) {
+        set.add(tileset.firstGid + Number(tileId))
+      }
+    }
+    return set.size > 0 ? set : null
+  }, [mapDocument])
   const shouldSplitForegroundLayers = Boolean(mapOverlay)
   const backgroundLayers = useMemo(
     () => (shouldSplitForegroundLayers ? visibleLayers.filter((layer) => !isForegroundTileLayer(layer.name)) : visibleLayers),
@@ -302,6 +641,53 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     () => (mapDocument ? mapDocument.objectGroups.filter((group) => group.visible && visibleObjectGroupIdSet.has(group.id)) : []),
     [mapDocument, visibleObjectGroupIdSet],
   )
+  const transparentTileGids = useMemo(
+    () => (fitContentBounds && fitContentOptions.ignoreTransparentTiles ? getTransparentTileGids(sortedTilesets, tilesetImages) : null),
+    [fitContentBounds, fitContentOptions.ignoreTransparentTiles, sortedTilesets, tilesetImages],
+  )
+  const fitBounds = useMemo(() => {
+    if (fitBoundsOverride) {
+      return fitBoundsOverride
+    }
+    if (!fitContentBounds || !mapDocument) {
+      return null
+    }
+
+    const options = {
+      layerIds: visibleLayerIds,
+      objectGroupIds: visibleObjectGroupIds,
+      includeObjects: fitContentOptions.includeObjects,
+      includeHiddenLayers: fitContentOptions.includeHiddenLayers,
+      paddingTiles: fitContentOptions.paddingTiles ?? 1,
+      transparentTileGids: transparentTileGids ?? undefined,
+    }
+
+    if (renderedContentBounds !== undefined) {
+      return renderedContentBounds
+    }
+
+    return fitContentOptions.mode === 'preview'
+      ? getMapPreviewBounds(mapDocument, {
+          ...options,
+          minimumCoverageRatio: fitContentOptions.minimumCoverageRatio,
+          targetAspectRatio: fitContentOptions.targetAspectRatio,
+        })
+      : getMapContentBounds(mapDocument, options)
+  }, [
+    fitBoundsOverride,
+    fitContentBounds,
+    fitContentOptions.includeObjects,
+    fitContentOptions.includeHiddenLayers,
+    fitContentOptions.minimumCoverageRatio,
+    fitContentOptions.mode,
+    fitContentOptions.paddingTiles,
+    fitContentOptions.targetAspectRatio,
+    mapDocument,
+    renderedContentBounds,
+    transparentTileGids,
+    visibleLayerIds,
+    visibleObjectGroupIds,
+  ])
   const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
   const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
   const atlasPortals = useMemo(() => mapDocument?.atlas?.portals ?? [], [mapDocument])
@@ -367,14 +753,29 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return 1
     }
 
-    const mapWidth = document.width * document.tileWidth
-    const mapHeight = document.height * document.tileHeight
-    const availableWidth = Math.max(96, viewportSize.width - VIEWPORT_PADDING * 2)
-    const availableHeight = Math.max(96, viewportSize.height - VIEWPORT_PADDING * 2)
-    return clampZoom(Math.min(availableWidth / mapWidth, availableHeight / mapHeight))
+    const mapWidth = fitBounds?.width ?? document.width * document.tileWidth
+    const mapHeight = fitBounds?.height ?? document.height * document.tileHeight
+    const availableWidth = Math.max(minimumFitViewportSize, viewportSize.width - fitPadding * 2)
+    const availableHeight = Math.max(minimumFitViewportSize, viewportSize.height - fitPadding * 2)
+    const nextZoom = Math.min(availableWidth / mapWidth, availableHeight / mapHeight)
+    return clampZoom(maxFitZoom === null ? nextZoom : Math.min(nextZoom, maxFitZoom))
   }
 
   const zoom = mapDocument && zoomMode === 'fit' ? getFitZoom(mapDocument) : manualZoom
+  const directFitDisplayRect = useMemo(() => {
+    if (!fitContentBounds || zoomMode !== 'fit' || !fitBounds || !viewportSize.width || !viewportSize.height) {
+      return null
+    }
+
+    const width = fitBounds.width * zoom
+    const height = fitBounds.height * zoom
+    return {
+      left: (viewportSize.width - width) / 2,
+      top: (viewportSize.height - height) / 2,
+      width,
+      height,
+    }
+  }, [fitBounds, fitContentBounds, viewportSize.height, viewportSize.width, zoom, zoomMode])
   const canvasLogicalSize = useMemo(
     () =>
       mapDocument
@@ -385,20 +786,51 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         : { width: 0, height: 0 },
     [mapDocument, zoom],
   )
-  const stageSize = useMemo(
-    () => ({
-      width: Math.max(viewportSize.width + VIEWPORT_OVERPAN * 2, canvasLogicalSize.width + VIEWPORT_PADDING * 2),
-      height: Math.max(viewportSize.height + VIEWPORT_OVERPAN * 2, canvasLogicalSize.height + VIEWPORT_PADDING * 2),
-    }),
-    [canvasLogicalSize.height, canvasLogicalSize.width, viewportSize.height, viewportSize.width],
-  )
-  const canvasOffset = useMemo(
-    () => ({
+  const stageSize = useMemo(() => {
+    if (zoomMode === 'fit' && fitBounds) {
+      return {
+        width: Math.max(1, viewportSize.width + viewportOverpan * 2),
+        height: Math.max(1, viewportSize.height + viewportOverpan * 2),
+      }
+    }
+
+    return {
+      width: Math.max(viewportSize.width + viewportOverpan * 2, canvasLogicalSize.width + fitPadding * 2),
+      height: Math.max(viewportSize.height + viewportOverpan * 2, canvasLogicalSize.height + fitPadding * 2),
+    }
+  }, [
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    fitBounds,
+    fitPadding,
+    viewportOverpan,
+    viewportSize.height,
+    viewportSize.width,
+    zoomMode,
+  ])
+  const canvasOffset = useMemo(() => {
+    if (zoomMode === 'fit' && fitBounds && viewportSize.width > 0 && viewportSize.height > 0) {
+      return {
+        left: viewportSize.width / 2 - (fitBounds.x + fitBounds.width / 2) * zoom,
+        top: viewportSize.height / 2 - (fitBounds.y + fitBounds.height / 2) * zoom,
+      }
+    }
+
+    return {
       left: (stageSize.width - canvasLogicalSize.width) / 2,
       top: (stageSize.height - canvasLogicalSize.height) / 2,
-    }),
-    [canvasLogicalSize.height, canvasLogicalSize.width, stageSize.height, stageSize.width],
-  )
+    }
+  }, [
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    fitBounds,
+    stageSize.height,
+    stageSize.width,
+    viewportSize.height,
+    viewportSize.width,
+    zoom,
+    zoomMode,
+  ])
   const viewportCanvasRect = useMemo(
     () =>
       mapDocument
@@ -432,8 +864,57 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }),
     [canvasOffset.left, canvasOffset.top, viewportScroll.left, viewportScroll.top],
   )
-  const tileInteractionEnabled = Boolean(onTileClick)
+  // Whether any animated tile is currently inside the viewport. Scans the
+  // visible tile range of visible layers; bails on the first animated gid so
+  // the cost is proportional to the distance to the first animated tile (and
+  // zero when the map has no animations at all). Drives the animation clock
+  // so scrolling away from animated tiles stops the 60fps raster loop.
+  const viewportHasAnimatedTiles = useMemo(() => {
+    if (!mapDocument || !animatedTileGidSet || visibleLayers.length === 0) return false
+    const tileWidth = mapDocument.tileWidth
+    const tileHeight = mapDocument.tileHeight
+    const worldLeft = directFitDisplayRect && fitBounds ? fitBounds.x : viewportCanvasRect.left / zoom
+    const worldTop = directFitDisplayRect && fitBounds ? fitBounds.y : viewportCanvasRect.top / zoom
+    const worldWidth = directFitDisplayRect && fitBounds ? fitBounds.width : viewportCanvasRect.width / zoom
+    const worldHeight = directFitDisplayRect && fitBounds ? fitBounds.height : viewportCanvasRect.height / zoom
+    if (worldWidth <= 0 || worldHeight <= 0) return false
+    const startTileX = Math.max(0, Math.floor(worldLeft / tileWidth))
+    const startTileY = Math.max(0, Math.floor(worldTop / tileHeight))
+    const endTileX = Math.min(mapDocument.width, Math.ceil((worldLeft + worldWidth) / tileWidth))
+    const endTileY = Math.min(mapDocument.height, Math.ceil((worldTop + worldHeight) / tileHeight))
+    for (const layer of visibleLayers) {
+      for (let tileY = startTileY; tileY < endTileY; tileY += 1) {
+        const rowBase = tileY * mapDocument.width
+        for (let tileX = startTileX; tileX < endTileX; tileX += 1) {
+          const gid = stripTileGidFlags(layer.gids[rowBase + tileX] >>> 0)
+          if (gid !== 0 && animatedTileGidSet.has(gid)) return true
+        }
+      }
+    }
+    return false
+  }, [animatedTileGidSet, directFitDisplayRect, fitBounds, mapDocument, viewportCanvasRect, visibleLayers, zoom])
+  // The lighting model works in game pixels (64px per tile); the baked overlay
+  // stretches over the map display rect, so the spaces stay aligned.
+  // Glow textures decode asynchronously; the version bump re-bakes once ready.
+  const [lightingTexturesVersion, setLightingTexturesVersion] = useState(0)
+  useEffect(() => preloadWorldLightingTextures(gameRootPath, () => setLightingTexturesVersion((version) => version + 1)), [gameRootPath])
+  const bakedWorldLighting = useMemo(
+    () =>
+      mapDocument && worldLighting
+        ? bakeWorldLightingCanvas(mapDocument.width * GAME_TILE_SIZE, mapDocument.height * GAME_TILE_SIZE, worldLighting, gameRootPath)
+        : null,
+    [mapDocument, worldLighting, gameRootPath, lightingTexturesVersion],
+  )
+  const tileInteractionEnabled = Boolean(onTileClick || onTileRectSelect || onTileStroke)
   const viewportCursorClass = tileInteractionEnabled ? 'cursor-crosshair' : 'cursor-default'
+  const activeTileRect =
+    tileRectDrag && mapDocument
+      ? createMapTileRect(
+          { x: tileRectDrag.startTileX, y: tileRectDrag.startTileY },
+          { x: tileRectDrag.currentTileX, y: tileRectDrag.currentTileY },
+          mapDocument,
+        )
+      : selectedTileRect
 
   useEffect(() => {
     if (!pickFlash) {
@@ -447,17 +928,170 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => window.clearTimeout(timeout)
   }, [pickFlash])
 
+  // Resolve the paint-preview ghost tile: find the tileset image by name, then
+  // compute the background crop for the palette selection rect.
+  const paintPreviewStyle = useMemo(() => {
+    if (!paintPreview || !mapDocument) return null
+    const tileset = mapDocument.tilesets.find((candidate) => candidate.name === paintPreview.tilesetName)
+    if (!tileset) return null
+    const loaded = Object.values(tilesetImages).find((entry) => entry.tileset === tileset)
+    if (!loaded) return null
+    const spacing = tileset.spacing ?? 0
+    const margin = tileset.margin ?? 0
+    const srcCol = paintPreview.startIndex % tileset.columns
+    const srcRow = Math.floor(paintPreview.startIndex / tileset.columns)
+    const cropX = margin + srcCol * (tileset.tileWidth + spacing)
+    const cropY = margin + srcRow * (tileset.tileHeight + spacing)
+    return {
+      backgroundImage: `url(${JSON.stringify(loaded.image.src)})`,
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: `${loaded.image.naturalWidth * zoom}px ${loaded.image.naturalHeight * zoom}px`,
+      backgroundPosition: `-${cropX * zoom}px -${cropY * zoom}px`,
+    } as const
+  }, [paintPreview, mapDocument, tilesetImages, zoom])
+
+  // Resolve the tileset hover preview: the caller provides the image src
+  // (already loaded as a data URL by the gallery). We decode it to get
+  // natural dimensions, then scale to fit ~80% of the canvas, centered.
+  // Tileset preview overlay: backdrop stays visible while gallery mode is on;
+  // the <img> src swaps directly without remounting, so hovering between sheets
+  // doesn't flash. We track the frame element size and the decoded image's
+  // natural dimensions to compute a display size that fills up to 90% of the
+  // frame, scaling up small sheets for a clear preview.
+  const showPreviewOverlay = tilesetPreview?.mode === true
+  const previewImageSrc = tilesetPreview?.imageSrc ?? null
+  const [previewImageSize, setPreviewImageSize] = useState<{ w: number; h: number } | null>(null)
+  const [frameSize, setFrameSize] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    if (!showPreviewOverlay) {
+      setPreviewImageSize(null)
+      return
+    }
+    const frame = frameRef.current
+    if (!frame) return
+    const update = () => setFrameSize({ w: frame.clientWidth, h: frame.clientHeight })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [showPreviewOverlay])
+
+  useEffect(() => {
+    if (!previewImageSrc) {
+      setPreviewImageSize(null)
+      return
+    }
+    const img = new Image()
+    img.onload = () => setPreviewImageSize({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => setPreviewImageSize(null)
+    img.src = previewImageSrc
+  }, [previewImageSrc])
+
+  const previewDisplaySize = useMemo(() => {
+    if (!previewImageSize || frameSize.w === 0 || frameSize.h === 0) return null
+    const maxW = frameSize.w * 0.9
+    const maxH = frameSize.h * 0.9
+    const scale = Math.min(maxW / previewImageSize.w, maxH / previewImageSize.h)
+    return { w: previewImageSize.w * scale, h: previewImageSize.h * scale }
+  }, [previewImageSize, frameSize])
+
+  // Re-position the ref-driven hover highlight after zoom/document changes;
+  // pointermove writes the same styles directly without involving React.
+  useEffect(() => {
+    const tile = tileInteractionEnabled ? lastHoverTileRef.current : null
+    positionHoverTileElement(hoverTileElementRef.current, tile, mapDocument?.tileWidth ?? 0, mapDocument?.tileHeight ?? 0, zoom)
+    if (paintPreview && paintPreviewStyle && tile) {
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        tile,
+        mapDocument?.tileWidth ?? 0,
+        mapDocument?.tileHeight ?? 0,
+        zoom,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    } else {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    }
+  }, [mapDocument, tileInteractionEnabled, zoom, paintPreview, paintPreviewStyle])
+
+  // Re-apply paint preview display after every render (animation clock causes
+  // frequent re-renders that reset inline display, hiding the preview).
+  useLayoutEffect(() => {
+    if (!paintPreview || !paintPreviewStyle) {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    } else {
+      const tile = tileInteractionEnabled ? lastHoverTileRef.current : null
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        tile,
+        mapDocument?.tileWidth ?? 0,
+        mapDocument?.tileHeight ?? 0,
+        zoom,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    }
+  })
+
+  // Keep the cached viewport rect fresh after layout-affecting renders (zoom
+  // changes, document swaps, stage size adjustments). scroll and resize are
+  // handled by their own listeners; this covers the remaining cases so
+  // pointermove never needs to call getBoundingClientRect synchronously.
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    viewportRectRef.current = viewport ? viewport.getBoundingClientRect() : null
+  })
+
+  // Re-position the ref-driven tile-rect selection after zoom/document changes;
+  // pointermove writes the same styles directly without involving React.
+  useEffect(() => {
+    if (!mapDocument) {
+      positionTileRectElement(tileRectElementRef.current, null, 0, 0, 1)
+      return
+    }
+    const drag = tileRectDragRef.current
+    const rect = drag
+      ? createMapTileRect({ x: drag.startTileX, y: drag.startTileY }, { x: drag.currentTileX, y: drag.currentTileY }, mapDocument)
+      : selectedTileRect
+    positionTileRectElement(tileRectElementRef.current, rect, mapDocument.tileWidth, mapDocument.tileHeight, zoom)
+  }, [mapDocument, selectedTileRect, zoom])
+
   useEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
+
+  useLayoutEffect(() => {
+    if (!fitContentBounds) {
+      return
+    }
+
+    pendingZoomAnchorRef.current = null
+    pendingFocusWorldPointRef.current = null
+    setZoomMode((current) => (current === 'fit' ? current : 'fit'))
+  }, [fitContentBounds, mapDocument?.sourcePath])
 
   useEffect(() => {
     lastHoverRef.current = null
     leftPressStateRef.current = null
     dragStateRef.current = null
-    setHoveredTile(null)
+    objectDragStateRef.current = null
+    lastHoverTileRef.current = null
+    positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
     setPickFlash(null)
+    setRenderedContentBounds(undefined)
   }, [mapDocument?.sourcePath])
+
+  // Cancel any pending rAF hover/tile-rect updates on unmount so the callbacks
+  // never run after the viewport (and its refs) are gone.
+  useEffect(
+    () => () => {
+      cancelPendingHoverRaf()
+      cancelPendingTileRectRaf()
+    },
+    [],
+  )
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -466,6 +1100,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     const syncScrollState = () => {
+      viewportRectRef.current = viewport.getBoundingClientRect()
       setViewportScroll((current) => {
         const nextLeft = viewport.scrollLeft
         const nextTop = viewport.scrollTop
@@ -488,22 +1123,77 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
   }, [mapDocument, viewportSize.height, viewportSize.width])
 
-  useLayoutEffect(() => {
+  // Animation clock: drive periodic re-rasterization only while animated
+  // tiles are visible in the viewport. Scrolling away from animated tiles
+  // stops the 60fps raster loop entirely instead of keeping it running for
+  // off-screen content. The clock lives in a ref and the rAF callback invokes
+  // rasterize + canvas draw directly, so animation playback never triggers
+  // React re-renders.
+  useEffect(() => {
+    if (!mapDocument || !viewportHasAnimatedTiles) return
+    const startTime = performance.now()
+    let rafId = 0
+    let lastTick = 0
+    const tick = (now: number) => {
+      const elapsed = now - startTime
+      // Throttle to ~60fps max; most animations are 100-250ms so this is plenty.
+      if (now - lastTick >= 16) {
+        lastTick = now
+        animationTimeRef.current = elapsed
+        performRasterizeRef.current()
+        performCanvasDrawRef.current()
+        performForegroundCanvasDrawRef.current()
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [mapDocument, viewportHasAnimatedTiles])
+
+  // Refs holding the latest rasterize / canvas-draw closures so the animation
+  // rAF loop can invoke them directly without going through React state.
+  const performRasterizeRef = useRef<() => void>(() => {})
+  const performCanvasDrawRef = useRef<() => void>(() => {})
+  const performForegroundCanvasDrawRef = useRef<() => void>(() => {})
+
+  function performRasterize() {
     if (!mapDocument) {
       mapRasterCanvasRef.current = null
       foregroundRasterCanvasRef.current = null
       return
     }
 
-    const sortedTilesets = [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid)
     const backgroundRasterCanvas = mapRasterCanvasRef.current ?? document.createElement('canvas')
     const foregroundRasterCanvas = foregroundRasterCanvasRef.current ?? document.createElement('canvas')
     mapRasterCanvasRef.current = backgroundRasterCanvas
     foregroundRasterCanvasRef.current = foregroundRasterCanvas
 
-    rasterizeTileLayers(backgroundRasterCanvas, mapDocument, backgroundLayers, sortedTilesets, tilesetImages)
-    rasterizeTileLayers(foregroundRasterCanvas, mapDocument, foregroundLayers, sortedTilesets, tilesetImages)
-  }, [backgroundLayers, foregroundLayers, mapDocument, tilesetImages])
+    rasterizeTileLayers(backgroundRasterCanvas, mapDocument, backgroundLayers, sortedTilesets, tilesetImages, {
+      animationTime: animationTimeRef.current,
+    })
+    rasterizeTileLayers(foregroundRasterCanvas, mapDocument, foregroundLayers, sortedTilesets, tilesetImages, {
+      animationTime: animationTimeRef.current,
+    })
+
+    const nextRenderedContentBounds =
+      fitContentBounds && fitContentOptions.ignoreTransparentTiles
+        ? includeContentBounds(getRasterAlphaBounds(backgroundRasterCanvas), getRasterAlphaBounds(foregroundRasterCanvas))
+        : undefined
+    setRenderedContentBounds((current) => (sameContentBounds(current, nextRenderedContentBounds) ? current : nextRenderedContentBounds))
+  }
+  performRasterizeRef.current = performRasterize
+
+  useLayoutEffect(() => {
+    performRasterize()
+  }, [
+    backgroundLayers,
+    fitContentBounds,
+    fitContentOptions.ignoreTransparentTiles,
+    foregroundLayers,
+    mapDocument,
+    sortedTilesets,
+    tilesetImages,
+  ])
 
   useEffect(() => {
     onZoomChange?.(zoom, zoomMode)
@@ -567,13 +1257,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           worldX: focusWorldPoint.worldX,
           worldY: focusWorldPoint.worldY,
         }
-      : initialDefaultViewportState
-        ? {
-            worldX: initialDefaultViewportState.worldX,
-            worldY: initialDefaultViewportState.worldY,
-          }
-        : null
-  }, [focusWorldPoint, initialDefaultViewportState])
+      : defaultFocusWorldPoint
+  }, [defaultFocusWorldPoint, focusWorldPoint])
 
   const setZoomAnchorFromClient = useCallback(
     (clientX: number, clientY: number) => {
@@ -716,9 +1401,20 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       centerView: centerViewport,
       resetPan: resetViewportToOrigin,
       focusObject: focusObjectTarget,
+      centerOnWorldPoint: centerViewportOnWorldPoint,
       exportPng,
     }),
-    [applyFitZoom, applyManualZoom, centerViewport, exportPng, focusObjectTarget, resetViewportToOrigin, zoomInStep, zoomOutStep],
+    [
+      applyFitZoom,
+      applyManualZoom,
+      centerViewport,
+      centerViewportOnWorldPoint,
+      exportPng,
+      focusObjectTarget,
+      resetViewportToOrigin,
+      zoomInStep,
+      zoomOutStep,
+    ],
   )
 
   useEffect(() => {
@@ -747,7 +1443,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     centerViewport()
-  }, [centerViewport, focusWorldPoint, mapDocument, zoom, zoomMode])
+  }, [centerViewport, fitBounds, focusWorldPoint, mapDocument, viewportSize.height, viewportSize.width, zoom, zoomMode])
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -850,280 +1546,38 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
   }, [applyManualZoom, mapDocument])
 
-  useLayoutEffect(() => {
+  function performCanvasDraw() {
     const canvas = canvasRef.current
-    if (!canvas || !mapDocument || !viewportSize.width || !viewportSize.height) {
-      return
-    }
+    if (!canvas) return
+    drawMapCanvas({
+      canvas,
+      rasterCanvas: mapRasterCanvasRef.current,
+      mapDocument,
+      viewportSize,
+      directFitDisplayRect,
+      fitBounds,
+      viewportCanvasRect,
+      zoom,
+      mapDisplayOffset,
+      canvasLogicalSize,
+      theme,
+      accentColor,
+      showGrid,
+      hideRuleTileDataObjects,
+      cellOverlay,
+      dayNightHighlight,
+      inspectorHighlight,
+      visibleObjectGroups,
+      atlasPlacements,
+      atlasPortals,
+      atlasWarpRoutes,
+      highlightedObject,
+    })
+  }
+  performCanvasDrawRef.current = performCanvasDraw
 
-    const context = canvas.getContext('2d')
-    if (!context) {
-      return
-    }
-
-    const pixelRatio =
-      typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1
-    const logicalWidth = Math.max(1, viewportSize.width)
-    const logicalHeight = Math.max(1, viewportSize.height)
-    const renderScale = getCanvasRenderScale(logicalWidth, logicalHeight, pixelRatio)
-    const width = Math.max(1, Math.ceil(logicalWidth * pixelRatio * renderScale))
-    const height = Math.max(1, Math.ceil(logicalHeight * pixelRatio * renderScale))
-    const worldLeft = viewportCanvasRect.left / zoom
-    const worldTop = viewportCanvasRect.top / zoom
-    const worldWidth = viewportCanvasRect.width / zoom
-    const worldHeight = viewportCanvasRect.height / zoom
-
-    canvas.width = width
-    canvas.height = height
-
-    const canvasFill = theme === 'light' ? '#f8fafc' : '#12151c'
-    const overlayLabelFill = theme === 'light' ? '#ffffff' : '#080a10'
-    const overlayLabelText = theme === 'light' ? '#101724' : '#eef4ff'
-    const visibleMapLeft = mapDisplayOffset.left + viewportCanvasRect.left
-    const visibleMapTop = mapDisplayOffset.top + viewportCanvasRect.top
-    const visibleMapWidth = viewportCanvasRect.width
-    const visibleMapHeight = viewportCanvasRect.height
-
-    context.imageSmoothingEnabled = false
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, width, height)
-    context.setTransform(pixelRatio * renderScale, 0, 0, pixelRatio * renderScale, 0, 0)
-    context.save()
-    context.beginPath()
-    context.rect(visibleMapLeft, visibleMapTop, visibleMapWidth, visibleMapHeight)
-    context.clip()
-    context.fillStyle = canvasFill
-    context.fillRect(visibleMapLeft, visibleMapTop, visibleMapWidth, visibleMapHeight)
-
-    const rasterCanvas = mapRasterCanvasRef.current
-    if (rasterCanvas && worldWidth > 0 && worldHeight > 0) {
-      context.drawImage(
-        rasterCanvas,
-        worldLeft,
-        worldTop,
-        worldWidth,
-        worldHeight,
-        mapDisplayOffset.left + viewportCanvasRect.left,
-        mapDisplayOffset.top + viewportCanvasRect.top,
-        viewportCanvasRect.width,
-        viewportCanvasRect.height,
-      )
-    }
-
-    if (showGrid) {
-      const gridColor = theme === 'light' ? 'rgba(20, 28, 40, 0.22)' : 'rgba(244, 244, 245, 0.18)'
-      const hairline = 1 / Math.max(pixelRatio * renderScale, 1)
-      const tileWidth = mapDocument.tileWidth * zoom
-      const tileHeight = mapDocument.tileHeight * zoom
-
-      context.fillStyle = gridColor
-
-      for (
-        let x = Math.max(tileWidth, Math.ceil(viewportCanvasRect.left / tileWidth) * tileWidth);
-        x < viewportCanvasRect.left + viewportCanvasRect.width;
-        x += tileWidth
-      ) {
-        context.fillRect(mapDisplayOffset.left + x - hairline / 2, visibleMapTop, hairline, visibleMapHeight)
-      }
-
-      for (
-        let y = Math.max(tileHeight, Math.ceil(viewportCanvasRect.top / tileHeight) * tileHeight);
-        y < viewportCanvasRect.top + viewportCanvasRect.height;
-        y += tileHeight
-      ) {
-        context.fillRect(visibleMapLeft, mapDisplayOffset.top + y - hairline / 2, visibleMapWidth, hairline)
-      }
-    }
-    context.restore()
-
-    context.globalAlpha = 1
-    context.save()
-    context.beginPath()
-    context.rect(mapDisplayOffset.left, mapDisplayOffset.top, canvasLogicalSize.width, canvasLogicalSize.height)
-    context.clip()
-    context.translate(mapDisplayOffset.left, mapDisplayOffset.top)
-
-    for (const group of visibleObjectGroups) {
-      const color = getGroupColor(group.name)
-
-      for (const object of group.objects) {
-        const interactionTag = getObjectInteractionTag(object)
-        const label = getObjectDisplayLabel(object)
-        const bounds = getObjectBounds(object, 12 / zoom)
-        const destinationX = bounds.x * zoom
-        const destinationY = bounds.y * zoom
-        const destinationWidth = bounds.width * zoom
-        const destinationHeight = bounds.height * zoom
-        const centerX = (bounds.x + bounds.width / 2) * zoom
-        const centerY = (bounds.y + bounds.height / 2) * zoom
-        const fillAlpha = interactionTag
-          ? Math.max(0.22, Math.min(0.42, group.opacity * 0.42))
-          : Math.max(0.12, Math.min(0.28, group.opacity * 0.24))
-        const strokeAlpha = interactionTag
-          ? Math.max(0.76, Math.min(0.98, group.opacity + 0.12))
-          : Math.max(0.48, Math.min(0.82, group.opacity * 0.84))
-
-        context.save()
-        context.strokeStyle = color
-        context.fillStyle = color
-        context.globalAlpha = fillAlpha
-        context.fillRect(destinationX, destinationY, destinationWidth, destinationHeight)
-        context.globalAlpha = strokeAlpha
-        context.lineWidth = Math.max(interactionTag ? 1.8 : 1.25, zoom * (interactionTag ? 0.18 : 0.1))
-        if (interactionTag) {
-          context.setLineDash([Math.max(5, 8 * zoom), Math.max(3, 5 * zoom)])
-        }
-        context.strokeRect(destinationX, destinationY, destinationWidth, destinationHeight)
-        context.setLineDash([])
-
-        if (bounds.isPoint) {
-          context.beginPath()
-          context.globalAlpha = interactionTag ? 1 : 0.92
-          context.shadowBlur = interactionTag ? Math.max(8, 14 * zoom) : 0
-          context.shadowColor = interactionTag ? color : 'transparent'
-          context.arc(object.x * zoom, object.y * zoom, Math.max(interactionTag ? 5 : 4, 5.5 * zoom), 0, Math.PI * 2)
-          context.fill()
-          context.shadowBlur = 0
-        } else {
-          context.beginPath()
-          context.globalAlpha = interactionTag ? 0.94 : 0.72
-          context.arc(centerX, centerY, Math.max(interactionTag ? 3.5 : 2.5, 3.5 * zoom), 0, Math.PI * 2)
-          context.fill()
-        }
-
-        if (interactionTag) {
-          const markerRadius = Math.max(6, 8 * zoom)
-
-          context.globalAlpha = 0.92
-          context.strokeStyle = 'rgba(255,255,255,0.96)'
-          context.lineWidth = Math.max(1.2, 1.8 * zoom)
-          context.beginPath()
-          context.moveTo(centerX, centerY - markerRadius)
-          context.lineTo(centerX + markerRadius, centerY)
-          context.lineTo(centerX, centerY + markerRadius)
-          context.lineTo(centerX - markerRadius, centerY)
-          context.closePath()
-          context.stroke()
-        }
-
-        const labelThreshold = interactionTag || bounds.isPoint ? 0.28 : 0.45
-        if (zoom >= labelThreshold) {
-          const secondaryLabel = interactionTag ?? object.type
-          context.font = `${Math.max(10, Math.round(11 * Math.min(zoom, 1.3)))}px "Segoe UI", sans-serif`
-          const primaryWidth = context.measureText(label).width
-          const secondaryWidth = secondaryLabel ? context.measureText(secondaryLabel).width : 0
-          const labelWidth = Math.max(primaryWidth, secondaryWidth) + 12
-          const labelHeight = secondaryLabel ? 30 : 18
-          const labelX = bounds.isPoint ? centerX + 10 : destinationX
-          const labelY = bounds.isPoint ? centerY - labelHeight / 2 : Math.max(4, destinationY - labelHeight)
-
-          context.globalAlpha = 0.88
-          context.fillStyle = overlayLabelFill
-          context.fillRect(labelX, labelY, labelWidth, labelHeight)
-          context.globalAlpha = 1
-          context.strokeStyle = color
-          context.strokeRect(labelX, labelY, labelWidth, labelHeight)
-          context.fillStyle = overlayLabelText
-          context.fillText(label, labelX + 5, labelY + 12.5)
-          if (secondaryLabel) {
-            context.fillStyle = theme === 'light' ? '#475569' : '#cbd5e1'
-            context.fillText(secondaryLabel, labelX + 5, labelY + 24)
-          }
-        }
-        context.restore()
-      }
-    }
-
-    if (atlasWarpRoutes.length) {
-      for (const route of atlasWarpRoutes) {
-        drawWarpRoute(context, route, mapDocument.tileWidth, mapDocument.tileHeight, zoom)
-      }
-    }
-
-    if (highlightedObject) {
-      const bounds = getObjectBounds(highlightedObject.object, 12 / zoom)
-      const destinationX = bounds.x * zoom
-      const destinationY = bounds.y * zoom
-      const destinationWidth = bounds.width * zoom
-      const destinationHeight = bounds.height * zoom
-      const centerX = (bounds.x + bounds.width / 2) * zoom
-      const centerY = (bounds.y + bounds.height / 2) * zoom
-      const highlightColor = theme === 'light' ? 'rgba(245, 158, 11, 0.96)' : 'rgba(250, 204, 21, 0.98)'
-      const haloColor = theme === 'light' ? 'rgba(249, 115, 22, 0.24)' : 'rgba(250, 204, 21, 0.28)'
-
-      context.save()
-      context.globalAlpha = 1
-      context.shadowBlur = Math.max(14, 22 * zoom)
-      context.shadowColor = haloColor
-      context.fillStyle = haloColor
-      context.fillRect(destinationX - 4, destinationY - 4, destinationWidth + 8, destinationHeight + 8)
-      context.shadowBlur = 0
-      context.strokeStyle = highlightColor
-      context.lineWidth = Math.max(2, 3 * zoom)
-      context.setLineDash([Math.max(8, 10 * zoom), Math.max(4, 6 * zoom)])
-      context.strokeRect(destinationX - 2, destinationY - 2, destinationWidth + 4, destinationHeight + 4)
-      context.setLineDash([])
-
-      context.beginPath()
-      context.fillStyle = highlightColor
-      context.arc(centerX, centerY, Math.max(4.5, 6 * zoom), 0, Math.PI * 2)
-      context.fill()
-
-      context.beginPath()
-      context.strokeStyle = 'rgba(255,255,255,0.96)'
-      context.lineWidth = Math.max(1.5, 2 * zoom)
-      context.moveTo(centerX - Math.max(8, 12 * zoom), centerY)
-      context.lineTo(centerX + Math.max(8, 12 * zoom), centerY)
-      context.moveTo(centerX, centerY - Math.max(8, 12 * zoom))
-      context.lineTo(centerX, centerY + Math.max(8, 12 * zoom))
-      context.stroke()
-      context.restore()
-    }
-
-    if (atlasPortals.length) {
-      for (const portal of atlasPortals) {
-        drawAtlasPortal(context, portal, mapDocument.tileWidth, mapDocument.tileHeight, zoom, theme, accentColor)
-      }
-    }
-
-    if (atlasPlacements.length && mapDocument.format === 'atlas') {
-      context.save()
-      context.textBaseline = 'top'
-      context.setLineDash([8, 8])
-
-      for (const placement of atlasPlacements) {
-        const x = placement.offsetX * mapDocument.tileWidth * zoom
-        const y = placement.offsetY * mapDocument.tileHeight * zoom
-        const width = placement.width * mapDocument.tileWidth * zoom
-        const height = placement.height * mapDocument.tileHeight * zoom
-
-        context.globalAlpha = 0.04
-        context.fillStyle = theme === 'light' ? '#3b82f6' : '#60a5fa'
-        context.fillRect(x, y, width, height)
-
-        context.globalAlpha = 0.38
-        context.lineWidth = Math.max(1.5, zoom * 0.12)
-        context.strokeStyle = theme === 'light' ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.28)'
-        context.strokeRect(x, y, width, height)
-
-        if (zoom >= 0.28) {
-          const label = placement.mapName
-          context.font = `${Math.max(10, Math.round(12 * Math.min(zoom, 1.2)))}px "Segoe UI", sans-serif`
-          const labelWidth = context.measureText(label).width + 12
-          context.fillStyle = theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(8,10,16,0.9)'
-          context.fillRect(x + 4, y + 4, labelWidth, 20)
-          context.strokeStyle = theme === 'light' ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.28)'
-          context.strokeRect(x + 4, y + 4, labelWidth, 20)
-          context.fillStyle = theme === 'light' ? '#0f172a' : '#f8fafc'
-          context.fillText(label, x + 10, y + 8)
-        }
-      }
-
-      context.restore()
-    }
-
-    context.globalAlpha = 1
-    context.restore()
+  useLayoutEffect(() => {
+    performCanvasDraw()
   }, [
     accentColor,
     atlasPlacements,
@@ -1145,12 +1599,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     zoom,
     canvasLogicalSize.height,
     canvasLogicalSize.width,
+    directFitDisplayRect,
+    fitBounds,
+    hideRuleTileDataObjects,
     mapDisplayOffset.left,
     mapDisplayOffset.top,
     refreshToken,
+    cellOverlay,
+    dayNightHighlight,
+    inspectorHighlight,
   ])
 
-  useLayoutEffect(() => {
+  function performForegroundCanvasDraw() {
     const canvas = foregroundCanvasRef.current
     if (!canvas || !mapDocument) {
       return
@@ -1165,10 +1625,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const renderScale = getCanvasRenderScale(viewportSize.width, viewportSize.height, pixelRatio)
     const width = Math.max(1, Math.round(viewportSize.width * pixelRatio * renderScale))
     const height = Math.max(1, Math.round(viewportSize.height * pixelRatio * renderScale))
-    const worldLeft = viewportCanvasRect.left / zoom
-    const worldTop = viewportCanvasRect.top / zoom
-    const worldWidth = viewportCanvasRect.width / zoom
-    const worldHeight = viewportCanvasRect.height / zoom
+    const worldLeft = directFitDisplayRect && fitBounds ? fitBounds.x : viewportCanvasRect.left / zoom
+    const worldTop = directFitDisplayRect && fitBounds ? fitBounds.y : viewportCanvasRect.top / zoom
+    const worldWidth = directFitDisplayRect && fitBounds ? fitBounds.width : viewportCanvasRect.width / zoom
+    const worldHeight = directFitDisplayRect && fitBounds ? fitBounds.height : viewportCanvasRect.height / zoom
 
     canvas.width = width
     canvas.height = height
@@ -1184,12 +1644,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     context.setTransform(pixelRatio * renderScale, 0, 0, pixelRatio * renderScale, 0, 0)
     context.save()
     context.beginPath()
-    context.rect(
-      mapDisplayOffset.left + viewportCanvasRect.left,
-      mapDisplayOffset.top + viewportCanvasRect.top,
-      viewportCanvasRect.width,
-      viewportCanvasRect.height,
-    )
+    const destinationLeft = directFitDisplayRect?.left ?? mapDisplayOffset.left + viewportCanvasRect.left
+    const destinationTop = directFitDisplayRect?.top ?? mapDisplayOffset.top + viewportCanvasRect.top
+    const destinationWidth = directFitDisplayRect?.width ?? viewportCanvasRect.width
+    const destinationHeight = directFitDisplayRect?.height ?? viewportCanvasRect.height
+    context.rect(destinationLeft, destinationTop, destinationWidth, destinationHeight)
     context.clip()
     context.drawImage(
       rasterCanvas,
@@ -1197,13 +1656,20 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       worldTop,
       worldWidth,
       worldHeight,
-      mapDisplayOffset.left + viewportCanvasRect.left,
-      mapDisplayOffset.top + viewportCanvasRect.top,
-      viewportCanvasRect.width,
-      viewportCanvasRect.height,
+      destinationLeft,
+      destinationTop,
+      destinationWidth,
+      destinationHeight,
     )
     context.restore()
+  }
+  performForegroundCanvasDrawRef.current = performForegroundCanvasDraw
+
+  useLayoutEffect(() => {
+    performForegroundCanvasDraw()
   }, [
+    directFitDisplayRect,
+    fitBounds,
     foregroundLayers,
     mapDisplayOffset.left,
     mapDisplayOffset.top,
@@ -1223,14 +1689,159 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
     if (!mapDocument || !worldPoint) {
       lastHoverRef.current = null
-      setHoveredTile(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
       return
+    }
+
+    if (!objectDragStateRef.current && !tileRectDragRef.current && !tileStrokeDragRef.current && !dragStateRef.current) {
+      const viewport = viewportRef.current
+      if (viewport) {
+        if (objectDrag) {
+          const hit = hitTestMapObject(
+            mapDocument,
+            visibleObjectGroupIdSet,
+            worldPoint.pixelX,
+            worldPoint.pixelY,
+            hideRuleTileDataObjects ? { skipObject: isRuleTileDataObject } : undefined,
+          )
+          viewport.style.cursor = hit ? 'grab' : ''
+        } else {
+          viewport.style.cursor = ''
+        }
+      }
     }
 
     const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
     lastHoverRef.current = info
-    setHoveredTile(tileInteractionEnabled && info ? { tileX: info.tileX, tileY: info.tileY } : null)
+    const nextTile = tileInteractionEnabled && info ? { tileX: info.tileX, tileY: info.tileY } : null
+    lastHoverTileRef.current = nextTile
+    positionHoverTileElement(hoverTileElementRef.current, nextTile, mapDocument.tileWidth, mapDocument.tileHeight, zoomRef.current)
+    if (paintPreview && nextTile) {
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        nextTile,
+        mapDocument.tileWidth,
+        mapDocument.tileHeight,
+        zoomRef.current,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    } else {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    }
     onHoverChange?.(info)
+  }
+
+  // Runs the hover update for the latest pending pointermove, coalesced to
+  // one rAF. A tile-coordinate debounce skips buildHoverInfo + hitTestMapObject
+  // + onHoverChange when the pointer stays within the same tile, so mouse
+  // travel inside a single tile costs only a cheap coordinate computation.
+  function flushHoverUpdate() {
+    hoverRafIdRef.current = null
+    const event = pendingHoverEventRef.current
+    pendingHoverEventRef.current = null
+    if (!event) return
+    const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
+    if (!mapDocument || !worldPoint) {
+      lastHoverRef.current = null
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+      onHoverChange?.(null)
+      return
+    }
+
+    // Tile-coordinate debounce: when the pointer hasn't crossed into a new
+    // tile, skip all expensive work (hitTest, buildHoverInfo, onHoverChange).
+    // The cursor and hover highlight are already correct for this tile.
+    const nextTileX = Math.floor(worldPoint.pixelX / mapDocument.tileWidth)
+    const nextTileY = Math.floor(worldPoint.pixelY / mapDocument.tileHeight)
+    const prevTile = lastHoverTileRef.current
+    const sameTile = prevTile !== null && prevTile.tileX === nextTileX && prevTile.tileY === nextTileY
+    if (tileInteractionEnabled && sameTile) {
+      return
+    }
+
+    // Crossed into a new tile: update cursor (hitTest) + hover info + DOM.
+    if (!objectDragStateRef.current && !tileRectDragRef.current && !tileStrokeDragRef.current && !dragStateRef.current) {
+      const viewport = viewportRef.current
+      if (viewport) {
+        if (objectDrag) {
+          const hit = hitTestMapObject(
+            mapDocument,
+            visibleObjectGroupIdSet,
+            worldPoint.pixelX,
+            worldPoint.pixelY,
+            hideRuleTileDataObjects ? { skipObject: isRuleTileDataObject } : undefined,
+          )
+          viewport.style.cursor = hit ? 'grab' : ''
+        } else {
+          viewport.style.cursor = ''
+        }
+      }
+    }
+
+    const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
+    lastHoverRef.current = info
+    const nextTile = tileInteractionEnabled && info ? { tileX: info.tileX, tileY: info.tileY } : null
+    lastHoverTileRef.current = nextTile
+    positionHoverTileElement(hoverTileElementRef.current, nextTile, mapDocument.tileWidth, mapDocument.tileHeight, zoomRef.current)
+    if (paintPreview && nextTile) {
+      positionPaintPreviewElement(
+        paintPreviewElementRef.current,
+        nextTile,
+        mapDocument.tileWidth,
+        mapDocument.tileHeight,
+        zoomRef.current,
+        paintPreview.width,
+        paintPreview.height,
+      )
+    } else {
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
+    }
+    onHoverChange?.(info)
+  }
+
+  function scheduleHoverUpdate(event: PointerEvent<HTMLDivElement>) {
+    pendingHoverEventRef.current = event
+    if (hoverRafIdRef.current !== null) return
+    hoverRafIdRef.current = requestAnimationFrame(flushHoverUpdate)
+  }
+
+  function cancelPendingHoverRaf() {
+    if (hoverRafIdRef.current !== null) {
+      cancelAnimationFrame(hoverRafIdRef.current)
+      hoverRafIdRef.current = null
+    }
+    pendingHoverEventRef.current = null
+  }
+
+  // Repositions the tile-rect selection box from the latest drag ref. Pure
+  // DOM writes — no React state, no re-render. Runs inside a rAF so multiple
+  // pointermove events in one frame coalesce into a single positioning pass.
+  function flushTileRectUpdate() {
+    tileRectRafIdRef.current = null
+    const drag = tileRectDragRef.current
+    if (!drag || !mapDocument) {
+      positionTileRectElement(tileRectElementRef.current, null, 0, 0, 1)
+      return
+    }
+    const rect = createMapTileRect({ x: drag.startTileX, y: drag.startTileY }, { x: drag.currentTileX, y: drag.currentTileY }, mapDocument)
+    positionTileRectElement(tileRectElementRef.current, rect, mapDocument.tileWidth, mapDocument.tileHeight, zoomRef.current)
+  }
+
+  function scheduleTileRectUpdate() {
+    if (tileRectRafIdRef.current !== null) return
+    tileRectRafIdRef.current = requestAnimationFrame(flushTileRectUpdate)
+  }
+
+  function cancelPendingTileRectRaf() {
+    if (tileRectRafIdRef.current !== null) {
+      cancelAnimationFrame(tileRectRafIdRef.current)
+      tileRectRafIdRef.current = null
+    }
   }
 
   function handleTilePick(event: PointerEvent<HTMLDivElement>) {
@@ -1247,7 +1858,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     if (portal) {
       onAtlasPortalOpen?.(portal.targetMap)
       onHoverChange?.(null)
-      setHoveredTile(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
       return
     }
 
@@ -1267,7 +1879,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return null
     }
 
-    const rect = viewport.getBoundingClientRect()
+    // Use the cached rect to avoid forcing a synchronous layout flush on
+    // every pointermove. The rect is refreshed on scroll, resize and after
+    // layout-affecting renders (see viewportRectRef update sites).
+    const rect = viewportRectRef.current ?? viewport.getBoundingClientRect()
     const viewportX = clientX - rect.left
     const viewportY = clientY - rect.top
     const pixelX = (viewport.scrollLeft + viewportX - canvasOffset.left) / zoom
@@ -1288,6 +1903,66 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     if (event.button === 0) {
+      if (objectDrag && mapDocument) {
+        const point = getCanvasWorldPoint(event.clientX, event.clientY)
+        if (point) {
+          const hit = hitTestMapObject(
+            mapDocument,
+            visibleObjectGroupIdSet,
+            point.pixelX,
+            point.pixelY,
+            hideRuleTileDataObjects ? { skipObject: isRuleTileDataObject } : undefined,
+          )
+          if (hit) {
+            objectDragStateRef.current = {
+              pointerId: event.pointerId,
+              objectId: hit.id,
+              grabOffsetX: point.pixelX - hit.x,
+              grabOffsetY: point.pixelY - hit.y,
+            }
+            viewport.setPointerCapture(event.pointerId)
+            viewport.style.cursor = 'grabbing'
+            objectDrag.onStart(hit.id)
+            event.preventDefault()
+            return
+          }
+        }
+      }
+      if (onTileStroke && mapDocument) {
+        const point = getCanvasWorldPoint(event.clientX, event.clientY)
+        if (!point || point.tileX < 0 || point.tileY < 0 || point.tileX >= mapDocument.width || point.tileY >= mapDocument.height) {
+          return
+        }
+        tileStrokeDragRef.current = {
+          pointerId: event.pointerId,
+          points: [{ tileX: point.tileX, tileY: point.tileY }],
+          keys: new Set([`${point.tileX}:${point.tileY}`]),
+        }
+        viewport.setPointerCapture(event.pointerId)
+        onTileStrokeLive?.(tileStrokeDragRef.current.points)
+        updateHover(event)
+        event.preventDefault()
+        return
+      }
+      if (onTileRectSelect && mapDocument) {
+        const point = getCanvasWorldPoint(event.clientX, event.clientY)
+        if (!point || point.tileX < 0 || point.tileY < 0 || point.tileX >= mapDocument.width || point.tileY >= mapDocument.height) {
+          return
+        }
+        const next: TileRectDragState = {
+          pointerId: event.pointerId,
+          startTileX: point.tileX,
+          startTileY: point.tileY,
+          currentTileX: point.tileX,
+          currentTileY: point.tileY,
+        }
+        tileRectDragRef.current = next
+        setTileRectDrag(next)
+        viewport.setPointerCapture(event.pointerId)
+        updateHover(event)
+        event.preventDefault()
+        return
+      }
       leftPressStateRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -1321,6 +1996,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
+    const objectDragState = objectDragStateRef.current
+    if (objectDrag && objectDragState?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      if (point) {
+        const tileWidth = mapDocument.tileWidth || 16
+        const tileHeight = mapDocument.tileHeight || 16
+        const newLeft = point.pixelX - objectDragState.grabOffsetX
+        const newTop = point.pixelY - objectDragState.grabOffsetY
+        objectDrag.onPreview(objectDragState.objectId, Math.round(newLeft / tileWidth), Math.round(newTop / tileHeight))
+      }
+      return
+    }
+
     const dragState = dragStateRef.current
     if (dragState && dragState.pointerId === event.pointerId) {
       const deltaX = event.clientX - dragState.startX
@@ -1331,11 +2019,78 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    updateHover(event)
+    const tileSelection = tileRectDragRef.current
+    if (tileSelection?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      if (point) {
+        tileRectDragRef.current = { ...tileSelection, currentTileX: point.tileX, currentTileY: point.tileY }
+        scheduleTileRectUpdate()
+      }
+      scheduleHoverUpdate(event)
+      return
+    }
+
+    const tileStroke = tileStrokeDragRef.current
+    if (tileStroke?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      if (point && point.tileX >= 0 && point.tileY >= 0 && point.tileX < mapDocument.width && point.tileY < mapDocument.height) {
+        const key = `${point.tileX}:${point.tileY}`
+        if (!tileStroke.keys.has(key)) {
+          tileStroke.keys.add(key)
+          tileStroke.points.push({ tileX: point.tileX, tileY: point.tileY })
+          onTileStrokeLive?.(tileStroke.points)
+        }
+      }
+      scheduleHoverUpdate(event)
+      return
+    }
+
+    scheduleHoverUpdate(event)
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    cancelPendingHoverRaf()
+    cancelPendingTileRectRaf()
     const viewport = viewportRef.current
+    const objectDragState = objectDragStateRef.current
+    if (objectDrag && objectDragState?.pointerId === event.pointerId) {
+      objectDragStateRef.current = null
+      if (viewport) {
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId)
+        }
+        viewport.style.cursor = ''
+      }
+      objectDrag.onEnd()
+      updateHover(event)
+      return
+    }
+    const tileStroke = tileStrokeDragRef.current
+    if (viewport && tileStroke?.pointerId === event.pointerId) {
+      tileStrokeDragRef.current = null
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      onTileStroke?.(tileStroke.points)
+      updateHover(event)
+      return
+    }
+    const tileSelection = tileRectDragRef.current
+    if (viewport && mapDocument && tileSelection?.pointerId === event.pointerId) {
+      const point = getCanvasWorldPoint(event.clientX, event.clientY)
+      const end = point ?? { tileX: tileSelection.currentTileX, tileY: tileSelection.currentTileY }
+      const rect = createMapTileRect(
+        { x: tileSelection.startTileX, y: tileSelection.startTileY },
+        { x: end.tileX, y: end.tileY },
+        mapDocument,
+      )
+      tileRectDragRef.current = null
+      setTileRectDrag(null)
+      if (viewport.hasPointerCapture(event.pointerId)) {
+        viewport.releasePointerCapture(event.pointerId)
+      }
+      onTileRectSelect?.(rect)
+      updateHover(event)
+      return
+    }
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
       const leftPressState = leftPressStateRef.current
@@ -1362,7 +2117,45 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   function handlePointerCancel(event: PointerEvent<HTMLDivElement>) {
+    cancelPendingHoverRaf()
+    cancelPendingTileRectRaf()
     const viewport = viewportRef.current
+    const objectDragState = objectDragStateRef.current
+    if (objectDrag && objectDragState?.pointerId === event.pointerId) {
+      objectDragStateRef.current = null
+      if (viewport) {
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId)
+        }
+        viewport.style.cursor = ''
+      }
+      objectDrag.onEnd()
+      onHoverChange?.(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      return
+    }
+    const tileStroke = tileStrokeDragRef.current
+    if (viewport && tileStroke?.pointerId === event.pointerId) {
+      tileStrokeDragRef.current = null
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      onHoverChange?.(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      return
+    }
+    const tileSelection = tileRectDragRef.current
+    if (viewport && tileSelection?.pointerId === event.pointerId) {
+      tileRectDragRef.current = null
+      setTileRectDrag(null)
+      if (viewport.hasPointerCapture(event.pointerId)) {
+        viewport.releasePointerCapture(event.pointerId)
+      }
+      onHoverChange?.(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      return
+    }
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
       const leftPressState = leftPressStateRef.current
@@ -1379,14 +2172,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
     viewport.style.cursor = ''
     onHoverChange?.(null)
-    setHoveredTile(null)
+    lastHoverTileRef.current = null
+    positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
   }
 
   function handlePointerLeave() {
+    cancelPendingHoverRaf()
     leftPressStateRef.current = null
-    if (!dragStateRef.current) {
+    if (!dragStateRef.current && !objectDragStateRef.current) {
       onHoverChange?.(null)
-      setHoveredTile(null)
+      lastHoverTileRef.current = null
+      positionHoverTileElement(hoverTileElementRef.current, null, 0, 0, 1)
+      positionPaintPreviewElement(paintPreviewElementRef.current, null, 0, 0, 1, 0, 0)
     }
   }
 
@@ -1396,7 +2193,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   const viewportContent = (
     <div
-      className="panel-canvas relative h-full shadow-(--shadow-panel)"
+      className="panel-canvas shadow-panel relative isolate h-full"
       style={viewportBackdropStyle}
       aria-busy={tilesetLoading ? 'true' : undefined}
     >
@@ -1421,9 +2218,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         foregroundLayerCount={foregroundLayers.length}
       />
 
+      {bakedWorldLighting ? (
+        <MapViewportLightingOverlay
+          bakedCanvas={bakedWorldLighting}
+          left={mapDisplayOffset.left}
+          top={mapDisplayOffset.top}
+          width={canvasLogicalSize.width}
+          height={canvasLogicalSize.height}
+        />
+      ) : null}
+
       {scaleMapOverlayWithViewport && mapOverlay ? (
         <div
-          className="pointer-events-none absolute z-2"
+          className={`pointer-events-none absolute ${mapOverlayLayer === 'top' ? 'z-4' : 'z-2'}`}
           style={{
             left: `${mapDisplayOffset.left}px`,
             top: `${mapDisplayOffset.top}px`,
@@ -1440,10 +2247,30 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-4">{viewportOverlay}</div> : null}
 
       <div ref={frameRef} className="absolute inset-0">
+        {showPreviewOverlay ? (
+          <div className="map-viewport-tileset-preview-overlay">
+            {previewImageSrc && previewDisplaySize ? (
+              <img
+                key={previewImageSrc}
+                src={previewImageSrc}
+                alt=""
+                draggable={false}
+                className="map-viewport-tileset-preview-img"
+                style={{
+                  width: `${previewDisplaySize.w}px`,
+                  height: `${previewDisplaySize.h}px`,
+                }}
+              />
+            ) : (
+              <span className="map-viewport-tileset-preview-placeholder" />
+            )}
+          </div>
+        ) : null}
         <div
           ref={viewportRef}
           className={`viewport-scroll-hidden h-full w-full ${viewportCursorClass} ${zoomMode === 'fit' ? 'overflow-hidden' : 'overflow-auto'}`}
           data-map-viewport-scroll="true"
+          data-map-cell-overlay-count={cellOverlay ? Object.keys(cellOverlay.cells).length : undefined}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -1457,16 +2284,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
               height: `${stageSize.height}px`,
             }}
           >
-            <div
-              className="pointer-events-none absolute border border-white/10"
-              style={{
-                left: `${canvasOffset.left}px`,
-                top: `${canvasOffset.top}px`,
-                width: `${canvasLogicalSize.width}px`,
-                height: `${canvasLogicalSize.height}px`,
-                boxShadow: tileInteractionEnabled ? `0 0 0 1px ${rgbaFromHex(accentColor, 0.22)}` : undefined,
-              }}
-            />
+            {!fitContentBounds ? (
+              <div
+                className="pointer-events-none absolute border border-white/10"
+                style={{
+                  left: `${canvasOffset.left}px`,
+                  top: `${canvasOffset.top}px`,
+                  width: `${canvasLogicalSize.width}px`,
+                  height: `${canvasLogicalSize.height}px`,
+                  boxShadow: tileInteractionEnabled ? `0 0 0 1px ${rgbaFromHex(accentColor, 0.22)}` : undefined,
+                }}
+              />
+            ) : null}
             {mapOverlay && !scaleMapOverlayWithViewport ? (
               <div
                 className="pointer-events-none absolute z-2"
@@ -1480,7 +2309,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                 {mapOverlay}
               </div>
             ) : null}
-            {tileInteractionEnabled && (hoveredTile || pickFlash) ? (
+            {tileInteractionEnabled ? (
               <div
                 className="pointer-events-none absolute z-5"
                 style={{
@@ -1490,21 +2319,29 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                   height: `${canvasLogicalSize.height}px`,
                 }}
               >
-                {hoveredTile ? (
-                  <div
-                    className="absolute"
-                    data-map-tile-hover="true"
-                    style={{
-                      left: `${hoveredTile.tileX * mapDocument.tileWidth * zoom}px`,
-                      top: `${hoveredTile.tileY * mapDocument.tileHeight * zoom}px`,
-                      width: `${mapDocument.tileWidth * zoom}px`,
-                      height: `${mapDocument.tileHeight * zoom}px`,
-                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.14 : 0.18),
-                      border: `1px solid ${rgbaFromHex(accentColor, 0.88)}`,
-                      boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px ${rgbaFromHex(accentColor, 0.26)}`,
-                    }}
-                  />
-                ) : null}
+                <div
+                  ref={hoverTileElementRef}
+                  className="absolute"
+                  data-map-tile-hover="true"
+                  style={{
+                    display: 'none',
+                    backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.14 : 0.18),
+                    border: `1px solid ${rgbaFromHex(accentColor, 0.88)}`,
+                    boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px ${rgbaFromHex(accentColor, 0.26)}`,
+                  }}
+                />
+                <div
+                  ref={paintPreviewElementRef}
+                  className="map-paint-preview absolute"
+                  data-map-paint-preview="true"
+                  style={{
+                    opacity: 0.55,
+                    imageRendering: 'pixelated',
+                    border: `1px solid ${rgbaFromHex(accentColor, 0.6)}`,
+                    boxShadow: `0 0 0 1px ${rgbaFromHex(accentColor, 0.2)}`,
+                    ...paintPreviewStyle,
+                  }}
+                />
                 {pickFlash ? (
                   <div
                     className="absolute"
@@ -1520,6 +2357,50 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                     }}
                   />
                 ) : null}
+                {activeTileRect ? (
+                  <div
+                    ref={tileRectElementRef}
+                    className="absolute"
+                    data-map-tile-rect-selection="true"
+                    style={{
+                      left: `${activeTileRect.x * mapDocument.tileWidth * zoom}px`,
+                      top: `${activeTileRect.y * mapDocument.tileHeight * zoom}px`,
+                      width: `${activeTileRect.width * mapDocument.tileWidth * zoom}px`,
+                      height: `${activeTileRect.height * mapDocument.tileHeight * zoom}px`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.2 : 0.24),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.98)}`,
+                      boxShadow: `inset 0 0 0 1px ${rgbaFromHex(accentColor, 0.24)}, 0 0 0 3px ${rgbaFromHex(accentColor, 0.18)}`,
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            {inspectorHighlight && inspectorHighlight.tileRects.length > 0 ? (
+              <div
+                className="pointer-events-none absolute z-5"
+                data-map-inspector-highlight="true"
+                style={{
+                  left: `${canvasOffset.left}px`,
+                  top: `${canvasOffset.top}px`,
+                  width: `${canvasLogicalSize.width}px`,
+                  height: `${canvasLogicalSize.height}px`,
+                }}
+              >
+                {inspectorHighlight.tileRects.map((rect, index) => (
+                  <div
+                    key={`${rect.x},${rect.y},${rect.width},${rect.height},${index}`}
+                    className="absolute"
+                    style={{
+                      left: `${rect.x * mapDocument.tileWidth * zoom}px`,
+                      top: `${rect.y * mapDocument.tileHeight * zoom}px`,
+                      width: `${rect.width * mapDocument.tileWidth * zoom}px`,
+                      height: `${rect.height * mapDocument.tileHeight * zoom}px`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.1 : 0.14),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.95)}`,
+                      borderRadius: '2px',
+                    }}
+                  />
+                ))}
               </div>
             ) : null}
           </div>

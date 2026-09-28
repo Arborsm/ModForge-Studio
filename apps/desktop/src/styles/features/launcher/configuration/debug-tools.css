@@ -149,12 +149,13 @@
   }
 
   .launcher-debug-tools-stack .control-button-primary {
-    background: var(--accent);
-    color: var(--text-inverse);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
   }
 
   .launcher-debug-tools-stack .control-button-primary:hover {
-    background: var(--accent-strong);
+    background: color-mix(in srgb, var(--accent) 26%, transparent);
+    color: var(--accent);
   }
 
   .launcher-debug-tools-stack .launcher-config-danger-button {
@@ -262,6 +263,11 @@
     color: #15803d;
   }
 
+  .launcher-debug-icon-dev-server {
+    background: color-mix(in srgb, #dbeafe 76%, var(--bg-panel));
+    color: #2563eb;
+  }
+
   .launcher-debug-tool-tray {
     display: flex;
     justify-content: flex-start;
@@ -271,6 +277,30 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  .launcher-debug-dev-server-tray {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .launcher-debug-dev-server-input {
+    width: 100%;
+    font-size: 0.8125rem;
+  }
+
+  .launcher-debug-dev-server-note {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--config-muted);
+  }
+
+  .launcher-debug-dev-server-note-danger {
+    color: var(--config-error-text);
   }
 
   .launcher-debug-bbcode-preview {
@@ -534,4 +564,31 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+}
+
+/* Runtime log viewer dialog output (read_launcher_log). */
+.launcher-log-dialog-output {
+  margin: 0;
+  max-height: 56vh;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
+  color: var(--text-secondary);
+  padding: 0.75rem;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 0.7188rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.launcher-log-dialog-output[data-loading='true'] {
+  opacity: 0.6;
+}
+
+.launcher-log-dialog-note {
+  margin: 0.625rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.7188rem;
 }

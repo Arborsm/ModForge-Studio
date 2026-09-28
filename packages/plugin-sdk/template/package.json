@@ -1,0 +1,17 @@
+{
+  "name": "my-modforge-plugin",
+  "version": "0.1.0",
+  "description": "A ModForge Studio compat plugin with a custom code-package page.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.tsx --bundle --format=esm --jsx=automatic --external:react --external:react-dom --external:react/jsx-runtime --external:@modforge/plugin-sdk --external:@dnd-kit/* --external:@floating-ui/* --external:@tanstack/* --external:react-resizable-panels --external:lucide-react --external:zustand --outfile=dist/index.js",
+    "dev": "esbuild src/index.tsx --bundle --format=esm --jsx=automatic --external:react --external:react-dom --external:react/jsx-runtime --external:@modforge/plugin-sdk --external:@dnd-kit/* --external:@floating-ui/* --external:@tanstack/* --external:react-resizable-panels --external:lucide-react --external:zustand --outfile=dist/index.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "@modforge/plugin-sdk": "^1.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

@@ -1,3 +1,8 @@
+/**
+ * @file Map workspace model types: tab state, world atlas view ids, and shared
+ * map workspace constants.
+ */
+
 import type { MapAssetSummary } from '@entities/game/api'
 import type { MapDocument } from '@entities/map'
 import type { WorldAtlasViewId } from '@entities/map'

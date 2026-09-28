@@ -1,3 +1,9 @@
+/**
+ * @file Parser and formatter for Stardew event preconditions: resolves legacy
+ * single-letter aliases and built-in keys to canonical categories, and formats
+ * parsed preconditions into localized hub labels.
+ */
+
 import type { EditorCopy } from '@locales'
 import { formatGameStateQueryForHub, parseGameStateQuery, type ParsedGameStateQuerySet } from '@entities/event'
 
@@ -278,6 +284,7 @@ function resolvePreconditionDefinition(rawKey: string): PreconditionDefinition &
   }
 }
 
+/** Parses raw event precondition strings into categorized, canonical-keyed groups. */
 export class EventPreconditionParser {
   parse(rawPreconditions: string[]): EventPreconditionGroups {
     const groups = emptyGroups()
@@ -348,23 +355,14 @@ function tileArgs(args: string[]) {
 }
 
 function friendshipPairs(args: string[], locale: HubCopy) {
-  return pairArgs(args, (name, points) => {
-    if (locale.preconditionGroupLabels.environment === '触发环境') {
-      return `${name} 友谊至少 ${points}`
-    }
-    return `${name} friendship at least ${points}`
-  })
+  return pairArgs(args, (name, points) => locale.friendshipAtLeast(name, points))
 }
 
 function shippedPairs(args: string[], locale: HubCopy) {
-  return pairArgs(args, (item, count) => {
-    if (locale.preconditionGroupLabels.environment === '触发环境') {
-      return `${item} 出货至少 ${count}`
-    }
-    return `${item} shipped at least ${count}`
-  })
+  return pairArgs(args, (item, count) => locale.shippedAtLeast(item, count))
 }
 
+/** Formats one parsed precondition into a localized label for the event patch hub. */
 export function formatEventPreconditionForHub(precondition: ParsedEventPrecondition, hub: HubCopy) {
   const { args } = precondition
   let label: string

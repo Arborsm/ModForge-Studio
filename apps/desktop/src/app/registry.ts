@@ -1,3 +1,6 @@
+/**
+ * @file App registry creation and query: validates workbench module invariants and produces an immutable registry.
+ */
 import type { AppRegistry, AppRegistryInput, RegistryItemId, WorkbenchModuleRegistration } from '@shared/contracts'
 
 const NAVIGATION_SECTIONS = new Set(['browse', 'authoring', 'translation', 'tools', 'development'])
@@ -13,6 +16,11 @@ function validateWorkbenchModules(modules: readonly WorkbenchModuleRegistration[
     }
     if (module.presentation === 'browser' && module.projectAccess === 'write') {
       throw new Error(`Browser module cannot request write project access: ${module.id}`)
+    }
+    const hasLabelKey = module.navigation.labelKey !== undefined
+    const hasPluginLabel = module.navigation.pluginLabel !== undefined
+    if (hasLabelKey === hasPluginLabel) {
+      throw new Error(`Workbench module ${module.id} must have exactly one of labelKey or pluginLabel`)
     }
     ids.add(module.id)
     persistenceKeys.add(module.persistenceKey)

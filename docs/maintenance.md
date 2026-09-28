@@ -26,9 +26,111 @@ vp run --filter @modforge/desktop gen:host-commands
 ```
 
 `vp run dev` is the default full desktop path and uses the root desktop host
-dispatcher directly. `vp run web:dev` starts the Vite+ frontend-only path.
+dispatcher directly: it is provided by the `run.tasks.dev` task in the root
+`vite.config.ts` (`command: node apps/desktop/scripts/dev/desktop-host-dispatch.cjs dev`), not
+by a package script — the root `package.json` has no `dev` script, so
+`pnpm run dev` at the repository root fails with "Missing script". `vp run
+web:dev` starts the Vite+ frontend-only path.
 Linux starts Electron, while macOS and Windows start Tauri. `vp run
 desktop:build` uses the same platform split for build mode.
+
+Every cargo build of the desktop host runs the host command drift gate first:
+`build.rs` executes `node apps/desktop/scripts/gen/generate-host-commands.mjs --check` (requires
+Node on PATH) and fails the build if the sidecar routing block, the lib.rs
+`generate_handler!` list, or the frontend `HOST_COMMANDS` table drift from the
+scanned `commands.rs` bindings. After adding, renaming, or moving a host
+command, run `vp run --filter @modforge/desktop gen:host-commands` once to
+regenerate the three outputs, then build as usual.
+
+Debug builds keep only line tables (`[profile.dev] debug = "line-tables-only"`
+in both `apps/desktop/src-tauri/Cargo.toml` and the installer crate): developer
+iterations only need symbolized panic backtraces, not debugger-steppable frames.
+Measured on a cold tree 2026-09-28 (`cargo build --bin modforge_sidecar`,
+same machine, full dependency graph): full debuginfo produces a **12.7 GB
+`target/`** with a 379 MB sidecar `.pdb`, while line-tables-only produces
+**6.2 GB** with a 158 MB `.pdb` — a 52% cut for zero functionality loss.
+Restore full debuginfo (`debug = true`) only when stepping through Rust frames
+in a debugger is genuinely required.
+
+## Worktree Multi-Agent Development
+
+Multiple agents can work the repository in parallel with one git worktree per
+agent. Each worktree is a full checkout sharing the same `.git` object store,
+so branches stay isolated without cloning the repo again.
+
+```bash
+# create a worktree for one agent/task on its own branch
+git worktree add ../worktrees/<task-name> -b <branch-name>
+cd ../worktrees/<task-name>
+pnpm install --frozen-lockfile
+
+# when the task is merged or abandoned
+git worktree remove ../worktrees/<task-name>
+git branch -D <branch-name>            # only if it was merged or is throwaway
+git worktree prune
+```
+
+`pnpm install` in a fresh worktree is effectively free on disk. Measured
+2026-09-28 on this repo (E: drive, pnpm 11.5.1): a throwaway worktree
+installed in **3m 4s** and produced **24,862 files / 1,948 MB of logical
+`node_modules`**, while the physical footprint grew by roughly zero — pnpm
+hard-links package files out of `E:\.pnpm-store\v11`, and `fsutil hardlink
+list` confirms the same physical blocks back the main tree, the worktree, and
+the store. Hard links cannot cross drives, so keep worktrees and the store on
+the same volume.
+
+Discipline:
+
+- **One worktree = one agent = one branch.** Never share a worktree between
+  agents, and never commit from another agent's tree.
+- **Pure-frontend worktrees never build Rust.** `vp run web:dev` and the
+  Vitest suite are cargo-free; only touch `vp run dev` / cargo in a tree when
+  the task actually changes `src-tauri`.
+- **Dev servers don't conflict across trees.** Port selection auto-falls-forward
+  when the default is taken (`apps/desktop/scripts/dev/tauriDevRuntime.mjs`),
+  so two trees can run `vp run web:dev` simultaneously.
+- **Never share `CARGO_TARGET_DIR` across trees.** Cargo serializes builds on
+  its file lock (a whole-tree global lock), so a shared target dir turns two
+  parallel agents into one waiting agent, and switching branches inside the
+  shared dir forces endless rebuilds. Keep every tree's default per-tree
+  `src-tauri/target`. This is also why there is intentionally no repo-level
+  `.cargo/config.toml`: the root `.gitignore` ignores `.cargo/` (silent
+  drift-by-default), and forcing sccache or a shared target on every machine
+  and CI runner is exactly the coupling this section avoids. Several scripts
+  hardcode `src-tauri/target/...` paths, so a global target dir would break
+  them even if the lock were acceptable:
+  - `apps/desktop/src-tauri/tauri.conf.json` (`resources: ["target/release/gmcm-probe/*"]`)
+  - `apps/desktop/scripts/build/build-gmcm-probe.mjs` (`src-tauri/target/release/gmcm-probe`)
+  - `apps/desktop/scripts/dev/run-electron-dev.mjs` (`src-tauri/target/debug/modforge_sidecar`)
+  - `apps/desktop/scripts/build/build-linux-ort-runtimes.mjs` (`src-tauri/target/release`)
+- **sccache is a machine-level opt-in**, matching the dev-cache layout (all
+  machine caches live under `E:\DevCaches` via machine env vars). Install it
+  once per machine and point it at the cache drive; never commit it into the
+  repo:
+  ```powershell
+  scoop install sccache
+  # machine env vars (System Properties → Environment Variables, or setx /M):
+  #   RUSTC_WRAPPER=sccache
+  #   SCCACHE_DIR=E:\DevCaches\sccache
+  #   SCCACHE_CACHE_SIZE=30G
+  ```
+  With `RUSTC_WRAPPER` set, every tree's cargo builds share the sccache cache
+  across worktrees and branches without sharing a target dir.
+
+Conflict surfaces between parallel agents are deliberately narrow:
+
+- **Locales** are split per feature slice under
+  `apps/desktop/src/locales/dictionaries/<locale>/<feature>/` — agents touching
+  different features edit different files, so conflicts only happen when two
+  agents touch the same feature's copy.
+- **Registry wiring** (`apps/desktop/src/app/registry-setup.ts`) is additive:
+  new features/widgets add one import line plus one registration entry, so
+  rebase conflicts are single-line resolutions.
+- **New host commands must be accompanied by a dev-mock case arm or a
+  whitelist entry** (enforced by
+  `src/tests/architecture/devLauncherMockCoverage.test.ts` since the mock
+  coverage gate), so parallel frontend agents cannot merge work that breaks the
+  browser mock.
 
 To trace Host Runtime command scheduling, start the desktop host with:
 
@@ -75,6 +177,25 @@ artifacts. macOS and Windows releases continue to use Tauri packaging.
 
 Linux-specific package scripts can be run directly when only one package format
 is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
+
+### Release gate: real-shell smoke pass
+
+The browser dev mock (`?mfLauncherMock=1`) covers day-to-day frontend
+iteration, but it fakes the host — commands without a mock arm throw
+`Unhandled dev launcher mock command` even where the real backend works, and
+native-only behavior (dialogs, install flows, WebView chrome) never runs.
+Before cutting a release, smoke-test the actual shell across the touched
+surfaces:
+
+1. Run the pages/features this release changed in the desktop shell
+   (`vp run dev`, Tauri). For Android-facing changes, use the `ci-latest`
+   pre-release APK, or the Slice 1 dev-server mode (launcher settings →
+   Dev Server card) to exercise the same build in the WebView.
+2. Walk each touched page through its load → interact → error path, not just
+   the happy path: the mock never surfaces host-side failures, latency, or
+   empty states the real host can produce.
+3. Treat failures found here as release blockers — web-mock-only verification
+   is not a substitute for this pass.
 
 ## Windows Installer
 
@@ -155,7 +276,16 @@ Frontend tests live under `apps/desktop/src/tests/`:
 
 - `src/tests/unit/` — pure-logic `.ts` tests only (no `.tsx`/`.spec.tsx`, no component or `renderHook` rendering, no CSS-class/inline-style/DOM-structure assertions). They mirror the source path they exercise and cover parsers, data transformation, reducers, command routing, and headless state logic.
 - `src/tests/architecture/` — architecture and repository-shape assertions (dependency direction, style ownership, code-splitting).
-- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), and type declarations. Imported via the `@test/*` alias.
+- `src/tests/support/` — shared test infrastructure: `setup.ts` (jsdom + matchers), `sourceScan.ts` (architecture scanners), `draftPortHost.ts` (in-memory host for `AssetDraftPort` unit tests), and type declarations. Imported via the `@test/*` alias.
+
+`vp run --filter @modforge/desktop test` runs `test:frontend` and then
+`test:node`. `test:frontend` drives Vitest through
+`scripts/test/run-frontend-tests.mjs`, which gates on React `act(...)` warnings: any
+warning in the test output fails the run even when Vitest itself passes.
+`test:node` runs five standalone scripts under `node --test`
+(`frontend-test-warning-gate.test.mjs`, `linux-cuda-runtime.test.mjs`,
+`scan-gmcm-probe.test.mjs`, `generate-host-commands.test.mjs`, and
+`../../docs/nexusmods-graphql/convert-to-markdown.test.mjs`).
 
 The frontend intentionally keeps no UI/render tests; UI and layout behavior is verified by screenshot, Playwright, or a manual path rather than jsdom render assertions.
 
@@ -262,8 +392,9 @@ whole: guessing narrower than the real terminal wraps lines that would have fit,
 which reads worse than the terminal's own soft wrap. Override with
 `MODFORGE_LOG_WIDTH=<columns>`, or `MODFORGE_LOG_WIDTH=off` to disable wrapping.
 
-`cargo run --example log_format_sample` renders the whole sample set through both
-sinks, which is the fastest way to check a layout change.
+`cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --example
+log_format_sample` renders the whole sample set through both sinks, which is the
+fastest way to check a layout change.
 
 Force or suppress terminal color with `MODFORGE_LOG_COLOR=always|never`
 (`NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` and `CLICOLOR` are also honored).
@@ -309,6 +440,36 @@ UI and layout changes should be verified with a screenshot, Playwright-backed
 interaction script, or a clear manual path. Architecture changes should update
 or add tests under `apps/desktop/src/tests/architecture`.
 
+### Verification Scripts
+
+`apps/desktop/scripts/verify/` contains 15 `verify-*.mjs` scripts. Seven are wired
+into `apps/desktop/package.json` and run via `vp run --filter @modforge/desktop <script>`:
+
+- `test:launcher-custom-sort` → `verify-launcher-custom-sort.mjs` — custom launcher mod ordering (Playwright against the launcher mock scenario).
+- `test:launcher-drag` → `verify-launcher-drag.mjs` — launcher drag-and-drop frame-budget metrics.
+- `test:launcher-fast-scroll` → `verify-launcher-fast-scroll.mjs` — fast-scroll frame timings against the 360-mod launcher mock.
+- `test:launcher-performance` → `verify-launcher-performance.mjs` — general launcher interaction performance.
+- `test:performance:pages` → `verify-page-performance.mjs` — per-page interaction budgets across the workbench scenarios.
+- `test:performance:chunks` → `verify-chunk-budgets.mjs` — built-chunk size budgets read from the Vite manifest (requires a prior `vp run build`; no browser or dev server).
+- `test:performance:compiler-cleanup` → `verify-compiler-cleanup-performance.mjs` — interaction timings on React Compiler cleanup surfaces.
+
+The remaining eight are manual/on-demand Playwright verification scripts with
+no package script; run them directly with `node apps/desktop/scripts/verify/<name>.mjs`.
+They expect a running dev server (probing `http://127.0.0.1:5175`,
+`http://127.0.0.1:5176`, then `http://localhost:5173` — start one with
+`vp run web:dev -- --host 127.0.0.1 --port 5175`) and open it with the
+`?mfLauncherMock=1&mfSettingsMock=1` mock query; most write screenshots to the
+system temp dir (overridable per script via `MODFORGE_*_SCREENSHOT_DIR`):
+
+- `verify-dialogue-bulk.mjs` — dialogue bulk-table inline editing and override staging.
+- `verify-gsq-mount.mjs` — GameStateQuery builder standalone mount rendering.
+- `verify-guide-tour.mjs` — guide tour layer auto-start, step, skip, and settings replay.
+- `verify-i18n-bootstrap.mjs` — project-translation bootstrap card on a fresh draft.
+- `verify-workbench-authoring.mjs` — content authoring workspaces (three-pane editor, appearance variants, gift tastes, building footprint).
+- `verify-workbench-project-flow.mjs` — project creation flow and pack-structure surfaces.
+- `verify-workbench-schedule-mail.mjs` — schedule and mail workspaces on the shared `AssetDraftPort`.
+- `verify-workbench-undo.mjs` — shared draft undo/redo stack and the add-patch target picker.
+
 ## Implementation Completeness
 
 Do not treat a minimal visible path as complete. New functionality should land
@@ -329,10 +490,18 @@ The release workflow should build each supported host on its matching runner:
 - macOS: app bundle and distributable archive or disk image.
 - Windows: NSIS installer.
 
-CI should run Vite+ package-management commands such as `vp install` and cache
-pnpm store data, Rust registry data, Rust git dependencies, and
-`apps/desktop/src-tauri/target` where practical. Cache keys should include the
-OS, architecture, lockfiles, and Rust manifest files.
+Both workflows (`.github/workflows/checks.yml` and
+`.github/workflows/release.yml`) install JavaScript dependencies with
+`pnpm install --frozen-lockfile` rather than `vp install`, and cache the pnpm
+store through `actions/setup-node` (`cache: pnpm`). Rust registry data, Rust git
+dependencies, and `apps/desktop/src-tauri/target` are cached by
+`Swatinem/rust-cache@v2` scoped to `apps/desktop/src-tauri -> target`. The
+release workflow additionally caches desktop packaging tooling (Tauri CLI cache
+and `.tmp/electron-builder-cache`) with the key
+`desktop-packaging-${{ matrix.platform }}-${{ runner.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock', 'pnpm-lock.yaml') }}` —
+platform and OS plus the two lockfiles, with no architecture component and no
+Cargo manifest hash; the Rust side is implicitly covered by
+`Swatinem/rust-cache`'s own key.
 
 ## macOS Signing
 

@@ -1,3 +1,7 @@
+/**
+ * @file LauncherPort — the typed platform port interface exposing every
+ * launcher backend capability to React hooks and UI components.
+ */
 import type {
   SsoConnectionStatus,
   SsoSnapshot,
@@ -50,20 +54,28 @@ import type {
   LauncherConfigItemOption,
   LoadLauncherModConfigRequest,
   SaveLauncherModConfigRequest,
+  SmapiUpdateCheckResult,
+  InstallSmapiUpdateRequest,
+  InstallSmapiUpdateResult,
+  SmapiUpdateProgressPayload,
+  FindSmapiInstallerDownloadsResult,
 } from './launcherContracts'
 
-export type LauncherDebugLogRequest = {
-  message: string
-  keyValues?: Record<string, string | undefined>
-}
-
+/** Typed platform port exposing all launcher backend capabilities to the UI layer. */
 export type LauncherPort = {
   loadSettings: () => Promise<LauncherSettings>
-  writeDebugLog: (request: LauncherDebugLogRequest) => void
   saveSettings: (request: SaveLauncherSettingsRequest) => Promise<LauncherSettings>
   scanLibrary: (request: ScanLauncherLibraryRequest) => Promise<LauncherLibraryScanResult>
   loadRuntimeInfo: () => Promise<LauncherRuntimeInfo>
   loadGmcmProbeDiagnostics: () => Promise<LauncherGmcmProbeDiagnosticsResult>
+  /** Checks the installed SMAPI version against the game requirement (backend disk-cached for 30 minutes). */
+  checkSmapiUpdate: () => Promise<SmapiUpdateCheckResult>
+  /** Installs a SMAPI update prepared by checkSmapiUpdate; emits progress on launcher://smapi-update-progress. */
+  installSmapiUpdate: (request: InstallSmapiUpdateRequest) => Promise<InstallSmapiUpdateResult>
+  /** Subscribes to SMAPI update install progress events; returns an unsubscribe function. */
+  listenToSmapiUpdateProgress: (listener: (payload: SmapiUpdateProgressPayload) => void) => Promise<() => void>
+  /** Scans the user's download directories for already-downloaded SMAPI installer archives. */
+  findSmapiInstallerDownloads: () => Promise<FindSmapiInstallerDownloadsResult>
   loadLibraryState: () => Promise<LauncherLibraryState>
   saveLibraryState: (request: LauncherLibraryState) => Promise<LauncherLibraryState>
   loadLibraryCovers: () => Promise<LauncherLibraryCoversState>

@@ -1,2 +1,6 @@
 export * from './types'
 export * from './gameAssets'
+export * from './localizedText'
+export * from './stringCatalog'
+export * from './useMapTargetDisplayName'
+export { useLocalizedTextResolution } from './useLocalizedText'

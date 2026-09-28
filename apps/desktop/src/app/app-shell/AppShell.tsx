@@ -1,9 +1,14 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+/**
+ * @file App shell root component: manages app mode switching, window controls, settings window, guide tour, and workbench lazy loading.
+ */
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   canUseDesktopHost,
   forceCloseCurrentWindow,
   isCurrentWindowMaximized,
   isCurrentWindowFullscreen,
+  listenToAndroidBackRequest,
   listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
@@ -14,14 +19,22 @@ import {
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
 } from '@platform/host'
+import { isAndroidHost, notifyAndroidBackHandled } from '@platform/android'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, type AppMode, type LauncherPage, type LocaleCode } from '@locales/api'
-import { normalizeAppShellState } from '@shared/lib/app-state/appShellState'
+import { canEnterWorkbench, normalizeAppShellState, resolveStartupAppMode } from '@shared/lib/app-state/appShellState'
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
-import { configureObservability, reportAppEvent, setNotificationDispatcher, syncDebugDiagnosticsEnabled } from '@platform/observability'
+import {
+  configureObservability,
+  appEvent,
+  setNotificationDispatcher,
+  syncDebugDiagnosticsEnabled,
+  ignoreError,
+} from '@platform/observability'
+
 import {
   applyAppUiStatePatch,
   configureAppUiStatePersistence,
@@ -45,50 +58,68 @@ import {
 import { syncLauncherDiagnosticsNotification } from '@features/launcher/model/nexusDiagnosticsNotifications'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
-import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
-import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
+import { registerAppCommandHandler } from '@shared/lib/app-runtime/appCommands'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
+import { useMobilePageStore } from '@pages/launcher/ui/mobile/mobilePageStore'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
-import type { AiSettingsTab, PendingWorkbenchCommandIntent, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
-import { listenForAppSettingsRequests } from '@shared/lib/app-settings-events'
+import type { AiSettingsTab, SettingsWindowCategory, SettingsWindowTarget } from '@shared/contracts'
 import { QuitDialog } from '@widgets/quit-dialog'
 import { GuideTourOverlay } from '@widgets/guide-tour'
 import { useGuideEngineStore } from '@features/guide'
 import { appGuideDefinitions, resolveGuideSurfaceNavigation } from '../guide-setup'
 import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
+import { deferToTimeout } from '@shared/lib/react'
 
-const SettingsWindow = lazy(() => import('./SettingsWindow'))
-const WorkbenchPage = lazy(async () => {
-  const [workbenchModule, registrySetupModule, registryModule, cpMakerProviderModule] = await Promise.all([
-    import('@pages/workbench'),
-    import('@app/registry-setup'),
-    import('@app/registry'),
-    import('../providers/CpMakerPlatformProvider'),
-  ])
-
-  return {
-    default: function WorkbenchPageWithRegistry(
-      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchModuleRegistration' | 'workbenchModules'>,
-    ) {
-      const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
-
-      return (
-        <CpMakerPlatformProvider>
-          <workbenchModule.WorkbenchPage
-            {...props}
-            getWorkbenchModuleRegistration={(moduleId) =>
-              registryModule.getWorkbenchModuleRegistration(registrySetupModule.appRegistry, moduleId)
-            }
-            workbenchModules={registrySetupModule.appRegistry.workbenchModules}
-          />
-        </CpMakerPlatformProvider>
-      )
-    },
-  }
-})
-
+let settingsWindowPromise: ReturnType<typeof importSettingsWindow> | null = null
+let workbenchPagePromise: ReturnType<typeof importWorkbenchPage> | null = null
 let workbenchStylesPromise: Promise<unknown> | null = null
+
+function importSettingsWindow() {
+  return import('./SettingsWindow')
+}
+
+function preloadSettingsWindow() {
+  settingsWindowPromise ??= importSettingsWindow()
+  return settingsWindowPromise
+}
+
+function preloadWorkbenchStyles() {
+  workbenchStylesPromise ??= import('../../styles/workbench.css')
+  return workbenchStylesPromise
+}
+
+async function importWorkbenchPage() {
+  const [workbenchModule, pageWithRegistryModule, buildModule] = await Promise.all([
+    import('@pages/workbench'),
+    import('./WorkbenchPageWithRegistry'),
+    import('../buildWorkbenchRegistry'),
+    preloadWorkbenchStyles(),
+  ])
+  await workbenchModule.preloadWorkbenchExperience()
+  // Build the initial workbench registry (static modules + compat plugins) and
+  // publish it to the workbench registry store before the page renders. On
+  // failure fall back to a static-only registry so the workbench — including
+  // the plugin manager that surfaces the failure — stays reachable instead of
+  // being stuck on the skeleton screen. The compat plugin error remains
+  // available via the compat plugin store for the plugin manager to display.
+  await buildModule.buildWorkbenchRegistry(false).catch((error) => {
+    appEvent('error', 'Initial workbench registry build failed')
+      .error(error)
+      .context({ source: 'app-shell', operation: 'build-workbench-registry' })
+      .emit({ notify: false })
+    buildModule.buildStaticFallbackRegistry()
+  })
+  return { default: pageWithRegistryModule.WorkbenchPageWithRegistry }
+}
+
+function preloadWorkbenchPage() {
+  workbenchPagePromise ??= importWorkbenchPage()
+  return workbenchPagePromise
+}
+
+const SettingsWindow = lazy(preloadSettingsWindow)
+const WorkbenchPage = lazy(preloadWorkbenchPage)
 
 configureImageDataUrlLoader(loadImageDataUrl)
 configureAppUiStatePersistence({
@@ -108,6 +139,9 @@ configureObservability({
 setNotificationDispatcher(publishNotification)
 useGuideEngineStore.getState().registerGuideDefinitions(appGuideDefinitions)
 
+/**
+ * App shell component: coordinates launcher/workbench mode switching, window frame controls, settings window, and guide tour lifecycle.
+ */
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
@@ -118,23 +152,29 @@ export default function App() {
   const windowBorderWeight = usePreferencesStore((state) => state.windowBorderWeight)
   const desktopHost = usePreferencesStore((state) => state.desktopHost)
   const hostAvailable = desktopHost || canUseDesktopHost()
+  // Mobile launcher host: no desktop window chrome and no .NET GMCM probe; the
+  // launcher trims those surfaces instead of branching on user-agent strings.
+  const androidHost = isAndroidHost()
   const debugEnabled = usePreferencesStore((state) => state.debugEnabled)
   const notificationSoundEnabled = usePreferencesStore((state) => state.notificationSoundEnabled)
   const loadingMotionPreference = usePreferencesStore((state) => state.loadingMotionPreference)
   const windowIsFullscreen = usePreferencesStore((state) => state.windowIsFullscreen)
   const setTheme = usePreferencesStore((state) => state.setTheme)
   const setDebugEnabled = usePreferencesStore((state) => state.setDebugEnabled)
-  const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
+  const [appMode, setAppMode] = useState<AppMode>(resolveStartupAppMode(androidHost, initialShellState.appMode))
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
-  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHomeActive, setWorkbenchHomeActive] = useState(
+    canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench',
+  )
   const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [settingsShellPrepared, setSettingsShellPrepared] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [settingsWindowAiTab, setSettingsWindowAiTab] = useState<AiSettingsTab | null>(null)
   const [quitDialogOpen, setQuitDialogOpen] = useState(false)
   const [quitDialogRemember, setQuitDialogRemember] = useState(false)
   const [windowIsMaximized, setWindowIsMaximized] = useState(false)
-  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(canEnterWorkbench(androidHost) && initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
@@ -142,29 +182,14 @@ export default function App() {
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
   const appMountedRef = useRef(true)
   const windowCloseRequestRef = useRef<() => boolean | Promise<boolean>>(() => false)
+  const compatReloadStateRef = useRef<{ inFlight: Promise<void> | null; pending: boolean }>({
+    inFlight: null,
+    pending: false,
+  })
 
   const copy = editorCopy[locale]
   const launcherPort = useLauncherPort()
-  const eventBus = useMemo(() => createAppEventBus(), [])
-  const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
-  const appCommandHandler = useMemo(
-    () =>
-      createAppCommandHandler({
-        setAppMode: (nextMode) => {
-          if (nextMode === 'workbench') {
-            setWorkbenchHasOpened(true)
-            setWorkbenchActivationKey((current) => current + 1)
-          }
-          setAppMode(nextMode)
-        },
-        onPendingIntent: setPendingWorkbenchIntent,
-      }),
-    [],
-  )
-  const workbenchOrchestration = useMemo(
-    () => createWorkbenchOrchestration({ dispatch: (command) => appCommandHandler.handleCommand(command) }),
-    [appCommandHandler],
-  )
+  const compatReloadDrainRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     appMountedRef.current = true
@@ -179,8 +204,6 @@ export default function App() {
   useEffect(() => {
     launcherPageRef.current = launcherPage
   }, [launcherPage])
-
-  useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
   const confirmAndCloseCurrentWindow = useCallback(async () => {
     const { windowCloseBehavior, rememberCloseChoice } = usePreferencesStore.getState()
@@ -245,15 +268,19 @@ export default function App() {
 
         const nextShellState = normalizeAppShellState(state.shell)
         syncPreferencesStoreFromAppUiState(state, canUseDesktopHost())
-        if (nextShellState.appMode === 'workbench') {
+        if (canEnterWorkbench(androidHost) && nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
         }
-        setAppMode(nextShellState.appMode)
+        setAppMode(resolveStartupAppMode(androidHost, nextShellState.appMode))
         setLauncherPage(nextShellState.launcherPage)
         setAppUiStateReady(true)
       })
-      .catch(() => {
+      .catch((error) => {
+        appEvent('error', 'Failed to initialize app UI state')
+          .error(error)
+          .context({ source: 'app-shell', operation: 'initialize-app-ui-state' })
+          .emit({ notify: false })
         if (!disposed) {
           setAppUiStateReady(true)
         }
@@ -262,7 +289,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [hostAvailable])
+  }, [androidHost, hostAvailable])
 
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
@@ -333,15 +360,16 @@ export default function App() {
 
     const loadDiagnostics = () => launcherPort.loadNexusDiagnostics()
 
-    void loadSettledLauncherNexusDiagnostics({
-      loadDiagnostics,
-    })
-      .then((diagnostics) => {
+    void ignoreError(
+      loadSettledLauncherNexusDiagnostics({
+        loadDiagnostics,
+      }).then((diagnostics) => {
         if (!disposed) {
           handleLauncherDiagnosticsUpdate(diagnostics)
         }
-      })
-      .catch(() => {})
+      }),
+      'appShell.loadDiagnostics',
+    )
 
     return () => {
       disposed = true
@@ -353,7 +381,7 @@ export default function App() {
       return
     }
 
-    void launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
+    void ignoreError(launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline), 'appShell.setNexusForceOffline')
   }, [appUiStateReady, hostAvailable, launcherPort])
 
   useEffect(() => {
@@ -361,9 +389,31 @@ export default function App() {
       return
     }
 
-    workbenchStylesPromise ??= import('../../styles/workbench.css')
-    void workbenchStylesPromise
+    void preloadWorkbenchStyles()
   }, [appMode])
+
+  useEffect(() => {
+    if (!appUiStateReady || appMode !== 'launcher') return
+    let cancelled = false
+    let cancelWorkbenchPreload: (() => void) | null = null
+    const cancelSettingsPreload = deferToTimeout(() => {
+      void preloadSettingsWindow().then(() => {
+        if (cancelled) return
+        setSettingsShellPrepared(true)
+        // Android never downloads the workbench chunks: it is a launcher-only host.
+        cancelWorkbenchPreload = canEnterWorkbench(androidHost)
+          ? deferToTimeout(() => {
+              void preloadWorkbenchPage()
+            }, 0)
+          : null
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      cancelSettingsPreload()
+      cancelWorkbenchPreload?.()
+    }
+  }, [androidHost, appMode, appUiStateReady])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -380,12 +430,10 @@ export default function App() {
         rememberCloseChoice: usePreferencesStore.getState().rememberCloseChoice,
       },
     }).catch((error) => {
-      reportAppEvent({
-        level: 'error',
-        title: 'Failed to save app shell state',
-        description: error instanceof Error ? error.message : String(error),
-        notify: false,
-      })
+      appEvent('error', 'Failed to save app shell state')
+        .error(error)
+        .context({ source: 'app-shell', operation: 'save-shell-state' })
+        .emit({ notify: false })
     })
   }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 
@@ -410,7 +458,7 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
+  const workbenchLoaded = canEnterWorkbench(androidHost) && (workbenchHasOpened || appMode === 'workbench')
 
   useEffect(() => {
     if (!hostAvailable) {
@@ -490,15 +538,16 @@ export default function App() {
     let disposed = false
     let unlisten: (() => void) | null = null
 
-    void listenToWindowCloseRequest(requestGuardedWindowClose)
-      .then((nextUnlisten) => {
+    void ignoreError(
+      listenToWindowCloseRequest(requestGuardedWindowClose).then((nextUnlisten) => {
         if (disposed) {
           nextUnlisten()
           return
         }
         unlisten = nextUnlisten
-      })
-      .catch(() => {})
+      }),
+      'appShell.listenWindowClose',
+    )
 
     return () => {
       disposed = true
@@ -506,13 +555,19 @@ export default function App() {
     }
   }, [hostAvailable, requestGuardedWindowClose])
 
-  const handleAppModeChange = useCallback((nextMode: AppMode) => {
-    if (nextMode === 'workbench') {
-      setWorkbenchHasOpened(true)
-      setWorkbenchActivationKey((current) => current + 1)
-    }
-    setAppMode(nextMode)
-  }, [])
+  const handleAppModeChange = useCallback(
+    (nextMode: AppMode) => {
+      if (!canEnterWorkbench(androidHost) && nextMode === 'workbench') {
+        return
+      }
+      if (nextMode === 'workbench') {
+        setWorkbenchHasOpened(true)
+        setWorkbenchActivationKey((current) => current + 1)
+      }
+      setAppMode(nextMode)
+    },
+    [androidHost],
+  )
 
   const handleSwitchToLauncher = useCallback(() => {
     setAppMode('launcher')
@@ -547,8 +602,6 @@ export default function App() {
     setSettingsWindowOpen(true)
   }, [])
 
-  useEffect(() => listenForAppSettingsRequests(openSettingsTarget), [openSettingsTarget])
-
   useEffect(() => {
     if (appUiStateReady) {
       useGuideEngineStore.getState().markGuideStateReady()
@@ -562,7 +615,7 @@ export default function App() {
     }
 
     const navigation = resolveGuideSurfaceNavigation(guideReplayRequest.surface)
-    if (navigation?.appMode === 'workbench') {
+    if (canEnterWorkbench(androidHost) && navigation?.appMode === 'workbench') {
       setWorkbenchHasOpened(true)
       setWorkbenchActivationKey((current) => current + 1)
       setAppMode('workbench')
@@ -575,7 +628,114 @@ export default function App() {
 
     setSettingsWindowOpen(false)
     useGuideEngineStore.getState().acknowledgeGuideReplay(guideReplayRequest.nonce)
-  }, [guideReplayRequest])
+  }, [androidHost, guideReplayRequest])
+
+  useEffect(() => {
+    // Suppress the native browser context menu app-wide. Interactive surfaces
+    // opt into a custom Radix context menu instead; everywhere else the native
+    // menu is meaningless inside the desktop shell and leaks web-platform UX.
+    const handler = (event: MouseEvent) => event.preventDefault()
+    document.addEventListener('contextmenu', handler)
+    return () => document.removeEventListener('contextmenu', handler)
+  }, [])
+
+  useEffect(() => {
+    // Android system back: close the topmost launcher utility page and claim the
+    // press; with nothing to close the activity moves the task to the background.
+    if (!androidHost) {
+      return
+    }
+
+    let disposed = false
+    let unlisten: (() => void) | null = null
+
+    void ignoreError(
+      listenToAndroidBackRequest(() => {
+        // Overlay priority: settings window > bottom sheet/dialog > pack page
+        // > mod detail drawer. Each layer owns an Escape handler, so
+        // synthesize the keydown on the React root and let the topmost layer
+        // consume it.
+        const overlayRoot = ['.settings-window-backdrop', '.mobile-sheet-root', '.mobile-packs-page-root', '.launcher-library-drawer-open']
+          .map((selector) => document.querySelector(selector))
+          .find((node): node is Element => Boolean(node))
+        if (overlayRoot) {
+          document.getElementById('root')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          notifyAndroidBackHandled()
+          return
+        }
+        const { page, closePage } = useMobilePageStore.getState()
+        if (page) {
+          closePage()
+          notifyAndroidBackHandled()
+        }
+      }).then((nextUnlisten: () => void) => {
+        if (disposed) {
+          nextUnlisten()
+          return
+        }
+
+        unlisten = nextUnlisten
+      }),
+      'appShell.listenAndroidBack',
+    )
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [androidHost])
+
+  useEffect(() => {
+    // Lower FSD layers (plugin manager) request compat-plugin hot-reload via
+    // the typed app command channel; the app shell owns the registry store and
+    // rebuilds it here. On failure the previous registry is preserved and the
+    // error surfaces through the compat plugin store.
+    //
+    // Concurrent requests (e.g. toggle and delete both firing reload, or a
+    // reload button click landing while a toggle-induced reload is in flight)
+    // are serialized: while one reload is running, additional requests set a
+    // `pending` flag and a single trailing reload runs after the in-flight one
+    // settles. This prevents epoch/double-increment races, dispose-hook
+    // interleaving and last-writer-wins registry overwrites.
+    const reloadStateRef = compatReloadStateRef
+    const runReload = (): Promise<void> =>
+      import('../buildWorkbenchRegistry')
+        .then((module) => module.buildWorkbenchRegistry(true))
+        .catch((error) => {
+          appEvent('error', 'Compat plugin reload failed')
+            .error(error)
+            .context({ source: 'app-shell', operation: 'reload-compat-plugins' })
+            .emit({ notify: false })
+        })
+        .then(() => undefined)
+    const drainReload = () => {
+      const state = reloadStateRef.current
+      if (state.inFlight) {
+        state.pending = true
+        return
+      }
+      state.inFlight = runReload().finally(() => {
+        const s = reloadStateRef.current
+        s.inFlight = null
+        if (s.pending) {
+          s.pending = false
+          drainReload()
+        }
+      })
+    }
+    compatReloadDrainRef.current = drainReload
+    return () => {
+      compatReloadDrainRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = createAppCommandHandler({
+      openSettings: openSettingsTarget,
+      reloadCompatPlugins: () => compatReloadDrainRef.current?.(),
+    })
+    return registerAppCommandHandler(handler.handleCommand)
+  }, [openSettingsTarget])
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return
@@ -596,13 +756,14 @@ export default function App() {
             className="app-window-frame"
             data-window-border-tone={windowBorderTone}
             data-window-border-weight={windowBorderWeight}
-            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized ? 'true' : undefined}
+            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized || androidHost ? 'true' : undefined}
           >
             {appMode === 'launcher' ? (
               <LauncherPageView
                 page={launcherPage}
                 debugEnabled={debugEnabled}
                 desktopHost={hostAvailable}
+                androidHost={androidHost}
                 theme={theme}
                 locale={locale}
                 onToggleTheme={() => {
@@ -643,9 +804,6 @@ export default function App() {
                   onCloseWindow={confirmAndCloseCurrentWindow}
                   onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onHomeRouteActiveChange={setWorkbenchHomeActive}
-                  onWorkbenchEvent={eventBus.emit}
-                  pendingWorkbenchIntent={pendingWorkbenchIntent}
-                  onClearPendingIntent={() => appCommandHandler.clearPendingIntent()}
                   workbenchActivationKey={workbenchActivationKey}
                 />
               </Suspense>
@@ -658,7 +816,6 @@ export default function App() {
                 eventName={null}
                 currentEventCommandId={null}
                 actorCount={0}
-                contextSectionLabel={appMode === 'launcher' ? 'Launcher' : 'App'}
                 contextMetrics={
                   appMode === 'launcher'
                     ? [
@@ -673,17 +830,20 @@ export default function App() {
               />
             ) : null}
 
-            {settingsWindowOpen ? (
-              <Suspense fallback={<LoadingMotionFallback />}>
-                <SettingsWindow
-                  open={settingsWindowOpen}
-                  activeCategory={settingsWindowCategory}
-                  initialAiTab={settingsWindowAiTab ?? undefined}
-                  onActiveCategoryChange={setSettingsWindowCategory}
-                  onClose={() => setSettingsWindowOpen(false)}
-                />
-              </Suspense>
-            ) : null}
+            {settingsWindowOpen || settingsShellPrepared
+              ? createPortal(
+                  <Suspense fallback={<LoadingMotionFallback />}>
+                    <SettingsWindow
+                      open={settingsWindowOpen}
+                      activeCategory={settingsWindowCategory}
+                      initialAiTab={settingsWindowAiTab ?? undefined}
+                      onActiveCategoryChange={setSettingsWindowCategory}
+                      onClose={() => setSettingsWindowOpen(false)}
+                    />
+                  </Suspense>,
+                  document.body,
+                )
+              : null}
 
             <QuitDialog
               open={quitDialogOpen}
@@ -693,10 +853,12 @@ export default function App() {
               rememberChoice={quitDialogRemember}
               onRememberChoiceChange={setQuitDialogRemember}
             />
-            {/* The settings window renders inside the window frame, so the
-                body-level guide overlay would cover it; suspend the guide
-                (engine keeps the run) until settings closes. */}
-            {settingsWindowOpen ? null : <GuideTourOverlay />}
+            {/* The settings window portals to document.body above the guide
+                overlay (dialog layer outranks the guide), so it can no longer
+                be covered; keep the guide suspended while settings is open so
+                the tour does not fight the modal (engine keeps the run). */}
+            {/*The desktop coach-mark tour references desktop anchors; phones skip it.*/}
+            {settingsWindowOpen || androidHost ? null : <GuideTourOverlay />}
             <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>

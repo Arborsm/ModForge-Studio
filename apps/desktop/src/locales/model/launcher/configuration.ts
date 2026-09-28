@@ -66,6 +66,18 @@ export type LauncherConfigurationCopy = {
     backgroundQueuedDetail: string
     manualDownloadOpenedTitle: string
     manualDownloadOpenedDetail: string
+    /** In-app browser: captured file finished downloading and installed into Mods. */
+    inAppDownloadInstalledTitle: string
+    inAppDownloadInstalledDetail: (fileName: string) => string
+    /** In-app browser: captured file finished downloading; auto-install disabled in settings. */
+    inAppDownloadSavedTitle: string
+    inAppDownloadSavedDetail: (fileName: string) => string
+    /** In-app browser: the captured file download failed. */
+    inAppDownloadFailedTitle: string
+    inAppDownloadFailedDetail: (message: string) => string
+    /** The in-app browser overlay could not be opened. */
+    inAppBrowserOpenFailedTitle: string
+    inAppBrowserOpenFailedDetail: (message: string) => string
   }
   settings: {
     title: string
@@ -88,8 +100,8 @@ export type LauncherConfigurationCopy = {
     nexusClearApiKeyAction: string
     nexusQuotaDaily: string
     nexusQuotaHourly: string
-    nexusQuotaDailyLimit: string
-    nexusQuotaHourlyLimit: string
+    nexusQuotaDailyLimit: (limit: string) => string
+    nexusQuotaHourlyLimit: (limit: string) => string
     nexusQuotaPercent: (percent: number) => string
     nexusQuotaResetIn: (duration: string) => string
     nexusQuotaDurationHoursMinutes: (hours: number, minutes: number) => string
@@ -147,6 +159,16 @@ export type LauncherConfigurationCopy = {
     gmcmProbeReview: string
   }
   configuration: {
+    logViewer: {
+      title: string
+      subtitle: string
+      refresh: string
+      copy: string
+      copyDone: string
+      empty: string
+      truncatedDetail: (count: number) => string
+      loadFailed: string
+    }
     title: string
     subtitle: string
     moreToolsTitle: string
@@ -233,6 +255,15 @@ export type LauncherConfigurationCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
+    /** Android-only debug card: load the front-end from a local Vite dev server. */
+    devServerTitle: string
+    devServerSubtitle: string
+    devServerPlaceholder: string
+    devServerEnableButton: string
+    devServerDisableButton: string
+    devServerNote: string
+    devServerInvalidUrl: string
+    devServerSaveFailed: string
     forceNonPremiumEnableButton: string
     forceNonPremiumDisableButton: string
     forceNonPremiumEnabledLabel: string
@@ -249,7 +280,71 @@ export type LauncherConfigurationCopy = {
     simulationParametersLabel: string
     simulationButtonIdle: string
     simulationButtonRunning: string
-    notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
+    notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string> & {
+      fullAttributes: string
+    }
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
+    smapiUpdate: {
+      title: string
+      subtitle: string
+      statusNotConfigured: string
+      /** Android fresh-install state: the host reports installedVersion "0.0.0". */
+      statusNotInstalled: string
+      statusChecking: string
+      statusUpToDate: string
+      statusUpdateAvailable: string
+      statusInstalling: string
+      statusInstalled: string
+      statusCheckFailed: string
+      statusInstallFailed: string
+      notConfiguredDetail: string
+      /** Fresh-install guidance shown when the host reports SMAPI as not installed. */
+      notInstalledDetail: string
+      checkingDetail: string
+      upToDateDetail: (installedVersion: string, gameVersion: string) => string
+      updateAvailableDetail: (installedVersion: string, targetVersion: string) => string
+      latestStableHint: (latestStableVersion: string) => string
+      requiredByModsSummary: (count: number) => string
+      requiredByModsTooltip: (modName: string, minimumApiVersion: string) => string
+      updateAction: string
+      /** Primary action label for the Android fresh-install flow. */
+      installAction: string
+      retryAction: string
+      cancelAction: string
+      checkFailedFallback: string
+      installFailedFallback: string
+      installPhaseLabels: Record<'downloading' | 'verifying' | 'extracting' | 'installing', string>
+      installingDetail: (phaseLabel: string, message: string) => string
+      installPercent: (percent: number) => string
+      installedDetail: (installedVersion: string) => string
+      /** Small hint near the version line when the lookup fell back to Nexus. */
+      nexusSourceHint: string
+      /** Section title shown when a usable installer archive was found in the download folders. */
+      localSectionTitle: string
+      /** Shown while the download-folder scan is in flight. */
+      installerScanningDetail: string
+      /** Fallback when the download-folder scan error carries no message. */
+      installerScanFallback: string
+      /** Version label inside a local candidate row. */
+      localCandidateVersionLabel: (version: string) => string
+      /** Source/naming hint for a GitHub-named local candidate. */
+      candidateNamingGithub: string
+      /** Source/naming hint for a Nexus-named local candidate. */
+      candidateNamingNexus: string
+      /** Primary action to install from a locally downloaded installer archive. */
+      installLocalAction: string
+      /** Primary action in the Nexus manual flow: open the Nexus download popup/page. */
+      openNexusAction: string
+      /** Guidance shown in the Nexus manual flow after the popup is opened. */
+      nexusManualGuidance: string
+      /** Re-runs the download-folder scan and the version check. */
+      rescanAction: string
+      /** Secondary action to pick any SMAPI installer archive from disk. */
+      pickLocalAction: string
+      /** File-picker dialog title for choosing a SMAPI installer archive. */
+      localInstallerPickerTitle: string
+      /** Fallback when a local-file install error carries no message. */
+      localInstallFailedFallback: string
+    }
   }
 }

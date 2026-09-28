@@ -15,12 +15,12 @@ type ModDiagnosticsPanelProps = {
 
 function toneClass(severity: ModProjectDiagnostic['severity']) {
   if (severity === 'error') {
-    return 'border-(--danger) bg-(--danger-soft) text-(--danger)'
+    return 'border-danger bg-danger-soft text-danger'
   }
   if (severity === 'warning') {
-    return 'border-(--warning) bg-(--warning-soft) text-(--warning)'
+    return 'border-warning bg-warning-soft text-warning'
   }
-  return 'border-(--success) bg-(--success-soft) text-(--success)'
+  return 'border-success bg-success-soft text-success'
 }
 
 const manifestOverviewFields = new Set(['Name', 'Author', 'Version', 'UniqueID', 'Description', 'ContentPackFor'])
@@ -60,82 +60,78 @@ export function ModDiagnosticsPanel({
   const copy = useModCopy()
   if (!activeProject) {
     return (
-      <div className="flex h-full items-center justify-center bg-(--bg-panel) px-8 text-center">
+      <div className="bg-surface-panel flex h-full items-center justify-center px-8 text-center">
         <div>
-          <p className="text-base font-semibold text-(--text-primary)">{copy.diagnosticsTitle}</p>
-          <p className="mt-2 text-sm text-(--text-secondary)">{copy.browserLibraryHasProjectsDescription}</p>
+          <p className="text-text-primary text-base font-semibold">{copy.diagnosticsTitle}</p>
+          <p className="text-text-secondary mt-2 text-sm">{copy.browserLibraryHasProjectsDescription}</p>
         </div>
       </div>
     )
   }
   return (
-    <div className="custom-scrollbar h-full overflow-auto bg-(--bg-panel)">
-      <header className="border-b border-(--border-color)/65 bg-(--bg-elevated) px-5 py-4">
-        <h2 className="text-xl font-semibold text-(--text-primary)">{activeProject.summary.name}</h2>
-        <p className="mt-1 font-mono text-xs text-(--text-tertiary)">
-          {activeProject.summary.uniqueId ?? activeProject.summary.folderName}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded-sm bg-(--success-soft) px-2 py-1 font-semibold text-(--success)">Content Patcher</span>
-          <span className="rounded-sm bg-(--accent-soft) px-2 py-1 text-(--accent)">
-            {activeProject.summary.version ?? copy.noVersionLabel}
-          </span>
-          <span className="rounded-sm bg-(--bg-panel-muted) px-2 py-1 text-(--text-secondary)">
+    <div className="custom-scrollbar bg-surface-panel h-full overflow-auto">
+      <header className="border-border-subtle/65 bg-surface-elevated border-b px-5 py-4">
+        <h2 className="text-text-primary text-xl font-semibold">{activeProject.summary.name}</h2>
+        <p className="text-text-tertiary mt-1 font-mono text-xs">{activeProject.summary.uniqueId ?? activeProject.summary.folderName}</p>
+        <div className="text-meta-px mt-3 flex flex-wrap gap-1.5">
+          <span className="bg-success-soft text-success rounded-sm px-2 py-1 font-semibold">Content Patcher</span>
+          <span className="bg-accent-soft text-accent rounded-sm px-2 py-1">{activeProject.summary.version ?? copy.noVersionLabel}</span>
+          <span className="bg-surface-panel-muted text-text-secondary rounded-sm px-2 py-1">
             {activeProject.summary.author ?? copy.unknownLabel}
           </span>
         </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-(--border-color)/55 pt-3">
-          <span className="text-xs text-(--text-tertiary)">
-            {copy.includesLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.includeCount}</strong>
+        <div className="border-border-subtle/55 mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t pt-3">
+          <span className="text-text-tertiary text-xs">
+            {copy.includesLabel} <strong className="text-text-primary ml-1">{contentSummary.includeCount}</strong>
           </span>
-          <span className="text-xs text-(--text-tertiary)">
-            {copy.dynamicTokensLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.dynamicTokenCount}</strong>
+          <span className="text-text-tertiary text-xs">
+            {copy.dynamicTokensLabel} <strong className="text-text-primary ml-1">{contentSummary.dynamicTokenCount}</strong>
           </span>
-          <span className="text-xs text-(--text-tertiary)">
-            {copy.configKeysLabel} <strong className="ml-1 text-(--text-primary)">{contentSummary.configKeys.length}</strong>
+          <span className="text-text-tertiary text-xs">
+            {copy.configKeysLabel} <strong className="text-text-primary ml-1">{contentSummary.configKeys.length}</strong>
           </span>
         </div>
       </header>
 
       <div className="space-y-6 px-5 py-5">
         <section>
-          <p className="mb-2 text-[11px] font-semibold text-(--text-tertiary) uppercase">{copy.sourcePath}</p>
-          <div className="divide-y divide-(--border-color)/45 border-y border-(--border-color)/55 text-xs">
+          <p className="text-text-tertiary text-meta-px mb-2 font-semibold uppercase">{copy.sourcePath}</p>
+          <div className="divide-border-subtle/45 border-border-subtle/55 divide-y border-y text-xs">
             {[
               [copy.sourcePath, activeProject.summary.absolutePath],
               [copy.manifestPathLabel, activeProject.summary.manifestPath],
               [copy.contentPathLabel, activeProject.summary.contentPath ?? copy.unknownLabel],
             ].map(([label, value]) => (
               <div key={label} className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4 py-2.5">
-                <span className="text-(--text-tertiary)">{label}</span>
-                <span className="font-mono break-all text-(--text-primary)">{value}</span>
+                <span className="text-text-tertiary">{label}</span>
+                <span className="text-text-primary font-mono break-all">{value}</span>
               </div>
             ))}
           </div>
-          {statusMessage ? <p className="mt-3 text-xs text-(--text-secondary)">{statusMessage}</p> : null}
+          {statusMessage ? <p className="text-text-secondary mt-3 text-xs">{statusMessage}</p> : null}
         </section>
 
         <section>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold text-(--text-tertiary) uppercase">{copy.diagnosticsListTitle}</p>
+              <p className="text-text-tertiary text-meta-px font-semibold uppercase">{copy.diagnosticsListTitle}</p>
             </div>
           </div>
 
-          <div className="mt-2 divide-y divide-(--border-color)/45 border-y border-(--border-color)/55">
+          <div className="divide-border-subtle/45 border-border-subtle/55 mt-2 divide-y border-y">
             {diagnostics.length ? (
               diagnostics.map((diagnostic, index) =>
                 (() => {
                   const isSelectable = Boolean(onSelectDiagnostic && isSelectableDiagnosticField(diagnostic.field))
-                  const className = `w-full py-3 text-left${isSelectable ? ' hover:bg-(--bg-panel-muted)' : ''}`
+                  const className = `w-full py-3 text-left${isSelectable ? ' hover:bg-surface-panel-muted' : ''}`
                   const content = (
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-(--text-primary)">{diagnostic.message}</p>
-                        {diagnostic.field ? <p className="mt-1 text-xs text-(--text-secondary)">{diagnostic.field}</p> : null}
+                        <p className="text-text-primary text-sm font-medium">{diagnostic.message}</p>
+                        {diagnostic.field ? <p className="text-text-secondary mt-1 text-xs">{diagnostic.field}</p> : null}
                       </div>
                       <span
-                        className={`inline-flex rounded-sm border px-1.5 py-0.5 text-[9px] font-semibold uppercase ${toneClass(diagnostic.severity)}`}
+                        className={`text-caption-px inline-flex rounded-sm border px-1.5 py-0.5 font-semibold uppercase ${toneClass(diagnostic.severity)}`}
                       >
                         {diagnostic.severity}
                       </span>
@@ -159,7 +155,7 @@ export function ModDiagnosticsPanel({
                 })(),
               )
             ) : (
-              <div className="flex min-h-24 items-center justify-center px-4 text-center text-sm text-(--text-secondary)">
+              <div className="text-text-secondary flex min-h-24 items-center justify-center px-4 text-center text-sm">
                 {copy.noDiagnosticsLabel}
               </div>
             )}

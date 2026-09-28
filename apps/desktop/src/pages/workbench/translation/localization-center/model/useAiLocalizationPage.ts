@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { detectDefaultGameDirectory, listKnownGameDirectories } from '@entities/game/api'
 import { useLocalization } from '@entities/localization'
 import { useAiLocalizationCopy } from '@locales/provider'
+import { appEvent, ignoreError } from '@platform/observability'
+
 import type { AiOfficialCorpusStatus, AiOfficialIndexProgress, AiOfficialUnit } from '@shared/contracts'
-import { dismissNotification, useNotificationPublisher } from '@shared/ui/notifications'
+import { dismissNotification } from '@shared/ui/notifications'
 import { TaskCancelledError, useLatestTask } from '@shared/lib/task-runtime'
 import { useAiLocalizationPersistentState } from './localizationPageState'
+import { errorDetail } from './errorDetail'
 
 const NOTICE_ID = 'ai-localization-official-error'
 const SEARCH_NOTICE_ID = 'ai-localization-official-search'
@@ -14,7 +17,6 @@ const STATUS_NOTICE_ID = 'ai-localization-official-status'
 export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTargetLocale = 'zh-CN') {
   const localization = useLocalization()
   const copy = useAiLocalizationCopy()
-  const publish = useNotificationPublisher()
   const [directories, setDirectories] = useState<string[]>([])
   const [gameDirectory, setGameDirectory] = useState('')
   const [status, setStatus] = useState<AiOfficialCorpusStatus | null>(null)
@@ -57,34 +59,32 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
   const [indexing, setIndexing] = useState(false)
   const [indexProgress, setIndexProgress] = useState<AiOfficialIndexProgress | null>(null)
   const [searching, setSearching] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const activeJobId = useRef<string | null>(null)
   const cancelledJobId = useRef<string | null>(null)
   const retryRef = useRef<() => void>(() => {})
   const runDirectoryLoad = useLatestTask('ai-localization-game-directories')
   const runInspect = useLatestTask('ai-localization-official-inspect')
   const runSearch = useLatestTask('ai-localization-official-search')
-  const fail = (title: string, retry: () => void) => {
-    setError(title)
+  const fail = (error: unknown, title: string, retry: () => void) => {
     retryRef.current = retry
-    publish({
-      id: NOTICE_ID,
-      level: 'error',
-      title,
-      description: title,
-      action: { label: copy.retry, callback: () => retryRef.current(), tone: 'primary' },
-    })
+    appEvent('error', title).error(error).context({ source: 'ai-localization-official', operation: 'manage' }).emit({ notify: false })
+    appEvent('error', title)
+      .description(errorDetail(error))
+      .noticeId(NOTICE_ID)
+      .action({ label: copy.retry, callback: () => retryRef.current(), tone: 'primary' })
+      .error(error)
+      .context({ source: 'ai-localization-official', operation: 'load-content' })
+      .emit()
   }
   const publishStatusLoading = () => {
     dismissNotification(NOTICE_ID)
-    publish({
-      id: STATUS_NOTICE_ID,
-      level: 'info',
-      title: copy.loadingStatus,
-      description: copy.loadingStatus,
-      autoDismissMs: null,
-      loading: true,
-    })
+    appEvent('info', copy.loadingStatus)
+      .description(copy.loadingStatus)
+      .noticeId(STATUS_NOTICE_ID)
+      .autoDismiss(null)
+      .loading()
+      .context({ source: 'ai-localization-official', operation: 'load-status' })
+      .emit()
   }
   useEffect(() => {
     let active = true
@@ -117,16 +117,16 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
         const next = await localization.inspectOfficialIndex(path)
         if (task.isCurrent()) {
           setStatus(next)
-          setError(null)
           setLoading(false)
           dismissNotification(STATUS_NOTICE_ID)
+          dismissNotification(NOTICE_ID)
         }
       })
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setLoading(false)
         dismissNotification(STATUS_NOTICE_ID)
-        fail(copy.loadError, () => void inspect(path))
+        fail(error, copy.loadError, () => void inspect(path))
       }
     }
   }
@@ -146,12 +146,12 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
       if (!(error instanceof TaskCancelledError)) {
         setLoading(false)
         dismissNotification(STATUS_NOTICE_ID)
-        fail(copy.loadError, () => window.location.reload())
+        fail(error, copy.loadError, () => window.location.reload())
       }
     })
     return () => {
       const jobId = activeJobId.current
-      if (jobId) void localization.cancelJob(jobId).catch(() => undefined)
+      if (jobId) void ignoreError(localization.cancelJob(jobId), 'aiLocalization.cancelJob')
       dismissNotification(NOTICE_ID)
       dismissNotification(SEARCH_NOTICE_ID)
       dismissNotification(STATUS_NOTICE_ID)
@@ -164,12 +164,12 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     cancelledJobId.current = null
     setIndexing(true)
     setIndexProgress(null)
-    setError(null)
     try {
       const next = await localization.rebuildOfficialIndex({ jobId, gameDirectory })
       setStatus(next)
-    } catch {
-      if (cancelledJobId.current !== jobId) fail(copy.indexError, () => void rebuild())
+      dismissNotification(NOTICE_ID)
+    } catch (error) {
+      if (cancelledJobId.current !== jobId) fail(error, copy.indexError, () => void rebuild())
     } finally {
       activeJobId.current = null
       setIndexing(false)
@@ -183,8 +183,8 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
       setDirectories((current) => [...new Set([path, ...current])])
       setGameDirectory(path)
       await inspect(path)
-    } catch {
-      fail(copy.loadError, () => void chooseGameDirectory())
+    } catch (error) {
+      fail(error, copy.loadError, () => void chooseGameDirectory())
     }
   }
   const cancel = async () => {
@@ -204,14 +204,13 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     }
     setSearching(true)
     dismissNotification(SEARCH_NOTICE_ID)
-    publish({
-      id: SEARCH_NOTICE_ID,
-      level: 'info',
-      title: copy.searching,
-      description: query.trim(),
-      autoDismissMs: null,
-      loading: true,
-    })
+    appEvent('info', copy.searching)
+      .description(query.trim())
+      .noticeId(SEARCH_NOTICE_ID)
+      .autoDismiss(null)
+      .loading()
+      .context({ source: 'ai-localization-official', operation: 'search-corpus' })
+      .emit()
     try {
       await runSearch(async (task) => {
         const page = await localization.searchOfficial({
@@ -229,16 +228,16 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
           setRecords(page.records)
           setHasSearched(true)
           setSelected((current) => page.records.find((row) => row.id === current?.id) ?? page.records[0] ?? null)
-          setError(null)
           setSearching(false)
           dismissNotification(SEARCH_NOTICE_ID)
+          dismissNotification(NOTICE_ID)
         }
       })
     } catch (error) {
       if (!(error instanceof TaskCancelledError)) {
         setSearching(false)
         dismissNotification(SEARCH_NOTICE_ID)
-        fail(copy.searchError, () => void search())
+        fail(error, copy.searchError, () => void search())
       }
     }
   }
@@ -293,7 +292,6 @@ export function useAiLocalizationPage(initialSourceLocale = 'en-US', initialTarg
     indexing,
     indexProgress,
     searching,
-    error,
     rebuild,
     cancel,
     search,

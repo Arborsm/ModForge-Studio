@@ -1,4 +1,9 @@
-import { memo, useMemo } from 'react'
+/**
+ * @file World state preview overlay component: renders building sprites and
+ * world-state-dependent overlays on top of the map viewport.
+ */
+
+import { memo } from 'react'
 import { ImageSkeleton } from '@shared/ui/ImageSkeleton'
 import type { MapDocument, MapWorldOverlaySprite, OverlayTextureAsset } from '@entities/map'
 
@@ -25,29 +30,25 @@ type RenderableOverlaySprite = {
 }
 
 function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textureAssets }: MapWorldStatePreviewOverlayProps) {
-  const spriteEntries = useMemo(
-    () =>
-      sprites.flatMap((sprite) => {
-        const asset = textureAssets[sprite.textureName]
-        return [
-          {
-            id: sprite.id,
-            sourceX: sprite.sourceX,
-            sourceY: sprite.sourceY,
-            sourceWidth: sprite.sourceWidth,
-            sourceHeight: sprite.sourceHeight,
-            pixelX: sprite.pixelX,
-            pixelY: sprite.pixelY,
-            width: sprite.width,
-            height: sprite.height,
-            zIndex: sprite.zIndex,
-            assetUrl: asset?.url ?? null,
-            loading: asset?.loading ?? !asset?.url,
-          } satisfies RenderableOverlaySprite,
-        ]
-      }),
-    [sprites, textureAssets],
-  )
+  const spriteEntries = sprites.flatMap((sprite) => {
+    const asset = textureAssets[sprite.textureName]
+    return [
+      {
+        id: sprite.id,
+        sourceX: sprite.sourceX,
+        sourceY: sprite.sourceY,
+        sourceWidth: sprite.sourceWidth,
+        sourceHeight: sprite.sourceHeight,
+        pixelX: sprite.pixelX,
+        pixelY: sprite.pixelY,
+        width: sprite.width,
+        height: sprite.height,
+        zIndex: sprite.zIndex,
+        assetUrl: asset?.url ?? null,
+        loading: asset?.loading ?? !asset?.url,
+      } satisfies RenderableOverlaySprite,
+    ]
+  })
 
   if (!mapDocument || sprites.length === 0) {
     return null

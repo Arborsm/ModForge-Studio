@@ -1,5 +1,3 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
@@ -7,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use infrastructure::game_formats::xact;
+use modforge_studio_desktop_lib::validation::xact;
 
 fn main() {
     report_xact_simple_cue_coverage();
@@ -175,7 +173,7 @@ where
 }
 
 fn load_as_wav(game_root: &std::path::Path, cue: &str) -> Result<(), String> {
-    match xact::load_xact_audio_data_url(game_root.display().to_string(), cue.to_string()) {
+    match xact::load_xact_audio_data_url(&game_root.display().to_string(), cue) {
         Ok(url) if url.starts_with("data:audio/wav;base64,") => Ok(()),
         Ok(_) => Err("returned non-wav data url".to_string()),
         Err(error) => Err(error.to_string()),

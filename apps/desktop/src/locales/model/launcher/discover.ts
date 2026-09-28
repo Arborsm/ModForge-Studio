@@ -25,6 +25,8 @@ export type LauncherDiscoverCopy = {
   resultRange: (start: number, end: number, total: string) => string
   searchPlaceholder: string
   searchAction: string
+  modIdNotFoundTitle: string
+  modIdNotFoundDetail: (modId: number) => string
   showFilters: string
   hideFilters: string
   timeRangeLabel: string
@@ -73,4 +75,20 @@ export type LauncherDiscoverCopy = {
   pageLabel: (page: number) => string
   jumpToPage: string
   pageUnit: string
+  /** Android-host-only chrome: the bottom filter sheet replaces the retired rail. */
+  mobile: {
+    sheetTitle: string
+    apply: string
+    timeGroupLabel: string
+    sortGroupLabel: string
+    categoryGroupLabel: string
+    languageGroupLabel: string
+    sizeGroupLabel: string
+    anyLanguage: string
+    ascendingChip: string
+    descendingChip: string
+    recheckAction: string
+    /** Infinite-scroll footer shown once the last discover page is reached. */
+    endOfResults: string
+  }
 }

@@ -141,7 +141,7 @@ if (isDev) {
 // Step 1: Build the main desktop app (no NSIS bundle — the installer IS the bundle).
 if (!skipAppBuild) {
   log('Step 1: Building ModForge Studio desktop app (--no-bundle)...')
-  run('node ./scripts/run-tauri-cli.cjs build --no-bundle', DESKTOP_ROOT)
+  run('node ./scripts/dev/run-tauri-cli.cjs build --no-bundle', DESKTOP_ROOT)
 } else {
   log('Step 1: Skipped (--skip-app-build)')
 }

@@ -1,12 +1,14 @@
+/**
+ * @file Default translation engine selection panel: chooses the default engine between generative AI and machine translation configurations.
+ */
 import { AlertTriangle, ArrowRight, Check, Sparkles, Languages } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAi } from '@entities/ai'
 import { useLocalization } from '@entities/localization'
 import { useSettingsMenuCopy } from '@locales/provider'
+import { appEvent } from '@platform/observability'
 import type { LocalizationEngineRef } from '@shared/contracts'
-import { usePreferencesStore } from '@shared/lib/app-state/preferencesStore'
 import { cx } from '@shared/lib/helper'
-import { useNotificationPublisher } from '@shared/ui/notifications'
 
 type EngineChoice = LocalizationEngineRef & {
   name: string
@@ -21,6 +23,7 @@ function sameEngine(left: LocalizationEngineRef | null, right: LocalizationEngin
   return left?.kind === right?.kind && left?.profileId === right?.profileId
 }
 
+/** Default translation engine selection panel: displays available engines and persists the user's choice. */
 export function DefaultTranslationEngineSection({
   onDirtyChange,
   onNavigateTab,
@@ -31,11 +34,9 @@ export function DefaultTranslationEngineSection({
   const ai = useAi()
   const localization = useLocalization()
   const settingsCopy = useSettingsMenuCopy()
-  const locale = usePreferencesStore((state) => state.locale)
   const copy = settingsCopy.ai.defaultEngine
   const aiCopy = settingsCopy.ai
-  const noKeyLabel = locale.startsWith('zh') ? '无需 Key' : 'No key'
-  const publishNotification = useNotificationPublisher()
+  const noKeyLabel = copy.noKeyLabel
   const [choices, setChoices] = useState<EngineChoice[]>([])
   const [saved, setSaved] = useState<LocalizationEngineRef | null>(null)
   const [selected, setSelected] = useState<LocalizationEngineRef | null>(null)
@@ -94,7 +95,10 @@ export function DefaultTranslationEngineSection({
           setEngineKind('machine-translation')
         }
       })
-      .catch(() => active && setMessage(copy.loadError))
+      .catch(() => {
+        if (!active) return
+        setMessage(copy.loadError)
+      })
       .finally(() => active && setLoading(false))
     return () => {
       active = false
@@ -112,13 +116,12 @@ export function DefaultTranslationEngineSection({
       setMessage(copy.saved)
     } catch {
       setMessage(copy.saveError)
-      publishNotification({
-        id: 'localization-default-engine-save',
-        level: 'error',
-        title: copy.saveError,
-        description: copy.explicitFailure,
-        action: { label: copy.save, callback: () => void save(), tone: 'primary' },
-      })
+      appEvent('error', copy.saveError)
+        .description(copy.explicitFailure)
+        .noticeId('localization-default-engine-save')
+        .action({ label: copy.save, callback: () => void save(), tone: 'primary' })
+        .context({ source: 'default-translation-engine-section', operation: 'save-default-engine' })
+        .emit()
     } finally {
       setSaving(false)
     }

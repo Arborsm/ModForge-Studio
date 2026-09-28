@@ -73,7 +73,13 @@ export function ConfigCompletionRail({ title, steps }: { title: string; steps: C
   )
 }
 
-export function ConfigDownloadDefaults({ settingsState }: { settingsState: ReturnType<typeof useLauncherSettings> }) {
+export function ConfigDownloadDefaults({
+  settingsState,
+  androidHost = false,
+}: {
+  settingsState: ReturnType<typeof useLauncherSettings>
+  androidHost?: boolean
+}) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const { settings } = settingsState
@@ -93,11 +99,22 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       label: copy.toggles.keepDownloadedArchives,
       checked: settings.keepDownloadedArchives,
     },
-    {
-      field: 'gmcmParsingEnabled' as const,
-      label: copy.toggles.gmcmParsingEnabled,
-      checked: settings.gmcmParsingEnabled !== false,
-    },
+    // GMCM parsing and the SMAPI console window only exist on desktop hosts.
+    ...(androidHost
+      ? []
+      : [
+          {
+            field: 'gmcmParsingEnabled' as const,
+            label: copy.toggles.gmcmParsingEnabled,
+            checked: settings.gmcmParsingEnabled !== false,
+          },
+          {
+            field: 'showConsoleWindow' as const,
+            label: copy.toggles.showConsoleWindow,
+            description: copy.toggles.showConsoleWindowDescription,
+            checked: settings.showConsoleWindow === true,
+          },
+        ]),
   ]
 
   return (
@@ -112,7 +129,10 @@ export function ConfigDownloadDefaults({ settingsState }: { settingsState: Retur
       <div className="launcher-config-defaults">
         {defaults.map((item, index) => (
           <LoadingMotionRevealItem key={item.label} index={index} as="div" className="launcher-config-default-row">
-            <span>{item.label}</span>
+            <div className="launcher-config-default-text">
+              <span>{item.label}</span>
+              {'description' in item && item.description ? <span className="launcher-config-default-note">{item.description}</span> : null}
+            </div>
             <button
               type="button"
               role="switch"
@@ -137,18 +157,47 @@ type ConfigAccountCardProps = {
       userName?: string | null
       avatarUrl?: string | null
       isPremium?: boolean | null
+      isLifetimePremium?: boolean | null
       premiumExpiresAt?: string | null
     } | null
     apiKeyError: string | null
     apiKeyChecking: boolean
     hasApiKey: boolean
   }
-  premiumExpiryLabel: string | null
   onRefresh: () => void
 }
 
-export function ConfigAccountCard({ account, premiumExpiryLabel, onRefresh }: ConfigAccountCardProps) {
+/** Resolves the premium expiry caption from the validated API key status; null hides the caption. */
+function getPremiumExpiryLabel(
+  status: ConfigAccountCardProps['account']['apiKeyStatus'],
+  copy: ReturnType<typeof useEditorCopy>['launcher'],
+) {
+  if (!status?.isPremium) {
+    return null
+  }
+
+  if (status.isLifetimePremium) {
+    return copy.diagnostics.premiumLifetime
+  }
+
+  const rawValue = status.premiumExpiresAt?.trim()
+  if (!rawValue) {
+    return null
+  }
+
+  const timestampMs = Number(rawValue)
+  const date =
+    Number.isFinite(timestampMs) && timestampMs > 0
+      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
+      : new Date(rawValue)
+  const displayValue = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString()
+
+  return copy.diagnostics.premiumExpiresAt(displayValue)
+}
+
+export function ConfigAccountCard({ account, onRefresh }: ConfigAccountCardProps) {
   const copy = useEditorCopy().launcher
+  const premiumExpiryLabel = getPremiumExpiryLabel(account.apiKeyStatus, copy)
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const avatarUrl = account.apiKeyStatus?.avatarUrl?.trim() || null
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)

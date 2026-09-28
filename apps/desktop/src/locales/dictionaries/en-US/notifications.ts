@@ -11,6 +11,10 @@ const notifications: NotificationCopy = {
     warning: 'Warning',
     error: 'Error',
   },
+  centerTitle: 'Notification center',
+  centerEmpty: 'No notifications',
+  centerClearAll: 'Clear all',
+  unreadBadgeAriaLabel: (count) => `Notification center, ${count} unread`,
   ai: {
     settingsSaveFailedTitle: 'AI settings were not saved',
     modelListFailedTitle: 'AI models could not be loaded',
@@ -19,10 +23,16 @@ const notifications: NotificationCopy = {
     cacheFailedTitle: 'Local translation cache is unavailable',
     translationFailedTitle: 'AI translation failed',
     partialTranslationFailedTitle: 'Some translations failed',
+    partialTranslationKeptOriginalTitle: 'Some items kept in the original language',
+    partialTranslationBatchFailedTitle: 'Some sections kept in the original language',
     usageRecordFailedTitle: 'Usage was not recorded',
     usageRecordFailedDescription: 'The provider operation completed, but its usage record could not be saved.',
     partialTranslationFailedDescription: (count) =>
       `${count} ${count === 1 ? 'item' : 'items'} could not be translated. Successful results remain in the draft.`,
+    partialTranslationKeptOriginalDescription: (count) =>
+      `${count} ${count === 1 ? 'item was' : 'items were'} kept in the original language because the provider altered protected placeholders. All other results were applied.`,
+    partialTranslationBatchFailedDescription: (count) =>
+      `${count} ${count === 1 ? 'item was' : 'items were'} kept in the original language because a provider request timed out or failed. All other results were applied.`,
     retryAction: 'Retry',
     failureDescriptions: {
       'not-configured': 'Configure and select a default AI profile in Settings.',

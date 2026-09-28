@@ -26,8 +26,10 @@ const discover: LauncherDiscoverCopy = {
   errorDetail: 'The discover request was sent, but the returned content could not be used. Try again in a moment.',
   consoleTitle: 'Nexus Mods',
   resultRange: (start, end, total) => `Showing ${start} - ${end} of ${total} results`,
-  searchPlaceholder: 'Search Nexus Mods',
+  searchPlaceholder: 'Search mods, or enter a Nexus mod ID',
   searchAction: 'Search',
+  modIdNotFoundTitle: 'No Mod Found for This ID',
+  modIdNotFoundDetail: (modId) => `No mod exists for ID ${modId}. Showing regular search results instead.`,
   showFilters: 'Show filters',
   hideFilters: 'Hide filters',
   timeRangeLabel: 'Time range',
@@ -122,6 +124,20 @@ const discover: LauncherDiscoverCopy = {
   pageLabel: (page) => `Page ${page}`,
   jumpToPage: 'Jump to',
   pageUnit: 'page',
+  mobile: {
+    sheetTitle: 'Filter & Sort',
+    apply: 'Apply',
+    timeGroupLabel: 'Time',
+    sortGroupLabel: 'Sort',
+    categoryGroupLabel: 'Category',
+    languageGroupLabel: 'Language',
+    sizeGroupLabel: 'File size',
+    anyLanguage: 'Any language',
+    ascendingChip: 'Ascending',
+    descendingChip: 'Descending',
+    recheckAction: 'Recheck',
+    endOfResults: 'End of results',
+  },
 }
 
 export default discover

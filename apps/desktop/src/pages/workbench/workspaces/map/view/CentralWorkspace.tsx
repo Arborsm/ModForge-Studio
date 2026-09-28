@@ -1,4 +1,4 @@
-import { Grid2x2, Grip, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Grid2x2, Grip, Info, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
 import { exportMapPng } from '@entities/game/api'
@@ -8,72 +8,108 @@ import type { ThemeMode } from '@locales/api'
 import type { MapDocument } from '@entities/map'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@entities/map'
 import { cx } from '@shared/lib/helper'
-import { useNotificationPublisher } from '@shared/ui/notifications'
+
+import { appEvent } from '@platform/observability'
 import { chooseSaveFile } from '@platform/host'
 import { MapViewport, MapWorldStatePreviewOverlay, type MapViewportHandle } from '@entities/map'
+import {
+  deriveMapDocumentLighting,
+  getLightingPreviewTimeOfDay,
+  isIndoorMapDocument,
+  type GameSeason,
+  type MapLightingPreviewMode,
+  type ObjectLightItemIndex,
+} from '@entities/map'
+import { MapLightingPreviewControls } from '../ui/MapLightingPreviewControls'
+import { useMapEditorShortcuts } from '../editors/core/useMapEditorShortcuts'
 
 type CentralWorkspaceProps = {
-  tabs: Array<{
-    id: string
-    title: string
-    pathLabel: string
-    closable: boolean
-    pinned?: boolean
-  }>
-  activeTabId: string
-  onSelectTab: (tabId: string) => void
-  onCloseTab: (tabId: string) => void
-  onReorderTabs: (sourceTabId: string, targetTabId: string) => void
-  mapDocument: MapDocument | null
-  worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
-  activeWorldAtlasViewId: 'main' | 'remote' | null
-  onSelectWorldAtlasView: (viewId: 'main' | 'remote') => void
-  onOpenAtlasTarget: (targetMapName: string) => void
-  theme: ThemeMode
-  accentColor: string
-  visibleLayerIds: number[]
-  visibleObjectGroupIds: number[]
-  focusedObjectTarget: FocusedMapObjectTarget | null
-  showGameWorldAdditions: boolean
-  onToggleGameWorldAdditions: () => void
-  worldOverlaySprites: StageWorldOverlaySprite[]
-  worldOverlayTextureAssets: Record<string, EffectAssetState>
-  onHoverChange: (info: TileHoverInfo | null) => void
+  tabState: {
+    tabs: Array<{
+      id: string
+      title: string
+      closable: boolean
+      pinned?: boolean
+    }>
+    activeTabId: string
+  }
+  atlasState: {
+    worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
+    activeWorldAtlasViewId: 'main' | 'remote' | null
+  }
+  mapState: {
+    mapDocument: MapDocument | null
+    visibleLayerIds: number[]
+    visibleObjectGroupIds: number[]
+    focusedObjectTarget: FocusedMapObjectTarget | null
+    showGameWorldAdditions: boolean
+    worldOverlaySprites: StageWorldOverlaySprite[]
+    worldOverlayTextureAssets: Record<string, EffectAssetState>
+    /** Item-data lookup enabling object-layer lamp/torch markers in the lighting preview. */
+    objectLightIndex: ObjectLightItemIndex | null
+    /** Installed Stardew Valley root used to load LooseSprites/Lighting glow textures. */
+    gameRootPath?: string | null
+  }
+  display: {
+    theme: ThemeMode
+    accentColor: string
+  }
+  actions: {
+    selectTab: (tabId: string) => void
+    closeTab: (tabId: string) => void
+    reorderTabs: (sourceTabId: string, targetTabId: string) => void
+    selectWorldAtlasView: (viewId: 'main' | 'remote') => void
+    openAtlasTarget: (targetMapName: string) => void
+    toggleGameWorldAdditions: () => void
+    hoverChange: (info: TileHoverInfo | null) => void
+  }
 }
 
 type ToolMode = 'select' | 'pan'
 
-export default function CentralWorkspace({
-  tabs,
-  activeTabId,
-  onSelectTab,
-  onCloseTab,
-  onReorderTabs,
-  mapDocument,
-  worldAtlasViews,
-  activeWorldAtlasViewId,
-  onSelectWorldAtlasView,
-  onOpenAtlasTarget,
-  theme,
-  accentColor,
-  visibleLayerIds,
-  visibleObjectGroupIds,
-  focusedObjectTarget,
-  showGameWorldAdditions,
-  onToggleGameWorldAdditions,
-  worldOverlaySprites,
-  worldOverlayTextureAssets,
-  onHoverChange,
-}: CentralWorkspaceProps) {
+export default function CentralWorkspace({ tabState, atlasState, mapState, display, actions }: CentralWorkspaceProps) {
+  const { tabs, activeTabId } = tabState
+  const { worldAtlasViews, activeWorldAtlasViewId } = atlasState
+  const {
+    mapDocument,
+    visibleLayerIds,
+    visibleObjectGroupIds,
+    focusedObjectTarget,
+    showGameWorldAdditions,
+    worldOverlaySprites,
+    worldOverlayTextureAssets,
+    objectLightIndex,
+    gameRootPath = null,
+  } = mapState
+  const { theme, accentColor } = display
+  const {
+    selectTab: onSelectTab,
+    closeTab: onCloseTab,
+    reorderTabs: onReorderTabs,
+    selectWorldAtlasView: onSelectWorldAtlasView,
+    openAtlasTarget: onOpenAtlasTarget,
+    toggleGameWorldAdditions: onToggleGameWorldAdditions,
+    hoverChange: onHoverChange,
+  } = actions
   const locale = useLocale()
   const copy = useEditorCopy()
-  const publishNotification = useNotificationPublisher()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
+  const [lightingMode, setLightingMode] = useState<MapLightingPreviewMode>('day')
+  const [lightingSeason, setLightingSeason] = useState<GameSeason>('spring')
   const [zoomLabel, setZoomLabel] = useState('100%')
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null)
   const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null)
   const viewportRef = useRef<MapViewportHandle | null>(null)
+
+  // Browse-mode shortcuts: tool switching (select/pan) and grid toggle.
+  useMapEditorShortcuts({
+    onToolChange: (tool) => {
+      if (tool === 'hand') setToolMode('pan')
+      else if (tool === 'inspect') setToolMode('select')
+    },
+    onToggleGrid: () => setShowGrid((current) => !current),
+  })
 
   useLayoutEffect(() => {
     if (!focusedObjectTarget) {
@@ -97,6 +133,15 @@ export default function CentralWorkspace({
       />
     )
   }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
+  const worldLighting = useMemo(
+    () =>
+      mapDocument
+        ? deriveMapDocumentLighting(mapDocument, getLightingPreviewTimeOfDay(lightingMode, lightingSeason), lightingSeason, {
+            objectLightIndex,
+          })
+        : null,
+    [lightingMode, lightingSeason, mapDocument, objectLightIndex],
+  )
   const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
   const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
   const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
@@ -124,22 +169,20 @@ export default function CentralWorkspace({
         throw new Error(copy.viewportLabels.failedToExportPng)
       }
       await exportMapPng(outputPath, pngBase64)
-      publishNotification({
-        level: 'success',
-        title: copy.viewportLabels.exportPngSuccess(outputPath),
-      })
+      appEvent('success', copy.viewportLabels.exportPngSuccess(outputPath))
+        .context({ source: 'map-workspace', operation: 'export-map-png' })
+        .emit()
     } catch (error) {
-      publishNotification({
-        level: 'error',
-        title: copy.viewportLabels.failedToExportPng,
-        description: error instanceof Error ? error.message : String(error),
-      })
+      appEvent('error', copy.viewportLabels.failedToExportPng)
+        .error(error)
+        .context({ source: 'map-workspace', operation: 'export-map-png' })
+        .emit()
     }
-  }, [copy.viewportLabels, mapDocument, publishNotification])
+  }, [copy.viewportLabels, mapDocument])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[1.125rem] bg-(--bg-canvas)">
-      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-(--border-color)/55 bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-canvas))] px-2">
+    <div className="bg-surface-viewport rounded-panel flex h-full flex-col overflow-hidden">
+      <div className="border-border-subtle/55 flex h-10 items-end gap-1 overflow-x-auto border-b bg-[color-mix(in_srgb,var(--bg-panel)_88%,var(--bg-viewport))] px-2">
         <div className="flex min-w-0 flex-1 items-end gap-1">
           {tabs.map((tab) => {
             const isActive = activeTabId === tab.id
@@ -153,10 +196,10 @@ export default function CentralWorkspace({
                 className={cx(
                   'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
                   isActive
-                    ? 'border-(--border-color) bg-(--bg-panel) text-(--text-primary) shadow-[inset_0_-2px_0_0_var(--accent)]'
-                    : 'border-transparent bg-transparent text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+                    ? 'border-border-subtle bg-surface-panel text-text-primary shadow-[inset_0_-2px_0_0_var(--accent)]'
+                    : 'border-transparent bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
                   isDragged && 'opacity-50',
-                  isDropTarget && 'border-(--accent)',
+                  isDropTarget && 'border-accent',
                 )}
                 onDragStart={(event) => {
                   if (!tab.closable) {
@@ -193,13 +236,13 @@ export default function CentralWorkspace({
                 }}
               >
                 <button type="button" className="flex min-w-0 flex-1 items-center gap-2" onClick={() => onSelectTab(tab.id)}>
-                  {tab.pinned ? <Pin className="h-3.5 w-3.5 text-(--accent)" /> : <MapIcon className="h-3.5 w-3.5" />}
+                  {tab.pinned ? <Pin className="text-accent h-3.5 w-3.5" /> : <MapIcon className="h-3.5 w-3.5" />}
                   <span className="max-w-44 truncate font-semibold">{tab.title}</span>
                 </button>
                 {tab.closable ? (
                   <button
                     type="button"
-                    className="rounded p-0.5 text-(--text-tertiary) opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-(--bg-panel) hover:text-(--text-primary)"
+                    className="text-text-tertiary hover:bg-surface-panel hover:text-text-primary rounded p-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
                     onClick={() => onCloseTab(tab.id)}
                   >
                     <X className="h-3.5 w-3.5" />
@@ -216,21 +259,18 @@ export default function CentralWorkspace({
           <div className="relative h-full">
             <MapViewport
               key={mapDocument ? `${activeTabId}:${mapDocument.format}:${mapDocument.relativePath || mapDocument.sourcePath}` : 'empty-map'}
-              locale={locale}
               ref={viewportRef}
-              mapDocument={mapDocument}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              onHoverChange={onHoverChange}
-              onAtlasPortalOpen={onOpenAtlasTarget}
-              theme={theme}
-              accentColor={accentColor}
-              showGrid={showGrid}
-              mapOverlay={mapOverlay}
-              scaleMapOverlayWithViewport
-              onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
-              onExportPng={() => {
-                void exportMapPngAtFullSize()
+              mapState={{ mapDocument, visibleLayerIds, visibleObjectGroupIds }}
+              display={{ locale, theme, accentColor, showGrid }}
+              overlays={{ mapOverlay, scaleMapOverlayWithViewport: true }}
+              lighting={{ worldLighting, gameRootPath }}
+              actions={{
+                onHoverChange,
+                onAtlasPortalOpen: onOpenAtlasTarget,
+                onZoomChange: (nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom)),
+                onExportPng: () => {
+                  void exportMapPngAtFullSize()
+                },
               }}
             />
             <div className="workspace-viewport-toolbar" role="toolbar" aria-label={copy.center.canvas}>
@@ -276,6 +316,12 @@ export default function CentralWorkspace({
                       {view.label}
                     </button>
                   ))}
+                  <span className="map-concept-info-anchor">
+                    <Info className="map-concept-info-icon" aria-hidden="true" />
+                    <span className="map-concept-info-tooltip" role="tooltip">
+                      {copy.center.worldAtlasConceptHint}
+                    </span>
+                  </span>
                 </div>
               ) : null}
 
@@ -376,6 +422,14 @@ export default function CentralWorkspace({
                 </button>
               </div>
             </div>
+            <MapLightingPreviewControls
+              mode={lightingMode}
+              season={lightingSeason}
+              outdoors={mapDocument ? !isIndoorMapDocument(mapDocument) : true}
+              disabled={!mapDocument}
+              onModeChange={setLightingMode}
+              onSeasonChange={setLightingSeason}
+            />
           </div>
         }
       </div>

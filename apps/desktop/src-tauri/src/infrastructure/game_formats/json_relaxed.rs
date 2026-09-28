@@ -1,3 +1,6 @@
+//! Relaxed JSON parser: strips comments, trailing commas, and unquoted
+//! numeric keys so Stardew Valley's non-standard JSON files can be deserialized.
+
 use crate::infrastructure::text_encoding::decode_text_bytes;
 use anyhow::Context;
 use serde_json::Value;
@@ -104,7 +107,7 @@ fn strip_trailing_commas(input: &str) -> String {
                 look_ahead += 1;
             }
 
-            if look_ahead < chars.len() && matches!(chars[look_ahead], '}' | ']') {
+            if look_ahead < chars.len() && matches!(chars[look_ahead], ',' | '}' | ']') {
                 index += 1;
                 continue;
             }
@@ -130,8 +133,10 @@ fn normalize_json_chars(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
     let mut in_string = false;
     let mut escaped = false;
+    let mut previous_significant = None;
+    let mut chars = input.chars().peekable();
 
-    for ch in input.chars() {
+    while let Some(ch) = chars.next() {
         if in_string {
             if escaped {
                 output.push(ch);
@@ -169,7 +174,40 @@ fn normalize_json_chars(input: &str) -> String {
             continue;
         }
 
+        if ch.is_ascii_digit()
+            && previous_significant.is_some_and(|previous| matches!(previous, '{' | ','))
+        {
+            let mut look_ahead = chars.clone();
+            while look_ahead.peek().is_some_and(char::is_ascii_digit) {
+                look_ahead.next();
+            }
+            while look_ahead.peek().is_some_and(|next| next.is_whitespace()) {
+                look_ahead.next();
+            }
+            if look_ahead.peek() == Some(&':') {
+                output.push('"');
+                output.push(ch);
+                while chars.peek().is_some_and(char::is_ascii_digit) {
+                    output.push(chars.next().expect("peeked numeric JSON key"));
+                }
+                output.push('"');
+                previous_significant = Some('"');
+                continue;
+            }
+        }
+
+        if ch == '.'
+            && chars.peek().is_some_and(char::is_ascii_digit)
+            && !previous_significant.is_some_and(|previous: char| {
+                previous.is_ascii_digit() || matches!(previous, 'e' | 'E')
+            })
+        {
+            output.push('0');
+        }
         output.push(ch);
+        if !ch.is_whitespace() {
+            previous_significant = Some(ch);
+        }
     }
 
     output
@@ -209,4 +247,16 @@ pub(crate) fn read_json_file(path: &Path, source_label: &str) -> anyhow::Result<
     let raw = decode_json_bytes(&bytes, source_label)?;
     let parsed = parse_json_str(&raw, source_label)?;
     Ok((raw, parsed))
+}
+
+/// Reads a relaxed JSON file with the standard path-based error label used by
+/// every domain wrapper, so callers don't re-derive the label string.
+pub(crate) fn read_json_file_labeled(path: &Path) -> anyhow::Result<(String, Value)> {
+    read_json_file(
+        path,
+        &format!(
+            "JSON file {}",
+            crate::infrastructure::fs::pathing::normalize_path(path)
+        ),
+    )
 }

@@ -1,0 +1,215 @@
+@layer components {
+  /* Dialogue editor right rail: properties, structured command segments,
+     validation notes, and the script preview dialog. */
+
+  /* ── Sidebar ── */
+
+  .dialogue-editor-sidebar {
+    @apply bg-surface-panel min-h-0 overflow-y-auto p-3.5;
+    border-left: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .dialogue-editor-sidebar-section {
+    @apply flex flex-col gap-2.5;
+  }
+
+  .dialogue-editor-sidebar-section + .dialogue-editor-sidebar-section {
+    @apply mt-4 pt-4;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .dialogue-editor-sidebar-section-head {
+    @apply flex flex-col gap-0.5;
+  }
+
+  .dialogue-editor-sidebar-section-title {
+    @apply text-text-primary text-body font-bold;
+  }
+
+  .dialogue-editor-sidebar-section-hint {
+    @apply text-text-tertiary text-meta;
+  }
+
+  .dialogue-editor-sidebar-subtitle {
+    @apply text-text-tertiary text-meta tracking-ui mt-1 font-bold uppercase;
+  }
+
+  .dialogue-editor-field {
+    @apply flex min-w-0 flex-col gap-1.25;
+  }
+
+  .dialogue-editor-field-label {
+    @apply text-text-secondary text-meta font-semibold;
+  }
+
+  .dialogue-editor-field-grid {
+    @apply grid grid-cols-2 gap-2;
+  }
+
+  .dialogue-editor-field-grid-three {
+    @apply grid-cols-3;
+  }
+
+  .dialogue-editor-generated-key {
+    @apply flex flex-col gap-1.25;
+  }
+
+  .dialogue-editor-generated-key-value {
+    @apply font-ui-semibold rounded-lg px-2.5 py-1.75 font-mono text-xs;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--bg-panel-muted));
+    color: color-mix(in srgb, var(--accent) 75%, var(--text-primary));
+    overflow-wrap: anywhere;
+  }
+
+  .dialogue-editor-inline-warning {
+    @apply bg-warning-soft text-meta rounded-lg px-2.25 py-1.5;
+    color: color-mix(in srgb, var(--warning) 65%, var(--text-primary));
+  }
+
+  .dialogue-editor-separator-toggle {
+    @apply border-border-subtle bg-surface-panel-muted rounded-field flex gap-px border p-px;
+  }
+
+  .dialogue-editor-separator-option {
+    @apply text-text-secondary rounded-button text-meta flex-1 px-2 py-1.25 font-semibold;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .dialogue-editor-separator-option:hover {
+    @apply bg-surface-hover text-text-primary;
+  }
+
+  .dialogue-editor-separator-option-active {
+    @apply bg-surface-panel text-text-primary;
+    box-shadow: inset 0 -1.5px 0 0 var(--accent);
+  }
+
+  .dialogue-editor-portrait-block {
+    @apply flex flex-col gap-1.25;
+  }
+
+  .dialogue-editor-portrait-frame {
+    @apply bg-surface-panel-muted rounded-field;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .dialogue-editor-textarea {
+    @apply min-h-22 resize-y leading-normal;
+  }
+
+  .dialogue-editor-insert-row {
+    @apply flex flex-wrap gap-1.5;
+  }
+
+  .dialogue-editor-insert-button {
+    @apply rounded-button text-meta h-6.5 px-2.25;
+  }
+
+  .dialogue-editor-raw-notice {
+    @apply bg-surface-panel-muted text-text-secondary text-meta rounded-lg px-2.25 py-1.75;
+    border: 1px dashed color-mix(in srgb, var(--border-color) 90%, transparent);
+  }
+
+  .dialogue-editor-bridge-note {
+    @apply text-text-secondary text-meta leading-normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dialogue-editor-bridge-note[data-tone='error'] {
+    @apply text-danger;
+  }
+
+  /* ── Structured command-segment editor (right rail) ── */
+
+  .dialogue-editor-segments {
+    @apply flex flex-col gap-2;
+  }
+
+  .dialogue-editor-segment {
+    @apply flex flex-col gap-2 rounded-xl p-2.5;
+  }
+
+  .dialogue-editor-segment[data-segment='command'] {
+    border: 1px dashed color-mix(in srgb, var(--info) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--info) 6%, transparent);
+  }
+
+  .dialogue-editor-segment[data-segment='text'] {
+    @apply bg-surface-panel-muted;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  }
+
+  .dialogue-editor-segment-title {
+    @apply text-meta font-bold;
+    color: color-mix(in srgb, var(--info) 70%, var(--text-primary));
+  }
+
+  .dialogue-editor-question {
+    @apply flex flex-col gap-2 rounded-xl p-2.5;
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 40%, var(--bg-panel));
+  }
+
+  .dialogue-editor-question-head {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .dialogue-editor-question-attach {
+    @apply flex justify-start;
+  }
+
+  .dialogue-editor-responses {
+    @apply flex flex-col gap-2;
+  }
+
+  .dialogue-editor-response {
+    @apply bg-surface-panel rounded-field flex flex-col gap-1.5 p-2;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+  }
+
+  .dialogue-editor-response-text-row {
+    @apply flex items-end gap-1.5;
+  }
+
+  .dialogue-editor-response-text-row .dialogue-editor-field {
+    @apply flex-1;
+  }
+
+  .dialogue-editor-response-remove {
+    @apply text-text-tertiary mb-1 shrink-0;
+  }
+
+  .dialogue-editor-response-remove:hover {
+    @apply text-danger;
+  }
+
+  .dialogue-editor-warning-list {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .dialogue-editor-warning-item {
+    @apply bg-warning-soft text-meta leading-ui flex items-start gap-1.5 rounded-lg px-2.25 py-1.5;
+    color: color-mix(in srgb, var(--warning) 60%, var(--text-primary));
+  }
+
+  .dialogue-editor-warning-item .dialogue-editor-flag-icon {
+    @apply text-warning mt-px;
+  }
+
+  /* ── Script preview dialog ── */
+
+  .dialogue-editor-script-preview {
+    @apply bg-surface-panel-muted text-text-primary leading-ui-relaxed m-0 rounded-xl px-3.5 py-3 font-mono text-xs whitespace-pre-wrap;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    overflow-wrap: anywhere;
+  }
+
+  .dialogue-editor-token {
+    @apply rounded px-0.75 py-px font-semibold;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
+  }
+}

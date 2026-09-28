@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useItemsCopy } from '@locales/provider'
 import type { ModBrowserEntry } from '@pages/workbench/workspaces/mod'
-import type { ItemWorkspaceEntry } from '../entities/item'
+import type { ItemWorkspaceEntry } from '@entities/item'
 import { paginateItems, sortItemsBySearchPriority } from './itemCatalogPagination'
 import { CatalogPane } from './ItemCatalogPane'
 import { DetailPane } from './ItemDetailPane'
@@ -39,29 +39,20 @@ function useItemWorkspaceViewModel({
   onItemFilterChange,
   onSelectItem,
   onSelectModItem,
+  onOpenItemInAuthoring,
 }: ItemWorkspaceProps) {
   const copy = useItemsCopy()
   const ui = useItemWorkspaceUi()
-  const text = useMemo(() => getWorkspaceText(copy), [copy])
-  const tabs = useMemo(() => getTabDefinitions(copy, items), [copy, items])
-  const matchedKeys = useMemo(() => new Set(filteredItems.map((entry) => entry.key)), [filteredItems])
+  const text = getWorkspaceText(copy)
+  const tabs = getTabDefinitions(copy, items)
+  const matchedKeys = new Set(filteredItems.map((entry) => entry.key))
 
-  const visibleItems = useMemo(
-    () => items.filter((entry) => ui.activeBrowseTab === 'all' || entry.browseCategories.includes(ui.activeBrowseTab)),
-    [ui.activeBrowseTab, items],
+  const visibleItems = items.filter((entry) => ui.activeBrowseTab === 'all' || entry.browseCategories.includes(ui.activeBrowseTab))
+  const matchingVisibleItems = sortItemsBySearchPriority(
+    visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)),
+    itemFilter,
   )
-  const matchingVisibleItems = useMemo(
-    () =>
-      sortItemsBySearchPriority(
-        visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)),
-        itemFilter,
-      ),
-    [itemFilter, matchedKeys, visibleItems],
-  )
-  const pagination = useMemo(
-    () => paginateItems(matchingVisibleItems, ui.currentPage, ui.itemsPerPage),
-    [matchingVisibleItems, ui.currentPage, ui.itemsPerPage],
-  )
+  const pagination = paginateItems(matchingVisibleItems, ui.currentPage, ui.itemsPerPage)
   const paginatedItems = pagination.items
   const currentPage = pagination.currentPage
   const pageCount = pagination.pageCount
@@ -92,20 +83,14 @@ function useItemWorkspaceViewModel({
   const objectDataCards = item ? buildObjectDataCards(item, copy) : []
   const specificSections = item ? buildSpecificSections(item, copy) : []
 
-  const handleSelectItem = useCallback(
-    (itemKey: string, tab: DetailTab = 'info') => {
-      ui.setActiveDetailTab(tab)
-      onSelectItem(itemKey)
-    },
-    [onSelectItem, ui],
-  )
-  const handleSelectModItem = useCallback(
-    (entry: ModBrowserEntry<ItemWorkspaceEntry>, tab: DetailTab = 'info') => {
-      ui.setActiveDetailTab(tab)
-      onSelectModItem(entry)
-    },
-    [onSelectModItem, ui],
-  )
+  const handleSelectItem = (itemKey: string, tab: DetailTab = 'info') => {
+    ui.setActiveDetailTab(tab)
+    onSelectItem(itemKey)
+  }
+  const handleSelectModItem = (entry: ModBrowserEntry<ItemWorkspaceEntry>, tab: DetailTab = 'info') => {
+    ui.setActiveDetailTab(tab)
+    onSelectModItem(entry)
+  }
 
   const handleItemFilterChange = useCallback(
     (value: string) => {
@@ -162,6 +147,7 @@ function useItemWorkspaceViewModel({
     setCatalogViewMode: ui.setCatalogViewMode,
     handleSelectItem,
     handleSelectModItem,
+    onOpenItemInAuthoring,
   }
 }
 
@@ -235,6 +221,7 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
       onDetailTabChange={view.setActiveDetailTab}
       itemLookup={view.itemLookup}
       textureStatesByAssetName={view.textureStatesByAssetName}
+      onOpenItemInAuthoring={view.onOpenItemInAuthoring}
     />
   )
 }
@@ -244,7 +231,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden bg-(--bg-app)"
+      className="bg-surface-app flex h-full flex-col overflow-hidden"
       style={{
         background:
           'radial-gradient(circle 32.5rem at 14% -6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 68%), radial-gradient(circle 28.75rem at 98% -2%, color-mix(in srgb, var(--info) 6%, transparent), transparent 70%), linear-gradient(color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, linear-gradient(90deg, color-mix(in srgb, var(--border-color) 22%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem, var(--bg-app)',
@@ -310,6 +297,7 @@ export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
             onDetailTabChange={view.setActiveDetailTab}
             itemLookup={view.itemLookup}
             textureStatesByAssetName={view.textureStatesByAssetName}
+            onOpenItemInAuthoring={view.onOpenItemInAuthoring}
           />
         </div>
       </div>
