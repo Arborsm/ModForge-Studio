@@ -308,9 +308,15 @@ pub(super) fn find_plugin_dir_in_roots(roots: &[PathBuf], plugin_id: &str) -> Op
 /// - Process-level roots set via `set_plugin_roots` at startup → those roots
 ///   (the app data directory's `compat-plugins` folder, into which the
 ///   embedded built-in plugins are extracted).
+/// - Process-level roots set via `set_plugin_roots` at startup → those roots
+///   (the app data directory's `compat-plugins` folder, into which the
+///   embedded built-in plugins are extracted).
 /// - Fallback when nothing was set (unit tests, early calls): the platform
 ///   data directory's `ModForgeStudio/compat-plugins` folder. The directory
-///   may not exist; scanning tolerates that.
+///   may not exist; scanning tolerates that. Test builds additionally get the
+///   source-tree `compat-plugins` folder: nothing extracts built-ins to the
+///   data dir in a test process, and falling back to an empty registry makes
+///   tests depend on the machine's app-data state instead of the repository.
 pub(crate) fn resolve_plugin_roots(plugin_root_override: Option<&str>) -> Vec<PathBuf> {
     if let Some(path) = plugin_root_override {
         return vec![PathBuf::from(path)];
@@ -332,6 +338,14 @@ pub(crate) fn resolve_plugin_roots(plugin_root_override: Option<&str>) -> Vec<Pa
                 roots.push(root.clone());
             }
         }
+    }
+
+    #[cfg(test)]
+    if roots.is_empty() {
+        roots.push(PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../compat-plugins"
+        )));
     }
 
     if roots.is_empty()

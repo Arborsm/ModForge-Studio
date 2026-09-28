@@ -9,6 +9,8 @@ export type LauncherSettings = {
   autoCheckModUpdates: boolean
   gmcmParsingEnabled?: boolean
   showConsoleWindow?: boolean
+  /** Android host only: Vite dev-server override; null/absent serves the bundled assets. */
+  devServerUrl?: string | null
 }
 
 /** Partial settings patch accepted by the launcher settings save command. */

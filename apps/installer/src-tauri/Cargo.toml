@@ -49,6 +49,11 @@ todo = "warn"
 unimplemented = "warn"
 undocumented_unsafe_blocks = "warn"
 
+# Same rationale as the desktop crate: dev builds only need symbolized
+# backtraces, not full debuginfo bloating target/.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 opt-level = "z"
 lto = true

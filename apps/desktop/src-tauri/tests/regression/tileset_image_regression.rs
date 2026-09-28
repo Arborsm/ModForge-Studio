@@ -1,18 +1,8 @@
-#[allow(dead_code)]
-#[path = "../../src/domain/app_paths.rs"]
-mod app_paths;
-#[allow(dead_code, unused_imports)]
-#[path = "../../src/domain/assets/mod.rs"]
-mod assets;
-mod domain {
-    pub(crate) use crate::app_paths;
-}
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[allow(dead_code, unused_imports)]
 #[path = "../support/mod.rs"]
 mod test_support;
 
+use modforge_studio_desktop_lib::assets_validation as assets;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;

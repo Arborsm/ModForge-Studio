@@ -11,8 +11,14 @@ import { createBrowserStorage, createDialogChoosers } from '../adapter-shared'
  * WebView base URL served by `LauncherActivity` through `androidx.webkit`'s
  * `WebViewAssetLoader`. Local sandbox files (covers, plugin assets) are exposed
  * under dedicated prefixes handled by custom `IPathHandler`s on the C# side.
+ *
+ * Host contract: must match `LauncherActivity.AssetHostOrigin`. URLs built from
+ * it stay absolute on purpose — when the WebView document itself comes from a
+ * Vite dev server (the dev-server debug override), the asset-loader domain is
+ * still intercepted for `/local-file/` and `/plugins/` sub-resources, so sandbox
+ * assets resolve identically under both document origins.
  */
-const ANDROID_ASSET_ORIGIN = 'https://appassets.androidplatform.net'
+export const ANDROID_ASSET_ORIGIN = 'https://appassets.androidplatform.net'
 
 /** Internal bridge command that opens the Android SAF document picker for files. */
 const ANDROID_PICK_FILE_COMMAND = 'android:pick_file'
@@ -26,6 +32,12 @@ const ANDROID_SET_SYSTEM_BARS_COMMAND = 'android:set_system_bars'
 const ANDROID_OPEN_IN_APP_BROWSER_COMMAND = 'android:open_in_app_browser'
 /** Internal bridge command that proxies a minimal authenticated HTTP request for self-contained AI calls. */
 const ANDROID_AI_REQUEST_COMMAND = 'android:ai_request'
+/**
+ * Internal bridge command that points the WebView at a Vite dev-server URL
+ * (null restores the bundled assets). The host persists the override and
+ * recreates the activity, so the next page load uses the new source.
+ */
+const ANDROID_SET_DEV_SERVER_COMMAND = 'android:set_dev_server'
 
 /**
  * Host event the in-app browser pushes when it captures a file download:
@@ -143,6 +155,19 @@ export function installAndroidSystemBarSync() {
 export async function openAndroidInAppBrowser(url: string): Promise<void> {
   assertAndroidHost()
   await invokeBridgeCommand(ANDROID_OPEN_IN_APP_BROWSER_COMMAND, { url })
+}
+
+/**
+ * Points the launcher WebView at a Vite dev-server URL (debug override), or
+ * clears the override with `null` to return to the bundled assets. The native
+ * host persists the setting and recreates the activity on success, so the
+ * calling page is torn down immediately afterwards — callers must not rely on
+ * the promise resolving or on any state surviving the call. Rejected when the
+ * current runtime is not the Android WebView host.
+ */
+export async function setAndroidDevServerUrl(url: string | null): Promise<void> {
+  assertAndroidHost()
+  await invokeBridgeCommand(ANDROID_SET_DEV_SERVER_COMMAND, { url })
 }
 
 export type AndroidAiResponse = {

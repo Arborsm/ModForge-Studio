@@ -9,6 +9,15 @@ edition = "2024"
 rust-version = "1.96.0"
 default-run = "modforge_studio_desktop"
 
+# Debug builds are developer-only iterations, so full debuginfo is wasted
+# target/ bulk (it is the single largest contributor to target size on this
+# crate tree — ONNX/tauri/rusqlite object files each embed megabytes of it).
+# Line tables keep backtraces symbolized for panic debugging while cutting the
+# rest; bump back to `0` (full) only when stepping through Rust frames in a
+# debugger is genuinely needed.
+[profile.dev]
+debug = "line-tables-only"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]

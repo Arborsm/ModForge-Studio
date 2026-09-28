@@ -70,6 +70,27 @@ function stopReactDevtools(child) {
   child.kill()
 }
 
+// `vp run` strips non-whitelisted env vars, so MODFORGE_DEV_PORT set on the
+// command line never reaches this script; --port/--hmr-port CLI args do. They
+// pin the same env knobs resolveTauriDevRuntime reads. Everything else passes
+// through to `vp dev` untouched (e.g. --host).
+const passthroughArgs = []
+const argv = process.argv.slice(2)
+for (let index = 0; index < argv.length; index++) {
+  const arg = argv[index]
+  if (arg === '--port' && argv[index + 1]) {
+    process.env.MODFORGE_DEV_PORT = argv[++index]
+  } else if (arg.startsWith('--port=')) {
+    process.env.MODFORGE_DEV_PORT = arg.slice('--port='.length)
+  } else if (arg === '--hmr-port' && argv[index + 1]) {
+    process.env.MODFORGE_DEV_HMR_PORT = argv[++index]
+  } else if (arg.startsWith('--hmr-port=')) {
+    process.env.MODFORGE_DEV_HMR_PORT = arg.slice('--hmr-port='.length)
+  } else {
+    passthroughArgs.push(arg)
+  }
+}
+
 const runtime = await resolveTauriDevRuntime(process.env)
 const reactDevtools = await startReactDevtoolsIfNeeded(runtime.env)
 
@@ -87,7 +108,7 @@ if (process.platform === 'win32' && !envFlagEnabled(process.env.MODFORGE_SKIP_CL
 let result
 
 try {
-  result = spawnSync(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner'], {
+  result = spawnSync(process.execPath, [vitePlusCliEntry, 'dev', '--configLoader', 'runner', ...passthroughArgs], {
     cwd: desktopRoot,
     env: runtime.env,
     stdio: 'inherit',

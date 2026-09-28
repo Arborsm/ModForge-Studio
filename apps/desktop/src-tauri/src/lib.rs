@@ -114,6 +114,41 @@ pub mod map_validation {
     }
 }
 
+/// Read-only game-asset loaders for the local regression harnesses, mirroring
+/// the launcher's asset surface without pulling in host-runtime bindings.
+pub mod assets_validation {
+    pub use crate::domain::assets::{MapAssetContent, TextAssetContent};
+
+    pub fn load_map_asset(
+        root_path: String,
+        map_path: String,
+        locale: Option<String>,
+    ) -> anyhow::Result<MapAssetContent> {
+        crate::domain::assets::load_map_asset(root_path, map_path, locale)
+    }
+
+    pub fn load_text_asset(
+        root_path: String,
+        asset_path: String,
+        locale: Option<String>,
+    ) -> anyhow::Result<TextAssetContent> {
+        crate::domain::assets::load_text_asset(root_path, asset_path, locale)
+    }
+
+    pub fn load_image_data_url(path: String, locale: Option<String>) -> anyhow::Result<String> {
+        crate::domain::assets::load_image_data_url(path, locale)
+    }
+}
+
+/// Read-only game-format decoders and path helpers for the local
+/// regression/report harnesses. Re-exporting through the library keeps the
+/// harnesses off the fragile src-slice `#[path]` mounts that break on every
+/// module restructure. Ungated: `test_support` is compiled into every build.
+pub mod validation {
+    pub use crate::infrastructure::fs::pathing;
+    pub use crate::infrastructure::game_formats::{tbin, xact, xnb};
+}
+
 use support::logging::{DebugLoggingState, LogEvent, init_host_logging, targets};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};

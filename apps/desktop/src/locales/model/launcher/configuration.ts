@@ -255,6 +255,15 @@ export type LauncherConfigurationCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
+    /** Android-only debug card: load the front-end from a local Vite dev server. */
+    devServerTitle: string
+    devServerSubtitle: string
+    devServerPlaceholder: string
+    devServerEnableButton: string
+    devServerDisableButton: string
+    devServerNote: string
+    devServerInvalidUrl: string
+    devServerSaveFailed: string
     forceNonPremiumEnableButton: string
     forceNonPremiumDisableButton: string
     forceNonPremiumEnabledLabel: string

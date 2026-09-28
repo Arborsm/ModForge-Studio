@@ -179,6 +179,8 @@ fn load_stored(path: &Path) -> anyhow::Result<StoredAiSettings> {
 }
 
 fn entry(profile_id: &str) -> anyhow::Result<keyring::Entry> {
+    #[cfg(test)]
+    crate::support::install_mock_credential_store();
     keyring::Entry::new(KEYRING_SERVICE, profile_id)
         .context("Failed to open the system credential store.")
 }

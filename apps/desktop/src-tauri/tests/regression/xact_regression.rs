@@ -1,9 +1,7 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
-use infrastructure::game_formats::xact;
+use modforge_studio_desktop_lib::validation::xact;
 use std::{fs, path::PathBuf, time::Instant};
 
 #[test]

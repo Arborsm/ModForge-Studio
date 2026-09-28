@@ -20,8 +20,10 @@ import { useLauncherMobileTopLeading, usePreferencesStore } from '@shared/lib/ap
 import { cx } from '@shared/lib/helper'
 import { useEditorCopy } from '@locales/provider'
 import { appEvent, ignoreError } from '@platform/observability'
+import { setAndroidDevServerUrl } from '@platform/android'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { Dialog, DialogAction, DialogBody, DialogFooter, DialogHeader } from '@shared/ui/Dialog'
+import { publishNotification } from '@shared/ui/notifications'
 import {
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
@@ -55,6 +57,7 @@ import type {
 } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useSmapiUpdate } from '@features/launcher/model/useSmapiUpdate'
+import { LauncherDevServerTools } from './LauncherDevServerTools'
 import { LauncherLogDialog } from './LauncherLogDialog'
 import { useMobilePageStore } from './mobile/mobilePageStore'
 import { deriveSmapiUpdateActionMode } from '@features/launcher/model/smapiUpdateModel'
@@ -1502,6 +1505,10 @@ export function LauncherConfigurationPage({
   const forceNonPremium = usePreferencesStore((state) => state.forceNonPremium)
   const setForceNonPremium = usePreferencesStore((state) => state.setForceNonPremium)
   const [forceNonPremiumBusy, setForceNonPremiumBusy] = useState(false)
+  // Android-only dev-server override: the persisted value lives in the native
+  // settings file and reaches this page through the launcher settings load.
+  const devServerUrl = settingsState.settings.devServerUrl ?? null
+  const [devServerBusy, setDevServerBusy] = useState(false)
   const [diagnosticsPollNonce] = useState(0)
   const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
@@ -1853,6 +1860,28 @@ export function LauncherConfigurationPage({
     // Debug-only affordance: ignore desktop bridge failures here.
     void ignoreError(clearLauncherImageCache(), 'launcherConfiguration.clearImageCache')
   }
+  const handleSetDevServerUrl = useCallback(
+    async (url: string | null) => {
+      setDevServerBusy(true)
+      try {
+        // Success path: the native host persists the override and recreates the
+        // activity, so the web app reloads against the new source and this page
+        // unmounts — there is no local state left to reconcile.
+        await setAndroidDevServerUrl(url)
+      } catch (error) {
+        publishNotification({
+          id: 'launcher-dev-server-save-failed',
+          level: 'error',
+          title: copy.configuration.devServerSaveFailed,
+          description: error instanceof Error ? error.message : String(error),
+          autoDismissMs: null,
+        })
+      } finally {
+        setDevServerBusy(false)
+      }
+    },
+    [copy.configuration.devServerSaveFailed],
+  )
 
   return (
     <section className="launcher-configuration-page">
@@ -1962,7 +1991,11 @@ export function LauncherConfigurationPage({
               />
             </LoadingMotionReveal>
           )}
-          {!androidHost ? (
+          {androidHost ? (
+            <div className="launcher-config-wide-panel">
+              <LauncherDevServerTools devServerUrl={devServerUrl} busy={devServerBusy} onSetDevServerUrl={handleSetDevServerUrl} />
+            </div>
+          ) : (
             <div className="launcher-config-wide-panel">
               <LauncherConfigurationMoreTools
                 debugEnabled={debugEnabled}
@@ -1982,7 +2015,7 @@ export function LauncherConfigurationPage({
                 setBbcodePreviewExpanded={setBbcodePreviewExpanded}
               />
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 

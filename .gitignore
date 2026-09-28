@@ -43,6 +43,7 @@ package-lock.json
 .omp/
 .codegraph/
 .bitfun/
+.zcode/
 
 skills-lock.json
 
@@ -57,3 +58,5 @@ CLAUDE.md
 /KimiForTest.txt
 .openbitfun/
 /.openbitfun/search/flashgrep-index/
+.commandcode/
+.devin/

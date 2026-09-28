@@ -263,6 +263,11 @@
     color: #15803d;
   }
 
+  .launcher-debug-icon-dev-server {
+    background: color-mix(in srgb, #dbeafe 76%, var(--bg-panel));
+    color: #2563eb;
+  }
+
   .launcher-debug-tool-tray {
     display: flex;
     justify-content: flex-start;
@@ -272,6 +277,30 @@
     border: 0;
     border-radius: 0;
     background: transparent;
+  }
+
+  .launcher-debug-dev-server-tray {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .launcher-debug-dev-server-input {
+    width: 100%;
+    font-size: 0.8125rem;
+  }
+
+  .launcher-debug-dev-server-note {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--config-muted);
+  }
+
+  .launcher-debug-dev-server-note-danger {
+    color: var(--config-error-text);
   }
 
   .launcher-debug-bbcode-preview {

@@ -520,7 +520,10 @@ export default defineConfig({
     },
     hmr: {
       protocol: 'ws',
-      host,
+      // No `host` here: the client then falls back to `location.hostname`.
+      // Pinning 127.0.0.1 breaks the Android WebView dev-server slice, where
+      // the page origin is http://10.0.2.2:5175 and must reach the host loop
+      // through that alias; desktop dev resolves the same 127.0.0.1 anyway.
       port: hmrPort,
     },
   },

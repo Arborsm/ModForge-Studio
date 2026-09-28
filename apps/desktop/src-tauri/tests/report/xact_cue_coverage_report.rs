@@ -1,5 +1,3 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
@@ -7,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use infrastructure::game_formats::xact;
+use modforge_studio_desktop_lib::validation::xact;
 
 fn main() {
     report_xact_simple_cue_coverage();

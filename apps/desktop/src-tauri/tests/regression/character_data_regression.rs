@@ -1,9 +1,7 @@
-#[path = "../support/infrastructure.rs"]
-mod infrastructure;
 #[path = "../support/mod.rs"]
 mod test_support;
 
-use infrastructure::game_formats::xnb;
+use modforge_studio_desktop_lib::validation::xnb;
 use serde_json::json;
 
 #[test]

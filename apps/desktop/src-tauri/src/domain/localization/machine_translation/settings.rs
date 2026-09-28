@@ -94,6 +94,8 @@ pub(crate) fn validate_base_url(value: &str) -> anyhow::Result<String> {
 }
 
 fn credential_entry(profile_id: &str, field: &str) -> anyhow::Result<keyring::Entry> {
+    #[cfg(test)]
+    crate::support::install_mock_credential_store();
     keyring::Entry::new(KEYRING_SERVICE, &format!("{profile_id}:{field}"))
         .context("Failed to open the machine translation credential store.")
 }

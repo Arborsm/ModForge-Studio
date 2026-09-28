@@ -42,6 +42,96 @@ scanned `commands.rs` bindings. After adding, renaming, or moving a host
 command, run `vp run --filter @modforge/desktop gen:host-commands` once to
 regenerate the three outputs, then build as usual.
 
+Debug builds keep only line tables (`[profile.dev] debug = "line-tables-only"`
+in both `apps/desktop/src-tauri/Cargo.toml` and the installer crate): developer
+iterations only need symbolized panic backtraces, not debugger-steppable frames.
+Measured on a cold tree 2026-09-28 (`cargo build --bin modforge_sidecar`,
+same machine, full dependency graph): full debuginfo produces a **12.7 GB
+`target/`** with a 379 MB sidecar `.pdb`, while line-tables-only produces
+**6.2 GB** with a 158 MB `.pdb` — a 52% cut for zero functionality loss.
+Restore full debuginfo (`debug = true`) only when stepping through Rust frames
+in a debugger is genuinely required.
+
+## Worktree Multi-Agent Development
+
+Multiple agents can work the repository in parallel with one git worktree per
+agent. Each worktree is a full checkout sharing the same `.git` object store,
+so branches stay isolated without cloning the repo again.
+
+```bash
+# create a worktree for one agent/task on its own branch
+git worktree add ../worktrees/<task-name> -b <branch-name>
+cd ../worktrees/<task-name>
+pnpm install --frozen-lockfile
+
+# when the task is merged or abandoned
+git worktree remove ../worktrees/<task-name>
+git branch -D <branch-name>            # only if it was merged or is throwaway
+git worktree prune
+```
+
+`pnpm install` in a fresh worktree is effectively free on disk. Measured
+2026-09-28 on this repo (E: drive, pnpm 11.5.1): a throwaway worktree
+installed in **3m 4s** and produced **24,862 files / 1,948 MB of logical
+`node_modules`**, while the physical footprint grew by roughly zero — pnpm
+hard-links package files out of `E:\.pnpm-store\v11`, and `fsutil hardlink
+list` confirms the same physical blocks back the main tree, the worktree, and
+the store. Hard links cannot cross drives, so keep worktrees and the store on
+the same volume.
+
+Discipline:
+
+- **One worktree = one agent = one branch.** Never share a worktree between
+  agents, and never commit from another agent's tree.
+- **Pure-frontend worktrees never build Rust.** `vp run web:dev` and the
+  Vitest suite are cargo-free; only touch `vp run dev` / cargo in a tree when
+  the task actually changes `src-tauri`.
+- **Dev servers don't conflict across trees.** Port selection auto-falls-forward
+  when the default is taken (`apps/desktop/scripts/dev/tauriDevRuntime.mjs`),
+  so two trees can run `vp run web:dev` simultaneously.
+- **Never share `CARGO_TARGET_DIR` across trees.** Cargo serializes builds on
+  its file lock (a whole-tree global lock), so a shared target dir turns two
+  parallel agents into one waiting agent, and switching branches inside the
+  shared dir forces endless rebuilds. Keep every tree's default per-tree
+  `src-tauri/target`. This is also why there is intentionally no repo-level
+  `.cargo/config.toml`: the root `.gitignore` ignores `.cargo/` (silent
+  drift-by-default), and forcing sccache or a shared target on every machine
+  and CI runner is exactly the coupling this section avoids. Several scripts
+  hardcode `src-tauri/target/...` paths, so a global target dir would break
+  them even if the lock were acceptable:
+  - `apps/desktop/src-tauri/tauri.conf.json` (`resources: ["target/release/gmcm-probe/*"]`)
+  - `apps/desktop/scripts/build/build-gmcm-probe.mjs` (`src-tauri/target/release/gmcm-probe`)
+  - `apps/desktop/scripts/dev/run-electron-dev.mjs` (`src-tauri/target/debug/modforge_sidecar`)
+  - `apps/desktop/scripts/build/build-linux-ort-runtimes.mjs` (`src-tauri/target/release`)
+- **sccache is a machine-level opt-in**, matching the dev-cache layout (all
+  machine caches live under `E:\DevCaches` via machine env vars). Install it
+  once per machine and point it at the cache drive; never commit it into the
+  repo:
+  ```powershell
+  scoop install sccache
+  # machine env vars (System Properties → Environment Variables, or setx /M):
+  #   RUSTC_WRAPPER=sccache
+  #   SCCACHE_DIR=E:\DevCaches\sccache
+  #   SCCACHE_CACHE_SIZE=30G
+  ```
+  With `RUSTC_WRAPPER` set, every tree's cargo builds share the sccache cache
+  across worktrees and branches without sharing a target dir.
+
+Conflict surfaces between parallel agents are deliberately narrow:
+
+- **Locales** are split per feature slice under
+  `apps/desktop/src/locales/dictionaries/<locale>/<feature>/` — agents touching
+  different features edit different files, so conflicts only happen when two
+  agents touch the same feature's copy.
+- **Registry wiring** (`apps/desktop/src/app/registry-setup.ts`) is additive:
+  new features/widgets add one import line plus one registration entry, so
+  rebase conflicts are single-line resolutions.
+- **New host commands must be accompanied by a dev-mock case arm or a
+  whitelist entry** (enforced by
+  `src/tests/architecture/devLauncherMockCoverage.test.ts` since the mock
+  coverage gate), so parallel frontend agents cannot merge work that breaks the
+  browser mock.
+
 To trace Host Runtime command scheduling, start the desktop host with:
 
 ```bash
@@ -87,6 +177,25 @@ artifacts. macOS and Windows releases continue to use Tauri packaging.
 
 Linux-specific package scripts can be run directly when only one package format
 is needed: `vp run release:linux:deb` or `vp run release:linux:rpm`.
+
+### Release gate: real-shell smoke pass
+
+The browser dev mock (`?mfLauncherMock=1`) covers day-to-day frontend
+iteration, but it fakes the host — commands without a mock arm throw
+`Unhandled dev launcher mock command` even where the real backend works, and
+native-only behavior (dialogs, install flows, WebView chrome) never runs.
+Before cutting a release, smoke-test the actual shell across the touched
+surfaces:
+
+1. Run the pages/features this release changed in the desktop shell
+   (`vp run dev`, Tauri). For Android-facing changes, use the `ci-latest`
+   pre-release APK, or the Slice 1 dev-server mode (launcher settings →
+   Dev Server card) to exercise the same build in the WebView.
+2. Walk each touched page through its load → interact → error path, not just
+   the happy path: the mock never surfaces host-side failures, latency, or
+   empty states the real host can produce.
+3. Treat failures found here as release blockers — web-mock-only verification
+   is not a substitute for this pass.
 
 ## Windows Installer
 
